@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El límite de la automatización en threat hunting: lecciones de dos iteraciones del Hunting Copilot — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">El límite de la automatización en threat hunting: lecciones de dos iteraciones del Hunting Copilot</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/EZSLjT8O2rw">«Arthi Nagarajan - Exploring the AI Automation Boundary | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/EZSLjT8O2rw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El threat hunting es un juego de agujas en paja: volúmenes enormes de logs que parecen normales a ojos no entrenados, con el ataque escrito entre líneas. En Datadog, durante seis a nueve meses, se construyó el Hunting Copilot, una herramienta con IA para acelerar las búsquedas de los equipos internos de threat intelligence y detección. La pregunta de ingeniería era doble —qué automatizar y cómo automatizarlo—, y la respuesta se refinó a base de iteraciones reales, no de intuición.</p>
+<p>La elección del objetivo fue pragmática: las consultas son el eslabón crítico porque eventualmente se convierten en reglas de detección, y dado que los logs son texto, parecía el caso de uso natural para LLMs. La primera hipótesis —"los LLMs modernos cazan amenazas out of the box"— resultó falsa, y ese fracaso inicial definido el resto del recorrido: entender qué son buenos los modelos (síntesis, pattern matching, traducción) y descomponer el hunting en problemas de esas categorías.</p>
+<h2>Primera iteración: el modelo no usa las herramientas</h2>
+<p>El arranque fue deliberadamente simple: GPT-4.1 en un solo agente, con búsqueda web y el MCP de AWS Knowledge para consultar esquemas de CloudTrail, documentación de sintaxis de Datadog en el system prompt y una instrucción genérica de "sos un agente de threat hunting, haz lo tuyo". Los resultados: rápido (cinco segundos de media) pero malo —25% de errores de sintaxis, campos mal nombrados, valores irrelevantes, hipótesis agresivas que los hunters no pedían, y sobre todo cero uso de las herramientas provistas—. La conclusión honesta: los LLMs son malos cazando amenazas tal como vienen.</p>
+<p>Tampoco había atajo por la vía del fine-tuning: solo tiene sentido con datos representativos, bien etiquetados y abundantes, y no existía un corpus curado de hunts pasados con inputs y outputs consistentes aplicables a hunts nuevos. Con plazos cortos, la apuesta fue prompt engineering avanzado y una reformulación del problema alrededor del descubrimiento de campos (field discovery). Sentarse con los hunters reveló que su proceso era repetible: hipótesis inicial con queries amplias, inspección de valores de muestra en logs crudos, ajuste de la query y repetición —exploración del esquema de logs—. La consecuencia clave: el esquema debe derivarse directamente de los datos, no de la documentación.</p>
+<h2>Segunda iteración: multi-agente, MCP y el costo de la latencia</h2>
+<p>La v2 cambió a un framework orquestador-expertos con modelos de razonamiento (GPT-5.1) y el servidor MCP de Datadog, que permite al agente ejecutar las queries que genera y validarlas contra logs reales. La arquitectura: un orquestador maneja el flujo de investigación y el contexto global del hunt; subagentes expertos (CloudTrail, logs de auditoría de GCP) aportan documentación de fuente; un agente Datadog envuelve el MCP y refina queries iterativamente. Las queries que devolvían cero resultados solían ser semánticamente incorrectas, así que se sesgó al agente hacia producir resultados. Las condiciones de parada fueron cuantitativas (tope de cinco iteraciones) y subjetivas (si encuentra logs y llega a una conclusión, parar). Este divide and conquer redujo la sobrecarga de contexto y precisó cada paso.</p>
+<p>El resultado fue un salto del 17% en precisión de sintaxis y una mejora leve en precisión semántica —al precio de pasar de cinco segundos a seis minutos por respuesta, con casos extremos de media hora a una hora—. El aprendizaje sobre trade-offs de frameworks multi-agente se resume en contexto: usar razonamiento con moderación (demasiado lento para producción; si se usa, con transparencia hacia el usuario); los multi-agentes son la mejor herramienta de gestión de contexto (el orquestador acumula el contexto del hunt, cada experto arranca fresco); la delegación cobra peaje en latencia y coordinación; las cadenas de más de tres capas tienden a trabarse aguas abajo —mantener la arquitectura en tres capas o menos—; y las herramientas deben ser concisas e informativas, devolviendo sugerencias cortas que quiten al agente la carga de corregir.</p>
+<h2>El problema de fondo: precisión semántica y el esquema de los datos</h2>
+<p>La precisión de sintaxis resultó fácil; la semántica es dura por el volumen y densidad de los datos. Las cuatro aproximaciones exploradas forman una danza coordinada, ajustando la dependencia de cada una según rendimiento:</p>
+<pre class="mermaid">
+flowchart LR
+    A["Documentación externa + IA:<br/>adivinar el esquema"] --> E["Esquema real: facetado,<br/>no facetado, pipelines custom"]
+    B["Clustering y agregaciones:<br/>los hunters agregan por facetas<br/>demasiado nicho"] --> E
+    C["Preprocesar pipelines de ingesta:<br/>remappers y parsers estáticos,<br/>caros en contexto"] --> E
+    D["Live sampling: aprender el esquema<br/>de los datos en vivo, costo<br/>computacional alto"] --> E
+
+</pre>
+
+<p>Ninguna resuelve sola el problema: la documentación no representa los datos reales; el clustering se equivoca al elegir sobre qué facetas agregar (los hunters aman facetas súper nicho que el clustering del producto, basado en message body o status, no cubre); el preprocesamiento estático de pipelines de ingesta consume mucho contexto y queda obsoleto; y el live sampling es computacionalmente exhaustivo. La respuesta de diseño: desplazar esa carga de los agentes hacia las herramientas.</p>
+<h2>Evaluar sin ground truth: tendencias, A/B y feedback humano</h2>
+<p>Sin corpus curado de threat hunting, las evaluaciones tradicionales con inputs y outputs esperados producían estadísticas engañosas: tareas con alta precisión según la eval que los usuarios desmentían. Pasar la eval no correlacionaba con confianza, y un solo número —"95% de precisión"— puede significar cualquier cosa. La estrategia adoptada: priorizar tendencias, métricas comparativas y feedback humano sobre benchmarks estáticos, conservando solo un par de métricas donde el benchmarking tradicional sí funciona (velocidad de respuesta, precisión de sintaxis con un validador de sintaxis). Para la precisión semántica, en lugar de un juez LLM puro —circular, dado que se acaba de argumentar que los LLMs no son buenos en eso— se corre el agente sobre prompts de prueba, se extraen las queries únicas, se ejecutan contra datos reales y se verifica manualmente lo que no arroja resultados, con un juez LLM como complemento y no como árbitro. Dos preguntas del público completaron el cuadro: no hubo análisis comparativo entre proveedores para el juez (se priorizó velocidad, y sí se notó diferencia grande entre modelos con y sin razonamiento), y los scores de confianza del agente resultaron inútiles —el agente siempre estaba muy seguro de sí mismo, y el juez también; completamente circular—.</p>
+<h2>El caso real: hunt week de escalamiento de privilegio en AWS</h2>
+<p>En un hunt week de escalamiento de privilegio en AWS, un hunter siguió la ruta de escalamiento vía el evento IAM <code>CreateLoginProfile</code>. El agente generó la query inicial, amplió el alcance de 7 a 30 días, identificó seis objetivos distintos y asumió correctamente que pertenecían a cuentas de prueba; distinguió el comportamiento de reset de contraseña que hacía sospechosos a algunos eventos; y, ironía del caso, esos usuarios eran actores de prueba generados por un equipo de security research, que el agente identificó solos. Emitió un veredicto de "probablemente benigno" con próximos pasos (contactar a los usuarios y confirmar si están autorizados a esos roles) y pivots potenciales. Al preguntarle si hubo logins de consola posteriores, generó una query nueva y confirmó que no había evidencia, para todos los usuarios relevantes. La clave del éxito: un hunter guiando con un playbook muy concreto, con el agente haciendo la búsqueda y el análisis de datos.</p>
+<p>La semana de A/B fue igual de informativa: el equipo con el Hunting Copilot contra un hunter más experimentado con acceso solo a ChatGPT (no tenía sentido cortar la IA por completo). Resultados: la herramienta cortó el tiempo promedio de iteración de query de 10 a 5 minutos, y de los ~60 minutos que tomaba cada hipótesis ahorró 25. En los scores subjetivos destacó en relevancia de hipótesis y consciencia de contexto —se mantuvo en el tema y usó los datos para conducir conclusiones—; flaqueó en control de señal/ruido en hipótesis complejas con mucho volumen de datos, donde el truncamiento le impedía extraer insights de los logs superficiales. El balance de la semana: dos reglas de detección nuevas para cloud, cero incidentes, y una comprensión más profunda del límite de automatización.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El límite de automatización actual en threat hunting es triple: generación de consultas y análisis de datos con alta precisión de field discovery, con el hunter experto al volante y el agente dedicado a sus fortalezas reales (síntesis, resumen, traducción del lenguaje natural a consultas).</li>
+<li>Los LLMs no cazan amenazas out of the box; sí sintetizan, reconocen patrones y traducen. Diseñar la herramienta alrededor de esas capacidades —no alrededor de la fantasía de un agente autónomo— es lo que produjo resultados.</li>
+<li>El esquema debe derivarse de los datos, no de la documentación; y esa derivación dinámica es computacionalmente costosa, así que pertenece a las herramientas más que al razonamiento del agente.</li>
+<li>Los frameworks multi-agente son, hoy, la mejor gestión de contexto disponible para hunting: tres capas o menos, razonamiento escaso y transparente, herramientas concisas, condiciones de parada explícitas.</li>
+<li>Cuando no hay ground truth, las evals estáticas mienten: A/B en hunts reales, feedback humano continuo y métricas de uso (usage = éxito) valen más que un "95% de precisión" que no significa nada.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/EZSLjT8O2rw">«Arthi Nagarajan - Exploring the AI Automation Boundary | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

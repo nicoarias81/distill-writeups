@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo hackear el 90% de un pueblo: el patrón de contraseñas de la fibra óptica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Cómo hackear el 90% de un pueblo: el patrón de contraseñas de la fibra óptica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AR7JHXaJvsQ">«A Town Take Over: Como hackear al 90% de tu pueblo - Agustín Fuentes - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/AR7JHXaJvsQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando la fibra óptica llegó a un pueblo de Córdoba, Argentina, el proveedor de Internet cometió un error de diseño que comprometió a cientos de hogares de una sola vez: usar el mismo patrón de contraseña en todas las instalaciones. La clave siempre era la palabra "red" seguida de los últimos cuatro o cinco dígitos del número de serie del router, siempre ocho caracteres exactos —el mínimo indispensable—. Esa predecibilidad redujo el espacio de búsqueda a unos 60.500.000 combinaciones, suficientes para descifrar cualquier clave del pueblo en menos de cinco minutos con una placa de video común.</p>
+<p>Este artículo recorre la cadena de ataque completa sobre Wi-Fi —escucha en modo monitor, desautenticación, captura del handshake y fuerza bruta con diccionario— y después la escalada real: war driving para mapear los hogares con fibra, un gimnasio que mezcla la red de clientes con la zona administrativa de control de accesos biométrico, y una estación de servicio cuya página administrativa exponía credenciales por no usar SSL.</p>
+<p>La moraleja no es sobre hacking, es sobre aprovisionamiento: un patrón determinista de contraseñas convertido en defecto masivo. Cuando la clave de todos los clientes se genera con la misma fórmula, la seguridad de la red entera cuelga de un secreto de 60 millones de posibilidades que se prueba en minutos.</p>
+<h2>Anatomía del ataque Wi-Fi: cuatro pasos</h2>
+<p>El ataque contra una red WPA se apoya en una debilidad estructural: obligar al cliente a reconectarse para capturar el handshake, y luego probar contraseñas contra ese material capturado sin volver a tocar la red. La cadena es la siguiente:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante envía paquetes de desautenticación al smartphone] --> B[El cliente se desconecta del router]
+    B --> C[El cliente se reconecta automáticamente]
+    C --> D[Captura del handshake en modo monitor]
+    D --> E[Fuerza bruta offline con diccionario]
+
+</pre>
+
+<p>Los detalles de cada paso:</p>
+<ol>
+<li><strong>Desautenticación</strong>: el atacante envía paquetes maliciosos que fuerzan la desconexión del cliente. Todo ocurre en unos tres segundos —el usuario que está mirando Instagram ni se entera, y si lo nota, echa la culpa al router o al celular, como siempre.</li>
+<li><strong>Reconexión automática</strong>: por diseño, los celulares se vuelven a conectar solos.</li>
+<li><strong>Captura del handshake</strong>: con la placa de red en modo monitor se escucha todo el tráfico de la zona y se captura el handshake de la reconexión.</li>
+<li><strong>Fuerza bruta offline</strong>: el diccionario se prueba contra el handshake capturado. El ataque "siempre es exitoso" siempre que la contraseña esté en el diccionario — y ahí es donde el patrón del proveedor hace el resto.</li>
+</ol>
+<p>Antes de empezar hay dos preparativos: configurar la placa en modo monitor y <strong>cambiar la MAC address</strong> —el "DNI" de la placa— por si las cosas se salen de control.</p>
+<p>Un tip práctico con la suite Aircrack: si se especifica solo el punto de acceso y no un cliente concreto, el ataque de desautenticación se generaliza a todos los clientes conectados a la vez. Es más efectivo, pero también mucho más ruidoso. En la prueba de concepto, con ataque dirigido, el handshake apareció a los 3 segundos de enviado el paquete y se cortó ahí; el ciclo completo —llegar, atacar, irse— tomó alrededor de 3 minutos y 17 segundos.</p>
+<h2>El patrón: cómo un proveedor fabricó el diccionario</h2>
+<p>La historia empieza hace cuatro o cinco años, cuando la fibra óptica reemplazó al cobre que apenas daba 8 megas. El proveedor lo hizo bien comercialmente: planes en 12 cuotas sin interés y más de un año bonificado para los primeros clientes. La migración fue masiva.</p>
+<p>El problema estuvo en la instalación. Los nombres de red ya delataban información: "FTTH_" seguido del apellido del cliente o de su madre —útil para saber qué casa tenía fibra, y de paso quién vivía en cada dirección—. Pero la contraseña era el verdadero regalo: al preguntar en cada casa, la respuesta era siempre la misma estructura, "red" o "rede" seguida de cuatro o cinco dígitos.</p>
+<p>Investigando un poco más apareció la fórmula: esos dígitos son los últimos cuatro o cinco del identificador (número de serie) del router. Es decir, la contraseña de cualquier instalación de este proveedor es "red" más cinco caracteres aleatorios alfanuméricos. Las cuentas matemáticas: 36 posibles caracteres (letras y números) en 5 posiciones dan aproximadamente 60.500.000 palabras. Ese es el diccionario completo.</p>
+<p>Sesenta millones suena a bestialidad, pero para WPA con una placa de video decente no lo es: <strong>4 minutos y 50 segundos</strong> para obtener la contraseña de cualquier fibra óptica del pueblo. No una red en particular: cualquiera.</p>
+<h2>Escalada: war driving, el gimnasio y la estación de servicio</h2>
+<p>Con el método probado, la pregunta era de alcance: ¿cuánta gente tiene fibra? Un grupo de amigos no representa al pueblo, así que llegó el war driving: recorrer las calles con una aplicación que registra cada SSID junto con su ubicación GPS y lo acumula en una base de datos. Cada punto del mapa era un Wi-Fi descubierto. Sin recorrer siquiera todo el pueblo, el filtro por fibra óptica arrojó <strong>casi 770 casas</strong> afectadas.</p>
+<p>La fruta más jugosa estaba en los negocios locales. El gimnasio del pueblo —un año y medio de antigüedad, máquinas modernas, mucha clientela— tenía el clásico router con la clave pegada con cinta: "red" más cuatro dígitos. Hasta ahí, el defecto conocido. Lo grave: <strong>la misma red servía a los clientes y a la zona administrativa</strong>, donde corren los programas y las bases de datos. El sistema de acceso usaba huella electrónica para abrir el molinete sobre esa red compartida. La exploración se detuvo ahí por ser demasiado intrusiva, pero la segregación de redes faltante era evidente.</p>
+<p>El cierre fue una estación de servicio común. Un cliente sentado con su computadora, tomando un café o estudiando, en realidad atacando la red interna. Aquí la culpa es compartida: la contraseña débil viene del tercero (el proveedor), pero la estación de servicio es responsable de no usar certificados SSL en sus páginas web. Sin cifrado, el tráfico era visible en claro: una petición POST a un endpoint de login con usuario y contraseña de una página administrativa que gestionaba todos los clientes y usuarios del local.</p>
+<h2>Lo que falla y cómo se arregla</h2>
+<p>Tres defectos de diseño se combinan en esta historia, y ninguno requiere exploit sofisticado:</p>
+<ul>
+<li><strong>Contraseñas deterministas por el proveedor</strong>: derivar la clave del número de serie del router convierte la instalación en un rompecabezas con solución única conocida. La generación debe ser aleatoria por cliente y de longitud suficiente; ocho caracteres con estructura predecible no alcanza.</li>
+<li><strong>Falta de segmentación</strong>: clientes y administración sobre la misma red significa que romper el Wi-Fi de invitados da acceso a bases de datos y sistemas de control. Redes separadas y aisladas son obligatorias en cualquier negocio.</li>
+<li><strong>Sin TLS en aplicaciones internas</strong>: cualquier persona en la red puede leer credenciales en tránsito. SSL/TLS en toda página web, incluidas las administrativas, es el piso mínimo.</li>
+</ul>
+<p>Del lado del atacante, el flujo es mecánico y barato: modo monitor, desautenticación (3 segundos), handshake, diccionario de 60 millones, cinco minutos. Y del lado de la comunidad, una nota final: en un pueblo todos se conocen, así que el hallazgo se reportó directamente a los afectados y se lo tomaron bien. Los patrones de aprovisionamiento como el descrito no son exclusivos de este proveedor —son lamentablemente comunes y reaparecen en otros—, lo que convierte un caso local en plantilla replicable.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ataque de desautenticación</strong>: envío de paquetes que fuerzan la desconexión del cliente para provocar una reconexión capturable; dirigido a un cliente o generalizado a todo el AP.</li>
+<li><strong>Handshake WPA</strong>: material capturado durante la reconexión, base del ataque de fuerza bruta offline.</li>
+<li><strong>Modo monitor</strong>: configuración de la placa de red para escuchar todo el tráfico de la zona.</li>
+<li><strong>Cambio de MAC address</strong>: opacidad previa al ataque, por si las cosas se salen de control.</li>
+<li><strong>Aircrack-ng (suite)</strong>: herramientas para escucha, desautenticación, captura y fuerza bruta contra el handshake.</li>
+<li><strong>Fuerza bruta con diccionario</strong>: 60.500.000 candidatas derivadas del patrón "red" + 5 caracteres; resuelta en 4m50s.</li>
+<li><strong>War driving</strong>: mapeo geolocalizado de SSID en recorrido vehicular; casi 770 casas con fibra detectadas.</li>
+<li><strong>Detección de tráfico sin SSL</strong>: observación en claro de una petición POST de login a una página administrativa.</li>
+<li><strong>FTTH</strong>: fibra óptica al hogar; el SSID del proveedor incluía el apellido del cliente.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El proveedor es el punto único de falla</strong>: un patrón de contraseñas derivado del número de serie del router compromete de golpe a todos sus clientes; 770 hogares mapeados y una clave crackeable en menos de cinco minutos.</li>
+<li><strong>El handshake se consigue en segundos y en silencio</strong>: tres segundos de desconexión pasan desapercibidos para cualquier usuario; la defensa real no es detectar la desautenticación, es que la contraseña no esté en ningún diccionario.</li>
+<li><strong>Segmentar y cifrar</strong>: clientes separados de administración, y TLS en todas las aplicaciones — incluidas las internas — son controles que hubieran contenido la escalada incluso con el Wi-Fi roto.</li>
+<li><strong>La disclosure comunitaria funciona</strong>: en contextos chicos, reportar directo y con buena fe convierte un hallazgo incómodo en una corrección real.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AR7JHXaJvsQ">«A Town Take Over: Como hackear al 90% de tu pueblo - Agustín Fuentes - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

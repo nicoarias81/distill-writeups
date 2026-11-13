@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Halo 3C: el detector de vapeo que puede convertirse en un microfono espía — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Halo 3C: el detector de vapeo que puede convertirse en un microfono espía</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WCnojaEpF2I">«DEF CON 33 - Unmasking the Snitch Puck: the creepy IoT surveillance tech in the school bathroom - Ray Nix, Nix»</a> · ver el <a class="nz-link" href="https://youtu.be/WCnojaEpF2I">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En baños de institutos de todo Estados Unidos hay colgado un dispositivo que escucha: el Halo 3C de IP Video Corporation, un detector de humo convertido en sensor de vapeo, agresividad, disparos y palabras habladas como "help" o "emergency", con marketing que promete "garantizar la privacidad sin grabación de audio". Ray Nix, investigador de seguridad de Portland que descubrió el dispositivo a los 15 años escaneando la red sin segmentar de su instituto, y Nix, hacker e ingeniero con OSCP, compraron una unidad de segunda mano (ayudados por una mini-beca de la Portland Hacker Foundation), la desmontaron, la reventaron y contaron qué hay dentro.</p>
+<p>El hallazgo de fondo no es una vulnerabilidad suelta sino una arquitectura: un microófono conectado a una Raspberry Pi con root remoto del fabricante, desplegado en institutos, hospitales, hoteles, Airbnbs y viviendas sociales, con una cadena de explotación completa que permite a cualquiera tomar el control del dispositivo desde la red.</p>
+<h2>Qué es el Halo 3C y por qué importa</h2>
+<p>El Halo 3C es el detector de vapeo más popular del mercado, adquirido por Motorola Solutions en 2023 (que acumula empresas de "cop tech" para integrarlas en sus ofertas de seguridad). Cuesta unos 1.200 dólares por unidad, las páginas de testimonios presumen de captar a estudiantes antes de que salgan del baño —incluido un caso en el que los registros de audio se cruzaron con el sistema de cámaras para identificar a un alumno— y no se limita a escuelas: el propio fabricante documenta su uso en vivienda pública de Nueva York para hacer cumplir políticas antitabaco, presumiendo de detectar comportamientos de residentes de bajos ingresos.</p>
+<p>La alternativa más directa, Zeptive, se centra solo en vapeo, y otros competidores solo detectan partículas. El diferencial del Halo es el audio: análisis de ruido, agresividad, palabras habladas y disparos, todo con la promesa de privacidad como argumento de venta.</p>
+<h2>Hardware: una Raspberry Pi con sensores de calidad del aire</h2>
+<p>El desmontaje revela dos PCBs de doble cara en sándwich con conector mezzanine:</p>
+<ul>
+<li><strong>Placa inferior (hacia el suelo)</strong>: sensor de temperatura y humedad SHT40, sensor de presión Omron, sensor de CO2 real SCD41 (~15 dólares, mide CO2 directamente, a diferencia de los baratos que lo estiman desde compuestos orgánicos volátiles), sensores de gas (VOCs, amoníaco, NO2), sensor de nivel de luz y un detector de movimiento PIR.</li>
+<li><strong>Placa superior (hacia el techo)</strong>: dos conectores PoE (entrada y salida para encadenar dos dispositivos con un solo cable), anillo de LEDs RGB de alerta, y entre ambas placas un acelerómetro MEMS para detección de manipulación y un switch Ethernet para el encadenado.</li>
+<li><strong>Audio</strong>: un par de micrófonos MEMS conectados a un códec de audio, más un altavoz para las alertas.</li>
+<li><strong>El sensor estrella</strong>: el SPS-30 de partículas, con ventilador y láser que mide la dispersión para estimar partículas de aerosol: la base de la detección de vapeo.</li>
+<li><strong>El cerebro</strong>: una Raspberry Pi Compute Module 4.</li>
+</ul>
+<p>El dispositivo sirve un dashboard web propio con alertas de todo tipo —vapeo, manipulación, movimiento, "hace frío", "aire viciado"— e incluso expone una imagen del dashboard por RTSP para integrarlo en grabadores NVR.</p>
+<h2>Secure boot que no arranca y firmware cifrado con la clave dentro</h2>
+<p>La CM4 usa el flujo de secure boot del SoC Broadcom 2711: boot ROM con claves públicas grabadas en el chip, verificación de bootcode.bin contra el EEPROM/OTP (memoria programable una sola vez), hash de BootMain en el primer stage, verificación de la imagen del SO contra la clave del cliente y sistema de archivos cifrado con clave privada específica del dispositivo. En teoría, un dispositivo impossible de trocear.</p>
+<p>En la práctica, la cadena se cayó en el primer eslabón: no está habilitado el secure boot. Sacar la CM4, ponerla en una placa portadora con el pin de USB bootloader modo masa y usar el script oficial de Raspberry Pi convierte el dispositivo en un gadget de almacenamiento masivo: un <code>dd</code> y todo el sistema de archivos queda volcado para analizar sin prisa.</p>
+<p>Lo que hay dentro: Raspbian 10, JavaScript con Express como servidor web principal, drivers en ELF o bytecode Python que leen sensores por I2C y se comunican por sockets TCP, decenas de integraciones con APIs de sistemas de cámaras y seguridad, y shells de bash que reciben parámetros de usuario. Los updates cifrados que frustraron el primer intento de análisis usan un formato risible: cabecera con la clave y el IV en claro, seguida del contenido cifrado — "una caja fuerte con la llave pegada debajo" —, sin firma ni validación adicional. Con la clave a la vista, cualquiera puede fabricar su propio firmware.</p>
+<h2>La cadena de explotación: de la red a root</h2>
+<p>El endpoint de subida de firmware vuelca el fichero a un directorio temporal y lanza el script de extracción, que si encuentra un fichero llamado <code>extra</code> dentro del paquete, lo ejecuta. Ese binario se ejecuta como root: un reverse shell estándar y el dispositivo está dominado con acceso de administrador del sistema operativo.</p>
+<p>Con el dashboard admin ya se llega a root, así que el resto de la cadena va de no tener nada a ser admin. Los hallazgos de autenticación:</p>
+<ul>
+<li><strong>Rate limit guardado en cookie</strong>: el contador de intentos fallidos se almacena en una cookie que devuelve el servidor; basta con no enviarla para que la protección no exista. Verificado: se puede hacer fuerza bruta sobre el login web. Es lento (~3.000 intentos por minuto, es una Raspberry Pi) y ruidoso, pero funciona: cinco horas para una wordlist de un millón. Hay política de contraseñas decente (mayúsculas, minúsculas, número, especial, 8 caracteres), así que hace falta suerte — pero son 20 de estos dispositivos expuestos en Shodan con IPv4 pública.</li>
+<li><strong>Posible replay attack</strong> por una matemática de nonces dudosa, sin PoC desarrollado (TLS con certificado autofirmado en el tráfico).</li>
+<li><strong>Posible inyección de comandos</strong> en la función de zona horaria, que insertaba parámetros de usuario sin sanitizar en comandos shell.</li>
+</ul>
+<p>El resultado: con diez líneas de bash, un poco de suerte y un update de 400 bytes, una cadena completa de toma de control no autenticada desde la red.</p>
+<h2>El backdoor del fabricante: admin por localhost</h2>
+<p>El hallazgo más incómodo está en el arranque del sistema: el proceso principal configura un reverse proxy que abre un websocket TLS cifrado hacia el dominio del fabricante. El handler de mensajes de ese socket deposita lo recibido en un array y llama recursivamente a una función que reenvía cada elemento a la API web local. Y el middleware de autorización de esa API considera las peticiones provenientes de localhost como del "cloud server placeholder" con <code>isAdmin</code> a <code>true</code>.</p>
+<p>Traducción: el fabricante puede, en cualquier momento, llamar a cualquier endpoint de la API local del dispositivo como administrador. No se encontró evidencia de abuso en la unidad analizada — ni de grabación o envío de audio —, pero la capacidad es estructural: son micrófonos conectados a una Raspberry Pi en la red de un edificio, con root remoto del proveedor. Cualquier momento puede convertirlo en un audio bug, y desde fuera sería indistinguible.</p>
+<p>Los posibles oyentes enumerados en el dispositivo: script kiddies que hayan visto el exploit, el administrador de TI, integradores e instaladores, el propio fabricante por el backdoor, y policía o agencias federales que obliguen a cualquiera de los anteriores a actuar en su nombre.</p>
+<h2>La solución que existía y no se usó</h2>
+<p>La arquitectura segura existía y es barata: un medidor de decibelios I2C de una boutique externa, con su propio microcontrolador STM32 que lee el micrófono, calcula el nivel de sonido y devuelve solo el número al host. Con eso, el dato deseado está disponible pero no se puede convertir el dispositivo en un audio bug aunque se comprometa el servidor web. Lo mismo aplica a la detección de palabra clave: un coprocesador separado, lejos del ordenador principal. Zeptive incluso vende el micrófono como add-on opcional en lugar de integrarlo por defecto.</p>
+<p>La divulgación siguió el proceso correcto: correo al programa de divulgación el 10 de julio, respuesta con ticket en un día, respuesta humana en una semana y parche el lunes previo al evento — que añadió una función <code>CleanArg</code> que escapa los caracteres peligrosos en los parámetros de shell.</p>
+<h2>El patrón más amplio: erosión gradual de la privacidad</h2>
+<p>El paralelo con Nest Guard de Google — la alarma doméstica a la que Google añadió el Asistente revelando que había tenido un micrófono sin haberlo documentado, y que luego quedó inutilizada al discontinuar el servicio en la nube — sirve para fijar el patrón: la gente rechaza que un dispositivo pueda convertirse en audio bug con un toggle del fabricante.</p>
+<p>La argumentación se extiende al ecosistema: el seguro de uso que empezó con dongles para camioneros y terminó en aseguradoras comprando datos de conducción a OnStar vía LexisNexis para subir primas sin preguntar; los conductores de reparto con cámaras que los denuncian por rascarse la cara o tararear la radio; las cámaras de cabina en coches privados con asistencias avanzadas. El Halo empezó en escuelas y hospitales "relativamente benigno" y ya está en viviendas sociales; la pregunta retórica del equipo: si ya ponen micrófonos en los baños de los pobres, ¿van a parar cuando les toque el techo del apartamento del centro? Y el argumento del marketing: prometen que puede usarse "con seguridad en zonas privadas como baños". La frase, en contexto, es una declaración de que nada es sagrado.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>DD de la CM4 vía USB gadget mode</strong> — portadora con pin de USB bootloader y script oficial de Raspberry Pi para volcar el eMMC sin tocar el secure boot (que no estaba habilitado).</li>
+<li><strong>Formato de update sin firma y con clave embebida</strong> — cabecera con clave e IV en claro; fabricación de firmware propio sin restricciones.</li>
+<li><strong>Ejecución de <code>extra</code> como root en el update</strong> — reverse shell por subida de firmware desde el dashboard admin.</li>
+<li><strong>Rate limiting en cookie</strong> — contador de intentos fallidos devuelto al cliente; basta con omitir la cookie para hacer fuerza bruta (~3.000 intentos/min, ~5 horas por wordlist de un millón).</li>
+<li><strong>Middleware de localhost con isAdmin</strong> — el backdoor: peticiones del reverse proxy del fabricante tratadas como administrador.</li>
+<li><strong>Shodan</strong> — 20 dispositivos Halo expuestos en Internet abierto con IPv4 pública.</li>
+<li><strong>I2C decibel meter con STM32</strong> — arquitectura alternativa segura: cálculo local y solo el número al host, sin micrófono accesible al ordenador principal.</li>
+<li><strong>Raspbian 10 + Express (Node.js) + drivers I2C</strong> — stack del dispositivo, con comandos shell construidos con parámetros de usuario (origen de la inyección parcheada con <code>CleanArg</code>).</li>
+<li><strong>Divulgación responsable</strong> — ticket en un día, respuesta humana en una semana, parche antes del evento.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La promesa de privacidad depende de la arquitectura, no del firmware</strong>: "no grabamos audio" es una afirmación sobre el código actual, no sobre la capacidad; con micrófonos conectados a la CPU principal y root del fabricante, la garantía es incumplible por diseño.</li>
+<li><strong>El secure boot sirve de poco si el eslabón más débil es el firmware</strong>: sin firma en los updates y con la clave dentro del propio fichero, la criptografía del arranque es decorativa.</li>
+<li><strong>La cadena completa de toma de control no autenticada se construyó con diez líneas de bash</strong>: rate limiting en cookie, ejecución de scripts en updates y comandos shell sin sanitizar — vulnerabilidades clásicas de desarrollo descuidado, no ciencia ficción.</li>
+<li><strong>La tecnología no es neutral</strong>: preguntar qué hace un dispositivo es la mitad de la pregunta; la otra mitad es a quién sirve. Un detector de vapeo pensado para vigilar a estudiantes y terminado en viviendas sociales es un caso de estudio de erosión de la privacidad por acumulación, no por un salto dramático.</li>
+<li><strong>Los hackers pueden intervenir</strong>: comprar cop tech de segunda mano y auditarla, preguntar en los consejos escolares, impulsar legislación de privacidad (el caso de Ron Wyden en Oregón como referente), apoyar a la EFF y divulgar lo que se encuentra — el propio caso acabó cubierto por Wired y 404 Media la mañana de la divulgación.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WCnojaEpF2I">«DEF CON 33 - Unmasking the Snitch Puck: the creepy IoT surveillance tech in the school bathroom - Ray Nix, Nix»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

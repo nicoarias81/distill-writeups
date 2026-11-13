@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Automatización de bug bounty: del ruido masivo al hallazgo que paga — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Automatización de bug bounty: del ruido masivo al hallazgo que paga</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/120iDYzscD4">«DEF CON 32 - Efficient Bug Bounty Automation Techniques - Gunnar Andrews»</a> · ver el <a class="nz-link" href="https://youtu.be/120iDYzscD4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La automatización de bug bounty tiene una trampa: genera datos a velocidad industrial y hallazgos a velocidad humana, es decir, casi ninguno. Mucho volumen con cero hallazgos significa cero dólares. El enfoque que se plantea aquí pasa por tres frentes: minimizar el coste de pasar de cero a cien en recolección de superficie, automatizar la recolección de manera eficiente, y aplicar ingeniería de datos seria en lugar de acumular archivos de texto plano.</p>
+<p>La filosofía de fondo contraviene el instinto del automatizador promedio: no hacer fuerza bruta casi nunca. Monitorear millones de dominios cada día sin haber adivinado ninguno es posible porque la fuerza bruta es, en el fondo, adivinar; y como en un examen, adivinar es lo último que se hace, cuando ya no queda alternativa. Antes de adivinar quedan por cubrir certificados, DNS pasivo, DNS inverso y decenas de fuentes pasivas que cuestan poco y no generan bans.</p>
+<h2>Apex domains, certificados y escaneo del espacio IPv4</h2>
+<p>El punto de partida clásico son los apex domains, sobre todo en programas wildcard donde vale todo lo que la empresa posea. Las fuentes habituales son reverse WHOIS, ASN y registros de propiedad, pero automatizar esa deducción es peligroso: el autor cuenta haber quemado bugs importantes por reportar dominios que compartían registrador y no estaban en scope. Es difícil confirmar al 100 % el scope de forma automática, así que esa etapa combina scripts con revisión manual.</p>
+<p>La alternativa barata y masiva es escanear todo el espacio IPv4 —hoy cualquier persona puede montar el hardware suficiente—. La herramienta propia Caduceus hace medio handshake TLS, justo lo necesario para extraer el certificado, y vuelca los dominios de los campos Common Name y Subject Alternative Name junto con la IP de origen. Complementariamente, el DNS inverso (registros PTR) con herramientas como ZDNS convierte IPs en nombres, y ambos escaneos revelan apex domains que nadie tenía mapeados. Un truco pragmático: gran parte del espacio IPv4 es de proveedores cloud, y escanear una región de AWS desde dentro de esa misma región es indecentemente rápido —una región completa en aproximadamente un minuto—.</p>
+<p>Para subdominios, los certificados vuelven a ser la mina, pero el reloj importa. crt.sh consulta los Certificate Transparency logs públicos (árboles de Merkle), aunque algunos logs mayores tardan hasta 48 horas en aparecer consultables. La herramienta propia Gungnir scrapea los CT logs directamente con exponential backoff ante rate limits y entrega cualquier dominio nuevo en menos de 20 segundos desde la creación del certificado: quien despliegue un servicio con certificado de CA aparece al instante, esté donde esté. crt.sh sigue siendo excelente para consulta histórica; Gungnir es para llegar antes que los demás.</p>
+<p>El producto final del pipeline incluye virtual host scanning: la herramienta Harpy toma el JSON de Caduceus y prueba virtual hosts únicamente contra la IP y los dominios que aparecieron en su certificado, en vez de machacar listas gigantes de subdominios contra cada IP. Otras piezas automatizadas ligeras: github-subdomains, spidering suave de segunda página para extraer assets de segundo orden —una petición GET no ha generado bans— y resolución DNS con listas de reintento.</p>
+<h2>DNS pasivo y resolución a escala propia</h2>
+<p>Los orígenes de DNS pasivo funcionan porque las grandes empresas que operan servidores DNS públicos y los ISPs venden sus datos DNS a terceros, a veces declaradamente y a veces dentro de otros contratos comerciales; por eso plataformas como VirusTotal o SecurityTrails tienen material propio de escaneo más datos comprados a los operadores de DNS. Pagar algunas de estas fuentes suele compensar, y el consejo operativo es doble: leer la documentación de rate limits, paginación y coste por consulta de cada API, y escribir la lógica propia en lugar de depender de herramientas agregadoras.</p>
+<p>La razón para escribir lógica propia son los fallos silenciosos. En una prueba contra tesla.com con subfinder usando todas las fuentes, Common Crawl consumió 43 segundos y devolvió -70.782 resultados —un error disfrazado de estadística—, y Wayback otros 30 segundos sin resultados; eliminando ambas fuentes se ejecutaba en un cuarto del tiempo con idéntico resultado.</p>
+<p>En resolución activa, el problema es que los dominios obtenidos de APIs pasivas pueden no resolver, y resolver una sola vez garantiza perder assets. Las herramientas actuales fallan en silencio o devuelven SERVFAIL que se descarta sin mirar —y los SERVFAIL son justamente oro para subdomain takeovers: el autor encontró assets de Azure tomables que todos los resolvers públicos de la lista de trickest reportaban como NOERROR pero un resolver distinto marcaba como SERVFAIL—. Los resolvers públicos tienen rate limits, timeouts y comportamientos de edge que interfieren con lo que el hunter necesita.</p>
+<p>La solución es montar el propio clúster de resolución: PowerDNS Recursor (resolver recursivo) con dnsdist (balanceador DNS) sobre IPs virtuales compartidas por el clúster. Plug and play, rate limits ilimitados, caché configurable, monitorizable con Prometheus. Encima, Redis con sorted sets con timestamps lleva el registro de reintentos: qué dominios se han visto, cuántas veces y cuándo, sin esquema de base de datos y a velocidad de rayo. La factura: unos 25 dólares al mes, con picos de ~125.000 consultas por segundo sin errores ni pérdida de paquetes, moviendo entre 600 y 800 millones de peticiones diarias.</p>
+<h2>Escanear sin que te baneen</h2>
+<p>En escaneo de puertos la recomendación es delegar primero en lo pasivo: SMAP acepta los flags de nmap pero responde consultando Shodan, sin enviar un solo paquete de escaneo. Los puertos que Shodan dice abiertos se verifican después activamente con Masscan o nmap. Resultado: muchísimo menos tráfico, cero bans y Shodan acertando casi siempre.</p>
+<p>En el fingerprinting web, tres reglas: solo escanear lo que resolvió (DNS primero), escanear despacio y vigilar el User-Agent. Las herramientas con user agents propios están bloqueadas por los CDN y WAF; la jugada es copiar el user agent de un Chrome recién descargado y actualizarlo cada mes. Para escaneo web de alta velocidad, brute force de directorios y demás, la arquitectura serverless reparte el trabajo: cada invocación de AWS Lambda sale con una IP nueva del enorme pool de AWS, es barato y a nadie le gusta que se sepa, pero es DEF CON. Como contrapunto honesto, una sola petición GET bien hecha devuelve una montaña de datos: assets de segundo orden, archivos JavaScript, buckets S3, título, código de estado, redirects, cabeceras CSP y cookies; por eso el autor no escanea la web masivamente cuando cada petición arriesga ira ajena en programas que prueban en producción.</p>
+<p>Los endpoints pasivos (Gau, WayMore y similares) dan resultados variables: nada sobre endpoints recién descubiertos vía Gungnir, pero joyas ocasionales sobre material antiguo, y cuestan cero.</p>
+<h2>Ingeniería de datos: la parte aburrida que decide todo</h2>
+<p>Subdominios e IPs son ambos útiles y ninguno debe ser la clave primaria exclusiva de la base de datos: hay que registrar los dos y cruzarlos, porque los certificados dan dominios con IP, el DNS pasivo da dominios sin IP, y el cruce es donde aparecen los bugs.</p>
+<p>La advertencia central es no acumular datos en archivos planos: cuando el volumen es de cientos de millones de registros diarios, la falta de modelo de datos se cobra facturada en hallazgos perdidos. Más datos son más bugs, pero solo si se usan correctamente; la recomendación concreta es formarse en ingeniería de datos con literatura técnica —aburrida, densa y decisiva— y definir un workflow automatizado que convierta recolección continua en cola de trabajo priorizada.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Caduceus</strong>: escáner propio del espacio IPv4 que extrae dominios de certificados TLS con medio handshake.</li>
+<li><strong>Gungnir</strong>: scraper propio de CT logs con backoff exponencial; entrega dominios nuevos en &lt;20 segundos.</li>
+<li><strong>Harpy</strong>: virtual host scanning dirigido por certificado (IP + dominios del certificado).</li>
+<li><strong>crt.sh / CT logs</strong>: consulta histórica de certificados en logs públicos de Merkle.</li>
+<li><strong>Subfinder / fuentes de DNS pasivo</strong> (VirusTotal, SecurityTrails): enumeración pasiva, con fallos silenciosos a auditar.</li>
+<li><strong>ZDNS</strong>: DNS inverso (PTR) a escala sobre todo el IPv4.</li>
+<li><strong>PowerDNS Recursor + dnsdist + keepalived</strong>: clúster propio de resolución DNS sin rate limits, monitorizable con Prometheus.</li>
+<li><strong>Redis (sorted sets)</strong>: caché y registro de reintentos de resolución.</li>
+<li><strong>SMAP</strong>: escaneo de puertos pasivo vía Shodan con flags de nmap.</li>
+<li><strong>Masscan / nmap</strong>: verificación activa de puertos previamente filtrados.</li>
+<li><strong>AWS Lambda / serverless</strong>: rotación de IPs para escaneo web a alta velocidad.</li>
+<li><strong>github-subdomains, Gau, WayMore</strong>: fuentes pasivas complementarias de subdominios y endpoints.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La fuerza bruta es el último recurso, no el primero: certificados, DNS pasivo, DNS inverso y CT logs cubren superficie enorme sin adivinar nada y sin generar bans.</li>
+<li>Los fallos silenciosos de las herramientas agregadoras cuestan tiempo y assets: auditar qué fuentes devuelven errores encubiertos y escribir lógica propia cuando se necesita control fino.</li>
+<li>Un resolver DNS propio (PowerDNS + dnsdist + Redis) por ~25 dólares al mes multiplica la capacidad de resolución con reintentos persistentes, y resolver una sola vez equivale a perder assets; los SERVFAIL son señales de takeover, no ruido.</li>
+<li>El escaneo debe ser quirúrgico: pasivo primero (Shodan vía SMAP), activo solo para verificar, user agents de navegador real, y serverless cuando la velocidad exige repartir IPs.</li>
+<li>Sin ingeniería de datos detrás, la automatización produce archivos enormes y cero hallazgos: subdominios e IPs como claves cruzadas, reintentos con timestamps y un workflow definido son lo que convierte datos en bugs.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/120iDYzscD4">«DEF CON 32 - Efficient Bug Bounty Automation Techniques - Gunnar Andrews»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

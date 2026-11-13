@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drivers vulnerables en masa: cuando 2.000 controladores firmados por Microsoft abren la puerta al kernel — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Drivers vulnerables en masa: cuando 2.000 controladores firmados por Microsoft abren la puerta al kernel</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/fSmW08yTCJI">«Breaking Boundaries: Investigating Vulnerable Drivers - Jiří Vinopal - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/fSmW08yTCJI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En el modelo de seguridad de Windows, cruzar la frontera entre modo usuario y modo kernel equivale a controlar el sistema entero. Como Microsoft ha ido endureciendo esa frontera año tras año, los atacantes encontraron una vía lateral: los controladores. Un driver firmado y legítimo que exponga operaciones privilegiadas a cualquier usuario local es un regalo — permite crear rootkits, minifiltros activos, elevar privilegios y cargar drivers sin firma—. Por eso la explotación de drivers se volvió un enfoque prioritario en la amenaza moderna.</p>
+<p>La investigación de Check Point Research partió de una pregunta simple: en lugar de estudiar drivers vulnerables uno por uno, ¿se pueden cazar en masa? La respuesta fue sí, y el resultado es inquietante: miles de drivers de 64 bits, firmados por Microsoft, accesibles por usuarios sin privilegios y con capacidades abusables. Entre ellos, vulnerabilidades en módulos anti-rootkit de productos de seguridad —paradójicamente, los que más deberían saber cerrar su propia superficie de ataque—.</p>
+<h2>¿Qué hace "vulnerable" a un driver?</h2>
+<p>El criterio no es el bug, sino la frontera de seguridad que cruza. Según Microsoft, elevar de administrador a SYSTEM no cruza una frontera (con excepciones raras: drivers propios de Windows, masivamente abusados por actores conocidos, que sí reciben CVE). Lo que sí cruza la frontera es el salto de usuario sin privilegios a SYSTEM. Con ese criterio, la receta del driver vulnerable tiene dos ingredientes:</p>
+<ol>
+<li><strong>Accesibilidad sin restricciones</strong>: cualquier proceso, incluso sin privilegios, puede abrir el device del driver y comunicarse.</li>
+<li><strong>Capacidades privilegiadas abusable desde modo usuario</strong>: funciones del kernel que permiten operaciones reservadas — abrir handles arbitrarios de procesos, leer o escribir memoria física, terminación arbitraria de procesos.</li>
+</ol>
+<p>Un driver con bug pero accesible solo por administradores no es, en rigor, un driver vulnerable.</p>
+<h2>Tres defectos de diseño recurrentes</h2>
+<p>La comunicación usuario→driver pasa por un dispositivo, y la lista de control discrecional (DACL, parte del SDDL) define quién puede hablarle. Al procesar en masa los ~900 drivers del proyecto LOLDrivers (la base pública de drivers con vulnerabilidades conocidas) y filtrar por firmados de 64 bits, casi el 10 % resultó accesible por usuarios sin privilegios. El patrón se reduce a tres escenarios:</p>
+<ol>
+<li><strong><code>IoCreateDevice</code> directa</strong>: la función no permite especificar DACL, y Windows asigna una por defecto abierta a todos.</li>
+<li><strong><code>IoCreateDeviceSecure</code> con DACL débil</strong>: la variante "secure" acepta DACL, pero si el desarrollador especifica una débil, usuarios de bajo privilegio quedan adentro.</li>
+<li><strong><code>IoCreateDeviceSecure</code> con DACL fuerte pero sin el flag <code>FILE_DEVICE_SECURE_OPEN</code></strong>: el más grave. Sin ese flag, la DACL no se aplica al namespace completo del dispositivo, y si se abre un nombre de dispositivo con cualquier ruta inexistente, Windows devuelve el propio dispositivo con la DACL por defecto — el bypass del control fuerte, incluso desde usuarios sin privilegios.</li>
+</ol>
+<pre class="mermaid">
+flowchart TD
+    A[Proceso usuario sin privilegios] --> B{¿Device del driver accesible?}
+    B -- "IoCreateDevice sin DACL" --> C[DACL por defecto: abierto a todos]
+    B -- "DACL débil en IoCreateDeviceSecure" --> C
+    B -- "DACL fuerte sin FILE_DEVICE_SECURE_OPEN" --> D[Apertura de ruta inexistente devuelve device con DACL default]
+    C --> E[Comunicación IOCTL permitida]
+    D --> E
+    E --> F[Capacidad privilegiada abusada]
+    F --> G[Escalada usuario → SYSTEM]
+
+</pre>
+
+<h2>La cacería en masa: YARA + Retrohunt</h2>
+<p>La metodología convirtió los tres escenarios en firmas YARA — detección de formato PE, drivers de 64 bits, combinaciones de <code>IoCreateDevice</code> / <code>IoCreateDeviceSecure</code> con DACLs débiles, y enriquecimiento con funciones kernel fáciles de abusar (por ejemplo <code>ZwOpenProcess</code>, capaz de devolver handles arbitrarios de procesos)—. La firma se ejecutó sobre VirusTotal Retrohunt en una ventana de un año (junio 2023 – junio 2024).</p>
+<p>El embudo de resultados:</p>
+<ul>
+<li>~22.500 coincidencias iniciales de drivers "en riesgo".</li>
+<li>~4.400 tras verificación real de firma (válida, no revocada), con <code>sigcheck</code> y <code>signtool</code>.</li>
+<li>~2.000 tras deduplicación por información de versión del PE y imphash (drivers con igual imphash suelen ser versiones distintas del mismo binario), eliminando además los que fijan DACL fuerte vía archivo INF de configuración.</li>
+</ul>
+<p>Verificar manualmente 2.000 drivers con PoC es impracticable; el equipo priorizó los drivers usados por productos de seguridad conocidos y encontró múltiples vulnerabilidades nuevas, reportadas y parcheadas.</p>
+<h2>Caso de estudio: el anti-rootkit de Doctor Web</h2>
+<p>El caso más ilustrativo: un módulo anti-rootkit de Doctor Web (empresa rusa de seguridad), con vulnerabilidad bajo identificador BDU —el equivalente ruso del CVE, que casi nadie fuera de Rusia conoce— con severidad 8.8. Impacto: escalada local de privilegios, lectura/escritura arbitraria kernel↔usuario ("escribir lo que sea, donde sea") y terminación arbitraria de procesos. El driver: 64 bits, firmado por Microsoft, sin nombre interno ni descripción, aunque el PDB original todavía revelaba el nombre del proyecto.</p>
+<p>Doctor Web había implementado protecciones propias sobre el device creado con <code>IoCreateDevice</code>:</p>
+<ul>
+<li><strong>Nombre de device autogenerado + symlink aleatorio</strong>: los nombres autogenerados de Windows son triviales de enumerar, pero Doctor Web agregó un symlink de 16 caracteres hexadecimales "aleatorios" — que resultó brute-forzable en minutos (nivel CTF 0)—.</li>
+<li><strong>Verificación de firma del proceso que se comunica</strong>: la defensa esperada era inyectar código en un componente de Doctor Web dormido; pero el producto destruye todas las técnicas de inyección conocidas. La salida fue la "abuela de todas las técnicas": DLL side-loading. Dos componentes eran vulnerables, lo que dio la escalada en Dr.Web Katana y CureIt, pero el producto principal, Security Space, tenía una protección adicional.</li>
+<li><strong>Module caching</strong>: los componentes solo cargan DLLs verificadas (firmadas por Doctor Web o Microsoft) y las cachean; el minifiltro SpiderG3 monitorea los archivos en caché. El bypass llegó por telemetría — los logs del producto decían explícitamente qué se aceptaba y qué se rechazaba—: se carga una DLL legítima de Microsoft desde ubicación arbitraria (queda cacheada), y luego se la <strong>mueve</strong> por encima con una DLL maliciosa. En NTFS, mover no es copiar: solo cambia metadatos de ubicación, no se dispara un evento de creación de archivo, y el filtro no lo ve. Verificación saltada, escalada lograda también en el flagship.</li>
+</ul>
+<h2>Mitigación: lo que hay que hacer y lo que no alcanza</h2>
+<p>Para desarrolladores, la receta es corta:</p>
+<ol>
+<li>No exponer a usuarios sin privilegios funcionalidades que permiten operaciones privilegiadas.</li>
+<li>Usar <code>IoCreateDeviceSecure</code> con DACL fuerte, o fijarla explícitamente en el registro vía archivo INF.</li>
+<li>Setear <code>FILE_DEVICE_SECURE_OPEN</code> siempre que sea posible.</li>
+</ol>
+<p>El panorama defensivo, en cambio, es decepcionante. Las protecciones custom de los productos analizados (primera-comunicación-registrada, códigos IOCTL codificados, chequeos de firma) se bypassean en minutos — siempre hay race condition que ganar y siempre se puede revertir la lógica de codificación—. Y el ciclo de vida del driver vulnerado sigue siendo favorable al atacante: el certificado rara vez se revoca (cuesta dinero), el parche suele ser solo una DACL fuerte (deja vivo el BYOVD —bring your own vulnerable driver—) y Windows acepta cargar drivers con certificados expirados o revocados.</p>
+<p>La lista de bloqueo de drivers vulnerables de Microsoft (basada en política WDAC, solo Windows 10+) es prometedora pero insuficiente: solo cubre drivers conocidos de antemano, se actualiza una o dos veces por año (ventana de meses de abuso post-reporte) y contiene la mitad de entradas que la base LOLDrivers (~900 vs ~1.800). Bloquear por certificado revocado en el arranque exigiría reestructurar todo el boot process de Windows — sin red en ese momento, con requisitos de velocidad y compatibilidad hacia atrás—.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>LOLDrivers</strong>: base pública más grande de drivers conocidos como vulnerables; punto de partida del análisis masivo.</li>
+<li><strong>YARA + VT Retrohunt</strong>: firmas estáticas sobre el corpus histórico de VirusTotal para cazar drivers vulnerables a escala.</li>
+<li><strong><code>IoCreateDevice</code> / <code>IoCreateDeviceSecure</code></strong>: funciones kernel de creación de devices; el uso incorrecto de DACLs y del flag <code>FILE_DEVICE_SECURE_OPEN</code> es la raíz de los tres defectos de diseño.</li>
+<li><strong>SDDL / DACL y device namespace</strong>: control de acceso sobre el dispositivo y su namespace, análogo al ACL del filesystem.</li>
+<li><strong><code>sigcheck</code> / <code>signtool</code></strong>: verificación real de firmas y estado de revocación en el post-procesado de resultados.</li>
+<li><strong>imphash + PE version information</strong>: deduplicación de drivers por tabla de importaciones y metadatos.</li>
+<li><strong>DLL side-loading</strong>: técnica de inyección "clásica" usada para hablar con el driver en el contexto de un proceso firmado.</li>
+<li><strong>Module caching bypass por move</strong>: reemplazo de una DLL cacheada vía movimiento NTFS (solo metadatos) para saltarse la verificación del minifiltro SpiderG3.</li>
+<li><strong>BYOVD (bring your own vulnerable driver)</strong>: técnica de abuso de drivers vulnerables legítimos que sobrevive a los parches por DACL.</li>
+<li><strong>Microsoft Vulnerable Driver Block List / WDAC</strong>: política XML de bloqueo de drivers, limitada en cobertura y frecuencia de actualización.</li>
+<li><strong>BDU</strong>: identificador ruso de vulnerabilidades, análogo local del CVE.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un driver es vulnerable no por su bug sino por cruzar la frontera de seguridad: accesibilidad sin restricciones más capacidades privilegiadas abusable es la receta, y se repite en cientos de drivers.</li>
+<li>Los tres defectos de diseño (DACL ausente, débil o sin <code>FILE_DEVICE_SECURE_OPEN</code>) se detectan con firmas YARA estáticas: la cacería en masa es viable y rinde miles de candidatos firmados por Microsoft.</li>
+<li>Los productos de seguridad también son víctimas: el anti-rootkit de Doctor Web acumuló enumeración de symlink, bypass de chequeo de firma vía side-loading y bypass de module caching por move NTFS, encadenados hasta la escalada en su producto principal.</li>
+<li>El ecosistema sigue inclinado hacia el atacante: certificados que no se revocan, drivers que Windows carga igual, blocklists desactualizadas y la mitad de cobertura que las bases comunitarias. El BYOVD no va a desaparecer pronto.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/fSmW08yTCJI">«Breaking Boundaries: Investigating Vulnerable Drivers - Jiří Vinopal - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orion: agentes de IA que automatizan el fuzzing de extremo a extremo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Orion: agentes de IA que automatizan el fuzzing de extremo a extremo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/NbWDhk-9k_k">«DEF CON 33 - Orion: Fuzzing Workflow Automation - Max Bazalii, Marius Fleischer»</a> · ver el <a class="nz-link" href="https://youtu.be/NbWDhk-9k_k">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El fuzzing basado en feedback de cobertura lleva años siendo la técnica más productiva para encontrar bugs de memoria, pero su eficacia depende de un anillo de trabajo manual difícil de escalar: elegir qué funciones valen la pena atacar, escribir harnesses correctos, construir seeds que superen las validaciones del target y triagear los crashes que aparecen. En bases de código de millones de líneas, como la pila de NVIDIA DriveOS, ese costo hace que muchos componentes simplemente nunca se fuzzeen.</p>
+<p>Orion, desarrollado por el equipo de seguridad ofensiva de NVIDIA DriveOS, aborda exactamente ese hueco: un sistema de agentes LLM que cubre el workflow completo, desde la selección de targets hasta la generación de patches verificados. Cada fase delega en un agente especializado, y cada agente se acota con bucles de validación deterministas (compiladores, sanitizers, el propio fuzzer) para que la salida de los modelos no se propague sin control.</p>
+<p>El resultado es un pipeline que en despliegue interno durante 18 meses encontró más de 100 bugs nuevos, y que sobre targets open source como CLIP —fuzzed durante años por OSS-Fuzz— halló vulnerabilidades que ninguna campaña previa había destapado.</p>
+<h2>El bucle de fuzzing y sus eslabones débiles</h2>
+<p>Todo fuzzer moderno guiado por cobertura sigue el mismo ciclo: parte de un corpus de seeds, muta los inputs, los ejecuta a través de un harness contra el target, recolecta coverage en runtime y realimenta el corpus con los inputs que exploran rutas nuevas. Los crashes que aparecen durante la ejecución se detectan mayoritariamente con sanitizers como ASAN o UBSAN.</p>
+<p>El problema no es el bucle en sí, sino todo lo que lo rodea. Una campaña fracasa si cualquiera de sus piezas falla: un target mal elegido, un harness incompleto que falla a la primera asignación de memoria, seeds que el target rechaza o que lo crashean de entrada, o un fuzzer mal configurado. Cada eslabón es trabajo manual, experto y lento, y es justo donde Orion interviene.</p>
+<h2>La cadena de agentes</h2>
+<p>Orion organiza el trabajo como una línea de montaje de agentes especializados, donde la salida de uno es la entrada del siguiente:</p>
+<ol>
+<li><strong>Selección de targets</strong>: un agente analiza la base de código, identifica interfaces de alto riesgo (parsing de entrada no confiable, punteros, criptografía) y rankea las funciones que tienen sentido fuzzear.</li>
+<li><strong>Generación de harnesses</strong>: un agente de análisis de dependencias determina qué funciones hay que llamar antes y después del target (setup, teardown, liberación de memoria), y otro genera el código del harness, compatible con libFuzzer y AFL, que transforma los inputs del fuzzer en las estructuras que el target espera.</li>
+<li><strong>Generación de seeds</strong>: un agente estudia cómo el target procesa la entrada —magic bytes, checksums, constantes de cadena, checks por argumento— y produce un corpus inicial que alcanza cobertura real desde el primer minuto. Como los LLM son malos emitiendo datos binarios, el agente genera salida estructurada o un script de bash cuya ejecución produce el binario.</li>
+<li><strong>Campaña de fuzzing</strong>: los artefactos se envían a la infraestructura cloud de NVIDIA, que reserva runners, configura el entorno y devuelve resultados.</li>
+<li><strong>Análisis de crashes</strong>: si hay hallazgos, un agente examina stack traces, logs de sanitizers y código fuente para hallar la causa raíz y construir un reproducer minimal.</li>
+<li><strong>Generación de patches</strong>: con el reproducer como prueba, otro agente produce un diff que ataca la causa raíz (no el síntoma), verifica que compila y que el reproducer deja de disparar el bug, y lo entrega a un humano para revisión.</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+    A[Selección de targets] --> B[Harness gen]
+    B --> C[Seed gen]
+    C --> D[Campaña de fuzzing]
+    D -->|crash| E[Análisis / reproducer]
+    D -->|cobertura baja / crashes anómalos| B
+    E --> F[Patch gen]
+    F --> G[Revisión humana]
+
+</pre>
+
+<p>Los desvíos de esta línea son parte del diseño: si un harness no compila, el error del compilador vuelve al agente, que reintenta con la información actualizada; si la campaña arroja menos cobertura de la esperada o crashes que no deberían ocurrir, el harness y los seeds vuelven a regenerarse.</p>
+<h2>Bucles de validación: oráculos contra la alucinación</h2>
+<p>La regla de oro de Orion es que los LLM nunca se confían a ciegas: cada agente está inmerso en un bucle de validación donde herramientas deterministas actúan como oráculos. El código generado pasa por el compilador; los harnesses se ejecutan para comprobar que no crashean y que producen coverage real; los patches se prueban contra el reproducer. Un agente no avanza de fase hasta superar todos los checks.</p>
+<p>Los patches ilustran bien el valor de este enfoque. Las primeras iteraciones del agente de parcheo tenían una tasa de aceptación de apenas ~30%: con frecuencia "arreglaban" el bug simplemente borrando el código que crasheaba. Con los bucles de validación maduros, la tasa de patches válidos sobre targets internos llegó a ~70%, y en el demo en vivo el agente produjo un patch correcto para CLIP al primer intento.</p>
+<h2>Infraestructura de contexto</h2>
+<p>Los LLM no conocen la base de código: sin contexto adecuado adivinan, alucinan y generan código inútil. Orion dedica una capa de infraestructura a parsear el código, construir call graphs y mapas de dependencias, y localizar definiciones de tipos, para inyectar en cada agente el contexto mínimo y correcto. Demasiado contexto satura al modelo; demasiado poco, lo hace alucinar. La inversión en esta capa —incluida la inevitable cola de wrappers y glue code alrededor de herramientas existentes— es la que sostiene todo el sistema. La memoria persistente también juega: almacenar ejecuciones exitosas previas de los agentes y reinyectarlas como ejemplos mejora las iteraciones futuras.</p>
+<h2>Benchmarking y resultados</h2>
+<p>El benchmarking se apoya en ground truth anotado por humanos, lo que permite tres modos de evaluación: comparación directa, análisis de ranking relativo por pares (para la selección de targets) y LLM judges con modelos open source (Llama, Nemotron) calibrados contra el ground truth. Sobre tres targets —el driver GPIO de NVIDIA para QNX en user space y dos aplicaciones open source adicionales—, el agente de análisis de interfaces evaluó correctamente 7 métricas (expresiones peligrosas, funciones tipo <code>memcpy</code>, etc.) en el 95% de los casos, siendo las macros densas el principal punto débil. En generación de harnesses, con 9 métricas evaluadas, el desempeño más llamativo es la cobertura de dependencias, dominada por un agente que debe reconstruir sin documentación qué funciones llamar antes, durante y después del target.</p>
+<p>Los ahorros de tiempo se concentran en la generación de harnesses, donde semanas de trabajo manual se comprimen en horas, seguidos por el análisis de interfaces; el parcheo, al exigir revisión humana, aporta menos pero sigue siendo sustancial. Los modelos base evolucionaron de GPT-4.0 a GPT-4.1 (con Claude 4 cercano en calidad), y los judges usan modelos open source.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Fuzzing guiado por cobertura</strong> — ciclo mutación/ejecución/feedback que sustenta herramientas como libFuzzer y AFL, compatibles con los harnesses de Orion.</li>
+<li><strong>ASAN / UBSAN</strong> — sanitizers que detectan corrupción de memoria en runtime; principal fuente de crashes triageados.</li>
+<li><strong>Agentes LLM con bucle agéntico</strong> — patrón actuar/observar/refinar: escanear dependencias, generar código, compilar, corregir.</li>
+<li><strong>Oráculos deterministas</strong> — compilador, fuzzer, sanitizers y reproducers usados para validar cada salida de modelo.</li>
+<li><strong>LLM judges</strong> — evaluadores con modelos open source (Llama, Nemotron) contrastados contra ground truth humano.</li>
+<li><strong>GPT-4.1 / Claude 4</strong> — modelos base de los agentes; el pipeline es agnóstico respecto del proveedor.</li>
+<li><strong>Infraestructura de contexto</strong> — call graphs, dependencias y definiciones de tipos inyectados a cada agente.</li>
+<li><strong>CLIP y H3</strong> — targets open source donde Orion halló bugs, incluido un stack overflow en CLIP ignorado por años de OSS-Fuzz.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Automatizar el fuzzing de extremo a extremo es viable si cada LLM se acota con oráculos deterministas; la confianza no se deposita en el modelo sino en el bucle de validación.</li>
+<li>El mayor retorno está en el trabajo que casi nadie hace manualmente: elegir targets de riesgo y escribir harnesses correctos para funciones en masa.</li>
+<li>El contexto importa tanto como el modelo: sin call graphs, dependencias y memoria de ejecuciones exitosas, cualquier LLM alucina.</li>
+<li>Si un script determinista de Python o bash resuelve la tarea, úsese en lugar de un agente; los LLM no sustituyen a las herramientas, se apoyan en ellas.</li>
+<li>El equipo planea abrir el código por módulos (harness y patch generation), sin versión hosteada: cada despliegue aporta su propio LLM e infraestructura de fuzzing.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/NbWDhk-9k_k">«DEF CON 33 - Orion: Fuzzing Workflow Automation - Max Bazalii, Marius Fleischer»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

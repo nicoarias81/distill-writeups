@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ejecución remota de código vía mensajes MIDI: la puerta trasera de los sintetizadores Yamaha — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ejecución remota de código vía mensajes MIDI: la puerta trasera de los sintetizadores Yamaha</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/87Ce_D8T7oI">«DEF CON 33 - Remote code execution via MIDI messages - Anna Antonenko»</a> · ver el <a class="nz-link" href="https://youtu.be/87Ce_D8T7oI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>MIDI es un protocolo de los años 80 de una simplicidad extrema: un dispositivo le dice a otro que toque una nota, la suelte o cambie un parámetro, y el receptor genera el audio. Demasiado simple para esconder una puerta trasera, uno pensaría. Al desarmar un sintetizador Yamaha para limpiarlo y quedarse con la placa principal, un chip sin documentación alguna —el Yamaha SWL01U, del que solo existe un listado de AliExpress— terminó revelando un shell de diagnóstico oculto accesible únicamente mediante mensajes MIDI System Exclusive, con una contraseña hardcodeada (<code>#0000</code>) y comandos de escritura arbitraria de memoria. Resultado: ejecución remota de código en el sintetizador sin abrirlo, solo reproduciendo un archivo MIDI malicioso. Tras publicar el hallazgo, la comunidad confirmó que el mismo shell con la misma contraseña vive en toda una línea de productos Yamaha, desde el E433 de 2012 hasta el E473 de 2022, pianos digitales DGX y, muy probablemente, baterías electrónicas.</p>
+<h2>Reconociendo el terreno: una placa y un chip misterioso</h2>
+<p>El punto de partida fue el desarmado de rutina: flashes de 16 MB (firmware) y 2 MB (datos de usuario), controlador USB host, RAM y controlador LCD, y el chip grande central, el SWL01U. Sin documentación, la única pista era un artículo que sugería una base SuperH de Hitachi. Dos años después apareció el atajo: el manual de servicio de un modelo gemelo (el E443) con esquemáticos completos, layouts de placa y el pinout de los 176 pines del CPU. Con eso se puede deducir mucho: pines de UART, pines de JTAG, y dos pines llamados <code>PRODN</code> y <code>TESTN</code> (modo prototipo y modo test).</p>
+<h2>De UART muda a JTAG abierto</h2>
+<p><strong>UART, sin éxito.</strong> De los cinco pines UART del pinout, tres eran GPIO de uso general, uno transmisión usada y el último permaneció completamente mudo en todas las combinaciones de modos prototipo/test. Logs: cero.</p>
+<p><strong>JTAG, de golpe.</strong> La especificación JTAG es abstracta pero define un registro ID code de 32 bits, y las herramientas lo buscan solas. Con una sonda J-Link genérica y OpenOCD, el ID code apareció: <code>3F0F0F0F</code> —demasiado bonito para ser casualidad—. Buscado en Google, ese ID pertenece a dispositivos de Atmel, Analog Devices y STMicroelectronics con algo en común: núcleo <strong>ARM7</strong> (ARMv4/v5, no confundir con ARMv7). Declarando ARM7 en OpenOCD y conectando GDB, tres señales confirmaron el control: el consumo de corriente de la fuente de laboratorio bajaba de 114 a 98 mA al pausar la ejecución y volvía al continuar; los vectores de interrupción eran instrucciones ARM con sentido; y las direcciones de ejecución tenían coherencia. Acceso de depuración total —fácil aquí porque un sintetizador no es un dispositivo de alta seguridad; en objetivos endurecidos haría falta hardware exploitation para desbloquear el propio JTAG.</p>
+<h2>Volcado del firmware y el método Buscaminas</h2>
+<p>La tabla de vectores vive en la dirección 0 y en embebido suele estar en flash read-only: si arranca en 0, el flash arranca en 0. Volcado de 16 MB desde la dirección 0: los strings <code>SWL01U internal</code> se repetían cada 64 KB con el mismo offset —era la ROM interna del chip, no el flash—. El vector de reset apuntaba a <code>0x02000000</code>, y ahí sí: el volcado del flash real trajo nombres de voces, mensajes de UI y, reproducido en Audacity, muestras de piano, cuerdas y guitarra.</p>
+<p>Ingeniería inversa como el Buscaminas: se empieza con entradas comprensibles (strings, vectores), se aprende de las funciones que las usan, y ese conocimiento se propaga a las funciones que las llaman y a las que llaman, hasta cubrir el binario. El subsistema que importaba: <strong>un shell de diagnóstico</strong>.</p>
+<h2>El shell oculto y su protocolo escondido en MIDI</h2>
+<p>En Ghidra, los strings delatan una tabla de comandos: <code>help</code>, <code>?</code>, <code>info</code>, <code>ver</code>, <code>perf on/off/disp</code>, y comandos de lectura/escritura de memoria con sintaxis gdb-like (<code>d</code>, <code>ds</code>, <code>mm</code>, <code>mw</code>, <code>ml</code>). La estructura: una tabla de pares (nombre de comando, puntero a handler), un handler de entrada con máquina de estados de tres estados —0: espera <code>login</code>; 1: espera contraseña, correcta pasa a 2; 2: ejecuta comandos—, y funciones de impresión compartidas (<code>print prompt</code> emite <code>&gt;</code>).</p>
+<p>La pregunta era por dónde entra y sale ese shell. UART mudо, USB solo expone MIDI en sus descriptores (ni serial virtual ni red). La respuesta estaba en la función <code>print</code>: toma el string en bloques, separa cada byte en nibble alto y bajo (cada uno en su propio byte de salida), antepone un header fijo de 8 bytes y cierra con <code>F7</code>. Eso es, textualmente, un <strong>mensaje MIDI System Exclusive</strong>: <code>F0</code> inicia, <code>F7</code> termina, <code>43</code> es el ID de fabricante de Yamaha, y los 6 bytes restantes son la firma del shell. La expansión de cada byte en dos no es capricho: MIDI prohíbe bytes de datos con el bit alto en 1 (serían status bytes), así que partir en nibbles lo garantiza siempre.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Archivo MIDI<br>malicioso] --> B[Mensajes SysEx:<br>F0 + ID Yamaha 43<br>+ firma shell]
+    B --> C[Shell diagnóstico:<br>login / #0000]
+    C --> D[Comandos mm / mw / ml:<br>escritura arbitraria de memoria]
+    D --> E[Overwrite del return address<br>en el stack]
+    E --> F[Payload ARM en ejecución:<br>código arbitrario]
+
+</pre>
+
+<p>Probado en la dirección contraria, funcionó: un script Python que habla el mismo formato obtuvo el shell por MIDI —<code>login</code>, contraseña, <code>help</code>— sin ninguna conexión física al chip.</p>
+<h2>De escritura de memoria a código arbitrario</h2>
+<p>El comando <code>ml</code> (escribir palabra de 32 bits en dirección dada) verifica la escritura vía el propio JTAG: el valor aparece en RAM reescribible. Eso basta para binary exploitation 101 sin buscar ningún buffer overflow —los primitives de escritura están servidos—: sobrescribir el return address en el stack y desviar la ejecución a un payload en ensamblador ARM. La demo: un payload que pide al firmware escribir un string en el display, ensamblado a binario, convertido en comandos <code>ml</code>, empaquetado en SysEx, escrito a un archivo MIDI... y reproducido. "Hello World" en el display del sintetizador, sin cables.</p>
+<h2>Bad Apple en un display de texto</h2>
+<p>El display solo soporta texto (2 líneas de 8 caracteres, 5×8 píxeles por carácter), pero físicamente tiene decenas de segmentos no textuales. El controlador LCD expone una grilla de 40 segmentos por línea × 16 líneas en su DDRAM: la fila superior es texto, y cada segmento de la fila inferior está cableado a un segmento real del panel. El truco para video: usar la CG-RAM del controlador (8 caracteres personalizados de 5×8) para definir tiles, cargarlos una vez en el DDRAM y actualizarlos constantemente —video a 40×16 píxeles. La pelea final es contra el propio firmware: un RTOS con tabla de tareas mantiene los segmentos propios. La solución, elegante y reversible: copiar la tabla de tareas en RAM y sobrescribir las entradas que molestan, sin tocar el flash —si algo sale mal, basta desenchufar y volver a enchufar.</p>
+<h2>Alcance: no es un sintetizador, es toda una línea</h2>
+<p>Tras publicar el análisis, otros investigadores (Marisa Chan, CurlerUp, Euro1846, Xentra, con discusión abierta en GitHub) probaron el shell en más hardware:</p>
+<ul>
+<li><strong>E433</strong> (2012, el equipo original) hasta <strong>E473</strong> (2022): la gama educativa completa, una década.</li>
+<li><strong>DGX</strong> (piano digital, 2016): mismo shell, misma contraseña <code>#0000</code>.</li>
+<li><strong>P125</strong> (batería electrónica): los strings del shell aparecen en su firmware, sin dispositivo a mano para confirmar.</li>
+</ul>
+<p>La conclusión razonable: prácticamente toda la línea Yamaha de la época lleva este shell con escritura arbitraria de memoria accesible por MIDI. Un atacante solo necesita que la víctima reproduzca un archivo MIDI —una extensión de archivo inofensiva a los ojos de cualquiera—.</p>
+<h2>Anexo: el DSP del SWL01U</h2>
+<p>El chip lleva un DSP independiente del núcleo ARM que sigue sonando aunque se pause el ARM. Trabaja sobre registros memory-mapped en <code>0xFE00000060</code>, con dos áreas de 0x400 bytes: configuración global y parámetros de voz —32 voces × 16 parámetros de 16 bits—. De esos parámetros se identificaron pitch, decay, attack, volumen y panning por voz, y un registro global de configuración.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/87Ce_D8T7oI">«DEF CON 33 - Remote code execution via MIDI messages - Anna Antonenko»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

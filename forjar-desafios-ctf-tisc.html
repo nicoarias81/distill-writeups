@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forjar desafíos CTF: oficio, principios y la era de los agentes AI — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Forjar desafíos CTF: oficio, principios y la era de los agentes AI</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/EFqcMPPaK_I">«DEF CON 33 - Crafting Great CTF Challenges: Lessons from TISC&#x27;s Best - Ahn Sim»</a> · ver el <a class="nz-link" href="https://youtu.be/EFqcMPPaK_I">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>TISC (The Infosec Challenge) es el CTF anual que organiza CSIT en Singapur: individual —no por equipos, lo que hace que el premio de 30.000 SGD no se reparta—, multi-categoría (pwn, crypto, web y el resto), y con una motivación extra más allá del dinero: los finalistas quedan en agenda para insertarse en la industria de seguridad del país. Entender cómo se construyen sus desafíos es útil por partida doble: para jugadores que quieren subir de nivel y para quienes contemplan pasar al lado creador.</p>
+<p>El recorrido cubre el ciclo completo de creación: de dónde salen las ideas, qué hace difícil a un desafío (más allá de hacerlo tedioso), los principios de diseño que ordenan esas decisiones, los tropiezos propios de los retos de navegador, consejos para quienes recién empiezan a crear y —cierre obligado de la actualidad— cómo diseñar desafíos que resistan a la IA generativa, un problema que ya se siente como una crisis existencial para los creadores: un bot impulsado por Claude venció al 90% de los jugadores humanos.</p>
+<h2>De dónde salen las ideas</h2>
+<ul>
+<li><strong>Jugar mucho, en todo el espectro.</strong> Quien crea debe haber jugado de todo: PicoCTF para principiantes, picoCTF/Seasaw en el medio, Hack The Box/DEF CON CTF/Google CTF arriba. Jugar solo todas las categorías (como obliga el juego individual) expande el repertorio; los atajos de especialización llegan después, cuando se compite por ganar y una sola hard cuesta lo mismo que diez fáciles.</li>
+<li><strong>CVEs nuevas.</strong> Se publican a diario; casi siempre hay algo explotable que se puede convertir en desafío.</li>
+<li><strong>Problemas reales del trabajo.</strong> Lo encontrado en investigación o en el día a día laboral es material directo.</li>
+<li><strong>Tecnologías oscuras.</strong> El reversing de siempre cae en x64; proponer RISC-V o PowerPC ya es una curva distinta para el jugador.</li>
+</ul>
+<h2>Qué hace difícil un desafío (y qué lo hace solo pesado)</h2>
+<p>La dificultad legítima tiene tres fuentes:</p>
+<ol>
+<li><strong>Tecnología oscura y poca documentada.</strong> Servicios que obligan a leer documentación o el código fuente empujan al jugador a aprender algo nuevo.</li>
+<li><strong>Sistemas grandes.</strong> Una superficie de código del tamaño de Chrome es naturalmente difícil: el problema es la escala, no el enigma.</li>
+<li><strong>Etapas encadenadas (multi-stage).</strong> Combinar categorías —un front-end web que conduce a un reversing, con criptografía incrustada, que es el comodín que se puede añadir a cualquier reto— genera profundidad real.</li>
+</ol>
+<p>El vicio a evitar: la dificultad por tedio. Pruebas de fuerza bruta, búsquedas sin pistas, trabajo mecánico sin aprendizaje. Cada hora de tedio resta valor educativo y produce frustración, no habilidad. Un desafío "increíble" pero sin contenido pedagógico es un fracaso de diseño.</p>
+<h2>Dos principios de diseño</h2>
+<pre class="mermaid">
+flowchart LR
+    D["Desafío CTF"] --> P1["Principio 1:\nenseñar algo nuevo"]
+    D --> P2["Principio 2:\ncero tedio"]
+    P1 --> E1["Técnica desconocida\nconcepto no familiar\nmejora la habilidad"]
+    P2 --> E2["Se resuelve por\ncomprensión, no por\nfuerza bruta ni suerte"]
+    E1 --> V["Valor educativo"]
+    E2 --> V
+
+</pre>
+
+<p><strong>Principio 1: enseñar algo nuevo.</strong> Cada desafío debe introducir una técnica o un concepto que el jugador no conocía; resolverlo debe dejarlo mejor preparado.</p>
+<p><strong>Principio 2: nada de tedio.</strong> La solución debe llegar por comprensión. Sin fuerza bruta, sin adivinanza semántica sin pistas, sin rutas de solución que dependan de la suerte.</p>
+<h2>Caso de estudio: un bug de V8 en Google Chrome</h2>
+<p>El desafío del año anterior se basó en un bug tipo type confusion canónico en V8, el motor JavaScript de Chrome: la función de comparación de tipos solo cotejaba el índice de tipo (type index / ref index), sin el bitfield completo. Como resultado, dos referencias semánticamente distintas (<code>ref.t</code> y <code>ref.now.t</code>) podían aceptarse como el mismo tipo si compartían índice — la receta clásica de una confusión de tipos.</p>
+<p>La parte del bug era una sola función pequeña; el desafío real tenía dos capas:</p>
+<ul>
+<li><strong>Capa 1 — el bug.</strong> El fallo de tipo en sí, con su correspondiente parche (agregar una función <code>is_equal_accept_index</code> que verifique el bitfield).</li>
+<li><strong>Capa 2 — el gating.</strong> El código vulnerable solo se alcanzaba tras pasar un hash check: había que generar dos tipos referencialmente distintos pero estructuralmente idénticos en su hashing. La evasión era un ataque de birthday contra el hashing de tipos canónicos, que usa MumurHash de 64 bits: con 2^32 candidatos hay ~50% de probabilidad de colisión. Factible, pero no gratis.</li>
+</ul>
+<p>Qué lo hacía difícil, en los términos anteriores: conocimiento perishable (las técnicas de explotación de Chrome caducan en uno o dos años — un exploit que funcionaba ya no sirve), sistema complejo (aunque el parche sea de una línea, hay que entender hashing de tipos canónicos, índices, y el ecosistema completo antes de empezar) y multi-stage (confusión de tipos → out-of-bounds write → evadir el V8 sandbox → ejecución arbitraria de código: la escalera clásica de un exploit de Chrome).</p>
+<h2>Tropiezos propios del desafío de navegador</h2>
+<p>Consejos ganados a fuerza de equivocarse:</p>
+<ul>
+<li><strong>Eliminar las funciones helper que imprime el shell.</strong> El shell V8 (d8, el developer shell que permite sacar V8 del navegador para recrearlo) expone helpers como <code>realm.eval</code>: en una edición anterior, alguien resolvió el desafío entero y obtuvo el flag usando solo ese helper. Fix rápido de cinco minutos, pero lección: auditar toda la superficie que expone el entorno antes de publicar.</li>
+<li><strong>Tomar como referencia los estándares del área.</strong> Los desafíos V8 de referencia marcan qué es razonable pedir; imitarlos evita desafíos absurdos.</li>
+<li><strong>Cuidado con los bug trackers públicos.</strong> Si el bug base está cerca de ser público, puede abrirse en medio del CTF (y con PoC adjunto). En la edición anterior el tracker abrió a mitad del evento; el diseño sobrevivió porque aún había que romper el V8 sandbox para terminar, pero la dificultad bajó de facto.</li>
+<li><strong>Aceptar que un O-Day puede resolverlo.</strong> Con los O-Days de Chrome costando lo que cuestan, nadie los gastará en un CTF de 30.000 SGD: riesgo asumible.</li>
+</ul>
+<h2>Consejos para creadores (y jugadores)</h2>
+<ul>
+<li><strong>Jugar más CTFs, con CTFtime como radar.</strong> Las notificaciones de fines de semana y —sobre todo— los writeups ajenos son la mina de oro: leerlos enseña el razonamiento, no solo la respuesta.</li>
+<li><strong>Escribir writeups siempre.</strong> Como jugador y como investigador: fuera del CTF también, en cualquier trabajo de investigación técnica. Es gestión de conocimiento y obliga a pensar con claridad sobre lo que uno está haciendo.</li>
+<li><strong>No delegar en la IA sin aprender.</strong> Meter el desafío en un LLM y copiar la respuesta puntúa, pero no forma. Si se usa la IA para el flag, hay que volver después y entender qué hizo realmente.</li>
+<li><strong>No es buen momento para empezar a crear.</strong> La advertencia final, dicha en serio: con la IA generativa actual, el oficio de creador atraviesa su crisis existencial.</li>
+</ul>
+<h2>Diseñar contra la IA generativa</h2>
+<p>La evidencia del problema: un bot que jugaba CTFs con Claude vencía al 90% de los jugadores humanos. Las contra-medidas de diseño que se desprenden de esa experiencia:</p>
+<pre class="mermaid">
+flowchart TB
+    A["Desafío anti-IA"] --> B["Material novedoso:\nnueva clase de bug,\nsin paralelo en internet"]
+    A --> C["Criptografía\nincrustada"]
+    A --> D["Superficie enorme:\ncódigo base grande"]
+    B --> R["El modelo no\nencuentra patrón conocido"]
+    C --> R2["Razonamiento simbólico\nque frena al agente"]
+    D --> R3["Contexto desbordado\ny tokens quemados\ncostos de inference altos"]
+
+</pre>
+
+<ul>
+<li><strong>Contenido nicho y novedoso.</strong> Una clase de bug nueva, inexistente en la literatura indexada: si no hay nada parecido en internet, el modelo no llega por memoria ni por interpolación.</li>
+<li><strong>Criptografía en el desafío.</strong> Todavía funciona como freno —aunque, advertencia honesta, con los modelos de razonamiento recientes (Claude con extended thinking) esa confianza ya no es tan firme.</li>
+<li><strong>Superficie de ataque grande.</strong> Con un código base enorme se desborda el contexto del agente, se queman tokens y el intento se vuelve caro: matarlo por costo también es una estrategia válida.</li>
+<li><strong>Aceptar la nueva normalidad.</strong> El mito de que los jugadores pondrán los desafíos en un LLM ya es realidad generalizada; el diseño debe asumirlo, no ignorarlo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Crear buenos desafíos es un oficio con fundamentos: ideas de CVEs, trabajo real, tecnologías oscuras y mucha práctica jugando; dificultad legítima viene de oscuridad educativa, sistemas grandes y cadenas multi-stage, nunca de tedio.</li>
+<li>Los dos principios operativos —enseñar algo nuevo y prohibir la fuerza bruta— son criterios de aceptación binarios para cada diseño.</li>
+<li>Los desafíos de navegador suman riesgos propios: helpers del shell que saltan el reto completo, bug trackers que abren a mitad de evento, y O-Days como comodín asumible.</li>
+<li>La IA generativa cambió las reglas: vencer al 90% de los humanos ya es posible, y los creadores responden con novedad radical, criptografía, superficies grandes y diseño consciente del costo del agente.</li>
+<li>La práctica que sostiene todo, para ambos lados del escritorio: escribir writeups de todo lo que se juega y se investiga.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/EFqcMPPaK_I">«DEF CON 33 - Crafting Great CTF Challenges: Lessons from TISC&#x27;s Best - Ahn Sim»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

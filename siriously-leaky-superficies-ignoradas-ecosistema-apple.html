@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siriously Leaky: superficies de ataque ignoradas del ecosistema Apple — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Siriously Leaky: superficies de ataque ignoradas del ecosistema Apple</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/MWvpOW-PRJI">«DEF CON 33 - Siriously Leaky: Exploring Overlooked Attack Surfaces in Apple&#x27;s Ecosystem - Richard Im»</a> · ver el <a class="nz-link" href="https://youtu.be/MWvpOW-PRJI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Face ID protege el álbum oculto de Fotos, las pestañas privadas de Safari, las notas: o debería. La investigación recorre de forma sistemática los bordes de confianza de iOS —el punto exacto donde un componente de alta confianza entrega datos a otro sin re-verificar el candado— y encuentra una familia completa de fugas desde la pantalla de bloqueo. El patrón común no son exploits exóticos: son intents y handoffs entre daemons poco auditados, cachés de rendimiento que sobreviven al relock y comportamientos "normales" que nadie prueba. Algunos hallazgos recibieron CVE; otros fueron rechazados como "funcionamiento esperado".</p>
+<h2>El álbum oculto que habla con ChatGPT</h2>
+<p>La demostración central: foto guardada en el álbum oculto (iOS 18), desbloqueada con Face ID, cerrada y relockeada. Un "Hey Siri, qué hay en esta foto" hace que Siri pida por las APIs del sistema —sin screen scraping— la foto actual y la envíe a ChatGPT, que describe la imagen en voz alta desde el dispositivo bloqueado. También funciona "enviar esta foto a mamá": la foto sale adjunta por mensaje.</p>
+<p>La cadena interna explica el fallo:</p>
+<ul>
+<li>El sensor Face ID habla con el Secure Envelope (secure enclave); <strong>biometricd</strong> actúa de broker biométrico y entrega el resultado a LocalAuthentication, que autoriza el desencriptado del álbum.</li>
+<li>Fotos no dibuja la imagen directamente: lo delega en <strong>Photos Image Conversion Service</strong>, un servicio XPC que prepara thumbnails y variantes a tamaño de pantalla por rendimiento.</li>
+<li>Al salir, la UI relockea, pero <strong>relockear no es destruir cada copia en caché</strong>: los últimos píxeles vistos siguen "tibios" en memoria y accesibles vía el helper.</li>
+<li><strong>Springboard</strong> escucha el "Hey Siri" y lanza <strong>assistantd</strong>, que convierte la frase en un intent estructurado ("analiza la foto actual"). La petición no va a la UI de Fotos lockeada: va por el lateral al helper de imágenes, que antes del fix de iOS 18.5 devolvía los píxeles cacheados sin preguntar si la foto venía del álbum oculto o si este estaba desbloqueado.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A["Face ID -> Secure Enclave"] --> B[biometricd] --> C[LocalAuthentication]
+    C --> D[Fotos desbloquea álbum oculto]
+    D --> E[Photos Image Conversion Service
+XPC: thumbnails cacheados]
+    F["Hey Siri (Springboard)"] --> G[assistantd
+intent: foto actual]
+    G --> H[Helper devuelve caché
+sin re-verificar lock]
+    H --> I[ChatGPT / Mensaje enviado]
+
+</pre>
+
+<h2>Spotlight en la pantalla de bloqueo: CVE-2024-44235</h2>
+<p>Buscar "Notes", "Pages", "Numbers" o "Keynote" en Spotlight con el dispositivo bloqueado devolvía una miniatura del último documento: el contenido de la primera página de un archivo Pages, la preview de la última nota (donde la gente escribe contraseñas), la última hoja de cálculo o la última presentación —"despedimos a Bob el viernes" visible por quien esté mirando el teléfono ajeno—. Asignado como <strong>CVE-2024-44235</strong>, corregido en iOS 18.1.</p>
+<h2>Action shortcuts: lo que Springboard no verificaba</h2>
+<p>Los action shortcuts de Spotlight ("play current", "read current", "ask ChatGPT") pasaban por el Springboard Launcher, donde corre el chequeo de lock interno (SB lock check). El comportamiento fue inconsistente durante el beta de iOS 18:</p>
+<ul>
+<li><strong>Zoom lo implementó bien desde el principio:</strong> pedir la agenda del día en lock exigía Face ID.</li>
+<li><strong>Books no:</strong> con el dispositivo bloqueado, "play current" reanuda el audiolibro —aunque la app se hubiera forzado a cerrar, el teléfono reiniciado y hubieran pasado semanas—. Apple lo rechazó como "funcionamiento esperado" (lo equiparan a música y podcasts). Audible es peor: el shortcut permite reproducir contenido que ni siquiera fue lo último escuchado.</li>
+<li><strong>ChatGPT:</strong> el shortcut "Ask ChatGPT" en lock permitía preguntas y seguimientos ("¿de qué hablamos hace poco?") que devolvían el contenido de conversaciones previas —datos que la gente usa como terapeuta—. OpenAI lo corrigió.</li>
+</ul>
+<h2>Safari privado y la race condition</h2>
+<p>Con "Lock Safari tabs" activado, las pestañas privadas piden Face ID. Una race condition en Shortcuts lo saltaba: ejecutar el shortcut "crear pestaña privada" mostraba el contenido de la pestaña privada un instante antes de que el chequeo biométrico apareciera. Corregido en <strong>iOS 18.3</strong>.</p>
+<h2>La fuga por Reminders: URL del último uso</h2>
+<p>Otro camino distinto, culpa de Apple: con el teléfono bloqueado, "Hey Siri, añade esta página a recordatorios" captura la URL y el título de lo último abierto —la conversación de ChatGPT de la que uno se arrepiente o la página que se estaba viendo en Safari—. El flujo interno (Search UI → searchd → Springboard Launcher → intent) vuelve al mismo patrón: handoff sin re-verificación del candado.</p>
+<h2>Contacts: whitespace, RFC 5322 y redirección de correos</h2>
+<p>Editar el email de un contacto con muchos espacios en blanco pegados y una dirección entre angle brackets hace que la UI muestre la primera dirección mientras <strong>RFC 5322 decide que el destinatario real es el de dentro de los angle brackets</strong>: el correo que parece ir a un contacto va a un atacante. El teclado no permite escribir <code>&lt;</code> y <code>&gt;</code> en ese campo, pero copiar-pegar los introduce igual —Apple asumió que sin teclado no hay ataque—. Microsoft Outlook tenía el mismo fallo, peor: Mail al menos dejaba ver en Enviados el destino real; Outlook mostraba como destinatario la dirección falsa incluso después de enviado (corregido unos dos meses después del parche de Apple).</p>
+<h2>RTLO: suplantación de archivos y números de teléfono</h2>
+<p>El carácter Unicode right-to-left override permite:</p>
+<ul>
+<li><strong>Archivos:</strong> renombrar un archivo con salto de línea (pegado desde otra app; Apple asumía que Enter siempre guarda sin line break) y RTLO incrustado: un mobileconfig se muestra como <code>Pikachu.pdf</code> aunque el sistema tenga "mostrar extensiones" activo.</li>
+<li><strong>Números de teléfono:</strong> la preview de llamadas muestra un número; el que realmente se marca es otro.</li>
+<li><strong>Enlaces en Notes:</strong> el enlace visible no es el enlace real.</li>
+</ul>
+<h2>Apple Intelligence: mezclar generative assistant y writing tools</h2>
+<p>Siri enruta cada petición Apple Intelligence a on-device, Private Cloud Compute (PCC) o ChatGPT. Mezclando los dos modos —una petición de writing tools compose con instrucciones de generative assistant pipadas en el mismo texto— Siri filtraba <strong>datos de PCC y prompts anteriores cacheados</strong>. Corregido en <strong>iOS 18.4</strong>.</p>
+<h2>El IDOR que Apple no quiso llamar IDOR</h2>
+<p>En getsupport.apple.com, el detalle de cualquier ticket de soporte se obtiene con número de ticket + apellido. Apple argumentó que no es un IDOR real porque hace falta el apellido; con apellidos comunes (Smith, Johnson, Brown, Jones, Williams) y números de ticket <strong>asignados de forma incremental</strong>, un brute force trivial encuentra tickets válidos y expone el detalle completo de solicitudes de soporte ajenas.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Los componentes de alta confianza también merecen escrutinio</strong> —de hecho, más: el fallo está donde un daemon confiado entrega datos a otro daemon confiado sin re-verificar el candado.</li>
+<li><strong>Face ID no es infalible si los límites de confianza no se refuerzan</strong> en cada handoff: relockear la UI no invalida las cachés.</li>
+<li><strong>Los intents y los handoffs entre daemons son superficie poco auditada</strong>; el patrón se repite en cada hallazgo del recorrido.</li>
+<li><strong>Unicode y whitespace son superficie de ataque masivamente inexplorada</strong> (RTLO, espacios en RFC 5322, saltos de línea pegados).</li>
+<li><strong>Buscar bugs lógicos en comportamiento "normal"</strong>: la mayoría de hallazgos no requieren memory corruption.</li>
+<li><strong>Las betas de cada release de iOS son terreno fértil</strong> para investigar; el programa beta público permite comparar versiones.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/MWvpOW-PRJI">«DEF CON 33 - Siriously Leaky: Exploring Overlooked Attack Surfaces in Apple&#x27;s Ecosystem - Richard Im»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

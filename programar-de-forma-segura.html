@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo programar de forma segura y no morir en el intento — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Cómo programar de forma segura y no morir en el intento</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/kuV2ew6VnSE">«Cómo programar de forma segura y no morir en el intento»</a> · ver el <a class="nz-link" href="https://youtu.be/kuV2ew6VnSE">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un consultor en seguridad con más de 24 años de experiencia en análisis de código estático recorre los errores de desarrollo que todavía se encuentran en la mayoría de las auditorías: credenciales en el código fuente, contraseñas en bitácoras, cifrado mal aplicado y validaciones del lado equivocado. La tesis de fondo: nadie nace programando inseguro, todos aprendemos con ejemplos inseguros — documentación oficial, libros y ahora ChatGPT — y hasta que las páginas de referencia no enseñen lo contrario, las mismas fallas van a repetirse en cada proyecto.</p>
+<h2>Aprendimos inseguro: la documentación como fuente de vulnerabilidades</h2>
+<p>La historia personal arranca aprendiendo a programar con un suplemento del diario Crónica, en una computadora sin internet, cuando la seguridad ni se mencionaba — ni la NASA escapaba, con códigos de cuatro dígitos. Recién en los años 2000, con OWASP y su lema "no quiero más software inseguro", y con MITRE y sus listas de errores comunes y patrones de ataque, empezó a ordenarse el mapa de cómo atacar y defender sistemas.</p>
+<p>El problema de fondo del aprendizaje: los ejemplos son minimalistas y así lo enseñan las fuentes más confiables.</p>
+<ul>
+<li><strong>Microsoft</strong> documentaba guardar credenciales en archivos de configuración — hoy tiene CVE asignado (CWE-260).</li>
+<li><strong>Laravel</strong> mostraba como buena práctica embeber claves en el código fuente.</li>
+<li><strong>Go y Spring</strong> recomendaban configuraciones en variables de entorno, igual que los Dockerfiles con credenciales de acceso a servicios.</li>
+<li><strong>SQL Server y Visual Studio</strong> decían que concatenar strings estaba buenísimo — justo el patrón que produce inyección SQL, una de las vulnerabilidades de mayor impacto porque compromete la base de datos completa de la empresa.</li>
+<li><strong>ChatGPT</strong> genera la misma mezcla: al pedirle una demo, devuelve una consulta parametrizada ("aplauso") con credenciales hardcodeadas en el código fuente. Al reclamarle, tras gastar "300.000 litros de agua", responde "buen punto" y sugiere tres opciones: archivo de configuración (mal), variables de entorno (peor) y gestor de secretos — la única respuesta correcta. Además califica de "seguridad media" a una opción: la seguridad no tiene puntos intermedios, es segura o no es segura.</li>
+</ul>
+<p>Lo alentador: .NET 9 ya advierte en rojo que no se deben usar variables de entorno. El dato de campo de las auditorías: la inyección SQL se ve muy poco — hubo mucho esfuerzo detrás — pero <strong>manejo de contraseñas y bitácoras aparecen en todos los clientes</strong>.</p>
+<h2>Modelado de amenazas y STRIDE</h2>
+<p>Antes de escribir código, hay que pensar en qué pasaría si un atacante consigue acceso al servidor o ejecuta código remoto. La técnica es STRIDE, con sus seis categorías:</p>
+<ol>
+<li><strong>Suplantación de identidad</strong> — permite bypasear la autenticación.</li>
+<li><strong>Manipulación</strong> — rompe la integridad de la información.</li>
+<li><strong>Repudio</strong> — ataca la auditabilidad del sistema.</li>
+<li><strong>Divulgación de información</strong> — pierde confidencialidad.</li>
+<li><strong>Denegación de servicio</strong> — afecta la disponibilidad.</li>
+<li><strong>Elevación de privilegios</strong> — rompe la autorización: alguien accede donde no tiene acceso.</li>
+</ol>
+<p>En el modelado también entra el acceso físico: con acceso a la placa se pueden interceptar los buses de datos. Y los chips seguros — TPM, Secure Enclave — lo son solo si están bien implementados: el caso de Lenovo donde una plaquetita conectada al inicio recuperaba la clave de BitLocker en texto plano lo demuestra; todas las medidas de seguridad habidas y por haber no sirven si un mal diseño transacciona la clave sin cifrar.</p>
+<p>Para las credenciales existen cinco lugares posibles: incrustadas en el código, en archivos de configuración, en variables de entorno, en circuitos integrados específicos (TPM) y en gestores de contraseñas. Las dos últimas — chip bien implementado y gestor de secretos — son las únicas aceptables.</p>
+<h2>Principios de seguridad y separación de funciones</h2>
+<p>Los cuatro principios: <strong>privilegio mínimo y separación de funciones</strong>, <strong>defensa en profundidad</strong>, <strong>confianza cero</strong> (no confiar en nada, ni en lo que uno mismo lee o transacciona) y <strong>seguridad abierta</strong> (que un atacante conozca el diseño no debería bastarle para romperlo; borrar el nombre de un chip solo dificulta la ingeniería inversa "un cachito así").</p>
+<p>Dentro de privilegio mínimo y separación de funciones:</p>
+<ul>
+<li><strong>Privilegios y recursos mínimos</strong>: lo indispensable para el trabajo. Quien solo carga una factura no necesita ver registros contables ni financieros; y en una red no hacen falta 25 administradores.</li>
+<li><strong>Transacciones en múltiples etapas</strong>: un movimiento crítico de dinero o bienes en una sola etapa permite empaquetar un ataque con toda la información necesaria.</li>
+<li><strong>Controles cruzados</strong>: roles distintos en varias personas; quien produce bienes no controla el stock. Habilitan verificar que la transacción se hizo correctamente y el no repudio.</li>
+</ul>
+<p>Sin esto, la superficie de ataque se amplía, aparece el acceso no autorizado (sin credenciales) y el abuso de privilegios (con credenciales pero más allá de lo acordado), el fraude, la manipulación de registros, la dificultad para detectar intromisiones y la difusión de responsabilidades. El ejemplo anecdótico: la documentación de Microsoft recomendando ejecutar un servicio como <code>local system</code>, la cuenta con más privilegios del sistema operativo, para una tarea trivial.</p>
+<h2>Defensa en profundidad: qué busca un atacante dentro</h2>
+<p>Defensa en profundidad es usar múltiples capas: si una falla, las otras sostienen el sistema. Una red permisiva donde todo el mundo ve todo, un dispositivo con contraseña "12345678", una app con permisos elevados y una base de datos sin seguridad es un problema en puerta.</p>
+<p>Cuando un atacante ya tiene acceso — físico o remoto — busca cuatro cosas para seguir saltando:</p>
+<ol>
+<li><strong>Secretos</strong> guardados en archivos o configuraciones.</li>
+<li><strong>Binarios</strong> que puede reversar.</li>
+<li><strong>Configuraciones</strong> con credenciales de servicios externos y bases de datos.</li>
+<li><strong>Bitácoras</strong>: "a todo el mundo le encanta escribir en bitácoras toda la transacción, inclusive el login" — hay credenciales de usuarios guardadas hermosas para tomarlas y usarlas.</li>
+</ol>
+<h2>Criptografía aplicada sin morir</h2>
+<ul>
+<li><strong>Hash</strong>: función matemática irreversible, para guardar contraseñas. Nunca guardar la contraseña en la base; se compara el hash calculado contra el almacenado. Ojo con hashes obsoletos: si se reversean por fuerza bruta, hashear es lo mismo que no hashear.</li>
+<li><strong>Cifrado</strong>: bidireccional, para confidencialidad. Aplica a datos en tránsito y en reposo, y a información sensible (datos personales, secretos comerciales e industriales). El <strong>simétrico</strong> usa la misma clave para cifrar y descifrar: si esa clave viaja en la aplicación mobile, el atacante la obtiene en cinco segundos — si no se puede resguardar la clave, no hay que cifrar. El <strong>asimétrico</strong> cifra con la clave pública y descifra con la privada, que hay que resguardar bajo 25 millones de llaves.</li>
+<li><strong>Firma</strong>: asegura el origen del mensaje. El uso normal es el JWT, pero también archivos transaccionales bancarios — archivos de texto grandes separados por coma, más rápidos de procesar — donde modificar un registro para generarse plata sería indetectable si el archivo no va firmado. Regla: <strong>la firma nunca puede estar del lado del atacante</strong>, porque el secreto de firma permite generar firmas válidas.</li>
+<li><strong>Cifrado sobre cifrado</strong>: no. Si el cuerpo del mensaje llega ya cifrado a nivel de red, el firewall de aplicaciones no puede inspeccionar el payload y no se puede poner una regla ante un zero day en curso; además, cifrar y descifrar cuesta performance. Empresas de seguridad que venden doble cifrado no necesariamente venden más seguridad.</li>
+</ul>
+<h2>Firmar binarios, evitar eval y registrar bien</h2>
+<ul>
+<li><strong>Firma de código</strong>: antivirus y EDR ayudan, pero una política de "todo lo que se ejecuta acá tiene que estar firmado digitalmente" es una protección casi trivial contra cualquier malware con ejecución local: el atacante no firma código (exige pasar validaciones) y, si firmara, no tendría una entidad firmante de confianza definida. En el mundo Microsoft, PKI + políticas de grupo alcanza para exigir scripts de PowerShell y binarios firmados.</li>
+<li><strong>Ejecución dinámica de código</strong>: <code>eval</code> es CWE-95; sin saneo correcto permite leer archivos de configuración, enviarlos a casa y agregar aplausitos al final. Las llamadas al sistema operativo también exigen saneo — de argumentos y de nombres — o un punto y coma habilita múltiples acciones.</li>
+<li><strong>Bitácoras</strong>: registrar bien es tener trazabilidad completa — quién fue el atacante, cómo, cuándo, qué hizo y con qué. No registrar demasiado: guardar la transacción completa de la tarjeta de crédito entrega la tarjeta de todos los clientes a quien acceda al log. Se registra el identificador de la factura, la fecha, la IP de origen — eso remite a la base de datos y permite auditar la vuelta completa. Y neutralizar entradas y salidas del log (CWE-117): concatenar el parámetro recibido directamente en la bitácora es exactamente lo que hizo posible Log4Shell, que un viernes a la noche obligó a parchear todo el planeta antes del fin de semana.</li>
+</ul>
+<h2>Manejo de archivos y path traversal</h2>
+<p>El patrón habitual en cada path traversal encontrado: obtener el directorio de ejecución y concatenar el archivo que pide el usuario. El atacante responde con <code>../../..</code> y accede a cualquier ruta: sirve para <strong>sobrescribir</strong> archivos (configuraciones, binarios) si hay control de lo que se graba, o para <strong>leer</strong> el web.config de cualquier servidor web. La mitigación son dos líneas: comparar si el directorio resultante de la concatenación es igual al directorio donde se estaba; si es distinto, hay path traversal.</p>
+<h2>El decálogo final: patrones de diseño seguros</h2>
+<ol>
+<li><strong>Validar siempre al inicio de la función</strong>: validación de parámetros, luego acceso al recurso, luego validación de la información.</li>
+<li><strong>Toda validación del lado del servidor</strong>: validar del front por user experience está perfecto, pero toda validación del front debe repetirse del back.</li>
+<li><strong>La excepción siempre</strong>: si no se cumplen todos los pasos, expulsar al usuario; ahí es donde nace la vulnerabilidad.</li>
+<li><strong>Verificar la salida de cada función</strong>: que sea la esperada por quien la invoca — una consulta que devuelve <code>comilla, drop database</code> concatenado en otra consulta termina en inyección SQL que da de baja toda la base, o en ejecución remota de código en los clientes si esa salida termina en una página web.</li>
+<li><strong>Sanear toda la información recibida de recursos externos</strong>: confianza cero incluye a la propia base de datos — un atacante con acceso pudo haber insertado registros manipulados. Sanear es trivial: no existe un nombre llamado "Mariano mayor-que menor-que cosito"; se queda la A a la Z, el espacio y nada más.</li>
+<li><strong>Todos los controllers requieren autenticación, seguro por defecto</strong>: todo privado, y de forma explícita se marca qué es anónimo.</li>
+<li><strong>Filtrado de base de datos global y dependiente del usuario autenticado</strong>: inyectar el ID del usuario autenticado en cada consulta evita el IDOR, donde un usuario descarga toda la base de datos sin que nadie se entere. "No lo hace nadie."</li>
+<li><strong>No confiar en los datos recibidos ni en las propias fuentes</strong>: un enter mal colocado en un archivo separado por comas ya arma un registro falso.</li>
+<li><strong>No confiar en lo que se ve en la web</strong>: las prácticas inseguras están incluso en sitios de confianza; ante cada ejemplo — Stack Overflow, ChatGPT — preguntarse "¿qué pasaría si...?". El caso típico: un archivo zip con una entrada <code>../../app.config</code>, vulnerabilidad muy conocida en zip.</li>
+<li><strong>Aprender a desarrollar seguro desde junior</strong>: incorporar buenas prácticas de chico es más fácil que corregirlas de senior; hay que exigirlo desde la universidad y revisar todo el código que entrega la IA.</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+    A[Llega un dato: usuario, recurso externo, archivo] --> B[Validar al inicio de la funcion]
+    B --> C[Acceder al recurso]
+    C --> D[Validar la informacion obtenida]
+    D --> E[Sanear: solo los caracteres legitimos]
+    E --> F[Verificar que la salida es la esperada]
+    F --> G[Registrar el identificador, no el dato sensible]
+    B -- falla --> X[Excepcion: expulsar al usuario]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OWASP</strong> (Top 10, lema anti software inseguro) y <strong>MITRE</strong> (CWE, patrones de ataque, ATT&amp;CK).</li>
+<li><strong>STRIDE</strong> — modelado de amenazas en seis categorías.</li>
+<li><strong>Gestores de secretos y TPM</strong> — las dos ubicaciones de credenciales aceptables.</li>
+<li><strong>Hash, cifrado simétrico/asimétrico y firma digital</strong> — cuándo usar cada uno.</li>
+<li><strong>JWT y archivos transaccionales firmados</strong> — firma para integridad y origen.</li>
+<li><strong>PKI + políticas de grupo</strong> — exigir binarios y scripts firmados en entornos Microsoft.</li>
+<li><strong>CWE-260</strong> (credenciales en configuración), <strong>CWE-95</strong> (eval), <strong>CWE-117</strong> (neutralización de logs).</li>
+<li><strong>Mitigación de path traversal en dos líneas</strong> — comparar directorio resultante contra el directorio base.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Nadie programa inseguro por maldad: se programa inseguro porque la documentación, los libros, Stack Overflow y ahora los asistentes de IA enseñan ejemplos minimalistas con credenciales en el código y strings concatenados.</li>
+<li>Las fallas migran: la inyección SQL casi desapareció del mapa de auditorías porque hubo esfuerzo de educación, pero el manejo de contraseñas y de bitácoras aparece en todos los clientes — ahí está la próxima batalla.</li>
+<li>La criptografía no es decoración: cada primitiva tiene un uso correcto (hash para contraseñas, cifrado para confidencialidad, firma para origen) y cada clave colocada del lado del atacante convierte la protección en un regalo.</li>
+<li>Seguro por defecto, validación al inicio, saneo sistemático y filtrado por usuario autenticado son patrones baratos: dos líneas de código contra el path traversal, un filtro global contra el IDOR.</li>
+<li>El remedio de fondo es educativo: buenas prácticas desde junior, universidades que exijan desarrollo seguro, y revisar todo el código que la IA entrega con sus comentarios muy bonitos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/kuV2ew6VnSE">«Cómo programar de forma segura y no morir en el intento»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

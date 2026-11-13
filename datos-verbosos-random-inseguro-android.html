@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adivinando lo impredecible: explotar la aleatoriedad insegura de una app Android con datos verbosos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Adivinando lo impredecible: explotar la aleatoriedad insegura de una app Android con datos verbosos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/3HAfsx0hZ3o">«Leveraging Verbose Data to exploit Insecure Randomization in Mobile apps -Allan Trindad»</a> · ver el <a class="nz-link" href="https://youtu.be/3HAfsx0hZ3o">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Hay una clase de aplicaciones móviles que filtra, en pantalla y en logs, mucha más información de la que cree. Mensajes como "el número es más alto", "usuario no encontrado en la base de datos" o "PIN incorrecto, intente de nuevo" parecen detalles de usabilidad, pero son <strong>datos verbosos</strong> que un atacante puede automatizar y convertir en canal de información. Este artículo muestra, sobre dos aplicaciones vulnerables de adivinar un número, cómo combinar <code>java.util.Random</code> mal sembrada, Android Debug Bridge (ADB) y UI Automator para construir un exploit que acierta el número secreto en pocos intentos — y cómo la misma técnica generaliza a escenarios reales de enumeración y fuerza bruta.</p>
+<p>El punto de partida son dos challenges similares (una "guess the number app" y el "Mobile Hacking Lab 'Gets Me' challenge"): adivinar un número del 1 al 100 con solo 10 intentos, con feedback de "más alto"/"más bajo" en pantalla. La explotación pasa por tres capas: entender el código de la app, entender por qué su generación de números es predecible, y automatizar la interacción para aprovechar cada respuesta.</p>
+<h2>ADB: el cuchillo suizo del pentesting Android</h2>
+<p>Antes de tocar el código conviene recordar qué puede hacer <strong>Android Debug Bridge (ADB)</strong>: depurar aplicaciones (incluido debugging vía Java Debug Wire Protocol), acceder a archivos y settings, hacer push/pull de archivos, ejecutar comandos, reiniciar el dispositivo, instalar apps, capturar pantallas y, lo más importante para este caso, <strong>automatizar tareas</strong>, porque todo se puede scripted desde un terminal.</p>
+<p>Un ejemplo mínimo de automatización completa de la UI sin tocar el dedo: iniciar la app llamando su main activity, escribir un número en el campo de texto con <code>adb input</code>, saltar del input al botón "check" con el keycode TAB, confirmar con el keycode ENTER, y cerrar la app con <code>force-stop</code>. Todo desde comandos encadenados en un script.</p>
+<p>La puerta de entrada para entender la app es siempre el <strong>AndroidManifest</strong>: declara activities exportadas, services, broadcast receivers e intent filters. En estas apps la main activity está con <code>exported="true"</code> — por eso ADB puede lanzarla directamente; con <code>exported="false"</code> no sería posible. El intent filter con la categoría launcher confirma que es la pantalla inicial.</p>
+<h2><code>java.util.Random</code> no es aleatorio</h2>
+<p>La ingeniería inversa de la main activity revela los detalles que el exploit necesita:</p>
+<ul>
+<li>La app muestra en pantalla los intentos restantes ("chances left").</li>
+<li>Al ganar dice "you won" y deshabilita el botón de adivinar (<code>enabled=false</code>).</li>
+<li>Indica si el número probado es <strong>más alto</strong> o <strong>más bajo</strong> que el secreto.</li>
+<li>Al perder revela el número correcto y deshabilita el botón.</li>
+<li>Al iniciar una partida nueva, instancia una función <code>Random</code> <strong>sin seed explícito</strong>.</li>
+</ul>
+<p>Ese último punto es la vulnerabilidad. Cuando <code>java.util.Random</code> no recibe un seed, usa por defecto el tiempo del sistema en milisegundos. Y <code>Random</code> es determinista: en JShell, dos instancias sembradas con el mismo valor (por ejemplo 1337) generan exactamente la misma secuencia. Quien adivine el seed, adivina el número secreto. <code>SecureRandom</code>, en cambio, con el mismo seed (como byte array) produce valores completamente distintos — por eso es la elección correcta para cualquier valor que deba ser impredecible.</p>
+<h2>El exploit time-based</h2>
+<p>La primera versión del exploit es un programa Java que usa <code>Runtime.getRuntime()</code> para ejecutar comandos de shell contra ADB: abre la app, ingresa un número calculado a partir del timestamp actual del sistema, y recorre la UI con TABs y ENTERs para reiniciar el juego en un bucle. La hipótesis: si el seed es el tiempo en milisegundos del momento del "new game", probar seeds cercanos debería acertar.</p>
+<p>Hay un refinamiento fino: en lugar de tomar el timestamp propio del exploit antes de pulsar el botón, el script <code>timestamp.sh</code> <strong>lee el timestamp del log de ADB logcat</strong>. Cada vez que ADB envía el keycode ENTER, la app genera una entrada de log con su marca de tiempo, y ese instante está más cerca del momento en que la app llama a <code>Random</code> que cualquier timestamp calculado fuera. El script parsea el log con <code>gdate</code> y lo lleva al formato exacto que espera la app (tres dígitos más de longitud que un timestamp común). El rango de búsqueda se arma entre el timestamp inicial y el final alrededor de cada intento.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Iniciar app vía ADB] --> B[Leer timestamp del logcat<br/>al enviar ENTER]
+    B --> C[Probar número derivado del seed]
+    C --> D{¿Acertó?}
+    D -- no --> E[Reiniciar juego<br/>bucle de TABs/ENTER]
+    E --> B
+    D -- sí --> F[Número secreto encontrado]
+
+</pre>
+
+<p>En el video de demostración, el exploit acierta en tres intentos. Pero en la práctica esa versión fallaba la mayoría de las veces: el margen de error es enorme y la app solo da <strong>10 intentos</strong>. Sin ese límite, la fuerza bruta sobre el tiempo siempre terminaría triunfando; con él, hacía falta una mejora.</p>
+<h2>UI Automator: convertir la pantalla en canal de información</h2>
+<p>La mejora llega con <strong>UI Automator</strong>, la herramienta de línea de comandos del Android SDK que permite interactuar con la UI y volcarla. La clave es su función <code>dump</code>, que genera un XML de la pantalla actual: para cada nodo (botones, campos de texto) expone si es clickable, si está habilitado, si es un campo de contraseña y sus <strong>bounds</strong> (coordenadas), que permiten pulsarlo directamente en vez de navegar a ciegas con TABs.</p>
+<p>Con el dump, todos los mensajes verbosos de la app se vuelven consumibles: el exploit hace <code>pull</code> del <code>window.xml</code>, lo parsea con DocumentFactory y busca las cadenas "too high" o "too low". Eso habilita el segundo enfoque: <strong>búsqueda binaria</strong>. Si la app dice "más alto", el secreto está por encima; si dice "más bajo", por debajo. El exploit ajusta en tiempo real el extremo inferior y superior de su rango de búsqueda y reintenta, pulsando los botones por coordenadas obtenidas del dump.</p>
+<pre class="mermaid">
+flowchart LR
+    A[adb shell uiautomator dump] --> B[Pull + parseo del window.xml]
+    B --> C{Texto en pantalla}
+    C -- "too high" --> D[Bajar el límite superior]
+    C -- "too low" --> E[Subir el límite inferior]
+    D --> F[Probar el punto medio]
+    E --> F
+    F --> B
+
+</pre>
+
+<p>El resultado: el número secreto se encuentra en <strong>cuatro intentos</strong>, con una tasa de éxito cercana al 99% de las ejecuciones. La combinación de aleatoriedad predecible + datos verbosos + automatización de UI convierte un challenge en un exploit confiable.</p>
+<h2>Más allá del challenge: usos reales</h2>
+<p>La técnica generaliza a cualquier app que verbalice el estado de sus validaciones:</p>
+<ul>
+<li>Formularios que avisan "email inválido" o "CPF inválido" (el CPF es el documento brasileño, y algunas apps lo validan en línea) permiten distinguir valores válidos de inválidos desde la UI.</li>
+<li>Un login que responde "usuario no encontrado en la base de datos" para un usuario inexistente y "contraseña incorrecta" para uno existente habilita <strong>enumeración de usuarios</strong>.</li>
+<li>Un PIN que responde "try again" es fuerza bruta automatizable: el dump XML contiene la cadena, así que el script sabe cuándo reintentar.</li>
+</ul>
+<p>¿Por qué no atacar directamente la API con Burp Intruder? A veces no es posible: hay aplicaciones con <strong>SSL pinning</strong> que no se puede romper en el momento. Atacar la capa de UI es una vía alternativa que sigue disponible. Y cuando la pantalla no dice nada, los <strong>logs</strong> (via logcat) suelen contar otra historia: a veces la app no muestra lo que pasa, pero sí lo registra.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La aleatoriedad insegura es una vulnerabilidad real</strong>: <code>java.util.Random</code> sin seed usa el reloj del sistema y es determinista; con el seed correcto, el "secreto" se recalcula. <code>SecureRandom</code> existe para eso.</li>
+<li><strong>Los mensajes de error verbosos son un oráculo</strong>: "más alto/más bajo", "usuario no encontrado", "PIN incorrecto" convierten la UI en un canal de información explotable, especialmente vía búsqueda binaria.</li>
+<li><strong>ADB + UI Automator permiten explotar sin tocar la pantalla</strong>: iniciar la app, escribir, navegar, pulsar por coordenadas y leer el dump XML se puede automatizar por completo, incluyendo la lectura del estado del botón (habilitado/deshabilitado) como señal.</li>
+<li><strong>La UI es plan B cuando la API está blindada</strong>: con SSL pinning que no se puede romper, automatizar la interacción con la pantalla y sus logs es una vía de evaluación igual de válida.</li>
+<li><strong>El límite es la creatividad</strong>: el random inseguro era el ejemplo, pero el patrón —abusar de datos verbosos y automatización de UI— aplica a enumeración, fuerza bruta y detección de exposición excesiva de datos en muchas otras apps.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/3HAfsx0hZ3o">«Leveraging Verbose Data to exploit Insecure Randomization in Mobile apps -Allan Trindad»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

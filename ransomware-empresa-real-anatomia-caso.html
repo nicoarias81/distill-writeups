@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ransomware en una empresa real: anatomía de un caso y qué hacer cuando ya pasó — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Ransomware en una empresa real: anatomía de un caso y qué hacer cuando ya pasó</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WP1KpkZ_-4M">«Ransomware 360° I Gabriel Anselmi  I Jornada de Ciberseguridad para estudiantes»</a> · ver el <a class="nz-link" href="https://youtu.be/WP1KpkZ_-4M">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un gerente general escribe: "me tomaron todo el sistema de la empresa, ¿qué hago?". Más de 200 empleados, todos los equipos cifrados, un técnico terciarizado que administra el sistema, servidores virtualizados en un data center y la palabra "ransomware" en la pantalla porque la nota de rescate lo decía sin que nadie supiera qué significaba. Este es el caso real que estructura el análisis: cómo responder paso a paso ante un ransomware, qué errores cometió la víctima, por qué pagar el rescate no sirve y qué medidas convierten una próxima infección en un incidente contenido en lugar de un negocio perdido.</p>
+<p>La premisa de fondo: el ransomware dejó de ser solo una extorsión para recuperar datos. Hoy hay variantes que no cifran sino que destruyen directamente (como NotPetya, que tomó la red eléctrica de Ucrania y arrastró a media Europa), y la respuesta correcta empieza mucho antes del ataque — en la segmentación de red, los backups y la capacitación — porque el día que estalla, ya es tarde para improvisar.</p>
+<h2>Entender el encargo: qué esperan quienes llaman</h2>
+<p>Antes de tocar una sola máquina hay que preguntarle al cliente qué espera: ¿buscar un culpable, solucionar el problema, entender qué pasó? La respuesta condiciona todo el trabajo, porque un análisis de ciberseguridad tiene consecuencias económicas y legales. Si el técnico expone demasiadas cosas y eso termina en las noticias, la repercusión puede ser grave para todos.</p>
+<p>El segundo paso es ser honesto con las soluciones posibles: en la mayoría de los casos <strong>no se recupera la información</strong>. Lo que sí se puede y se debe lograr es que no vuelva a pasar. Con esa expectativa alineada, arranca el análisis del caso.</p>
+<h2>El caso: una empresa de 200+ empleados tomada por completo</h2>
+<p>Al llegar, el técnico terciarizado no puso trabas: entregó las claves del servidor sin resistencia. Un detalle que obliga a la primera pregunta del análisis: ¿fue parte el técnico? Trabaja para varias empresas como consultor, y si no tiene buenas prácticas — puertos mal configurados, claves mal gestionadas, sin password manager, publicando de más en redes sociales — puede ser, sin quererlo, el vehículo que lleva el ransomware de una red a otra: un pendrive, un equipo, una conexión. En un caso anterior, un técnico conectó su notebook para dar una charla, se fue, y el ransomware quedó rondando la red. Es su culpa: por ignorancia y malas prácticas, el tercero contagia todo lo que toca. En este caso no fue el origen, pero sí entró en el análisis.</p>
+<p>Las demás preguntas de descarte apuntan al factor humano interno: ¿hay empleados muy descontentos que hayan hecho amenazas? (gente con accesos internos suele estar detrás de estas amenazas). ¿Hay juicios o ex empleados con cuentas pendientes? (en un caso real, una noche un ex empleado conectó una computadora al puerto de red de la entrada — grabado por la cámara — y tiró abajo todo el sistema). ¿Hay competencia importante en el mercado? (existen malas jugadas entre empresas donde no solo se roba información: se destruye).</p>
+<h3>El ransomware identificado</h3>
+<p>La ventana de rescate usaba un correo en dominio Onion (típico de la red Tor, donde es casi imposible rastrear el origen), un ID de víctima para hacer creer que uno es "uno más entre muchos", un plazo de 12 horas y la instrucción de no renombrar ni intentar descifrar nada. La extensión <code>.ZXCBB</code> en los archivos delató el tipo de ransomware: un <strong>file locker</strong> — no borra los archivos, los bloquea y los deja ahí. Existen variantes que borran todo y dejan un solo archivo de contacto, y otras que además instalan componentes espía para capturar las claves que la víctima pruebe.</p>
+<p>El mecanismo de persistencia del mensaje era astuto: usaba el <strong>host de aplicaciones HTML</strong> de Windows, un componente legítimo y necesario para muchas aplicaciones, para regenerar el pop-up infinitamente — cerrarlo, apagar la máquina o cortar internet no servía de nada. En segundo plano, en <code>System32</code>, corría el <strong>payload</strong> real: un script con comandos que deformaba cada archivo, le agregaba la extensión y tomaba el equipo. Con nombre y formato de Windows, pasaba desapercibido para muchas herramientas de detección.</p>
+<p>El golpe más serio: el ransomware no atacó las máquinas virtuales una por una, sino el <strong>host</strong> del hipervisor (Proxmox, VMware o Hyper-V). Tomar el host equivale a tomar las cien máquinas virtuales que corren sobre él.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Correo con adjunto o ingeniería social] --> B[Ejecución del payload en System32]
+    B --> C[Cifrado de archivos con extensión .ZXCBB]
+    B --> D[Pop-up infinito vía host de aplicaciones HTML]
+    B --> E[Ataque al host del hipervisor: todas las VMs caídas]
+    C & D & E --> F[Empresa inoperativa: 200+ equipos cifrados]
+
+</pre>
+
+<h3>El error de contactar al atacante</h3>
+<p>La empresa intentó negociar. Resultado: un intermediario que apenas manejaba inglés, respuestas incoherentes, pedidos de archivos de prueba (un archivo de ~1 MB sin comprimir, algo que ningún correo deja pasar porque ya es detectado como virus), y finalmente el pago de unos 500 dólares en Bitcoin por una sola muestra de archivo. La respuesta del "atacante": "no te puedo descifrar el archivo porque yo lo compré y el hacker no me responde". Después pidió otro archivo de prueba, y después el pago del envío del segundo archivo.</p>
+<p>La lección, repetida con énfasis: <strong>nunca contactar al atacante</strong>. Se pierde tiempo y dinero jugando con estafadores — hay call centers enteros dedicados a cobrar estos rescates, y en la región ya lo reciben hasta en pesos, sin pasar por criptomonedas.</p>
+<h3>Los errores de la víctima</h3>
+<ul>
+<li><strong>Sistema operativo craqueado</strong>: en las máquinas apareció KMSpico, el activador ilegal de Windows — que además es una puerta de entrada clásica para este tipo de ataques.</li>
+<li><strong>Antivirus solo en algunos equipos</strong>: la empresa "no alcanzó" para pagar las licencias de todos. Irónicamente, los únicos equipos que sobrevivieron fueron los que tenían antivirus pago: detectó el payload como troyano y lo detuvo en ejecución.</li>
+<li><strong>Falta de capacitación del personal</strong>: gente que hace clic en todo lo que llega por correo y ejecuta malware sin entender qué está pasando.</li>
+<li><strong>Intento de contacto con el atacante</strong>: dinero perdido, cero recuperación.</li>
+<li><strong>Desconocimiento del valor real de la infraestructura</strong>: mil dólares de licencias de antivirus habrían ahorrado un daño de millones. Las empresas juegan con una bomba de tiempo y postergan la inversión hasta que explota.</li>
+</ul>
+<h2>El plan de acción</h2>
+<p>La respuesta estructurada se organiza en capas preventivas y en fases de respuesta:</p>
+<ol>
+<li><strong>Segmentación de redes (VLANs)</strong>: si la red no está segmentada en el switch, un solo equipo comprometido contagia todo. El caso ilustrativo es demoledor: la computadora de la garita de vigilancia — usada solo para el registro de entradas y salidas — estaba conectada a la red de servidores porque las cámaras volcaban al DVR del data center. Un clic descuidado del vigilante replicó el ransomware por toda la red de una empresa que perdía un millón de dólares por día. Tres meses parados, históricos de cobros irrecuperables: perdieron el negocio. Aplicar lo que el equipo ya ofrece (VLANs, ACLs por permisos) cuesta configuración, no hardware nuevo.</li>
+<li><strong>Registros (logs) activados en todo</strong>: visor de eventos, controladores de dominio, todo lo que se pueda auditar.</li>
+<li><strong>Redundancia</strong>: más de un servidor o controlador de dominio; backup de todo lo que administra un servicio.</li>
+<li><strong>Disaster recovery plan</strong>: definido antes del incidente — ¿a quién llamamos, quién decide si invertir, quién autoriza pagar? En un caso real, la empresa no desconectaba el equipo de internet "porque había una página productiva" mientras lo perdía todo: desconectar, apagar, no hacer nada más es la primera decisión correcta.</li>
+<li><strong>Backups diarios + antivirus en todos los equipos + evaluación de vulnerabilidades activas</strong> como mantenimiento continuo, no como proyecto de un año que nunca arranca (el patrón habitual: auditoría → plan de acción → "no hay presupuesto" → incidente).</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+    subgraph Fase inicial
+    A[Detección del incidente] --> B[Protocolo de gestión + gabinete de crisis]
+    B --> C[Informe inicial: qué, cómo, a quién]
+    C --> D[Primeras acciones: desconectar, no pagar, no contestar]
+    end
+    subgraph Evaluación
+    D --> E[Grado de pérdida real]
+    end
+    subgraph Mitigación y seguimiento
+    E --> F[Ejecutar el plan: segmentar, backup, capacitar]
+    F --> G[Auditorías continuas cada 3-12 meses]
+    G --> F
+    end
+
+</pre>
+
+<h2>Prevención y herramientas de referencia</h2>
+<ul>
+<li><strong>NoMoreRansom</strong>: buscador de ransomware por extensión; se suben dos archivos de muestra y la plataforma indica si existe descriptor público. Solo sirve para variantes viejas — alguien encontró la clave y la publicó — pero funciona: un cliente guardó cifrado un servidor de base de datos durante tres años, y cuando apareció el descriptor recuperó todo.</li>
+<li><strong>Ransomware Live</strong>: estadísticas de víctimas por día, rubro y país.</li>
+<li><strong>Mapas de tráfico en vivo</strong> (Cloudflare Radar, mapas de fibra óptica submarina): muestran las "guerras invisibles" — picos de ataques de negación de servicio contra países en elecciones o crisis, con el ransomware como carga más común.</li>
+<li><strong>DownDetector</strong>: para detectar caídas masivas de servicios que pueden indicar un ataque en curso.</li>
+</ul>
+<p>En el ecosistema defensivo cotidiano: Windows Defender es suficiente en Windows 10 en adelante; los antivirus pago (Kaspersky, ESET, Norton) funcionan pero penalizan el rendimiento. El sentido común cierra el círculo: urgencia por correo = ignorar; ante la duda, llamar por teléfono al remitente — porque con la IA ya existen deepfakes en videollamadas, y más de la mitad del tráfico de internet es ataque, igual que el 90% de los 130 billones de correos diarios son spam diseñados para que alguien caiga.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ransomware file locker</strong>: variante que cifra y bloquea archivos sin borrarlos; extensión <code>.ZXCBB</code> como firma del caso.</li>
+<li><strong>Host de aplicaciones HTML (MSHTA)</strong>: componente legítimo de Windows abusado para regenerar el pop-up de rescate infinitamente.</li>
+<li><strong>Payload en System32</strong>: script cifrador disfrazado con nombre y formato de Windows para evadir detección.</li>
+<li><strong>Ataque al host del hipervisor</strong>: cifrar el host (Proxmox/VMware/Hyper-V) en lugar de las VMs individuales; toma todo el data center de una vez.</li>
+<li><strong>KMSpico</strong>: activador pirata de Windows; vector de entrada habitual y marcador de madurez de seguridad de la empresa.</li>
+<li><strong>Antivirus en tiempo real vs. bajo demanda</strong>: solo el primero detecta y detiene la ejecución del payload; los que corren cuando se los ejecuta dejan pasar casi todo.</li>
+<li><strong>NoMoreRansom</strong>: catálogo de descriptores públicos por extensión; única vía real de recuperación para variantes viejas.</li>
+<li><strong>Ransomware Live / mapas de tráfico (Cloudflare Radar) / DownDetector</strong>: monitoreo del panorama de ataques y caídas a nivel mundial.</li>
+<li><strong>NotPetya</strong>: ransomware destructivo sin opción de rescate; usó herramientas de la NSA contra los puertos de un ERP en Ucrania y arrastró a la red eléctrica europea.</li>
+<li><strong>Segmentación VLAN / ACLs</strong>: división de red por switches y listas de control de acceso; la medida más determinante para contener la propagación.</li>
+<li><strong>Password managers</strong> (1Password, Bitwarden, KeePass): higiene de credenciales como práctica base.</li>
+<li><strong>Disaster recovery plan</strong>: plan predefinido de decisiones y responsables ante el incidente.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>No se paga y no se contacta al atacante: el caso documentó un pago real de 500 dólares por un archivo que nunca se descifró, con el "atacante" confesando que él también era víctima de la cadena de reventa de ransomware.</li>
+<li>La propagación se decide en la arquitectura de red: la garita conectada a los servidores por el DVR de las cámaras costó un millón de dólares por día. Segmentar con lo que ya tiene el switch es la medida de mayor retorno.</li>
+<li>El vector más común no es técnico sino humano y presupuestario: Windows craqueado, antivirus parcial, personal sin capacitación y decisiones que postergan la inversión hasta que la bomba explota.</li>
+<li>La respuesta al incidente es un protocolo, no una improvisación: detectar, desconectar, activar el gabinete de crisis, evaluar pérdidas, ejecutar el plan y auditar continuamente — con backups diarios y disaster recovery como red de fondo.</li>
+<li>Existe recuperación, pero es la excepción: descriptores públicos (NoMoreRansom) para variantes viejas y mucha paciencia — guardar los datos cifrados años puede terminar salvándolos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WP1KpkZ_-4M">«Ransomware 360° I Gabriel Anselmi  I Jornada de Ciberseguridad para estudiantes»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

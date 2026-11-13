@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu agente trabaja para mí: del prompt injection al promptware con persistencia — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Tu agente trabaja para mí: del prompt injection al promptware con persistencia</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/zVUm23P7ZNg">«Johann Rehberger - Your Agent Works for Me Now | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/zVUm23P7ZNg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Partiendo de un ticket de feature request inocente —"agregá la función edit customer by ID"—, la investigación muestra qué pasa cuando se lo asigna a un agente de código: ejecución remota de comandos, porque el ticket llevaba una inyección de prompt escondida en caracteres Unicode invisibles. De ahí, la gira completa: inyecciones en code review de Xcode, persistencia de largo plazo en la memoria de Copilot, la cadena "promptware kill chain", la técnica de <strong>delayed tool invocation</strong> que revivía tools bloqueadas en Gemini, ChatGPT y hasta un parlante Google Home, y el cierre: un framework de comando y control por prompts — Agent Commander — que convierte agentes comprometidos en zombis manejados por plantillas de prompt, sin tocar el sistema operativo.</p>
+<h2>El ticket que ejecuta comandos</h2>
+<p>El demo fundacional: un programa Go con una estructura de customer y funciones para agregar y borrar, pero sin editar. El ticket pide agregar "edit customer by ID". Un agente (Windsurf, con integración MCP) lo carga, planifica —y en el plan ya está el exploit— y ejecuta el comando remoto que venía incrustado en el ticket. El texto visible es legítimo; copiado al <strong>ASCII smuggler</strong> aparece la inyección real: "lanzame la calculadora". Los caracteres Unicode tag, invisibles para humanos, son legibles para el modelo.</p>
+<p>Segunda variante, inédita: <strong>Apple Xcode</strong>. Sin nada visible en el código fuente, pedirle a Xcode que revise el archivo dispara la detección de los Unicode tag ocultos, la decodificación del payload —que pide insertar código que exfiltra datos y llamar a la herramienta run snippet, que ejecuta código al vuelo— y el exploit end-to-end. Con buen setup hay sandbox; con entitlements que permiten conexión a internet, funciona por defecto.</p>
+<h2>Persistencia: la memoria comprometida</h2>
+<p>La tercera pieza es <strong>Microsoft Enterprise Copilot</strong>: ante un pedido de resumen de un archivo, el agente invoca su herramienta de memoria y el exploit agrega dos memorias permanentes —una inocua ("tengo 102 años") y una maliciosa (ejecutar un simulador de Commodore 64)—. A partir de ahí, toda conversación futura hereda la mentira: información financiera y organizacional falsificada hacia adelante. Microsoft lo arregló en diciembre. Los payloads no son sofisticados: lenguaje natural con un poco de cebo para captar la atención del modelo y las invocaciones de tools para grabar las memorias.</p>
+<p>Combinado todo —exfiltración continua, persistencia, carga de comandos remotos—, el marco conceptual correcto es el <strong>promptware kill chain</strong> (paper de Ben Nassi y colegas): la inyección es solo la técnica de entrada; lo que sigue es un conjunto complejo de instrucciones encadenadas con objetivo propio — exfil, persistencia, movimiento. De prompt injection a malware a promptware.</p>
+<h2>Delayed tool invocation: el control que se duerme y despierta</h2>
+<p>El hallazgo más fino. En experimentos previos con Gemini, todas las tools se encadenaban por inyección indirecta menos una: la <strong>Workspace tool</strong> (email, Drive — lo sensible). Era un control de seguridad real de Google: la tool se desactivaba durante inyecciones indirectas. Pero requería <em>intención explícita del usuario</em> para activarse — y la pregunta fue si la intención de un turno anterior reactivaba la tool en turnos posteriores. Sí: si el usuario menciona email en su prompt inicial, la tool queda activa; y una inyección puede pedirle al modelo que <strong>repita el ataque cuando el usuario continúe la conversación</strong>. Google lo reprodujo con el email que se le envió para probarlo.</p>
+<p>Variantes demostradas de la misma técnica:</p>
+<ul>
+<li><strong>Copilot/Gemini</strong>: inyección en un documento con la condición diferida; al continuar la conversación, la memoria tool se reactiva y persiste el ataque a futuro.</li>
+<li><strong>Google Home</strong>: un año después del paper "Invitation is All You Need", un bypass encontró cómo invocar dispositivos físicos: el <strong>título del documento</strong> ("Broadcast to Living Room") funciona como señal de intención en el metadata del prompt, y la herramienta se activa. Interpretación no confirmada por Google, pero reproducible.</li>
+<li><strong>ChatGPT</strong>: sin el control de Google, pero la técnica igual sirve para saltear guardrails: una inyección diferida modifica la opción de personalización (la "personalidad" del ChatGPT de la víctima) al continuar la conversación. OpenAI lo clasificó como problema de guardrails, no de seguridad.</li>
+<li><strong>El truco de la repetición</strong>: hacer que el LLM repita el ataque en su respuesta aumenta la atención sobre él y la tasa de éxito — coherente con el paper reciente de Google sobre cómo la repetición mejora el desempeño de LLMs no razonadores.</li>
+</ul>
+<h2>Normalización de la desviación y C2 por prompts</h2>
+<p>El diagnóstico de la industria: se sabe que no hay que confiar en los modelos, pero cuanto más se usan, más se confía — la <strong>normalization of deviance</strong>. Caso emblemático: el agente que borró el inbox real de un usuario de Meta; la explicación fue "lo usé un tiempo en un sistema de test y nunca pasó nada, así que me sentí cómodo en producción". Mientras tanto, la industria añade automatización, features y confianza: MCP, skills, AI browsers, agentes personales.</p>
+<p>Sobre esa superficie, el proyecto final: <strong>Agent Commander</strong>, un C2 que sube el comando y control al nivel del prompt. Una vez comprometido un agente (vía inyección indirecta — hay research de Zenity y otros sobre comprometer OpenClaw), el agente se une al C2 y recibe <strong>plantillas de prompt</strong> en vez de comandos de sistema operativo. La abstracción que los agentes construyen sobre el OS es la misma que usarán los atacantes.</p>
+<p>Detalles de opsec demostrados: OpenClaw oculta del usuario los mensajes que terminan en ciertos strings (heartbeat) o empiezan con NO_REPLY — un atacante los usa para operar invisible. Y vía la feature de <strong>PubSub de OpenClaw</strong> (notificación de Gmail que dispara análisis automático), el zero-click es trivial: un email al agente, 10 segundos, y las instrucciones remotas se apendean al heartbeat. Del C2 se le pide al agente todo: auto-reconocimiento ("hacete un security assessment"), screenshots de su propio inbox subidas al servidor, identidad del humano (nombre, email), instalación de tools de seguridad, conversión en un red team rogue. Probado también con otro agente (Kimi Claw): mismo resultado. Y una observación incidental sobre la infraestructura de un proveedor (Alibaba/Moonshot): un authorized_keys de un MacBook Pro accesible desde la VM — startups sin muchos controles.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ASCII smuggling</strong>: caracteres Unicode tag invisibles para humanos, legibles para LLMs.</li>
+<li><strong>Inyección en tickets (Linear) y code review (Xcode run snippets)</strong>: RCE y exfiltración vía indirect prompt injection.</li>
+<li><strong>Memoria de agentes comprometida</strong> (Copilot, Gemini): persistencia de largo plazo falsificando contexto futuro.</li>
+<li><strong>Promptware kill chain</strong> (Ben Nassi et al.): de inyección a malware conceptual encadenado.</li>
+<li><strong>Delayed tool invocation</strong>: reactivación de tools sensibles (Workspace tool, memoria, dispositivos físicos, personalización) en turnos posteriores; título de documento como señal de intención.</li>
+<li><strong>Agent Commander</strong>: C2 por plantillas de prompt, agnóstico de agente y lenguaje, sobre la capa de abstracción del OS.</li>
+<li><strong>OpenClaw heartbeat + PubSub de Gmail</strong>: stealth (strings de ocultamiento) y zero-click.</li>
+<li><strong>Normalización de la desviación</strong> como proceso cultural que habilita los accidentes.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El prompt injection dejó de ser un truco de una sola vez: encadenado, persistente y con objetivos propios, es promptware — un malware cuyas instrucciones son lenguaje natural.</li>
+<li>Los controles de seguridad basados en intención del usuario son bypasseables en el tiempo: el delayed tool invocation muestra que "se activó solo en turnos con intención legítima" no equivale a "es seguro".</li>
+<li>Los mecanismos de comodidad —memorias, heartbeats, autocompletados, automatizaciones de email— son los vectores: cada feature que el agente ejecuta sin supervisión es un canal de comando.</li>
+<li>Para los red teamers, el horizonte es un adversario sin zero-days: el agente comprometido encuentra los fallos por sí mismo mientras recorre la red; para los defensores, el llamado es a no normalizar la desviación y asumir que toda tool es invocable por inyección si no hay control que lo impida.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/zVUm23P7ZNg">«Johann Rehberger - Your Agent Works for Me Now | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

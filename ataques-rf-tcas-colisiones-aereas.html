@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ataques de radio al TCAS: poniendo a prueba la última línea de defensa contra colisiones aéreas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ataques de radio al TCAS: poniendo a prueba la última línea de defensa contra colisiones aéreas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/p1H6-0clP7U">«DEF CON 32 - RF Attacks on Aviation&#x27;s Defense Against Mid-Air Collisions - G. Longo, V. Lenders»</a> · ver el <a class="nz-link" href="https://youtu.be/p1H6-0clP7U">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El sistema de alerta de tráfico y evitación de colisiones (TCAS) es la última barrera contra colisiones aéreas: si el radar secundario y el ADS-B fallaron y la separación entre aeronaves se perdió, es el TCAS el que ordena a los pilotos subir o bajar. Y es un protocolo de 1987 sin cifrado, sin PKI y sin autenticación de ningún tipo.</p>
+<p>Investigaciones previas habían advertido el riesgo y simulado ataques, pero faltaba la evidencia experimental decisiva: demostrar que un atacante puede disparar alertas y maniobras de evasión con hardware real y certificado, y cuantificar qué capacidades necesita. Ese es el aporte del trabajo: un banco de pruebas con una unidad TCAS genuina, un canal de transmisión por radio definida por software optimizado al límite, y resultados medibles — una tasa de éxito cercana al 98% al colocar un avión fantasma justo frente a la nariz de otro, a distancias de ataque de hasta 4,2 kilómetros con hardware comprable.</p>
+<h2>El ecosistema Mode S: tres tecnologías, un formato</h2>
+<p>Toda la vigilancia aérea descansa sobre Mode S, un formato de tramas inalámbricas análogo a IP para la comunicación entre aeronaves y estaciones de tierra, con mensajes diminutos de 56 o 112 bits que portan velocidad, altitud y rumbo. Sobre ese formato viven tres tecnologías:</p>
+<ul>
+<li><strong>Radar secundario de vigilancia (SSR):</strong> la más antigua; las estaciones interrogan a las aeronaves en el uplink de 1030 MHz y estas responden en el downlink de 1090 MHz, con precisión de cientos de metros. Obligatoria en todo el mundo.</li>
+<li><strong>ADS-B:</strong> más reciente; cada aeronave determina su posición por GNSS (GPS) y la difunde a las demás y a tierra, con precisión de metros — lo que permite reducir la separación mínima entre aviones.</li>
+<li><strong>TCAS:</strong> el protocolo entre aeronaves, un esquema de medición de distancia por interrogación-respuesta en los mismos 1030/1090 MHz, obligatorio según tamaño y número de pasajeros desde 1987, tras una década de accidentes con decenas de muertos.</li>
+</ul>
+<p>El TCAS tiene tres funciones centrales: vigilancia (mostrar el tráfico circundante en la pantalla de cabina), alerta de tráfico (TA, aviso de posible colisión) y asesoría de resolución (RA, la orden directa: una aeronave asciende y la otra desciende en la versión TCAS II).</p>
+<h2>Los tres ataques</h2>
+<p><strong>Inducir una alerta de tráfico (TA).</strong> Requiere implementar las casi 1800 páginas del estándar resumidas en tres condiciones: ser un avión (difundir presencia), responder correctamente a las interrogaciones y estar en la posición correcta — distancia y altitud coherentes, identidad consistente.</p>
+<p><strong>Disparar una asesoría de resolución (RA).</strong> Después del TA empieza una negociación: el atacante declara percibir a la otra aeronave como peligrosa. El algoritmo de resolución es determinista — la aeronave con la dirección más baja siempre gana — así que basta averiguar la dirección de la víctima para elegir siempre quién sube y quién baja.</p>
+<p><strong>Desactivar el TCAS.</strong> Al aterrizar en aeropuertos con pistas cercanas (Las Vegas), las estaciones de tierra pueden ordenar a las aeronaves reducir su nivel de sensibilidad. Ese comando, sin autenticación, puede enviarse a cualquier aeronave en vuelo: el TCAS pasa de modo RA a modo solo-TA y no vuelve a su estado original salvo desconexión física de la unidad — algo inviable en pleno vuelo. La verificación es directa: haciéndose pasar por torre y preguntando el nivel de sensibilidad, la aeronave responde que lo bajó.</p>
+<h2>Por qué todos los intentos anteriores fallaron</h2>
+<p>El "reloj de seguridad" del TCAS es el tiempo de vuelo: la distancia se estima restando 128 microsegundos al tiempo de respuesta — un margen cómicamente corto, mil veces más rápido que el planificador de un sistema operativo. A eso se suman dos canales de frecuencia distintos con ida y vuelta coherentes, y la exigencia de responder seis interacciones seguidas desde el mismo punto, siempre consistente y a tiempo. Y no se puede inundar el espectro: las aeronaves transmiten con aleatorización para no contaminar el aire, y una respuesta necesita silencio alrededor para que el receptor la capte.</p>
+<h2>El banco de pruebas</h2>
+<p>Un TCAS no es un contenedor Docker con variables de entorno: el montaje incluyó la unidad TCAS real bajo prueba, panel de control, antenas, display de tráfico, simulador de bus aviónico (sin "vuelo" la unidad no transmite), auriculares para las alertas de voz, y como atacante dos antenas, un SDR y una computadora que lo dirige. Todo dentro de una jaula de Faraday — tampering con sistemas anticolisión es, digamos, impolito — más una cámara con OpenCV leyendo la pantalla de tráfico para medir resultados.</p>
+<h2>Ingeniería de latencia: de 190 a 0,2 microsegundos</h2>
+<p>Las tres interacciones más difíciles del protocolo no tenían ninguna implementación en tiempo real: 2 Mbit/s es mucho para un framework SDR genérico, y herramientas como dump1090 decodifican muy bien pero no muy rápido. Linux con kernel de tiempo real respondía a un solo pulso en 190 microsegundos — insuficiente. La solución fue reconstruir todo el stack:</p>
+<ul>
+<li>Workstation desnuda: sin ahorro de energía, sin hyperthreading, núcleos deshabilitados, sin GPU y — en una conferencia de seguridad, irónicamente — con todas las mitigaciones de seguridad del procesador apagadas porque son lentas.</li>
+<li>Linux a medida: un núcleo fijado a un core, la aplicación fijada a otros, busy polling, compilación extrema optimizada por arquitectura con profile-guided optimization.</li>
+<li>Recepción inteligente: detector de preámbulo con ida y vuelta por el dominio de Fourier, decodificación de solo los bits necesarios mediante una máquina de estados finita que empieza a responder antes, y todo lo modulable precalculado en tablas en RAM.</li>
+<li>Programación al hueso: sin mutex (100 nanosegundos es inaceptable), sin asignaciones dinámicas, con un allocator reescrito y las instrucciones SIMD del manual de Intel de 1300 páginas.</li>
+</ul>
+<p>Resultado final: respuestas en 0,2 microsegundos, jitter dentro de los límites del estándar, y unos 30 microsegundos de ventaja sobre el margen de 128 — que es exactamente lo que hace falta: un atacante en tierra que quiera colocar un avión a distancia cero responde un poco antes y deja que la velocidad de la luz haga el resto.</p>
+<h2>Resultados y límites prácticos</h2>
+<ul>
+<li><strong>TA fantasma:</strong> un avión colocado directamente a la nariz y a la misma altitud — inquietante para cualquier piloto — con tasa de éxito cercana al 98% (100% en RF sería mentira).</li>
+<li><strong>RA sostenido:</strong> la maniobra de evasión se mantuvo inducida durante 30 minutos seguidos, hasta que la unidad se apagó sola por no esperar información de vuelo con alguien permanentemente delante.</li>
+<li><strong>Distancia de ataque:</strong> 4,2 kilómetros con hardware comprable; con latencia teóricamente nula, el límite sube hasta el máximo que permite el estándar.</li>
+<li><strong>Contra un avión de línea</strong> volando a 950 km/h, el ataque funciona con un 80% de probabilidad.</li>
+</ul>
+<p>Las limitaciones restantes son manejables: potencia suficiente (un amplificador que el equipo no tenía, pero es RF estándar) y conocer la altitud de la víctima — que se obtiene escuchando el ADS-B, que esa aeronave emite sola.</p>
+<h2>Divulgación y qué sigue</h2>
+<p>Fabricantes y autoridades nacionales e internacionales fueron notificados y reconocieron el problema. La respuesta de los fabricantes es honesta: el fallo está en el estándar. Hoy no existe forma de corregir estos ataques en el despliegue actual, pero ya se trabaja en nuevas iteraciones del estándar de evasión de colisiones. Y hay un factor que agrava la línea de tiempo: las workstations serán más rápidas, así que la capacidad de ataque solo crecerá. Es un problema sistémico sobre infraestructura delicadísima, y la evidencia experimental — el detalle del paper aparece en USENIX Security — es lo que empuja a que algo se haga.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El TCAS es un protocolo de 1987 sin autenticación cuya única defensa implícita era el margen de respuesta de 128 microsegundos; un canal SDR afinado al extremo lo rompe con 0,2 microsegundos de latencia.</li>
+<li>Los tres ataques — TA fantasma, RA inducido con dirección elegida, y desactivación remota del TCAS vía comando de sensibilidad — son demostrables sobre una unidad genuina con ~98% de éxito.</li>
+<li>La barrera de entrada es de conocimiento e ingeniería, no de presupuesto: menos de 10.000 dólares en hardware comprable y un integrante con capacidad de programación de sistemas embebidos.</li>
+<li>No hay parche disponible; la mitigación pasa por las nuevas versiones del estándar de evasión de colisiones, y la urgencia crece a medida que el hardware comercial se vuelve capaz de hacer lo que antes exigía equipo aviónico certificado de 400.000 dólares.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/p1H6-0clP7U">«DEF CON 32 - RF Attacks on Aviation&#x27;s Defense Against Mid-Air Collisions - G. Longo, V. Lenders»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

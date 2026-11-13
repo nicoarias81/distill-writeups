@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Priorizar parches con EPSS: del ruido de 110 CVEs diarios a una lista accionable — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Priorizar parches con EPSS: del ruido de 110 CVEs diarios a una lista accionable</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/02ElRMhArcQ">«DEF CON 32 AppSec Village - Jay Gamblin - Using EPSS For Vulnerability Management»</a> · ver el <a class="nz-link" href="https://youtu.be/02ElRMhArcQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Con ~110 CVEs publicados por día en 2024 —con picos de 250 los martes y jueves—, leer cada descripción a mano, como se podía hace veinte años con 18 CVEs diarios, es matemáticamente imposible. Las organizaciones no saben qué remediar primero y muchas usan el puntaje CVSS como criterio, lo que desde el SIG de CVSS es un mal uso directo del sistema: CVSS mide severidad, no probabilidad de explotación, y su propio SIG no recomienda usarlo para decidir qué parchear.</p>
+<p>EPSS (<em>Exploit Prediction Scoring System</em>), gestionado bajo FIRST, es un modelo de datos que estima la probabilidad de que cada CVE de la lista sea explotado en los próximos 30 días, con un modelo recalculado cada noche (disponible después de las 4 AM Eastern). Este artículo cubre qué es EPSS, cómo usarlo correctamente en un programa de gestión de vulnerabilidades, cómo integrarlo en pipelines de CI/CD con GitHub y GitLab, y los límites honestos del sistema: no es universal, no reemplaza el trabajo con vulnerabilidades ya explotadas, y su criterio de uso es un umbral —0,5 como punto de partida— que recorta el universo de CVEs a una lista manejable.</p>
+<h2>La realidad de la gestión de vulnerabilidades</h2>
+<p>La trayectoria de publicación de CVEs tiene dos inflexiones. En 2016 se abrió el proceso CNA (<em>CVE Numbering Authority</em>), que permite a cualquier empresa —de Microsoft a la tienda de software del barrio— publicar CVEs directamente para su propio software. En 2020, además del COVID, GitHub se convirtió en CNA y empezó a publicar CVEs agresivamente para todo el código open source de sus repos, disparándose al tope de la lista de CNAs. El resultado: muchos más CVEs, muchos de los cuales nunca existirán en ninguna red corporativa — código de un proyecto publicado una vez con una vulnerabilidad que simplemente queda allí. Es ruido que el modelo de priorización debe filtrar.</p>
+<p>El uso de CVSS como criterio de parcheo, además, suele estar motivado por compliance (PCI lo exige), no por ingeniería. Y el sistema ambiental de CVSS tiene un diseño que lo hace incompatible con modelos probabilísticos: sus factores solo permiten <em>bajar</em> el puntaje —solo puedes marcar flags que reduzcan la severidad—, nunca subirlo, lo que impide casarlo con una probabilidad de explotación.</p>
+<h2>Qué es EPSS y cómo leer sus datos</h2>
+<p>EPSS estima la probabilidad de explotación de cada CVE en una ventana deslizante de 30 días. El modelo corre cada noche a medianoche y publica los scores; la herramienta de ingesta correcta es un proceso diario que baja el CSV después de las 4 AM Eastern, no una descarga puntual.</p>
+<p>El dataset es deliberadamente simple: un CSV de tres columnas con el número de CVE, el score EPSS y el percentil (qué porcentaje de CVEs está por debajo). Los valores de referencia al momento de escribir esto: el CVE con score más alto era uno de Cisco de 2019 (Gigabit Interface Router), la media era apenas 0,04, y el piso —compartido por 7.000 CVEs— era 0,0004. El detalle ilustrativo de la mecánica: no existe un 1,0 en EPSS, porque el modelo no opera sistemas IPS/IDS propios y no puede confirmar de primera mano que un ataque tuvo éxito; los scores se asoman a los altos 90s (97, 98, 99) pero nunca tocan el tope.</p>
+<p>El umbral recomendado como punto de partida es 0,5: con los datos de referencia, eso redujo el universo a 5.671 CVEs que el modelo predice serán explotados en los próximos 30 días. Y el paso imprescindible que sigue: cruzar esa lista contra lo que de verdad hay en la red propia. La experiencia del SIG es que el cruce deja típicamente entre 50 y 60 CVEs ≥0,5 en una red real — la carga pasa de abstracta a concreta, y cada organización calibra si 50 tickets son una semana tranquila o un mes de trabajo del equipo de VM.</p>
+<h2>El modelo: v3, v4 y fuentes de datos</h2>
+<p>El proyecto no descansa en una sola persona: no es obra de un data scientist aislado; el programa de ciencia de datos lo dirige Jay Jacobs. La versión 3 del modelo, lanzada en 2023, mejoró un 82% la eficiencia respecto de v2. La v4, prevista para el otoño (fin de 2024), promete otra mejora de ~80% y depende menos de NVD —cuyos datos faltantes hoy dañan el modelo— y más de datos de CNA, empujando a la vez para que los publicadores de CVEs incluyan más campos que los tres puntos mínimos que se exigían históricamente.</p>
+<p>El modelo ingiere unas 2.500 variables aportadas gratuitamente por empresas de threat intelligence y tecnología, a cambio de que el score EPSS se devuelva a la comunidad. Más de 100 herramientas de vulnerability management ya integran o muestran el score. Dos debates técnicos de la sala: la relación CVE-CWE sigue siendo dolorosa —la categoría CWE es demasiado amplia ("un cross-site scripting no es como otro cross-site scripting") y mapear severidad CWE a CWE requeriría modelos más fuertes—; y el sesgo de los CNAs es estructural, porque las empresas se vuelven CNA precisamente para controlar qué vulnerabilidades de su software se publican.</p>
+<h2>Limites declarados: para qué NO sirve EPSS</h2>
+<p>El propio proyecto es inusualmente explícito sobre las condiciones de uso:</p>
+<ul>
+<li><strong>No es one-size-fits-all.</strong> El modelo se construyó contra una red corporativa promedio. Redes IoT, OT o de salud están poco representadas; el SIG busca activamente gente con esos datos para construir modelos espejo (EPSS para OT, EPSS para salud).</li>
+<li><strong>Está orientado a ataques de red.</strong> La fuente de datos son los exploits observables en red, que constituyen la abrumadora mayoría de los ataques reales; los "keyboard hackers" que necesitan estar frente a la máquina pesan poco en el modelo.</li>
+<li><strong>Regla de oro: EPSS viene después de las vulnerabilidades conocidamente explotadas.</strong> Solo debe ser la fuente primaria de priorización una vez que todo CVE en la lista de KEV (explotación conocida) esté fuera de la red. Mientras haya vulnerabilidades con exploit público en GitHub corriendo contra la red, ese trabajo tiene prioridad absoluta; EPSS no detiene ni pivotea ese foco. Si alguien va a hacer trabajar a un equipo un fin de semana, el criterio es claro: "no confiaría ni en CVSS ni en un score EPSS" sin ver código de exploit siendo explotado activamente.</li>
+<li><strong>El modelo distingue exploit de PoC.</strong> El equipo trabaja para diferenciar código de explotación real de simples pruebas de concepto, y pondera especialmente si el PoC es de red o local — hay muchos PoCs de vulnerabilidades de red que en realidad requieren acceso local al sistema, lo cual no tiene sentido práctico.</li>
+</ul>
+<h2>Integración en pipelines</h2>
+<p>EPSS está diseñado para vivir en pipelines de despliegue. En GitLab y GitHub ya está integrado en el scanning: al encontrar un CVE en el código, se reporta junto al score EPSS y el CVSS; la recomendación es activarlo en ambos si el desarrollo vive allí. Entre las integraciones destacadas hay un GitHub Action que combina scanners open source como Trivy sobre imágenes Docker y archivos de desarrollo, evalúa los CVEs encontrados contra EPSS y aplica un umbral configurable (por ejemplo: score &gt; 0,6 bloquea el push a producción). El action fue incorporado al GitHub Advanced Security toolkit, el conjunto que GitHub usa internamente y recomienda a sus mejores clientes.</p>
+<h2>Herramientas y recursos</h2>
+<ul>
+<li><strong>cve.icu</strong>: gráficos de CVEs publicados por día/semana/año, pensados para reportes a management.</li>
+<li><strong>PatchThis.app</strong>: lista nocturna y gratuita de ~6.000 CVEs con explotación activa confirmada, construida sobre el ~80% de las fuentes que sostienen las plataformas de threat intelligence comerciales; acepta pull requests. Pensado para quien no tiene un programa de TI propio.</li>
+<li><strong>riskbasedprioritization.github.io</strong>: guía en profundidad sobre EPSS, construida con datos reales de redes aportados por Yahoo, Microsoft y otras empresas.</li>
+<li><strong>GitHub de Jay Gamblin</strong>: 20 años de scripts y datos de CVEs, libres.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>EPSS (Exploit Prediction Scoring System)</strong>: modelo de FIRST que predice probabilidad de explotación a 30 días por CVE; actualización nocturna (lista después de las 4 AM Eastern).</li>
+<li><strong>CVSS</strong>: sistema de severidad; explícitamente no diseñado para priorizar parcheo, y sus factores ambientales solo permiten bajar el score.</li>
+<li><strong>Proceso CNA</strong>: habilitación (2016) de publicadores de CVEs directos; GitHub como CNA desde 2020 disparó el volumen.</li>
+<li><strong>KEV (Known Exploited Vulnerabilities)</strong>: la lista de vulnerabilidades con explotación conocida que debe despacharse antes de que EPSS guíe la priorización.</li>
+<li><strong>Umbral EPSS 0,5</strong>: punto de partida recomendado; ~5.600 CVEs, que tras cruzar con el inventario real quedan en ~50-60.</li>
+<li><strong>GitHub Action con Trivy + EPSS</strong>: bloqueo de despliegues con CVEs sobre umbral EPSS configurable (&gt;0,6 en el ejemplo).</li>
+<li><strong>Trivy</strong>: scanner open source de contenedores y archivos usado por el action.</li>
+<li><strong>NVD y datos CNA</strong>: fuentes de datos del modelo; la v4 reduce la dependencia de NVD por sus datos faltantes.</li>
+<li><strong>CWE</strong>: mapeo CVE-CWE aún no integrado en el modelo por la amplitud y heterogeneidad de la categoría.</li>
+<li><strong>Cientia</strong>: empresa que construye y mantiene el modelo; publicó un estudio comparativo de EPSS.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Parchear por CVSS es un mal uso del sistema; la priorización debe partir de la explotabilidad real, y EPSS aporta exactamente esa probabilidad con datos, no con opinión.</li>
+<li>EPSS exige ingesta diaria (es una ventana deslizante de 30 días, no un snapshot) y un umbral calibrado: 0,5 como inicio, y siempre cruzado contra el inventario real de la red, donde 5.600 CVEs se convierten en ~50.</li>
+<li>La regla de oro es el orden: primero despachar todo lo de la lista de explotación conocida; EPSS recién entonces se vuelve la estrella de la priorización.</li>
+<li>EPSS modela ataques de red sobre una red corporativa promedio: en entornos IoT/OT/salud su cobertura es débil y el SIG busca datos para construir modelos específicos.</li>
+<li>La integración natural es CI/CD: scanners como Trivy más un umbral EPSS en un GitHub Action convierten la priorización en una política de despliegue automática.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/02ElRMhArcQ">«DEF CON 32 AppSec Village - Jay Gamblin - Using EPSS For Vulnerability Management»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

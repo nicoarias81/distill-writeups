@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esteganografía: esconder mensajes a plena vista — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Esteganografía: esconder mensajes a plena vista</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/6ZDvAFNwpGs">«Esteganografía (el mensaje oculto) - Marcelo Cipriano»</a> · ver el <a class="nz-link" href="https://youtu.be/6ZDvAFNwpGs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La criptografía y la esteganografía son hermanas gemelas que nacieron juntas —las primeras referencias datan del 600 a.C.—, pero resuelven problemas distintos. La criptografía protege el contenido del mensaje: cifra para que, aunque un fisgón intercepte el tráfico, no pueda leerlo. La esteganografía protege la existencia misma del mensaje: lo esconde dentro de un portador inocente para que nadie sospeche que hay algo que ocultar. Y hay escenarios donde la primera no sirve de nada.</p>
+<p>El caso límite es el canal supervisado. Dos presos se tiran papelitos de celda a celda: si el guardia levanta un papelito cifrado, no entiende nada, pero sabe que lo están ocultando — y eso basta para mandar a ambos al pozo. Aunque no sepa el contenido, sabe que hay secreto, y puede cortar la comunicación: es el dueño de la canilla, deja fluir o no la información. No somos dueños de las fibras ópticas por donde circula el tráfico del mundo; cualquiera que controle el canal puede interrumpirlo apenas detecte confidencialidad. La salida es el engaño: que el mensaje pase por inocente. Un papelito con "tres tazas de harina, dos de azúcar, un huevo, 15 minutos al horno" no levanta sospechas, aunque en realidad signifique "esta noche nos rajamos y nos encontramos en el bodegón de la esquina".</p>
+<p>Para este contexto, todo el arsenal criptográfico clásico —intercambio de claves, firma digital, hashes, HMAC— no alcanza: el problema ya no es la lectura, es la detección.</p>
+<h2>El modelo: contenedor, estegoclave y guardián del canal</h2>
+<p>El modelo de una comunicación esteganográfica tiene pocos protagonistas: un emisor, un receptor, un canal supervisado o controlado, un mensaje inocente —el contenedor o portador, el frasco de dulce de leche— y otro mensaje escondido adentro. La estegoclave es el acuerdo sobre cómo se introduce y se recupera la información: los bits que se tocan, las letras que se miran, la posición del secreto. El receptor tiene que poder hacer la función inversa; si no puede, la comunicación falla aunque el mensaje haya viajado perfecto.</p>
+<p>Si el mensaje oculto no es recuperable —se destruye información al insertarlo—, eso ya no es esteganografía: es marca de agua, como el logo gris que las señales de noticias estampan sobre las primicias y que no hay forma de sacar. La distinción es precisa: con recuperación, mensaje esteganográfico; sin recuperación, marca de agua.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Emisor] -->|mensaje inocente con secreto adentro| C[Canal supervisado]
+    C -->|pasa la inspección| R[Receptor: función inversa]
+    E[Eva: guardián del canal] -.->|ve y decide si deja pasar| C
+
+</pre>
+
+<p>La condición de éxito es doble: engañar al guardián y no levantar sospechas por repetición. Si todos los días se manda "la misma receta", el control empieza a preguntarse por qué siempre comen lo mismo. El contenedor tiene que variar lo suficiente como para ser aburrido.</p>
+<h2>Cuatro mil años de trucos</h2>
+<p>La historia acumula técnicas que van de lo operativo a lo poético:</p>
+<ul>
+<li><strong>Heródoto</strong> registró el primer caso documentado: un general le afeitó la cabeza a un esclavo, le tatuó el mensaje de advertencia, y cuando el pelo le creció durante el viaje, el destinatario se lo afeitó al recibirlo. El ancho de banda de ese canal deja que desear.</li>
+<li><strong>Tablillas griegas</strong> con cera de abeja: el mensaje se escribía con carbón en la madera, se cubría con cera lisa, y encima se escribía lo cotidiano con un palito. Cualquiera que mirara la tablita veía una lista de compras, no un secreto.</li>
+<li><strong>Trenzas de las personas esclavizadas</strong>: según un hallazgo antropológico relativamente reciente, transmitido oralmente por las nietas de las esclavizadas, no todas las trenzas eran rituales — algunas tejían mapas de fuga, siguiendo el cauce de un río. Esteganografía capilar, literalmente.</li>
+<li><strong>Trithemius</strong>, un monje, fue el primero en llevarlo a un tratado escrito y también quien acuñó la palabra criptografía. Su contexto lo explicaba: en una época de fronteras religiosas corridas, un cura católico en territorio protestante —o al revés— necesitaba rezar sin ser descubierto: seguí rezando tus oraciones, pero escóndelas detrás de un libro de astronomía.</li>
+<li><strong>Micropuntos</strong> en la Segunda Guerra Mundial: se fotografiaba un mensaje, se lo reducía a menos de un milímetro y se lo pegaba sobre un papel común, disimulado como el cuarto punto suspensivo de una carta. El receptor necesitaba saber dónde mirar y un microscopio. La técnica sobrevive: hoy hay empresas que fabrican micropuntos para trazabilidad — marcar billetes o cargas para poder demostrar de dónde salió un objeto robado.</li>
+<li><strong>Tintas invisibles</strong>: limón u otros líquidos orgánicos, transparentes al secarse, que se oxidan al aplicar calor y revelan un marroncito. El general San Martín, oficial de carrera formado en España y conocedor de la criptografía, prefería estas tintas: en un ejército donde casi nadie sabía leer ni escribir, la sobrecarga de gestionar claves no valía la pena. Y la versión moderna sigue viva en los sellitos de tinta ultravioleta de los boliches con canilla libre.</li>
+</ul>
+<h2>Del papel a los píxeles</h2>
+<p>Las técnicas modernas operan sobre el mismo principio: hay información que el ojo no distingue. En una imagen RGB, cada canal (rojo, verde, azul) usa 8 bits para codificar 256 gradaciones — 24 bits por píxel, 32 si se suma la capa de transparencia. Cambiar el bit menos significativo de cada canal convierte un rojo 255 en un rojo 254: para la mayoría de los ojos, es exactamente el mismo rojo. Ahí se inyecta el mensaje, y la imagen aparente queda intacta.</p>
+<p>La demostración clásica es la foto de Lena, la imagen que los diseñadores gráfico usaron durante décadas como fetiche para probar cada filtro y procesamiento de imágenes (su protagonista contó años después que usaron su foto cientos de miles de veces sin reconocerle valor). Una Lena original y una Lena con diez capítulos de una novela rusa inyectados son indistinguibles al ojo humano — y ese es justamente el objetivo. Los hashes de ambas imágenes difieren, por el efecto avalancha de las funciones hash actuales: un solo bit cambiado altera la mitad de los bits del hash. Pero eso solo prueba que algo cambió, no que haya un mensaje oculto.</p>
+<p>El estegoanálisis, contraparte del criptoanálisis, tiene una debilidad estructural: mientras el criptoanálisis es determinista —recupero la clave y el mensaje, o directamente el mensaje—, el estegoanálisis es probabilístico. Analiza los píxeles de los alrededores y da una probabilidad de que exista un mensaje oculto. Y la probabilidad siempre choca con el ruido natural: en una foto de grupo, alguien mira a la derecha por casualidad, no porque esté señalando algo. Elegir portadores muy texturados —un cuerpo con múltiples iluminaciones, una manada de cachorros dálmatas— dificulta aún más la detección, porque las variaciones por píxel ya son parte del paisaje.</p>
+<p>El ancho de banda disponible escala brutalmente en video: 24 fotogramas por segundo, cada uno con espacio para lo que en una imagen sería una novela completa. El caso de 2012 lo ilustra: a un detenido le incautaron un pendrive con un video y 100 documentos inyectados adentro. El error que lo delató no fue técnico sino de criterio: los documentos no estaban cifrados, así que al extraerlos se leía el contenido. La lección es directa — el paso obligatorio es cifrar primero y esconder después; si al decodificar aparece basura cifrada, queda la duda razonable, y la esteganografía y la criptografía vuelven a juntarse después de siglos de caminos separados.</p>
+<h2>El límite actual: burlar al dueño del soporte</h2>
+<p>Los adversarios también evolucionaron. En 2001, informes del FBI alertaban que sitios controlados por Al Qaeda publicaban imágenes inyectadas en ventanas de tiempo minúsculas: la foto con el mensaje se subía a las 22:00 y a las 22:08 volvía la original. Quien no descargara durante esos minutos, perdía la oportunidad para siempre.</p>
+<p>El salto más peligroso es cuando el engaño apunta al dueño de la plataforma. Un investigador logró inyectar información en una foto que sobrevivió al proceso de recompresión de una red social — ese filtrado que reduce la calidad de todo lo que se sube para ahorrar espacio —. Engañar a un observador que controla el canal es una cosa; engañar a la infraestructura que procesa y altera el contenido es otra, y de ahí en adelante el margen de detección se estrecha para todos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Criptografía y esteganografía protegen cosas distintas: el contenido del mensaje versus su existencia. En canales supervisados, solo la segunda permite comunicar sin que el guardián corte el flujo.</li>
+<li>El modelo es estable desde hace milenios — contenedor, estegoclave, receptor con función inversa — pero la creatividad del contenedor es ilimitada: cabezas rapadas, cera de abejas, trenzas, haikus, píxeles y fotogramas.</li>
+<li>El bit menos significativo de una imagen es solo la técnica más famosa; audio y video multiplican el ancho de banda disponible, y un portador muy texturado es el mejor camuflaje contra el estegoanálisis probabilístico.</li>
+<li>Sin cifrado previo, el mensaje escondido se delata solo: basura legible al extraer es evidencia. La estego-criptografía —cifrar y luego esconder— es el estándar actual.</li>
+<li>El frente más peligroso ya no es esconder información en un pendrive propio, sino en contenidos que sobreviven al procesamiento de terceros: cuando el portador engaña también al dueño del canal, la detección pierde terreno.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/6ZDvAFNwpGs">«Esteganografía (el mensaje oculto) - Marcelo Cipriano»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

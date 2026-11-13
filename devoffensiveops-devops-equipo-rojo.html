@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevOffensiveOps: DevOps aplicado a las operaciones del equipo rojo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">DevOffensiveOps: DevOps aplicado a las operaciones del equipo rojo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gbWfw1yvXfY">«DevOffensiveOps: Usando DevOps para Operaciones de Equipo Rojo - Jorge Moya - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/gbWfw1yvXfY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las culturas y herramientas que el mundo del software construyó para desplegar aplicaciones —infraestructura como código, integración y entrega continua, gestión de configuraciones— sirven igual para desplegar y operar la infraestructura de una emulación de adversario. La propuesta, presentada por el fundador de una consultora ecuatoriana de seguridad ofensiva, se llama DevOffensiveOps: aplicar DevOps al equipo rojo para que subir toda la estructura de comando y control, redirectores y CDN tome minutos y dos comandos, y bajarla sea igual de rápido cuando el equipo azul empieza a seguir los indicadores de compromiso.</p>
+<p>El recorrido va de los conceptos básicos (DevOps, CI/CD, IaC) al esquema completo de un C2 operado como un despliegue de software: instancias en AWS, Cloudflare como capa de enmascaramiento, Caddy como redirector con listas de control de acceso por user agent, y un pipeline de CI/CD que compila, ofusca, firma y publica el implante —todo demostrado en vivo, con el beacon conectándose al comando y control en pantalla.</p>
+<h2>La infraestructura de un equipo rojo como despliegue de software</h2>
+<p>Para actuar como un APT hay que pensar como un APT: un comando y control centralizado, redirectores por los que pasen las comunicaciones de las máquinas víctimas, y la capacidad de levantar y destruir todo rápido. El esquema de referencia:</p>
+<pre class="mermaid">
+flowchart LR
+    V[ Máquina víctima con el implante] -->|HTTP/HTTPS| CF[Cloudflare: IPs enmascaradas]
+    CF --> R1[Redirector 1 - Caddy]
+    CF --> R2[Redirector 2 - Caddy]
+    R1 -->|túnel seguro| TS[Team Server / C2]
+    R2 -->|túnel seguro| TS
+    OP[Operador] -->|VPN| TS
+
+</pre>
+
+<ul>
+<li><strong>El problema a resolver</strong>: levantar a mano (o con scripts sueltos) cuatro redirectores más tres team servers toma alrededor de un día por cada ejercicio. Y cuando el equipo azul empieza a rastrear los IOC —IPs, software específico, hasta los favicons—, la única respuesta viable es destruir toda la infraestructura y volver a operar desde otro lado sin dejar huella. Eso exige que la destrucción sea tan rápida como el despliegue.</li>
+<li><strong>Las herramientas de DevOps, reusadas</strong>: Terraform para infraestructura como código (controlar AWS, Cloudflare, DigitalOcean, Azure, VMware por script: encender instancias, publicar balanceadores, VPCs, DNS, CDN); TeamCity para el pipeline de CI/CD del implante; Ansible, Puppet y Chef como la categoría de gestión de configuraciones que replica ajustes en cientos de servidores con un comando.</li>
+<li><strong>El equipo rojo como cliente de cloud</strong>: la misma flexibilidad que tiene un equipo de desarrollo para subir un entorno, la quiere el operador ofensivo —y con la misma disciplina de código versionado y despliegue reproducible.</li>
+</ul>
+<h2>La demo: dos comandos hasta el C2 completo</h2>
+<p><strong>Primer comando: <code>terraform apply</code>.</strong> La configuración de Terraform describe tres bloques:</p>
+<ul>
+<li><strong>Team Server</strong>: crea la instancia en AWS e instala todo lo necesario para el comando y control (en el caso expuesto, Sliver). Su script genera además la configuración HTTP del C2 con el tráfico "moldeado" para que las peticiones parezcan legítimas, y levanta los listeners en HTTP y HTTPS.</li>
+<li><strong>Redirectores</strong>: la misma configuración copiable N veces; cada instancia corre <strong>Caddy</strong> como servidor web. El script de userdata descarga una lista remota de user agents autorizados y extensiones de archivo (HTML, CSS, JS, JSON, XML —las que peticiona el implante), y con eso genera condiciones en el caddyfile: si la petición no viene de un implante con el user agent correcto, el visitante ve una página web legítima; si viene del implante, Caddy la reenvía como proxy reverso al team server por el puerto correspondiente. Es, en la práctica, una lista de control de acceso que garantiza que al C2 solo se llegue con un implante propio.</li>
+<li><strong>CDN (Cloudflare)</strong>: toma la IP de cada redirector y crea registros A proxidados (www → IP del redirector). Un <code>nslookup</code> del dominio devuelve IPs de Cloudflare, nunca las reales; el equipo azul que encuentre el dominio en el implante y lo visite desde un navegador verá la página legítima.</li>
+</ul>
+<p>En la demo, con un <code>terraform apply</code> quedaron creados redirector 1, redirector 2 y team server, con sus DNS proxidados. ¿Más redirectores? Copiar el bloque, renombrar a redirector 3 y 4 (en instancias y en el CDN) y volver a aplicar: segundos. ¿Migrar de zona o de proveedor? Cambiar el código y aplicar. Si el operador intuye que el equipo azul lo está siguiendo, destruye todo y reopera desde otro lado.</p>
+<p><strong>Segundo comando: el botón de compilar.</strong> El pipeline de CI/CD del stager encadena, con un clic:</p>
+<ol>
+<li>Descarga el código fuente actualizado desde GitHub.</li>
+<li><strong>Reemplaza cadenas que son IOC</strong>: la librería de tipos por un número aleatorio y el nombre del proyecto; el ejemplo clásico es Rubeus, que detectado y borrado al instante por Defender si se compila tal cual —el pipeline recorre todo el código reemplazando la palabra por una cadena aleatoria.</li>
+<li>Compila (build).</li>
+<li><strong>Ofusca</strong>: siendo C#, un lenguaje intermedio, con dnSpy es fácil recuperar el código fuente; ofuscado, ya no tanto.</li>
+<li><strong>Firma el binario</strong> con sigthief, herramienta que roba firmas de binarios legítimos (en la demo, la de Chrome). La firma queda inválida porque la integridad no concuerda —pero tener un binario firmado baja la calificación de maliciosidad.</li>
+<li>Genera un shellcode, lo publica por SSH en un repositorio y limpia los directorios generados (el rename aleatorio crea un directorio nuevo por compilación).</li>
+</ol>
+<p>Cada compilación produce un binario con hash distinto —compilar el mismo código hoy y mañana da archivos diferentes—, lo que rompe las detecciones por hash. El stager descargado en la demo aparecía firmado por "Google LLC", y al ejecutarse se registró como beacon conectado al comando y control por HTTP.</p>
+<h2>Higiene operacional: qué queda expuesto y qué no</h2>
+<p>Las respuestas a las preguntas de la sala precisaron el modelo de exposición:</p>
+<ul>
+<li><strong>El team server no se publica</strong>: se accede solo por VPN (o canal seguro). En la demo quedó el SSH abierto al mundo por comodidad; en un escenario real, no.</li>
+<li><strong>Los redirectores solo abren 80 y 443</strong>, y con una regla que solo acepte peticiones originadas en las IPs de Cloudflare. Nada de la infraestructura está publicada al mundo: la única puerta de entrada es el CDN, y del CDN hacia adentro, solo el implante.</li>
+<li><strong>Flexibilidad de proveedores como anti-atribuición</strong>: el team server puede vivir en OVH y los redirectores en DigitalOcean o Amazon; hoy Cloudflare, mañana Azure. Si todo sale con IPs de un mismo proveedor, ese patrón se vuelve un IOC en sí mismo. Variar el patrón baja la probabilidad de trazabilidad hacia el operador.</li>
+<li><strong>Balanceador en vez de instancias?</strong> Factible (CloudFront en lugar de Cloudflare, o un balanceador de Amazon en lugar de los redirectores), pero la flexibilidad multi-proveedor es la que manda.</li>
+<li><strong>¿Contenedores en vez de instancias?</strong> Válidos también; la preferencia por instancias viene de 15 años de infraestructura tradicional.</li>
+<li>Parte del código (stagers, scripts Python de tráfico maleable, herramientas para Sliver) está publicado en el repositorio del expositor; la configuración de Terraform, no.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>DevOffensiveOps es la aplicación directa de la cultura DevOps al equipo rojo: infraestructura como código para el C2, CI/CD para los implantes, y el mismo principio de despliegue rápido, reproducible y destruible.</li>
+<li>Dos comandos bastan para pasar de cero a C2 con redirectores enmascarados por CDN y una página señuelo legítima: <code>terraform apply</code> y el botón de compilar. La misma velocidad aplica a la retirada: si el equipo azul acerca el cerco, se destruye todo y se reopera desde otra zona o proveedor.</li>
+<li>La evasión empieza en el pipeline, no en la víctima: renombrar IOCs, ofuscar, firmar con certificados ajenos y recompilar cada vez —hash siempre distinto— desactiva toda una familia de detecciones antes de que el implante toque un solo endpoint.</li>
+<li>La flexibilidad de infraestructura es una táctica de seguridad operacional: no seguir un patrón único de proveedores o IPs reduce la trazabilidad hacia el operador y la eficacia de las defensas que lo buscan.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gbWfw1yvXfY">«DevOffensiveOps: Usando DevOps para Operaciones de Equipo Rojo - Jorge Moya - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

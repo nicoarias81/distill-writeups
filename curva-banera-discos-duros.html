@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La curva de bañera de los discos duros: 12 años de datos en producción — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">La curva de bañera de los discos duros: 12 años de datos en producción</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/4TZ3F5bv2T0">«DEF CON 33 - Data Duplication Village - Tracking 300K+ Drives -»</a> · ver el <a class="nz-link" href="https://youtu.be/4TZ3F5bv2T0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Casi el 80 % del almacenamiento en los centros de datos del mundo sigue siendo discos duros mecánicos, y los discos siguen fallando. Desde 2013, Backblaze publica DriveStats, un conjunto de datos abierto con las estadísticas SMART de cada unidad que opera: más de 621 millones de días-disco acumulados, alrededor de 320.000 discos en producción distribuidos en seis centros de datos de cuatro regiones, y una tasa de fallo anualizada calculada con una metodología transparente. Es el mayor corpus público y continuo de fiabilidad de discos duros que existe.</p>
+<p>El presente artículo recorre cómo se recolectan y procesan esos datos —de los archivos SMART diarios a una tabla Apache Iceberg consultable con Trino, Snowflake o DuckDB—, qué patrones de fallo emergen tras más de una década de observación y por qué la famosa "curva de bañera" de fiabilidad se confirma en cada generación de discos, aunque cada vez dura más: hoy un disco puede esperarse que dure entre 8 y 10 años.</p>
+<h2>Un sistema en cifras: de 54 a cientos de petabytes</h2>
+<p>El punto de partida es la escala. En 2013 el parque era de unas 21.000 unidades y 54 petabytes; hoy son ~321.000 discos —un incremento de 15 veces— que almacenan cerca de 100 veces más datos, lo que implica un crecimiento compuesto anual del 45 %. Ese ritmo no es anecdotico: 2024 cerró con 149 zettabytes de datos creados, copiados y consumidos a nivel mundial (mil exabytes, mil millones de terabytes).</p>
+<p>La arquitectura de recolección es deliberadamente simple. Cada uno de los ~5.000 storage pods (servidores con 60 discos cada uno) recolecta las estadísticas SMART de sus unidades mediante smartmontools y las escribe como XML en un bucket de Backblaze B2. Una aplicación C++ añade atributos (fecha, número de serie, modelo) y produce un CSV que se ingesta en Snowflake, el data warehouse donde se construye la tabla final: una fila por disco y por día, con todos los atributos SMART y —lo más importante— una columna de fallo que vale 1 si el disco falló ese día y 0 en caso contrario.</p>
+<p>La métrica central es la tasa de fallo anualizada (AFR): fallos totales divididos por días-disco del período, multiplicado por 365 y por 100. La normalización anual permite comparar trimestres entre sí sin que la duración del período distorsione el número.</p>
+<h2>De CSV comprimidos a Apache Iceberg: el salto de arquitectura</h2>
+<p>Durante años, DriveStats se publicó como archivos ZIP de CSV, un por trimestre desde 2013. Es un formato accesible —cualquier base de datos o Excel puede abrirlo— pero pésimo para analítica: sumar la columna de fallo obliga a leer cada carácter del archivo, porque los datos están dispuestos fila por fila.</p>
+<p>El formato Parquet resuelve esto al organizar los datos en columnas binarias. La columna de fallo es casi toda ceros, así que la codificación run-length la comprime hasta unos pocos bytes en lugar de repetir "0" miles de veces. Parquet se convirtió en la lingua franca de la analítica en la nube; sobre él, Apache Iceberg define cómo tratar una colección de esos archivos como una tabla de base de datos, y el motor SQL Trino ejecuta consultas arbitrarias contra los archivos almacenados en B2. La propia empresa almacena sus métricas de discos en el almacenamiento que esos discos sostienen.</p>
+<p>El resultado es consultas interactivas sobre 621 millones de filas: contar unidades en 2013 frente a hoy, sumar capacidades por fecha o calcular el CAGR toma menos de un segundo, porque el motor recorre árbol de metadatos y archivos Parquet en columnas. El conjunto completo está disponible con credenciales de solo lectura, con instrucciones publicadas para Snowflake, Trino y DuckDB.</p>
+<p>La reingeniería también modernizó la limpieza de datos. Antes, un colega cruzaba manualmente miles de tickets para distinguir un fallo real de un cable suelto; ahora los datos de JIRA y de los sistemas operativos se agregan automáticamente, y la validación mostró que la serie histórica es consistente con el proceso manual previo.</p>
+<p>La tabla también incorpora metadatos nuevos: a qué vault pertenece cada disco (los pods agrupan 20 discos por vault, sharded en 15 datos + 5 paridad), a qué pod y a qué centro de datos. Eso abre análisis que antes eran imposibles: ¿los discos de la costa este fallan distinto que los de la oeste? ¿La posición física dentro del pod —más cerca de la fuente de poder, más caliente— correlaciona con el fallo?</p>
+<h2>Qué dicen los números: trimestres, modelos y cohortes</h2>
+<p>Los datos trimestrales recientes marcan tasas de fallo de 1,42 % (Q1) y 1,36 % (Q2). Pero el agregado esconde variaciones enormes: un modelo Seagate puede cerrar un trimestre con 9,47 % de AFR y el siguiente con 4,74 %. La explicación suele ser demográfica: cuando un modelo entra o sale del parque, la población se reduce y un solo fallo "telescopa" hacia un porcentaje alto. La regla práctica es mirar siempre el tamaño de la población antes de sobreinterpretar porcentajes, y la conclusión estable es que la fiabilidad no depende del fabricante sino del modelo concreto: no hay un "Western Digital siempre mejor".</p>
+<p>En el análisis de vida útil (lifetime), los discos más antiguos del parque desafían la intuición: modelos con más de 80 meses de edad media (casi siete años) registran tasas de fallo por debajo del promedio. Eso conduce directamente a la curva de bañera.</p>
+<h2>La curva de bañera, confirmada y estirada</h2>
+<p>La curva de bañera es el diagrama clásico de los ingenieros de fiabilidad: una mortalidad infantil alta (defectos de fabricación que se manifiestan de inmediato, como el coche "limón"), una meseta de fallos aleatorios de fondo y una fase final de desgaste en ascenso. En discos duros —discos que giran sin detenerse 24/7— el patrón se replica con fidelidad.</p>
+<p>Los datos lo confirman en tres mediciones separadas por años. En 2013, con solo cuatro años de histórico, la mortalidad infantil era pronunciada: los primeros 18 meses de vida mostraban fallos del 3 al 10 % trimestral. La repetición de 2021 encontró un borde frontal más suave pero la misma cola dura de desgaste pasados los 7,5-8 años. La medición actual muestra la misma forma con más estiramiento: los discos comprados hoy duran razonablemente de 8 a 10 años, impensable hace una década.</p>
+<p>Un caso de estudio es el Seagate ST4000DM000 de 4 TB: instalado por primera vez en mayo de 2013, llegó a ser más del 50 % del parque, y muchas unidades superaron los 8,5 años. Su curva muestra el patrón completo, con una cola "salvaje" que se explica al superponer la población: cuando el número de discos supervivientes cae, cada fallo individual genera un pico y las cifras pierden significancia estadística. Muchas de esas unidades se retiraron sin haber fallado nunca, simplemente porque reemplazar 4 TB por 16 TB cuadruplica la densidad de almacenamiento en el mismo espacio y consumo.</p>
+<p>La lección estadística es que la bañera siempre está, pero nadie sabe cuánto mide la bañera: cada modelo tiene su propia vida útil, y algunos resultan "limones" que fallan años antes de lo esperado. Por eso no es posible proyectar con confianza la mortalidad futura de un modelo a partir de su historia. En el extremo opuesto, la generación actual de discos de 20+ TB (Toshiba, Western Digital, Seagate) muestra el patrón conocido con datos aún escasos: mortalidad inicial del 1,2-1,5 % que se asienta, y poblaciones demasiado nuevas para conclusiones firmes. Como grupo rinden cerca del 1 %.</p>
+<p>Para garantizar significancia estadística, las tablas públicas exigen más de 500 discos en operación y al menos 100.000 días-disco de actividad por modelo; lo que no alcanza el umbral se recorta.</p>
+<h2>SSDs: por qué no hay DriveStats de estado sólido</h2>
+<p>La pregunta recurrente —¿por qué no publican estadísticas de SSDs?— tiene una respuesta de economía primero: el HDD sigue costando ~17 USD por terabyte frente a ~112,50 USD del SSD, una relación de seis a uno que mantiene a los discos mecánicos como base del almacenamiento masivo. El SSD compra latencia y throughput, no densidad por dólar.</p>
+<p>En los centros de datos, los SSDs se usan como discos de arranque —con poblaciones de tres unidades, donde un fallo dispara una "tasa de fallo" absurdamente estadísticamente insignificante— y, más recientemente, en una función nueva: caché de escritura. Como el sistema llena primero los pods con más espacio libre, los archivos pequeños pueden esperar mucho para consolidarse; la capa de caché escribe el archivo en SSD, confirma la recepción al cliente (cumpliendo la paridad 15+5) y migra los datos después a disco. Ese patrón de uso es tan distinto al de un boot drive que las estadísticas resultantes serían ininteligibles: no se pueden sostener números así en público, y el seguimiento de SSDs sigue en construcción.</p>
+<h2>Con la presión del fabricante: cartas de cese y depósiciones</h2>
+<p>Publicar tasas de fallo reales tiene consecuencias. Uno de los fabricantes envió una carta de cese y desistimiento, y sus abogados tomaron declaración al responsable del proyecto, que tuvo que explicar que el informe solo comunica la experiencia operativa de la empresa, sin malicia ni falsedad: "si quieren que los números mejoren, fabriquen mejores discos". Con solo tres fabricantes en el mercado —Seagate, Western Digital y Toshiba—, las relaciones comerciales son delicadas, pero los warranties empresariales de cinco años crean un circuito de retroalimentación: cuando un modelo resulta ser un limón, el fabricante repone unidades, y los problemas de firmware que solo aparecen a escala y con giro 24/7 se negocian directamente.</p>
+<p>La compra en escala también cambia la aritmética de la fiabilidad: donde un usuario de NAS sufre cada fallo (restripe, fiabilidad reducida por días), un centro de datos que ve caer media docena de discos al día puede aceptar comprar el modelo menos confiable si el precio justifica pasar a diez fallos diarios.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La fiabilidad de los discos duros depende del modelo, no del fabricante; siempre hay que ponderar el tamaño de la población antes de interpretar una tasa de fallo.</li>
+<li>La curva de bañera se reproduce en cada generación, pero se estira: hoy se esperan 8-10 años de vida útil frente a fallos tempranos masivos hace una década, y existen parques de más de 300.000 discos con modelos longevos que jamás fallaron.</li>
+<li>El formato importa tanto como los datos: la migración de CSV a Parquet + Apache Iceberg convirtió un corpus de 621 millones de filas en consultas de menos de un segundo, y el dataset completo es público para que cualquiera lo analice.</li>
+<li>Los SSDs siguen sin poder competir en costo por terabyte (~6x); su rol es estratégico —boot drives y caché de escritura para archivos pequeños—, y las estadísticas de SSD se reservan hasta que los patrones de uso permitan números defendibles.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SMART / smartmontools</strong>: las ~150 métricas que reporta cada disco (errores incorrectables, horas encendido, temperatura máxima) recolectadas a diario por unidad.</li>
+<li><strong>Tasa de fallo anualizada (AFR)</strong>: fallos / días-disco × 365 × 100; la métrica normalizada que permite comparar trimestres.</li>
+<li><strong>Snowflake</strong>: data warehouse columnar donde se ingesta y modela el dataset.</li>
+<li><strong>Apache Parquet</strong>: formato de archivo columnar binario; run-length encoding sobre la columna de fallo da compresión masiva.</li>
+<li><strong>Apache Iceberg</strong>: formato de tabla sobre archivos Parquet que expone el dataset como tabla SQL.</li>
+<li><strong>Trino</strong>: motor SQL que consulta los archivos Parquet/Iceberg en B2 (corriendo en Docker con metadatos en MariaDB).</li>
+<li><strong>Backblaze B2</strong>: almacenamiento de objetos donde residen tanto los datos como los archivos del propio dataset.</li>
+<li><strong>DuckDB / Snowflake</strong>: clientes alternativos documentados para analizar el dataset público.</li>
+<li><strong>Curva de bañera</strong>: modelo de fiabilidad con mortalidad infantil, tasa de fondo y desgaste final, verificado empíricamente por cohorte de modelos.</li>
+<li><strong>Vault 15+5 (sharding + paridad)</strong>: esquema de 20 shards por archivo que determina la confirmación de escritura y la estructura de fallos tolerable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/4TZ3F5bv2T0">«DEF CON 33 - Data Duplication Village - Tracking 300K+ Drives -»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

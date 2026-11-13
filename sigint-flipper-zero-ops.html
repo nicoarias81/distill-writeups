@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIGINT con un solo bolsillo: identificar a un objetivo en una hora con Flipper Zero — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">SIGINT con un solo bolsillo: identificar a un objetivo en una hora con Flipper Zero</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/b8-uDKkfw5c">«Flipper Zero Intelligence Ops: Wielding Versatile Signals in the Modern Arena»</a> · ver el <a class="nz-link" href="https://youtu.be/b8-uDKkfw5c">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>¿Sirve de verdad un Flipper Zero para recolectar inteligencia de señales, o es solo el juguete de moda del que todos se cansaron? El escenario planteado es directo: llegar a un país tras 18 horas de vuelo, perder el equipaje, quedar solo con el Flipper Zero en el bolsillo y tener una hora para identificar a dos individuos hostiles en un hotel — sin operaciones abiertas, porque un acuerdo de status of forces exige evidencia antes de cualquier acción. Lo que sigue es ese taller de dos horas comprimido: Wi-Fi, sub-GHz, NFC, y la construcción de un expediente con identificadores únicos.</p>
+<p>El ejemplo viene de la experiencia militar del presentador: inteligencia de señales y de red digital en la Fuerza Aérea, luego seguridad ofensiva. El Flipper Zero le reemplazó un montón de equipo grande que cargaba durante años.</p>
+<h2>Advertencias antes de encender el radio</h2>
+<p>Cuatro límites que hay que aceptar de entrada. Primero, el Flipper no siempre funciona: firmware o entorno pueden impedir cualquier cosa. Segundo, solo hace lo que puede: crackear una llave de hotel MIFARE Classic le lleva cinco días donde una computadora tarda minutos. Tercero, el objetivo tiene opinión propia: un adversario real no va a comportarse cooperativamente con las herramientas. Cuarto, RF es caprichosa — un microondas puede degradar la señal Wi-Fi en 2,4 GHz — y el éxito depende del error del adversario. En el escenario de entrenamiento, el adversario comete errores que uno real no cometería, para no encarecer la curva de aprendizaje.</p>
+<p>Advertencia legal aparte: la FCC existe. Jugar con radio requiere entorno controlado, permiso, y tomar en serio las quejas. Añadido técnico: el Flipper y su WiFi dev board son <strong>half duplex</strong> — pueden transmitir o recibir, pero no ambos a la vez.</p>
+<h2>Paso 1: Wi-Fi en el lobby</h2>
+<p>Primer movimiento al llegar: escanear Wi-Fi, porque todo el mundo quiere conectarse. Aparece de inmediato un iPhone "de Werner" — el primer nombre de un objetivo. Un nombre en el SSID es un <em>essential element of information</em>: se registra la MAC, que es un identificador único reutilizable para todo lo que viene después.</p>
+<p>El segundo vector son los <strong>probes</strong>: cuando el Wi-Fi está encendido pero sin asociar, el teléfono baliza constantemente todos los nombres de red a los que alguna vez se conectó. Es una función de calidad de servicio (conectarse automáticamente sin reingresar contraseñas), pero en inteligencia es una lista de lugares visitados. Si uno de esos beacons dice "Chateau St. Cloud" y el apellido del otro objetivo es St. Cloud — "eso en la industria se llama una pista" —, el hallazgo se registra y se acumula. Cruzando esos nombres de red con bases como wigle.net se obtiene un mapa de hoteles, casas y restaurantes: un patrón de vida y de viaje del objetivo.</p>
+<h2>Paso 2: desautenticar y observar</h2>
+<p>Para confirmar cuál persona del lobby corresponde a ese iPhone, no se puede gritar "¿quién es Werner?". La jugada: desautenticar al dispositivo del Wi-Fi y esperar la reacción. Si alguien se pone a martillear el teléfono intentando reconectarse, ese es el rostro detrás de la MAC. No siempre funciona y requiere paciencia, pero es capaz el aparato.</p>
+<p>El paso ofensivo que NO se da: un ataque Karma (evil twin) — levantar una red con el nombre de las redes balizadas en la preferred network list, con más potencia que cualquier otra alrededor, y esperar la conexión automática para proxyar el tráfico y recolectar credenciales. El Flipper con Evil Portal lo hace sin dificultad, pero no es necesario para la misión y hay leyes de por medio.</p>
+<h2>Paso 3: seguir al objetivo</h2>
+<p>Con la MAC en mano, escanear access points mientras el objetivo se mueve es un seguidor: la señal con esa MAC deja rastro. Un dato práctico del taller: los ascensores son jaulas de Faraday grandes — una lectura coincidente con la MAC adentro confirma al objetivo; las MACs que no coinciden son pistas nuevas que también se registran. En el pasillo, caminar sin detenerse mirando la puerta: si la potencia de señal recibida sube al pasar la habitación y baja al alejarse, hay confirmación de ubicación. Número de habitación, hora de llegada al lobby, hora de regreso: todo suma al expediente de <em>preponderancia de evidencia</em>.</p>
+<h2>Paso 4: NFC — llaves de hotel y tarjetas</h2>
+<p>El escenario regala materiales sobre la mesa del restaurante: una llave de habitación y un llavero de auto. Con NFC en modo lectura, la llave se copia y se emula — y la puerta abre. La demo mostrada en video es real: un hotel a cinco cuadras del Capitolio de Washington DC. Las tarjetas MIFARE Classic tienen sectores encriptados y no se copian en dos toques, pero con claves de desencriptación halladas en línea, el Flipper lo hace. Detalle de opsec del video: grabarse leyendo la tarjeta <strong>desde adentro</strong> de la habitación — sin eso, no hay forma de demostrar que la puerta era la propia.</p>
+<p>Con la tarjeta de crédito que dejó el segundo individuo (en manos de un restaurante poco cuidadoso con PCI), el Flipper no puede clonarla para pagar — a pesar de lo que dicen los videos de TikTok —, pero sí extrae número, vencimiento, nombre y otros identificadores únicos. Eso alimenta la <strong>FININT</strong> (inteligencia financiera): correlacionar compras y retiros de ATM para caracterizar al objetivo. Razón suficiente para guardar las propias tarjetas en fundas de cobre.</p>
+<h2>Paso 5: sub-GHz — el llavero del auto</h2>
+<p>Para un key fob, el método: buscar el FCC ID en el hardware para investigar en línea las frecuencias probables — la mayoría de los llaveros modernos operan en 315 MHz, 433 MHz o el rango bajo de 900-915. El firmware de fábrica no trae spectrum analyzer, pero se descarga desde lab.flipper.net (primera herramienta que el presentador instala siempre): una ventana gráfica de qué señales son más fuertes. Al presionar lock en el fob, aparece el spike; se acota el ancho de banda de amplio a estrecho para capturar con más precisión, se graba la señal cruda y se reproduce.</p>
+<p>La distinción ética y táctica: se envía <strong>lock</strong>, nunca unlock — el objetivo no es entrar al auto sino identificarlo. Con la patente anotada, los lectores automáticos de patentes (ALPR) dan patrón de vida y de viaje: el auto estuvo cerca de los soft targets del país anfitrión. Y la MAC del iPhone del primer objetivo aparece en el <strong>BDL</strong> (bed down location): dónde duerme.</p>
+<p>Datos técnicos del mundo real: en vehículos desde ~2013, enviar una señal de unlock fraudulenta sin la autenticación de múltiples factores rompe el remote entry y obliga a reprogramar en el concesionario por 300 dólares ("pregunten cómo lo sé"). En autos viejos — comienzos de los 2000 — el rolling code se desincroniza: grabar cinco unlocks sin el auto cerca permite desbloquear al reproducir cualquiera, pero el dueño luego necesita varios intentos para realinear el fob. Por eso el lock es opsec: nadie se acerca al auto y aprieta lock primero — el objetivo jamás nota la intrusión.</p>
+<h2>Opciones que se descartan (y por qué están buenas igual)</h2>
+<p>Con el Flipper perdido a propósito dentro del bolso del objetivo, se convierte en un Air Tag rastreable. Es una opción real de seguimiento — pero el análisis de riesgo del escenario la descarta: el aparato sigue siendo necesario para la misión. El lección del operativo: si tenés opciones, tenés cursos de acción.</p>
+<h2>Cierre del expediente</h2>
+<p>La hora termina con el ciclo completo: la MAC confirmada, el vehículo identificado y su presencia cerca de soft targets, la habitación, la tarjeta de crédito emparejada por FININT con un alias conocido del segundo objetivo, y un informe del FBI sobre compras de esa tarjeta. Material que quedó y sirve después:</p>
+<ul>
+<li><strong>PCAPs de deautenticación</strong>: un deauth que captura los paquetes de re-autenticación obtiene EAPOL — que contienen la contraseña del Wi-Fi. Colección incidental para entrar a la red del adversario.</li>
+<li><strong>Tripwire SIGINT</strong>: un ESP32 programado con una whitelist de MACs, dejado a lo largo de la ruta conocida del objetivo, alerta cuando el dispositivo aparece — seguimiento casi en tiempo real.</li>
+<li><strong>Correlación de identificadores NFC</strong>: los datos de la tarjeta se cruzan con colección nacional o datos de brechas (en modo civil) para mapear dónde y cómo se usa.</li>
+<li><strong>Co-travelers</strong>: los estados-nación con acceso a telecomunicaciones — el espectro del caso Salt Typhoon, origen de la recomendación inusual del FBI y la NSA de usar Signal — correlacionan teléfonos entre sí. Llevar varios teléfonos siempre juntos convierte al grupo en co-travelers y revela la estructura social completa de la célula: con quién se mueve, quién estaba presente en cada compra o reconocimiento. El análisis de redes sociales sale de esa data técnica.</li>
+</ul>
+<p>En términos del oficio, todo el ejercicio fue una acción <strong>clandestina</strong> (hacer algo sin que nadie lo note), no <strong>covert</strong> (hacer algo notorio sin que se sepa quién) — la distinción explica por qué se copió lock y no unlock.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Flipper Zero + WiFi dev board</strong>: plataforma half duplex para sub-GHz, Wi-Fi, Bluetooth, IR, NFC/RFID; antenas externas de sub-GHz para extender rango.</li>
+<li><strong>Probes / Preferred Network List</strong>: balizas de redes conocidas del teléfono, mapeables con wigle.net a patrones de vida y viaje.</li>
+<li><strong>Deauth + observación conductual</strong>: desautenticar al objetivo y reaccionar al reclamo del Wi-Fi para ponerle rostro a la MAC.</li>
+<li><strong>Karma attack / Evil Portal</strong>: evil twin con más potencia que las redes balizadas, para conexión automática y proxy de tráfico (mencionado, no ejecutado).</li>
+<li><strong>MIFARE Classic</strong>: llaves de hotel con sectores encriptados; copiables con claves de desencriptación obtenidas en línea.</li>
+<li><strong>Spectrum analyzer</strong> (descargable en lab.flipper.net): localizar el spike de frecuencia del key fob y acotar la captura.</li>
+<li><strong>Signal replay sub-GHz</strong>: grabar y reproducir lock para identificar el vehículo sin entrar a él; rolling codes y comportamiento de vehículos 2013+.</li>
+<li><strong>FININT</strong>: datos NFC de tarjetas correlacionados con historiales de compra y retiros.</li>
+<li><strong>ALPR (lectores automáticos de patentes)</strong>: patrón de vida y de viaje del vehículo identificado.</li>
+<li><strong>Tripwire SIGINT</strong>: ESP32 con whitelist de MACs como leave-behind de alerta.</li>
+<li><strong>EAPOL en PCAPs</strong>: contraseñas Wi-Fi capturadas vía deauth y re-autenticación.</li>
+<li><strong>Co-traveler analysis</strong>: correlación de dispositivos por estados-nación en redes de telecomunicaciones; caso Salt Typhoon y recomendación de Signal del FBI/NSA.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un dispositivo de bolsillo basta para construir un expediente completo en una hora: identificador único (MAC), ubicación física (RSSI), hábitos (PNL + ALPR), financiera (NFC) y vehículos (sub-GHz) — la preponderancia de evidencia es la suma de pequeñas pistas acumuladas.</li>
+<li>El límite del equipo define la estrategia: el Flipper no crackea rápido ni paga con tarjetas, pero excelle en recolectar identificadores únicos, y el valor de un identificador está en la correlación posterior.</li>
+<li>Las reglas del ejercicio son aplicables fuera del escenario: entornos controlados y permiso para radio, leer tarjetas solo dentro de la propia habitación, enviar lock y no unlock, y distinguir inteligencia de criminalidad.</li>
+<li>El adversario también colecciona: co-travelers y correlación de teléfonos convierten la multiplicación de dispositivos en un contra-efecto; la privacidad digital (fundas de cobre, apagar el Wi-Fi) es higiene operativa para cualquiera.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/b8-uDKkfw5c">«Flipper Zero Intelligence Ops: Wielding Versatile Signals in the Modern Arena»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

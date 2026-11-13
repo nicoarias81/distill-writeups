@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hello Packet: secuencia de datos de OPC UA y manipulación de PLCs con digital twins — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hello Packet: secuencia de datos de OPC UA y manipulación de PLCs con digital twins</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JLcx2sqUbBA">«DEF CON 33 - Hello Packet: On the Sequence of Data of OPCUA &amp; PLCs Manipulations - Eugene Ong»</a> · ver el <a class="nz-link" href="https://youtu.be/JLcx2sqUbBA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La tecnología operacional (OT) es el hardware y software que supervisa y controla directamente equipos físicos, procesos e infraestructura. El historial documentado de ataques OT es corto pero serio: el episodio de 2000 del empleado despedido que manipuló la red OT de su ex empleadora para causar descargas de aguas residuales, y más recientemente la red eléctrica ucraniana y los PLCs que aparecieron como objetivo en Intrusiones APT. Contra ese fondo, un testbed cibernético-físico permite estudiar estos ataques sin consecuencias del mundo real.</p>
+<p>El escenario de trabajo es SWaT (Secure Water Treatment), construido por i-Trust en la Singapore University of Technology and Design en colaboración con el Ministerio de Defensa Digital y Servicios: una planta de tratamiento de agua totalmente funcional para investigación OT, con cuerpo físico y gemelo digital. Usa PLCs Allen-Bradley para controlar válvulas y bombas, OPC UA como protocolo de comunicación entre PLCs y SCADA, y una interfaz de operador para mantener los valores objetivo, igual que una planta de tratamiento real. Su repositorio de ataques lanzados a lo largo de los años se clasifica en dos familias: los que impiden la producción de agua y los que impiden el tratamiento. Uno de ellos se demuestra en directo: en el testbed físico, el modo de la bomba de agua pasa de auto a manual, se detiene la bomba de producción y el tanque 101 deja de llenarse.</p>
+<p>El gemelo digital es la pieza que hace viable la investigación: una réplica de alta fidelidad del sistema físico que funciona como simulador para probar sin efectos ni costes reales. Su calidad se define por tres capas de fidelidad: la lógica (estados, lógica y firmware de los PLCs), la red (protocolos y tráfico entre PLC, SCADA, HMI y EWS) y la física (variables como nivel y estado del agua que en la vida real no son visibles). Sin el gemelo, lanzar ataques directamente sobre la planta real es prohibitivo, y construir una línea base de anomalías tomaría muchísimo tiempo.</p>
+<h2>Metodología de seis pasos para estudiar un protocolo OT</h2>
+<p>El estudio de protocolos OT sigue una secuencia repetible en seis pasos: observar y describir qué es normal; mutar y ver qué se puede cambiar y qué respuesta vuelve; y determinar qué es detectable como operador, para detectar y atribuir ataques. Cada paso se ilustra con demostraciones contra el gemelo, usando Wireshark —que trae plugin para OPC UA, un protocolo open source bien documentado— y replays de paquetes capturados del tráfico legítimo del testbed. Para protocolos sin soporte de Wireshark los seis pasos siguen aplicando, solo que con mucho más trabajo de lectura hexadecimal.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Capturar tráfico normal
+Wireshark] --> B[Replay del hello packet
+descubrir PLCs]
+    B --> C[Replay Open Secure Channel
++ Create Session]
+    C --> D{¿Respuesta?}
+    D -- No --> E[Extraer secure channel ID
+y token ID de la respuesta del PLC]
+    E --> F[Reinyectar IDs y repetir]
+    F --> G[Create Session / Activate /
+Read Request funcionales]
+    G --> H[Sustituir node ID
+descubrir Write Request]
+    H --> I[Write Request:
+manipular nivel del tanque]
+    I --> J[Suplantar a SCADA desde la EWS
+evitar detección]
+
+</pre>
+
+<h3>Paso 1: entender el protocolo</h3>
+<p>Con el tráfico capturado se identifican los mensajes que se envían al establecerse la conexión: el primer mensaje es el <em>hello packet</em>, que da nombre a la investigación. Reproducirlo sirve también como herramienta de descubrimiento para saber qué PLCs hay en la red y cuáles responden.</p>
+<h3>Paso 2: replay y el primer obstáculo</h3>
+<p>El siguiente mensaje es la petición de apertura de canal seguro; reproducirla funciona. Pero al enviar el <em>create session request</em> no llega respuesta del PLC: solo un mensaje de cierre. Analizando bit a bit la última respuesta que el PLC envió aparece la causa: el replay usaba un secure channel ID de 15 y un token ID de 13, mientras el PLC esperaba 13 para ambos. Además hay un request ID incremental que hay que ajustar. Extrayendo el channel ID y el token ID de la respuesta del PLC y reinyectándolos en los paquetes siguientes, el create session, el activate session y el read request vuelven a funcionar. Con eso queda completa la emulación: mandar cualquier cosa que se haya visto hacer al PLC.</p>
+<h3>Paso 3: qué más sabe hacer el PLC</h3>
+<p>La petición de lectura referencia un node ID concreto —en el demo, 631, que corresponde a la lectura del tanque—. Conservando la estructura del paquete y sustituyendo solo el node ID se exploran los demás servicios. El resultado son muchas respuestas con service IDs que el plugin de Wireshark no resuelve, pero un patrón las delata: ráfagas de cientos de <em>bad service packets</em> idénticos (106 de un tirón) que un PLC legítimo nunca enviaría; deduplicarlas deja a la vista los mensajes de error reales. Entre los servicios descubiertos aparece el <strong>write request</strong> (node ID 673), la pieza que habilita el ataque.</p>
+<h3>Paso 4: manipulación física</h3>
+<p>Escribiendo un valor bajo —50, un valor bajo típico, aunque 0 u otro cualquiera también valen— en el nivel del tanque 101 de la HMI, el valor mostrado cae de 799 a 50. La lógica es la del ataque: si el tanque "está bajo", el sistema debería reaccionar bombeando agua. Un detalle revelador aparece en la demo: a veces el valor salta de vuelta a la lectura original, porque el PLC se pelea entre el valor escrito y la lectura real del sensor; que la disputa sea visible en la HMI es, en sí mismo, un indicador de compromiso.</p>
+<h3>Paso 5: hacerse pasar por SCADA</h3>
+<p>Hasta aquí todo el tráfico malicioso salía de la EWS del investigador, fácil de detectar por origen. El último paso reproduce los paquetes suplantando a la SCADA: el script espera a que el PLC responda al tráfico legítimo para secuestrar el número de secuencia TCP y hacer pasar el tráfico malicioso por tráfico normal. Tras el ajuste, la petición y la respuesta aparecen en Wireshark como si fluyeran de la SCADA al PLC, y el ataque queda indistinguible del operativo.</p>
+<h2>Detección: qué delata al atacante</h2>
+<p>El otro lado del ejercicio es saber qué vigilar como operador de red, a nivel táctico:</p>
+<ul>
+<li><strong>Tráfico por sí solo ya es sospechoso</strong>: un PLC no debería recibir write requests por la red —lee de sus propios sensores—. Salvo un caso de uso operativo excepcional, un write request por red debería ser rechazado o al menos alertado.</li>
+<li><strong>Relaciones de conexión inusuales</strong>: en la observación del testbed, las conexiones SCADA–PLC son de larga duración; nunca se vio al PLC establecer conexiones nuevas. Las conexiones cortas entre PLCs, o cualquier conexión que no sea SCADA→PLC, son candidatos a alerta.</li>
+<li><strong>Hardening previo</strong>: conociendo el mapa de comunicaciones legítimas, se pueden pre-filtrar IPs para bloquear esta clase de ataques.</li>
+</ul>
+<h2>Límites del gemelo digital</h2>
+<p>El propio ejercicio dejó a la vista las fisuras del enfoque. Tras enviar la petición correcta, el testbed murió: los estados inesperados —como un avance anómalo del handshake TCP— dejan al gemelo sin saber qué hacer, un bug que hay que corregir. La fidelidad alta también cuesta: un gemelo de alta fidelidad exige mucha más potencia de cómputo, y hay que elegir entre calidad y recursos. Y la fidelidad de protocolo puede divergir del sistema real: en este gemelo, SCADA–PLC habla el OPC UA correcto, pero SCADA–HMI usa ZMQ porque en el gemelo físico se implementó así por capacidad, cuando la planta real usaría OPC UA también. Cualquier hallazgo de detección construido sobre el gemelo debe validar esas divergencias contra el sistema real.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SWaT (Secure Water Treatment)</strong>: testbed ciber-físico de i-Trust (SUTD) con cuerpo físico y gemelo digital, PLCs Allen-Bradley y OPC UA.</li>
+<li><strong>Digital twin de tres capas de fidelidad</strong>: lógica (PLC/estados/firmware), red (protocolos y tráfico) y física (variables del proceso).</li>
+<li><strong>Wireshark + plugin OPC UA</strong>: observación y decodificación del protocolo; lectura hexadecimal cuando no hay plugin.</li>
+<li><strong>Replay de hello packet</strong>: descubrimiento de PLCs en la red.</li>
+<li><strong>Secuestro de secure channel ID / token ID / request ID</strong>: reinyección de identificadores extraídos de las respuestas del PLC para que el replay sea aceptado.</li>
+<li><strong>Sustitución de node ID</strong>: enumeración de servicios del PLC (631 lectura, 673 escritura).</li>
+<li><strong>Write request a nivel de tanque</strong>: manipulación física con efecto visible en la HMI y disputa PLC/sensor como indicador.</li>
+<li><strong>Suplantación de SCADA</strong>: sincronización con las respuestas del PLC para robar el sequence number TCP y camuflar el ataque.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La metodología de seis pasos (observar, describir, mutar, responder, detectar, atribuir) es aplicable a cualquier protocolo OT, con o sin soporte de herramientas; el coste solo cambia en la profundidad del análisis.</li>
+<li>Los identificadores de sesión de OPC UA se pueden reciclar desde el propio tráfico: la seguridad del protocolo en este despliegue no impide que un replay bien armado obtenga sesión completa contra el PLC.</li>
+<li>Un write request por red hacia un PLC es anómalo por definición operacional, y su detección es de las defensas más baratas y efectivas contra esta clase de manipulación.</li>
+<li>El gemelo digital acelera la investigación OT enormemente, pero sus divergencias de protocolo y sus fallos ante estados inesperados son parte del objeto de estudio, no solo del instrumento.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JLcx2sqUbBA">«DEF CON 33 - Hello Packet: On the Sequence of Data of OPCUA &amp; PLCs Manipulations - Eugene Ong»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

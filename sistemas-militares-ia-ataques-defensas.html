@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistemas militares con IA: cómo se atacan y cómo defenderse — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Sistemas militares con IA: cómo se atacan y cómo defenderse</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/81holvvSdcA">«DSCG1 - Attack and Defense of AI Enabled Systems - Hahna Latonick»</a> · ver el <a class="nz-link" href="https://youtu.be/81holvvSdcA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La teorización sobre guerra con IA terminó: enjambres de drones no identificados rondaron durante días una base de la fuerza aérea de EE. UU. en Louisiana con bombarderos nucleares B-52; la guerra Rusia-Ucrania se convirtió en campo de pruebas a escala de sistemas autónomos; los ataques de drones en el Mar Rojo y la tensión en el estrecho de Taiwán —donde los vehículos marítimos autónomos emergen como arma asimétrica— confirman el cambio de paradigma. Los sistemas no tripulados (UXS: aéreos, terrestres, marítimos) ya son integrales a las operaciones militares modernas, y la IA integrada en ellos —percepción por visión computarizada, detección y clasificación de objetos, mapeo del entorno, planificación de rutas y control de velocidad y distancia— los vuelve más autónomos y eficientes. Pero también expande la superficie de ataque con debilidades propias de la IA que ningún hardening tradicional cubre.</p>
+<h2>Cómo se ataca a la IA de un sistema militar</h2>
+<p>Los vectores sobre los componentes de IA se dividen en cuatro familias:</p>
+<ol>
+<li><strong>Spoofing y manipulación de sensores</strong>: alterar entradas de GPS, LiDAR o feeds de cámaras confunde la percepción del sistema —desvío de trayectorias por GPS spoofing, o imágenes adversariales que hacen que el detector de objetos no vea lo que tiene delante.</li>
+<li><strong>Ejemplos adversariales</strong>: entradas específicamente construidas para explotar los puntos débiles del proceso de decisión del modelo, causando clasificaciones erróneas de objetos, interpretaciones incorrectas de comandos o decisiones equivocadas.</li>
+<li><strong>Envenenamiento de datos (data poisoning)</strong>: contaminar los datos de entrenamiento para que el modelo aprenda comportamientos incorrectos. El peligro distintivo: un modelo envenenado pasa las pruebas normales y se comporta de forma anómala solo en el mundo real.</li>
+<li><strong>Extracción de modelos</strong>: robar o replicar el modelo para analizarlo, encontrar sus fallas y desarrollar ataques dirigidos —o versiones degradadas del mismo.</li>
+</ol>
+<p>Colocar modelos en el edge (dentro del propio vehículo) agrava todo: menos capacidad de supervisión central, más exposición física, y la necesidad de defensa en capas que combine seguridad tradicional y protección específica de IA.</p>
+<pre class="mermaid">
+flowchart LR
+    subgraph Ataques a la IA
+        S[Spoofing de sensores<br>GPS / LiDAR / cámaras]
+        AD[Ejemplos adversariales]
+        P[Data poisoning<br>en entrenamiento]
+        M[Model extraction]
+    end
+    S --> PS[Percepción<br>degradada]
+    AD --> D[Decisiones<br>erróneas]
+    P --> D
+    M --> MA[Ataques dirigidos<br>al modelo]
+    PS & D & MA --> UXS[Sistema no tripulado<br>comprometido]
+
+</pre>
+
+<h2>Defensa: dos frentes</h2>
+<p><strong>Proteger los sistemas con IA.</strong> Entrenamiento adversarial (exponer el modelo a ejemplos adversariales durante el entrenamiento para robustecerlo), técnicas de IA explicable para entender el razonamiento del modelo y detectar sesgos, prácticas de desarrollo seguro, y —más allá del modelo— seguridad del ecosistema completo del UXS: cifrado de datos en reposo y tránsito, parcheo y actualizaciones inmediatas, y la capa frecuentemente olvidada de seguridad física (bloqueo cuando el sistema no está en uso, control de acceso, monitoreo continuo de almacenes e instalaciones).</p>
+<p><strong>Defenderse de sistemas con IA enemigos.</strong> Aquí la IA es también el instrumento defensivo: modelos entrenados para detectar anomalías en el comportamiento de UXS propios que delaten un ataque, analítica predictiva para anticipar y mitigar amenazas, integrados con detección clásica (radar, sensores ópticos, monitoreo de frecuencias de radio para identificar y rastrear vehículos hostiles) y con sistemas counter-UXS en crecimiento: jamming, armas de energía dirigida o redes de captura.</p>
+<h2>Las limitaciones honestas de la tecnología</h2>
+<ul>
+<li>Los modelos dependen de la calidad y cobertura de sus datos de entrenamiento, imposibles de obtener para todos los escenarios operacionales imaginables.</li>
+<li>Generalización débil: funcionan bien en situaciones similares a las entrenadas y fallan en las raras o imprevistas —precisamente las que definen el combate.</li>
+<li>La robustez adversarial debe probarse activamente: los sistemas con IA son especialmente vulnerables si nadie los estresa.</li>
+<li>A ello se suman los requisitos regulatorios: en EE. UU. los sistemas militares necesitan autorización para operar (ATO) antes de desplegarse.</li>
+</ul>
+<h2>Gobernanza: NIST y las políticas</h2>
+<p>El marco de referencia es el NIST AI Risk Management Framework (AI 100-1), con su playbook de acciones y resultados por función, extendido con el perfil de IA generativa (NIST AI 600-1) como recurso complementario para los riesgos específicos de GenAI. A escala de país, la orden ejecutiva sobre desarrollo seguro, seguro y confiable de la IA fija estándares de seguridad y protección de privacidad, y múltiples naciones tienen regulaciones propias. El problema: los marcos existen, pero son difíciles de operacionalizar en la práctica.</p>
+<p>La propuesta operativa es un enfoque de capacidades que ayude a los equipos que introducen soluciones de IA a aplicar el RMF y los servicios del gobierno estadounidense existentes, partiendo de un cambio de mentalidad respecto al software tradicional:</p>
+<ul>
+<li><strong>Transparencia limitada</strong>: es difícil entender cómo decide un modelo, crítico en aplicaciones de misión crítica.</li>
+<li><strong>Datos de múltiples fuentes</strong>: introducen riesgos de seguridad y privacidad, sobre todo con datos sensibles.</li>
+<li><strong>Salidas de IA</strong>: pueden filtrar información sensible o reflejar sesgos.</li>
+<li><strong>Aseguramiento continuo</strong>: el modelo cambia dinámicamente —el aseguramiento estático de un sistema tradicional no alcanza—, combinando controles clásicos (seguridad y privacidad de NIST SP 800-53) con evaluaciones específicas de precisión, robustez y equidad del modelo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La superficie de ataque de un sistema militar con IA es la unión de la clásica (comunicaciones, actualizaciones, acceso físico) y la específica de IA (sensores, datos, modelos); defender solo una mitad deja al sistema expuesto.</li>
+<li>El envenenamiento de datos es la amenaza más traicionera: el sistema pasa todas las pruebas y falla en combate.</li>
+<li>La IA sirve a la defensa con la misma intensidad que amplía el ataque: detección de anomalías, predicción y counter-UXS inteligente son la contraparte natural.</li>
+<li>Ningún marco regulatorio se ejecuta solo: la operacionalización —aseguramiento continuo, pruebas adversariales, gobernanza de datos— es donde se gana o pierde la ventaja competitiva.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/81holvvSdcA">«DSCG1 - Attack and Defense of AI Enabled Systems - Hahna Latonick»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

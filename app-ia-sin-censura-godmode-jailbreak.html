@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una app de IA sin censura con los modelos de primera línea: GodMode detrás de tu propia interfaz de chat — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Una app de IA sin censura con los modelos de primera línea: GodMode detrás de tu propia interfaz de chat</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bwzK1FuSp1Q">«I Built an UNCENSORED AI app For Hacking (and YOU can too)»</a> · ver el <a class="nz-link" href="https://youtu.be/bwzK1FuSp1Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Pedirle a ChatGPT o Claude código para un backdoor termina casi siempre en "no puedo ayudarte con eso". El montaje que se demuestra aquí elimina ese rechazo sin bajar a modelos locales: una herramienta que aplica técnicas de jailbreak automáticas, la conecta a un router de modelos de primera línea y pone todo detrás de una interfaz de chat propia, accesible desde el celular con HTTPS.</p>
+<p>La vía rápida es una extensión de navegador que corre todo localmente; la vía correcta es una API en un VPS en la nube con autenticación, base de datos de conversaciones y app en el teléfono. El resultado es el mismo: pedir código para un backdoor de Windows con mecanismo de persistencia y recibirlo sin una sola negativa.</p>
+<h2>GodMode: jailbreak en cadena contra varios modelos a la vez</h2>
+<p>La pieza central es GodMode, herramienta de Pliny the Liberator —quien mantiene un catálogo público de técnicas de jailbreak—. En vez de enviar el prompt tal cual, transforma la entrada usando varias técnicas descubiertas por la comunidad y luego hace algo más interesante: manda el prompt transformado no a un modelo, sino a varios de los de mayor calidad a la vez, y filtra entre todas las respuestas para devolver la mejor. Es una carrera de modelos con jailbreak incorporado.</p>
+<p>El acceso a los modelos se resuelve con OpenRouter: se crea una API key en openrouter.ai y se le entrega a GodMode, que desde ahí puede hablar con toda la flota de modelos del proveedor. La key es el único secreto que hay que crear afuera; las demás credenciales (la key de la propia API de GodMode) se eligen uno mismo.</p>
+<h2>La versión rápida: todo en el navegador</h2>
+<p>El camino fácil es entrar a godmode.ai, pegar la key de OpenRouter en la configuración de API keys y preguntar. La herramienta aplica sus técnicas de jailbreak al prompt, lo envía a los modelos seleccionados y muestra la mejor respuesta: el código del backdoor con su listener aparece sin rechazos.</p>
+<p>El problema es que corre íntegramente en el navegador. Cambiar de navegador o de dispositivo obliga a reconfigurar todo con la key de nuevo; las conversaciones quedan atadas a ese navegador, y si se borran los datos de navegación se pierde todo. Sirve para probar en minutos, no como sistema.</p>
+<h2>La versión correcta: API en la nube detrás de una interfaz propia</h2>
+<p>La implementación seria despliega la API de GodMode en un VPS y la conecta a una interfaz de chat con autenticación. El despliegue es sobre una imagen Docker con Open WebUI —infraestructura web de chat con base de datos incluida que puede hablar con cualquier modelo por API key— en un plan liviano, ya que el peso del modelo corre en el proveedor, no en el servidor propio.</p>
+<p>Tres detalles del despliegue que marcan la diferencia:</p>
+<ul>
+<li><strong>Repositorio propio con parches</strong>: la API de GodMode tenía tres bugs que hubo que parchear, por lo que la demo clona un fork del autor, no el repo original.</li>
+<li><strong>Variables de entorno del contenedor</strong>: la imagen se construye con <code>docker build</code> (tag <code>gm-api</code>) y corre en modo detached exponiendo el puerto 7860, pasando por <code>-e</code> la key de OpenRouter, la key elegida para autenticarse contra el gateway de GodMode y el tier (<code>enterprise</code>) que habilita el uso sin restricciones del gateway. La key del gateway debe coincidir exactamente entre el contenedor y la configuración del cliente.</li>
+<li><strong>Conexión estilo OpenAI</strong>: en el panel de administración de Open WebUI se agrega una conexión con la URL <code>http://&lt;IP-del-VPS&gt;:7860/v1</code> —la sintaxis estándar compatible con OpenAI— y la key del gateway como credencial. La verificación del panel confirma la conexión y desde el chat ya se ven todos los modelos "uncensored" del gateway más el resto de la flota.</li>
+</ul>
+<p>La prueba final: pedir el código de un backdoor de Windows con mecanismo de persistencia a través del modo que compite varios modelos de primera línea entre sí —ChatGPT y Gemini entre ellos— y obtenerlo sin rechazos.</p>
+<h2>Del navegador al teléfono: la app</h2>
+<p>Con el backend en la nube, la interfaz se abre por URL en el navegador del teléfono y se instala como app desde el menú del navegador ("agregar a la pantalla de inicio"). El resultado es un ícono en el home que abre el login, y detrás del login el chat completo: historial de conversaciones, elección de modelo y respuestas sin censura desde cualquier dispositivo del mundo, con HTTPS de punta a punta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>GodMode</strong>: herramienta de jailbreak de Pliny the Liberator que transforma el prompt con múltiples técnicas y compite varios modelos entre sí, filtrando la mejor respuesta.</li>
+<li><strong>OpenRouter</strong>: gateway de modelos que da acceso a la flota completa (ChatGPT, Claude, Gemini y más) con una sola API key.</li>
+<li><strong>Open WebUI</strong>: interfaz de chat web self-hosted con base de datos y autenticación, desplegada por Docker en un VPS.</li>
+<li><strong>API de GodMode parcheada en fork propio</strong>: tres bugs corregidos; despliegue vía <code>docker build</code> / <code>docker run</code> en modo detached con variables de entorno.</li>
+<li><strong>Sintaxis compatible con OpenAI</strong>: conexión de Open WebUI al gateway vía <code>http://&lt;IP&gt;:7860/v1</code> con key de autenticación.</li>
+<li><strong>PWA en el teléfono</strong>: la interfaz se instala como app desde el navegador ("agregar a la pantalla de inicio").</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El jailbreak ya no es un prompt artesanal: herramientas como GodMode automatizan técnicas conocidas y compiten varios modelos de primera línea entre sí para encontrar la respuesta sin rechazos.</li>
+<li>La diferencia entre juguete y sistema es la infraestructura: navegador local (frágil, atado al dispositivo) versus API en la nube detrás de una interfaz con autenticación, accesible desde cualquier parte.</li>
+<li>Para alguien que hace pentesting o red team, esto significa que las protecciones de un modelo comercial son una superficie de evasión trivial: la pregunta de seguridad no es si el modelo rechaza un prompt, sino si el sistema que lo rodea valida lo que entra y lo que sale.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bwzK1FuSp1Q">«I Built an UNCENSORED AI app For Hacking (and YOU can too)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

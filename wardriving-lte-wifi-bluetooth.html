@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardriving LTE: peinar la ciudad con hardware de bolsillo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Wardriving LTE: peinar la ciudad con hardware de bolsillo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/t3Kudu9Pku8">«Wardriving LTE  - Jorge Adrian Salcedo Gutierrez»</a> · ver el <a class="nz-link" href="https://youtu.be/t3Kudu9Pku8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El wardriving clásico consiste en recorrer calles con un dispositivo que escuche redes inalámbricas y un GPS que registre la ubicación de cada hallazgo. Esta técnica, nacida hace décadas para detectar redes Wi-Fi, se puede extender a las redes celulares: mapear antenas LTE y saber qué torres están activas, dónde y con qué identidad de operador. El problema práctico es el costo: las alternativas tradicionales con hardware SDR como el BladeRF rondan los 600 a 1000 dólares, una barrera alta para empezar.</p>
+<p>La propuesta es un enfoque accesible basado en una placa LILYGO T-SIM 7600GH, que integra un ESP32, un módem SIM 7600 capaz de conectarse a redes 4G y Bluetooth. Sobre ese hardware se construyó un pequeño framework que lee todo lo que el dispositivo captura —antenas celulares, puntos de acceso Wi-Fi y dispositivos Bluetooth— y lo vuelca a archivos. El costo total del equipo se reduce drásticamente frente a un SDR, y el resultado son datasets georreferenciados con valor directo para investigación y para servicios de geolocalización.</p>
+<h2>De la MAC al Cell ID: qué se colecta en cada mundo</h2>
+<p>El wardriving tiene variantes conocidas: el escaneo desde un vehículo, el <em>war walking</em> (lo mismo pero caminando) y el <em>war chalking</em>, la vieja práctica de marcar físicamente en los espacios el tipo de red disponible —abierta, WPA, etc.— que hoy está en desuso.</p>
+<p>En Wi-Fi, los datos mínimos por cada red detectada son el SSID (nombre de la red), la BSSID (dirección MAC del punto de acceso), los canales de transmisión, la frecuencia (2.4 o 5 GHz), los niveles de señal, el tipo de cifrado y la ubicación GPS.</p>
+<p>En redes celulares cambia el vocabulario pero no la idea:</p>
+<ul>
+<li><strong>MCC</strong> (Mobile Country Code): identifica al país de la red celular; el de México es 334.</li>
+<li><strong>MNC</strong> (Mobile Network Code): cada operador del mundo tiene un código único; en México, 020 es Telcel, 030 es AT&amp;T y 050 es Movistar.</li>
+<li><strong>LAC</strong> (Location Area Code): identifica la zona o colonia donde está la antena.</li>
+<li><strong>Cell ID</strong>: el identificador único e irrepetible de cada torre celular individual.</li>
+</ul>
+<p>Junto con el GPS, estos identificadores permiten construir un mapa completo de la infraestructura celular de una ciudad.</p>
+<h2>El hardware: LILYGO T-SIM 7600GH</h2>
+<p>La placa elegida reúne en un solo dispositivo lo necesario para los tres frentes de escaneo:</p>
+<ul>
+<li>Módem SIM 7600 para conectarse a redes 4G e interrogar las antenas celulares.</li>
+<li>ESP32 integrado para la lógica y el escaneo.</li>
+<li>Bluetooth nativo.</li>
+<li>Ranura para tarjeta SD, donde quedan guardados los resultados sin depender de una conexión externa.</li>
+</ul>
+<p>Sobre esas características se desarrolló un framework propio que orquesta la lectura de todo y lo persiste a archivo mientras el dispositivo recorre la ciudad. La condición clave frente a un SDR es que el módem incluye el chip que permite identificarse ante la compañía celular y extraer los datos de las antenas, algo que con SDR exige mucho más trabajo y presupuesto.</p>
+<p>Contra el argumento de que "esto se puede hacer con un SDR", la respuesta es de costo y practicidad: el mismo trabajo con un BladeRF arranca en 600 dólares y llega a 1000, mientras que esta configuración hace el trabajo con una placa de bolsillo.</p>
+<h2>Por qué importan estos datos: geolocalización</h2>
+<p>El destino final de estos datasets es la geolocalización de teléfonos. Existen servicios que, a partir del mapeo continuo de las antenas de una ciudad —realizado por dispositivos que van peinando las calles—, pueden determinar qué teléfono está conectado a qué antena en cada momento.</p>
+<p>En México y en muchos otros países esos servicios de geolocalización operan en el ámbito de la inteligencia, destinados a localizar objetivos concretos. La infraestructura que sostiene esa capacidad se construye exactamente así: datasets masivos de MCC, MNC, LAC, Cell ID y coordenadas GPS acumulados durante recorridos sistemáticos. Comprender cómo se genera esa capa de datos es entender cómo funciona el rastreo por red celular, con la misma lógica con la que un dataset de Wi-Fi permite trazar el rastro de un dispositivo o de una persona.</p>
+<h2>La salida: CSVs y una plataforma comunitaria</h2>
+<p>El framework entrega archivos CSV separados por tipo de captura. Para torres celulares incluye los identificadores de red junto con las coordenadas. Para puntos de acceso y redes inalámbricas registra nombre de red, MAC, canal, señal, tipo de seguridad y coordenadas de detección. Los resultados aún no son compatibles con WiGLE, la plataforma internacional de agregación de wardriving, pero existe una alternativa en construcción: una plataforma comunitaria mexicana, 100% desarrollada desde cero, que se presenta en el evento BugCon (20 y 21 de noviembre) y cuyo propósito es centralizar los datos que la comunidad va recolectando. Como incentivo, la semana del evento organiza una competencia tipo CTF: de lunes a viernes, gana quien descubra más redes.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Wardriving</strong> clásico sobre Wi-Fi (SSID, BSSID, canales, cifrado, potencia de señal) y sus variantes <em>war walking</em> y <em>war chalking</em>.</li>
+<li><strong>LILYGO T-SIM 7600GH</strong>: placa con ESP32 integrado, módem SIM 7600 para redes 4G y Bluetooth, con GPS incorporado.</li>
+<li>Identificadores celulares colectados con GPS: MCC, MNC, LAC/TAC y Cell ID, equivalentes funcionales del SSID y la MAC en Wi-Fi.</li>
+<li>Comparación contra un <strong>SDR</strong> (BladeRF, 600-1000 dólares): el módem cellular simplifica el trabajo a menos de 100 dólares.</li>
+<li>Salida en <strong>CSV</strong> y aporte a una plataforma comunitaria de geolocalización de infraestructura.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El wardriving LTE es viable con hardware de menos de 100 dólares: una LILYGO T-SIM 7600GH con su módem 4G y GPS cubre antenas celulares, Wi-Fi y Bluetooth sin necesidad de un SDR de 600-1000 dólares.</li>
+<li>Los identificadores celulares (MCC, MNC, LAC, Cell ID) son el equivalente funcional del SSID y la MAC en Wi-Fi: con ellos y un GPS se mapea la infraestructura de una ciudad entera.</li>
+<li>Estos datasets alimentan los servicios de geolocalización de teléfonos: peinar las antenas es el paso que permite saber qué teléfono está conectado a qué torre.</li>
+<li>El siguiente paso es colectivo: plataformas comunitarias donde la comunidad suba sus CSV, al estilo de lo que WiGLE hizo por el Wi-Fi.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/t3Kudu9Pku8">«Wardriving LTE  - Jorge Adrian Salcedo Gutierrez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

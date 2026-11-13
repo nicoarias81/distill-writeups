@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nix: gestión segura de dependencias en todas partes — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Nix: gestión segura de dependencias en todas partes</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/xecOnPOxc3w">«DEF CON 33 - Secure software dependency management everywhere with Nix - Tom Berek, Farid Zakaria»</a> · ver el <a class="nz-link" href="https://youtu.be/xecOnPOxc3w">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Primera charla sobre Nix en un escenario oficial de DEF CON: una conversación con Tom Berek (más de una década en el ecosistema), Farid Zakaria (contribuidor activo y crítico constructivo) y Morgan Jones (committer de Nix packages, builds reproducibles en Viasat) sobre qué es Nix, por qué no compite con Docker, qué cambia para la seguridad de la cadena de suministro y hacia dónde va el proyecto. El ecosistema tiene tres piezas que conviene distinguir: Nix (el gestor de paquetes y su lenguaje), Nix packages (el conjunto de paquetes) y NixOS (el sistema operativo). El orden histórico importa: primero vino el gestor de paquetes —pensado para distribuir software de forma confiable en cualquier distro o Unix—, de ahí las recetas de build (Nix packages) y al final alguien pensó "si tengo gestor de paquetes, ¿y si hago un OS?".</p>
+<p>La idea central que sostiene todo: un grafo. Antes de Nix no existía una primitiva para actualizar una máquina ni para desplegar más de un archivo de forma atómica; del grafo de derivaciones —con su proveniencia exacta hasta el commit y los parches de cada pieza— salen reproducibilidad, auditoría y seguridad.</p>
+<h2>Nix y Docker: no es un versus</h2>
+<p>La crítica a Docker no es que sea malo, sino que es otra cosa: un mecanismo de distribución de artefactos con opinión cero sobre packaging. El Dockerfile copia binarios o se apoya en el ecosistema de la imagen base; eso funciona muy bien como hoja del despliegue y sostuvo un ecosistema de orquestación espectacular (Kubernetes, cloud native), pero esquivó el problema de empaquetar. Y el packaging existe para que el software sea reutilizable: si repartís tu librería o SDK como contenedor y el cliente necesita combinar tres o cuatro SDKs distintos, "aplastar" tres contenedores y que convivan es exactamente el problema que Nix resuelve: componer distribuciones, librerías y SDKs distintos sin conflictos.</p>
+<p>Otros puntos del contraste:</p>
+<ul>
+<li><strong>Imutabilidad no es reproducibilidad</strong>: la imagen de Docker es una golden image inmutable, pero cambiar algo dentro suele romperla y nada de ese flujo es reproducible; Nix exige un poco más de complejidad inicial y a cambio entrega barandas que evitan ese trabajo manual.</li>
+<li><strong>Desarrollo dentro de contenedores</strong>: namespaces de PID, montaje y red, mapeo de puertos, NAT para debuggear… Nix elimina ese costo.</li>
+<li><strong>Nix dentro de imágenes</strong>: el propio debugger de Docker usa Nix por debajo; en runtimes restringidos es la forma no conflictiva de dejar que los usuarios agreguen paquetes sin destruir lo que la imagen ya hace.</li>
+<li><strong>Complemento, no competencia</strong>: se puede usar Nix para construir los contenedores; "Nix y Docker", no "Nix o Docker".</li>
+</ul>
+<h2>SBOMs correctos por construcción y el modelo de confianza</h2>
+<p>Aquí está el gancho de seguridad. Con Nix, el grafo de dependencias se conoce de antemano: no se construye el software y luego se escanea la imagen para extraer un SBOM aproximado, sino que el SBOM ultra preciso —hace 20 años se llamaba derivaciones— existe antes del build. Esa precisión es un arma de doble filo: los trackers de vulnerabilidades (NVD, MITRE, los vendors) no trabajan al nivel de commit de Nix, sino con identificadores difusos tipo CPE o package URL. El llamado de acción para el ecosistema: generar ambos —el SBOM hiperexacto y el usable—, corrigiendo los puntos donde Nix packages aún no mapea bien, para que cualquier vendor de seguridad pueda ingestarlo y eliminar el escaneo heurístico de imágenes.</p>
+<p>Sobre el modelo de confianza: la Nix Foundation opera una granja de builds (Hydra) que construye todo desde fuente, firma con una clave pública y publica en una caché binaria. La caché es una optimización, no un acto de fe: se puede desactivar el substitutor y reconstruir el mundo completo desde fuente —una auditoría a pocos pasos de distancia—. Una empresa con política de rebuild puede reconstruir todo y firmar con su propio par de claves. Nix además archiva fuentes y parches para que builds de hace una década sigan reproducibles: hay paquetes desaparecidos de internet que solo sobreviven en la caché de Nix, e incluso software de radio amateur abandonado (proyecto de Matthew Croughan) reconstruido de forma reproducible con ayuda de la Software Heritage Foundation.</p>
+<p>Y sobre XZ, la pregunta obligada: Nix no habría resuelto la cadena de suministro de XZ —si la fuente trae una puerta trasera, compilarla no la elimina—. Lo que aporta es visibilidad, oversight y una comunidad mirando el código; el equipo de seguridad del proyecto está en crecimiento con apoyo del Sovereign Tech Fund, hay herramientas nuevas para rastrear CVEs en el tiempo (y el ecosistema no fue vulnerable al backdoor de XZ, en parte por cómo construye el software). El mea culpa honesto: muchos paquetes de Nix packages tienen autor único, como en cualquier ecosistema, y esa tolerancia al riesgo sigue siendo una asignatura abierta del open source.</p>
+<pre class="mermaid">
+flowchart LR
+    S[Recetas de build desde fuente] --> H[Granja Hydra firma con clave publica]
+    H --> C[Caché binaria]
+    C -->|sustitucion: optimizacion| U[Usuario]
+    C -->|auditoria: rebuild del mundo| U
+    G[Grafo de derivaciones] --> SBOM[SBOM preciso por construccion]
+    G --> Q[Identificador difuso CPE/PURL para vendors]
+
+</pre>
+
+<h2>Superpowders cotidianos: home labs, escala y comunidad</h2>
+<p>Los relatos personales confirman el valor más allá de la empresa:</p>
+<ul>
+<li><strong>Onboarding sin lotería</strong>: una cadena de scripts de setup con 90% de éxito cada uno deja ~30% al décimo paso; el entorno declarativo elimina esa lotería y los fracasos no contaminan la máquina — se arregla y se sigue, sin empezar de cero.</li>
+<li><strong>Home labs declarativos</strong>: dos Raspberry Pi y una laptop definidas igual; hardware nuevo o roto, se despliega la misma configuración y "como si nunca te fueras". Copiar fragmentos de Neovim o de infraestructura de otras personas desde GitHub Code Search funciona porque todo está en un solo lenguaje declarativo, no en pasos imperativos que nadie guarda completos.</li>
+<li><strong>Computación colaborativa</strong>: dos amigos con laptops Framework idénticas corren la misma configuración NixOS, cada uno con su usuario en la máquina del otro vía WireGuard; cada arreglo que uno hace, el otro lo recibe, con rollbacks como red de seguridad.</li>
+<li><strong>Actualizaciones sin drama</strong>: tres sistemas actualizados de 24.11 a 25.05 la noche antes de DEF CON, funcionando. Y escalar es cuestión de tarjeta de crédito: el mismo mecanismo sirve para 2, 200 o 2000 nodos — incluido entrenar modelos de IA desplegando software a muchos nodos de forma confiable.</li>
+<li><strong>Red teams y CTF</strong>: el aislamiento del host (instalar herramientas sin tocar el sistema) es justo lo que hace falta para juego ofensivo; existe un overlay tipo Kali (Athena OS) en Nix packages que convive con una instalación existente.</li>
+</ul>
+<p>Sobre el punto de inflexión reciente: Docker "pateó el problema para adelante" y retrasó el interés, pero la complejidad del software —agentes, Python aquí, Go allá, Rust para performance— volvió urgente el pegado de sistemas de forma trazable. A eso se suma el uso más común de entrada: no construir todo el proyecto con Nix, sino solo traer las dependencias y compilar como siempre. La comunidad fue la que armó el ecosistema: corregir el software para el paradigma de Nix fue un yak-shave sin fin que alguien ya hizo, y hoy la curva sigue empinada pero con comunidad dispuesta a acompañar ("me dieron el síndrome de Estocolmo y ya no pienso en otra forma").</p>
+<h2>Roadmap: flakes, forks y Nix en todas partes</h2>
+<p>Las líneas de futuro discutidas:</p>
+<ul>
+<li><strong>Nix en todas partes</strong>: paquetes Nix corriendo en Windows, dentro de Docker, como binario estático, en dispositivos embebidos y hardware médico; incluso imaginar <code>cargo build</code> llamando por debajo a libNix — los mecanismos de sandboxing, store y caché de Nix usados por otros gestores sin que el usuario lo sepa.</li>
+<li><strong>Flakes</strong>: el bloqueo principal es <code>fetchTree</code> y la reproducibilidad real de Git (smudging y rarezas de submódulos); estabilizado eso, queda poco. Y no hay nadie full-time en el compilador (C++): falta gente.</li>
+<li><strong>Divergencias tipo Determinate Systems</strong>: proban las aguas adelantándose con flakes estables; parte de sus cambios vuelve como PRs a upstream. La lectura del panel: un fork es una función de fuerza que empuja a todos a ordenarse, y los mercados capitalistas que mejoren Nix acabarán devolviendo lo mejor al open source.</li>
+<li><strong>Herramientas de contribución</strong>: nixpkgs-review automatiza el build de dependencias inversas y el flujo de PRs para bumps de versión; para módulos de NixOS el proceso es más manual.</li>
+<li><strong>Endurecimiento</strong>: el hardening de unidades systemd de NixOS —incluida la automatización que prueba opciones de hardening hasta que el servicio deja de romperse— como mención honorable de seguridad práctica.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Nix es un grafo de derivaciones con proveniencia total: la primitiva que faltaba (actualización atómica de máquinas y despliegue de más de un archivo) y la base de reproducibilidad, auditoría y seguridad.</li>
+<li>Docker y Nix resuelven problemas distintos: orquestación y distribución de artefactos versus empaquetado y composición; lo productivo es usarlos juntos.</li>
+<li>Los SBOMs de Nix son correctos por construcción, pero solo serán útiles para la industria cuando el ecosistema genere también los identificadores difusos (CPE, PURL) que los vendors saben ingestar.</li>
+<li>El modelo de confianza es verificable: la caché binaria es una optimización y el rebuild del mundo —fuentes archivadas incluidas— está siempre a un comando de distancia; aun así, XZ no se resuelve con recompilar, sino con visibilidad, fondos y más manos en el equipo de seguridad.</li>
+<li>La adopción crece porque el software se volvió demasiado complejo para gestionarlo con scripts imperativos; el camino de entrada más común es usar Nix solo para dependencias, y de ahí al resto del ecosistema.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/xecOnPOxc3w">«DEF CON 33 - Secure software dependency management everywhere with Nix - Tom Berek, Farid Zakaria»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jackpotting: anatomía de seguridad de los cajeros automáticos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Jackpotting: anatomía de seguridad de los cajeros automáticos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/auoEA8ZD8YA">«DEF CON 33 - So You Want To Rob An ATM? - Mårten Stenmark-»</a> · ver el <a class="nz-link" href="https://youtu.be/auoEA8ZD8YA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Diez años de pentesting ofensivo concentran su atención en los cajeros automáticos por una razón práctica: es un campo completo, desde la seguridad física hasta el breakout de KIOSK y todo lo intermedio. El recorrido combina historia del sector, episodios propios de ataque, fallos recurrentes y, para cerrar, un caso real con expediente policial sueco.</p>
+<p>Las vías "no técnicas" se descartan con humor pero con datos: operadores de montacargas que se llevan el cajero entero a casa (y dejan colorante en los billetes), equipos con excavadora arrasando cajeros isleños captados por CCTV, dinamita. El interés está en la interfaz entre lo físico y lo lógico. Un dato de mercado clave para el atacante: la estandarización de los años 90 —el estándar XFS (Extension for Financial Services) del comité europeo, el término que devuelve Google al buscar software de jackpotting— redujo el sector a unos cuatro grandes fabricantes con el mismo backend. Consecuencia directa: un payload que corre en un cajero correrá, con ajustes menores, en todos; y equipos criminales de Japón, México o Portugal atacan las mismas marcas con los mismos hallazgos.</p>
+<h2>Qué hay dentro de un cajero</h2>
+<p>La estructura básica: una caja fuerte inferior con cuatro depósitos —el de reciclaje arriba, donde vuelven los billetes no retirados o los rechazados, y tres depósitos de currency con unos 2.000 billetes cada uno—, lector de tarjetas, teclado de PIN y cámaras que filman quién retira (más para el seguro que para la seguridad). El momento "Scooby Doo" del primer compromiso: dentro no hay nada exótico, es un PC normal chapeado en metal, con puertos estándar, GPIO para detección de manipulación, un lector de DVD y el dispensador de efectivo conectado por USB.</p>
+<p>El punto débil estructural es la parte superior: chapa metálica fina con cerraduras de tres pines o menos, necesario porque los técnicos entran cada mes sin cambiar las cerraduras para mantenimiento. Tan normal es el acceso que algunos técnicos rompen sus propias cerraduras para no acordarse de la llave; y si el lockpicking no es lo tuyo, las llaves se compran en eBay (las largas, para la caja fuerte, también —a veces la llave de la bóveda está dentro del compartimento superior—). Incluso se puede comprar una máquina completa para practicar en casa.</p>
+<h2>Los fallos recurrentes</h2>
+<p>Abierta la tapa, el hallazgo técnico central es la ausencia de autenticación mutua entre PC y dispensador: solo el PC autorizado puede ordenar al dispensador escupir billetes, pero el hardware del dispensador no sabe distinguir de quién viene la orden más allá de estar conectado al bus correcto. El resto de periféricos —lector de tarjetas, lector de PIN, cámaras— se puentean sin dificultad.</p>
+<p>En el software instalado la variabilidad es enorme. Algunas organizaciones siguen las mejores prácticas de los manuales de los fabricantes; otras no: sesiones de TeamViewer accesibles desde fuera que evitan firewall y control de acceso, antivirus ausente, y la estadística más descorazonadora —en un 30 a 40 por ciento de los compromisos, sin cifrado de disco—. Con AppLocker y antivirus, basta sacar el disco duro, arrancar desde otro sistema y borrar lo que estorbe para instalar el software de jackpotting. Si el dispensador exige la autenticación mutua, hay que atacar desde el PC; sin cifrado de disco, el PC es tuyo.</p>
+<p>Hay una variante más discreta que no vacía el cajero: los equipos aislados en centros comerciales pierden conectividad, y por eso muchos almacenan localmente las transacciones y las fotos de cada retiro. Algunos grupos solo instalan un implante y exfiltran ese registro —datos de tarjetas completos, fotos con el PIN visible en la cámara del dispensador— para venderlo en la dark web.</p>
+<p>En la red, la sorpresa es que la conexión entre cajero y backend suele usar routers domésticos —siempre vulnerables, con credenciales por defecto— colocados en una caja sobre la máquina. Aunque el backend aísla bien entre cajeros, el tramo router-ATM viaja sin cifrar: capturado con Wireshark, el recibo de retiro muestra los asteriscos de la tarjeta impresa... y en el dump, el número completo de tarjeta viajando en claro. Los ataques tempranos de manipulación de mensajes (manual milling) aprovechaban que el dispensador no sabe qué moneda o denominación dispensa, solo "cuatro billetes del depósito dos": cambiando el conteo de billetes por transacción, un retiro de 40 dólares entregaba 20 billetes de 100.</p>
+<h2>El caso sueco</h2>
+<p>El cierre es un expediente de investigación policial sueco que el expositor obtuvo hace tres años: dos hombres no técnicos asaltaron dos cajeros con formones, guías y palancas, atacando la chapa fina superior. Sabían —y el portátil decomisado lo confirma, con el software del fabricante instalado remotamente vía TeamViewer— que el dispensador no tenía autenticación mutua activada: compraron un cable alargador USB, lo conectaron directamente al dispensador sin tocar el PC, y ordendaron la salida de efectivo. Se llevaron unos 80.000 dólares; el cajero contenía unos 160.000 y a plena carga habrían sido 300.000. La explicación plausible de cómo supieron que esa máquina carecía de la protección: la información circula, y la falta de autenticación mutua sigue siendo un hallazgo frecuente en compromisos reales.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Estándar XFS</strong> (Extension for Financial Services) como backend común de los cuatro grandes fabricantes; portabilidad de payloads de jackpotting.</li>
+<li><strong>Ataque físico a la carcasa superior</strong>: chapa fina, cerraduras de 3 pines, llaves de repuesto compradas, reglas/palancas desde atrás.</li>
+<li><strong>Puenteo de periféricos</strong> (lector de tarjetas, teclado, cámaras) por falta de autenticación mutua con el dispensador.</li>
+<li><strong>Sin cifrado de disco (30-40% de los casos)</strong>: extracción del disco, doble arranque, instalación de software de jackpotting.</li>
+<li><strong>TeamViewer accesible externamente</strong> como puerta de entrada remota.</li>
+<li><strong>Exfiltración de logs locales</strong> (transacciones y fotos de retiros) para venta de datos en la dark web.</li>
+<li><strong>Captura de tráfico con Wireshark</strong> sobre el enlace router-ATM sin cifrar: números de tarjeta completos en claro.</li>
+<li><strong>Manual milling</strong>: manipulación de mensajes de dispensado (conteo de billetes por depósito) para multiplicar el importe.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La seguridad del cajero es seguridad por economía, no por diseño: para muchos bancos la pérdida se trata como póliza de seguro —llamar a IT, llamar al seguro, almorzar—, y eso explica que fallos documentados sigan apareciendo en casi todos los compromisos.</li>
+<li>La caja fuerte inferior es sólida; la superior es la puerta: cerraduras triviales y chapa fina por necesidad de mantenimiento mensual.</li>
+<li>La autenticación mutua PC-dispensador es el control decisivo; su ausencia permitió el golpe sueco de 80.000 dólares con un simple cable USB.</li>
+<li>El cifrado de disco ausente en un tercio de los casos anula AppLocker, antivirus y controles de kiosco: el atacante que abre la tapa se queda con el sistema operativo.</li>
+<li>La red perimetral —routers domésticos, tráfico sin cifrar hacia el banco— expone números de tarjeta completos y permite escucha pasiva y manipulación de mensajes.</li>
+<li>En el reparto estadístico estimado, el 70 por ciento de los ataques son físicos y el 30 por ciento técnicos, pero los técnicos son los que a la larga se salen con la suya; y un dato provocador: conseguir credenciales de operadores desde los cajeros puede ser mejor vía de entrada a un banco que el phishing tradicional.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/auoEA8ZD8YA">«DEF CON 33 - So You Want To Rob An ATM? - Mårten Stenmark-»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kill List: hackear un sitio de asesinos a sueldo en la darknet — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Kill List: hackear un sitio de asesinos a sueldo en la darknet</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cYZmRp90hss">«DEF CON 33 - Kill List: Hacking an Assassination Site on the Dark Web - Carl Miller, Chris Monteiro»</a> · ver el <a class="nz-link" href="https://youtu.be/cYZmRp90hss">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En 2016, el investigador de darknet Chris Montero recibió el video de un auto en llamas con una dedicatoria a su alias, "Pirate London". Era la respuesta de un administrador de un sitio de la darknet que prometía asesinatos por Bitcoin a quien lo había desenmascarado como estafa en una wiki. En vez de retirarse, Montero entró al sitio, hizo su propio pedido de asesinato de prueba —contra Bob the Builder— y terminó comprometiendo por completo la infraestructura: base de datos de mensajes, archivos del servidor, correo del administrador y la clave onion.</p>
+<p>Lo que siguió fue una investigación de tres años con Carl Miller —analista de think tank, en su primera charla—: un motor de exfiltración escondido dentro del propio sitio que interceptó más de 2.000 mensajes y cientos de pedidos de asesinato reales, avisos de riesgo a las víctimas con equipos de periodistas locales, colaboración con el FBI y tribunales en varios continentes. El balance final: 175 pedidos de asesinato pagados divulgados, 32 arrestos, 28 condenas y 180 años de prisión acumulados.</p>
+<h2>Del mito de la darknet al video del auto quemado</h2>
+<p>Montero investigaba la economía del cibercrimen: sistemas de reputación, exit scams, qué hay realmente detrás de los rumores de la darknet —armas, uranio, misiles antiaéreos, asesinatos, las famosas "red rooms"—. Su conclusión publicada en wikis era que los mercados de asesinatos no podían funcionar: el sistema de reputación social no lo permite. La respuesta llegó en forma de vandalismo desde una IP de Rumania sobre su propia entrada: la mayoría de los sitios eran falsos, decía el vándalo, pero uno entregaba asesinatos de verdad, y él estaba vinculado a él.</p>
+<p>El sitio en cuestión —conocido en la escena como Besa Mafia— tenía estética de los noventa, pero un negocio serio sobre el papel: "somos la mafia, y gracias a la darknet y a Bitcoin tenemos nuestro portal de e-commerce". Un formulario pedía nombre, dirección, foto e información de patrón de vida del objetivo, y el pago iba en Bitcoin. Montero lo analizó, concluyó que era una estafa y lo publicó en su blog. La estafa, según la lógica convencional, no quema autos. Así que decidió entrar.</p>
+<h2>Compromiso total de un sitio que vendía "seguridad"</h2>
+<p>El primer paso fue colocar su propio pedido de asesinato —Bob the Builder— para entrar al sistema de mensajería interno, una conversación uno a uno con los administradores que puede durar semanas o meses. Ahí apareció la primera falla grosera: el número del mensaje viajaba en la URL y era secuencial, sin aleatorizar. Un insecure direct object reference clásico: con un script de Python escrito en minutos, parameter tampering sobre la URL y todas las conversaciones del sitio exfiltradas.</p>
+<pre class="mermaid">
+flowchart TD
+    A[IDOR en la URL<br>de mensajería] -->|script Python| B[Exfiltración de<br>todos los mensajes]
+    C[Directorios abiertos<br>de Apache] --> D[Captura accidental<br>del escritorio del admin]
+    E[SQL injection<br>sin parchear] --> F[Web shell]
+    F --> G[RCE y reversing<br>del CMS]
+    H[Credenciales en texto plano<br>en un componente de correo] --> I[Acceso al email del admin]
+    I --> J[Pivot a un segundo email]
+    B --> K[Control total del sitio]
+    G --> K
+    J --> K
+
+</pre>
+
+<p>El resto del inventario no se queda atrás: una mala configuración de Apache dejaba directorios abiertos, donde entre capturas del administrador apareció —cargada por accidente— una foto de su propio escritorio mientras buscaba el candado más creíble para ilustrar el sitio. El servidor no estaba parcheado contra SQL injection (otro atacante, del emirato, ya lo había demostrado en un foro de darknet), así que Montero inyectó, desplegó un web shell, obtuvo ejecución remota y revirtió el CMS del servidor completo. Un componente de correo sin uso guardaba el email y la contraseña del administrador en texto plano: acceso a la casilla, pivote a una segunda cuenta y visión de todos los servicios y marketing de la operación. Robó la clave onion, exfiltró los datos, entró a las páginas de administración y forzó el estado del servidor: el sitio estaba completamente comprometido.</p>
+<h2>El imperio de Jura: marketing criminal de élite</h2>
+<p>El administrador usaba el alias Jura, y su genialidad era comercial, no técnica. En la web clara montó un sitio comparador de "hitman for hire" que enseñaba a acceder a la darknet, advertía sobre las estafas rivales y enlazaba —casualmente— al único sitio "legítimo": el suyo. Su SEO era tan bueno que, durante años, una búsqueda de "hire a hitman" lo ubicaba por encima del New York Times. Desde ahí, la caída al imperio: sitios de mercado de asesinatos con marcas recicladas, la base de código franquiciada y vendida a terceros, un servicio de escrow falso en la darknet y un negocio de scam-as-a-service lateral. Incluso montó una campaña de desinformación en redes para presionar a la policía a cerrar su propio sitio: las quejas públicas funcionaban como prueba social de que las muertes eran reales.</p>
+<p>Sobre el sitio comprometido, Montero construyó un motor de exfiltración por cron que cada día interceptaba los pedidos nuevos, los volcaba a un data lake en AWS y los organizaba en bases operativa e investigativa: dossiers, análisis de trazas de cripto, cadenas de conversación completas.</p>
+<h2>La Kill List: quién pide un asesinato y por qué</h2>
+<p>Los pedidos —Amsterdam por poco menos de 2.000 dólares, París por 1.100 con pedido de incendiar un apartamento, Eslovaquia por 14.000, Hyderabad, Wisconsin por 2.200— formaron un documento bautizado como la Kill List: "el documento más duro y grotesco que he tenido que leer", según Miller. Las fotos adjuntas eran casi siempre retratos de perfil de Facebook; los nombres se volvían personas.</p>
+<p>El perfil de los solicitantes desarma el estereotipo del criminal organizado: una administradora de hospital de Wisconsin, ex pareja universitaria de la víctima, en plena batalla legal por la custodia; un técnico de seguridad informática de Microsoft, padre de once e hijo adoptivo de cinco más, que pidió 16.000 dólares por la vida de los padres biológicos de sus hijos adoptivos; y el caso más grotesco, un neonatólogo de Spokane que pagó el pedido más grande visto —60.000 dólares por un secuestro con adicción forzada a la heroína— con estructura de bonos de 5.000 dólares por hito. Firmaba como SCAR215 y aclaraba que "el marido no sabe nada": el marido lo sabía todo. Cuando el FBI lo esperó con 14 agentes en el aeropuerto, en la caja fuerte de su casa había una nota rosa con el usuario SCAR215 y la contraseña mufasa. Los casos alcanzaron tribunales en Nevada, Galicia, Tampa, Canberra, Milton Keynes.</p>
+<h2>La respuesta institucional que no llegó</h2>
+<p>La primera reacción institucional fue la peor: la policía británica acudió a la casa de Miller a hacerle un chequeo de salud mental —sospecharon de él, no del sitio— y el Metropolitan Police declinó investigar. Interpol, al pasarle el expediente, quitó toda la información técnica y se limitó a envíos genéricos de alerta de riesgo a las policías locales; con pedidos dispersos por el mundo, ninguna fuerza vio masa crítica de casos para tomar el asunto.</p>
+<p>Con la vía oficial cerrada, el equipo cambió de táctica: advertencias directas a las víctimas, primero por teléfono (todos colgaban), luego con una red secreta de periodistas locales que, en plena pandemia, visitaban a los objetivos en persona. El primer caso funcionó: Elena, en las afueras de Zúrich, en medio de un divorcio con dinero de por medio, no se sorprendió. Semanas después, la policía arrestó a su marido y en una habitación alquilada junto a su casa encontraron un arsenal completo: máscara de gas, bastón telescópico, AK-47, GPS, subfusil, Glock 9mm, cuchillos, cintas plásticas, guantes negros y, por alguna razón, una máscara de Recep Tayyip Erdogan.</p>
+<p>La paradoja técnica del sitio: nunca envió sicarios reales. Cada golpe fallido traía una excusa —el arma se perdió, el sicario se equivocó de camino, el objetivo estaba demasiado defendido— y siempre un upsell de tres Bitcoin más. Pero los clientes no lo sabían, y como demostró el arsenal de Zúrich, el solicitante siempre puede decidir hacerlo por su cuenta.</p>
+<h2>Cierre y llamado abierto</h2>
+<p>A fines de 2022, una serie de allanamientos en Rumania —combinación de DHS y antiterrorismo rumano— sacó a Jura del mapa; poco después el equipo quedó fuera del sitio. Los números consolidados de tres años: 175 pedidos pagados divulgados al FBI y a policías de todo el mundo, 32 arrestos, 28 condenas, 180 años de prisión. El pedido final es explícito: los mensajes interceptados superan los 2.000 y hay cientos de pedidos sin OSINT, sin trazado cripto y sin gestión con las autoridades; quien quiera sumarse, el punto de contacto es pirate.london.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un sitio que promete asesinatos puede comprometerse entero con vulnerabilidades de manual: IDOR con números secuenciales, directorios abiertos de Apache, SQL injection sin parchear y credenciales en texto plano.</li>
+<li>El verdadero producto del sitio era marketing: SEO extremo, prueba social fabricada y franquicias de una base de código de estafa.</li>
+<li>Los solicitantes son gente común en conflictos personales —custodias, divorcios, herencias—: la amenaza real no es el sicario de la darknet, que no existe, sino el cliente que decide ejecutar el crimen por sus medios.</li>
+<li>La respuesta institucional falló por fragmentación: casos repartidos entre jurisdicciones que ninguna quiso tomar; los resultados (28 condenas) llegaron por investigación privada divulgada estratégicamente al FBI.</li>
+<li>Quedan cientos de pedidos sin investigar: la Kill List sigue abierta y se busca ayuda de la comunidad para cerrarla.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cYZmRp90hss">«DEF CON 33 - Kill List: Hacking an Assassination Site on the Dark Web - Carl Miller, Chris Monteiro»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

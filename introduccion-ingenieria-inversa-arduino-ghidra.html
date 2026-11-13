@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RE para el resto de nosotros: ingeniería inversa de hardware y software con Arduino y Ghidra — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">RE para el resto de nosotros: ingeniería inversa de hardware y software con Arduino y Ghidra</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/h9ewUS6FTFQ">«RE for the rest of us: an intro to Reverse Engineering»</a> · ver el <a class="nz-link" href="https://youtu.be/h9ewUS6FTFQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La ingeniería inversa es el proceso de analizar un elemento existente para extraer la información técnica necesaria para reproducirlo o entenderlo. No sirve solo para replicar: también permite entender su estructura de seguridad y su lógica, y se aplica tanto a hardware como a software. La situación típica de partida es la de una pieza incompleta: hardware que ya no funciona, código fuente sin binario, o binario sin código fuente — y casi siempre con acceso físico al dispositivo y esperanza de encontrar alguna hoja de datos o documentación previa.</p>
+<p>Este recorrido introductorio, pensado para quien nunca ha tocado el tema, combina las dos mitades del oficio en una sola práctica: primero desarmar y entender una placa Arduino Uno a mano — identificar chips, probar continuidad con multímetro, localizar puertos de diagnóstico — y después recorrer el camino del software: extraer firmware, desensamblar el binario y usar Ghidra para recuperar, desde un ejecutable sin código fuente, hasta un usuario y contraseña embebidos en el programa.</p>
+<p>El hilo conductor es simple: del cable al binario, cada paso se puede aprender con herramientas gratuitas, y la práctica repetida es lo único que convierte la montaña inicial en algo asequible.</p>
+<h2>Identificar componentes: part numbers y hojas de datos</h2>
+<p>El primer paso del trabajo de hardware es identificar los componentes de la placa. Cada chip lleva un part number impreso; con ese número — más el fabricante, por ejemplo Atmel — se busca la hoja de datos, ya sea con una búsqueda inversa de imágenes o en sitios como OctoPart.</p>
+<p>Sobre una Arduino típica hay cuatro componentes ilustrativos:</p>
+<ul>
+<li><strong>ATmega16U2</strong>: el conversor USB a serial. Tiene 32 pins y usa UART y USB. En la placa se ve que sus conexiones van directo al puerto USB — la hoja de datos y la observación visual se complementan.</li>
+<li><strong>Oscilador de cristal de 16 MHz</strong>: el componente pasivo de dos pins que genera la señal de reloj. Sin él, el procesador no sabe cuánto dura un wait o un delay — no hay timing posible.</li>
+<li><strong>Condensador de 47 µF / 25 V</strong>: estabiliza las dos salidas de tensión de la placa (5 V y 3.3 V) y evita fluctuaciones al alimentar.</li>
+<li><strong>ATmega (ATmega328P)</strong>: el cerebro. Maneja entrada/salida y controla periféricos, tiene 28 pins y usa UART. Sus pines forman el puente con los pins digitales de la placa — lo que después permite usar digitalWrite y digitalRead.</li>
+</ul>
+<p>Las tres preguntas que hay que responder para cada componente con su hoja de datos: ¿qué hace?, ¿cuántos pins tiene?, ¿qué interfaces o protocolos usa?</p>
+<h2>Continuidad, tensión y puertos de diagnóstico</h2>
+<p>Antes de extraer nada, conviene verificar que la placa funciona. Con el multímetro en modo continuidad se traza una pista soldada del reverso: una punta en cada extremo; si suena el beep y marca 0.00 ohms, la pista está íntegra. El calor excesivo rompe pistas, y esta prueba lo detecta al instante. El segundo chequeo es de tensión: medir las salidas de 5 V y 3.3 V confirma que la alimentación está dentro de lo esperado.</p>
+<p>El paso siguiente es localizar los puertos de diagnóstico, que dan acceso directo a los sistemas internos del dispositivo. UART y JTAG permiten leer la memoria del sistema, bypasean buena parte de los mecanismos de seguridad y son la vía valiosa para extraer y analizar firmware. En una Arduino, ese punto de entrada es el socket USB tipo B.</p>
+<h2>Del firmware al binario: extracción y formatos</h2>
+<p>Con el acceso identificado, viene la fase de recolección: juntar todos los firmware y binarios posibles. En una Arduino el firmware se extrae por el puerto USB desde el bootloader, con herramientas como avrdude que vuelcan el contenido de la memoria flash del microcontrolador a un archivo binario.</p>
+<p>Sobre ese binario arranca el análisis de flash:</p>
+<ol>
+<li>Extraer archivos embebidos con herramientas como binwalk, que además identifica la estructura y el formato del archivo.</li>
+<li>Analizar los sistemas presentes con Ghidra: strings, posibles contraseñas, datos sensibles.</li>
+<li>Completar con FLOSS o grep para buscar más información sensible.</li>
+</ol>
+<p>El formato importa: los ELF (Executable and Linkable Format) son típicos de sistemas tipo Linux como Arduino, y se analizan con objdump y GDB; los EXE son de Windows, y ahí Ghidra e IDA Pro son los favoritos.</p>
+<h2>Desensamblar: del binario de vuelta al código</h2>
+<p>Todo binario debe desensamblarse para volver a formato legible. El contraste se ve con un programa mínimo en C que suma 5 + 12 y imprime el resultado: el mismo archivo existe en tres representaciones — código C, ensamblador y binario/hexadecimal. El ensamblador es denso pero no impenetrable: se reconocen los registros EAX y EBX, la suma entre ellos y la llamada a printf, que delata código C. El hexdump, en cambio, apenas es útil directamente — y ese es exactamente el problema habitual: se recibe el binario y hay que reconstruir el C original.</p>
+<p>Sobre el código resultante hay dos modos de análisis: el estático, que entiende el código sin ejecutarlo, y el dinámico, que lo ejecuta y observa el comportamiento — ver el 17 impreso en pantalla es análisis dinámico. El objetivo en ambos casos es el mismo: reconstruir la lógica y la arquitectura del programa. Y la pieza que casi todos saltan pero que hace todo más fácil es la documentación: mapas de memoria con descripciones, diagramas de flujo, pseudocódigo. Documentar bien hace que el próximo dispositivo similar sea cinco veces más rápido.</p>
+<h2>Flashear la Arduino</h2>
+<p>La práctica completa usa tres sketches (archivos .ino) cargados desde el IDE de Arduino Cloud, previa instalación del driver/agente que permite a la computadora comunicarse con la placa:</p>
+<ul>
+<li><strong>Blink</strong>: hace parpadear el LED de la placa en intervalos de 200 ms. Es el "hola mundo" del hardware — verifica que el flujo compilar → verificar → subir funciona.</li>
+<li><strong>Give Me the Addy</strong>: el sketch clave para el análisis posterior. Suma dos enteros y además imprime credenciales de usuario. Su nombre hace referencia a que lo que imprime son direcciones de memoria, no casas.</li>
+</ul>
+<p>El archivo de cabecera secreto de ese sketch define dos constantes de tipo char — un usuario y una contraseña. Saber el tipo de dato es imprescindible: cuando después se busque ese valor en el binario descompilado, hay que saber qué se está buscando.</p>
+<h2>Ghidra: encontrar main, variables y credenciales</h2>
+<p>Ghidra abre el ELF y lo analiza automáticamente: ensamblador a la izquierda, código descompilado a la derecha. Los tres objetivos del ejercicio:</p>
+<ul>
+<li><strong>Localizar main</strong>: en el árbol de funciones del ELF hay un salto directo a main en el ensamblador — no hace falta buscarla a mano.</li>
+<li><strong>Observar el mapeo de variables</strong>: el código fuente tiene cuatro variables (a=5, b=12 y dos valores hexadecimales). Con Ctrl+F sobre el valor hexadecimal — activando la búsqueda en todos los campos, no solo comentarios, y respetando mayúsculas — se encuentra que el valor 0xBD vive en el registro R24, y buscando el resto se reconstruye dónde ocurre la suma en el ensamblador.</li>
+<li><strong>Encontrar las credenciales</strong>: con Search → For Strings, Ghidra lista todas las cadenas del binario. Ahí aparecen el usuario Alice y la contraseña password123, incrustadas en el binario por el archivo de cabecera. Al hacer clic en la contraseña se ven los caracteres por separado y cada ubicación de memoria donde se almacena: el código guarda la contraseña letra por letra, cada una en una dirección distinta.</li>
+</ul>
+<p>La moraleja es potente: Ghidra solo tenía el binario — nunca vio el código fuente — y aun así recuperó usuario y contraseña completos. Es la demostración de por qué las credenciales hard-codeadas en firmware son un hallazgo tan frecuente en auditorías de dispositivos IoT.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La ingeniería inversa no exige saberlo todo para empezar: con unas pocas herramientas gratuitas (Ghidra, binwalk, objdump — todas en Kali Linux) se cubre el flujo completo de hardware a software.</li>
+<li>La secuencia práctica es reproducible: identificar componentes con part numbers y hojas de datos → verificar continuidad y tensión → localizar puertos de diagnóstico (UART/JTAG/USB) → extraer firmware → desensamblar → analizar estática y dinámicamente.</li>
+<li>Documentar cada análisis (mapas de memoria, diagramas, pseudocódigo) multiplica la velocidad del siguiente dispositivo similar: la documentación es parte del método, no un extra.</li>
+<li>Las credenciales incrustadas en código fuente terminan recuperables desde el binario solo con la búsqueda de strings de Ghidra — un recordatorio de que "compilado" no significa "oculto".</li>
+<li>Practicar hace los patrones visibles: al principio todo parece abrumador, pero cada análisis repetido reduce el tiempo y la fricción del siguiente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/h9ewUS6FTFQ">«RE for the rest of us: an intro to Reverse Engineering»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

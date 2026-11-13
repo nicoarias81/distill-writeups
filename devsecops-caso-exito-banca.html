@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DevSecOps en banca: la receta para que el negocio abra la puerta del pipeline — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">DevSecOps en banca: la receta para que el negocio abra la puerta del pipeline</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ocglFgC7jIk">«Cocina DevSecOps, cómo logramos el caso de éxito implementándolo en el rubro financiero - D. Madeira»</a> · ver el <a class="nz-link" href="https://youtu.be/ocglFgC7jIk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Meter seguridad en el ciclo de vida de desarrollo de una entidad financiera choca siempre con el mismo obstáculo: nadie quiere tiempo extra en el pipeline. Esta es la receta concreta con la que un equipo de AppSecOps logró que el negocio no solo aceptara, sino que financiara su posición en el medio del proceso de desarrollo, hasta llegar a políticas bloqueantes, imágenes firmadas y escaneo con IA dentro del IDE.</p>
+<p>El caso arranca con un síntoma reconocible en cualquier organización que adoptó microservicios: un desarrollador pide permisos para un compartido de Linux, IT va a hablar con seguridad informática y se topa con que nadie —ni seguridad, ni la plataforma— sabe todavía qué hay dentro de una imagen de Docker. Ese vacío fue el punto de partida para fundar un equipo que hoy controla todo el ciclo de vida sin ser percibido como un freno.</p>
+<p>El aporte central es doble: una traducción económica del riesgo (convertir vulnerabilidades en dólares que el negocio entienda) y un conjunto de definiciones operativas replicables —política inicial alcanzable, ownership de frameworks e imágenes base, automatización de certificados y credenciales, y un challenge anual de herramientas— que convirtieron la seguridad en un servicio más del ciclo de vida.</p>
+<h2>Del palo en la rueda al socio del proceso</h2>
+<p>La historia que precede a la implementación es la de casi toda área de seguridad heredera de una cultura de "control": alguien que pasó por IT, desde call center y operación de centro de cómputos hasta desarrollo, y que automatizaba despliegues antes de que existieran los nombres DevOps y microservicios. Cuando aparecen Docker, Kubernetes y las imágenes, el viejo modelo se rompe: los Dockerfiles los escribían los desarrolladores, con usuario root, puertos abiertos y cualquier dependencia que quisieran instalar, y ni seguridad informática ni los SRE sabían qué evaluar en esa nueva tecnología.</p>
+<p>El primer movimiento fue metodológico, no técnico: hablar con el líder de DevOps para entender el proceso, la infraestructura, los lenguajes, los frameworks y sus versiones, y pedir un estado de situación de los microservicios y de las vulnerabilidades que estaban llegando a producción. Pero el dato más importante era otro: mapear los actores. Quiénes intervenían en la implementación, quién definía la arquitectura y la infraestructura. Tener contacto directo con esos sectores permitía conversaciones fluidas en vez de tickets estructurados, y fue la base para que después otros equipos de seguridad pudieran participar "desde el momento cero" de cada proyecto nuevo.</p>
+<p>La pregunta del líder de DevOps fijó el terreno: "¿Vos vas a meterme tiempo en el desarrollo?" La respuesta fue sí — pero primero había que ganar la pelea con el negocio.</p>
+<h2>Traducir vulnerabilidades a plata</h2>
+<p>En el rubro financiero, al negocio le importa ganar dinero. La estrategia fue investigar en el mercado cuánto cuesta resolver una vulnerabilidad según la etapa en que se descubre, con valores promedio del sector financiero:</p>
+<ol>
+<li>En desarrollo: <strong>80 dólares</strong>.</li>
+<li>En integración: <strong>240 dólares</strong>.</li>
+<li>En UAT/CQA: <strong>960 dólares</strong>.</li>
+<li>En producción: <strong>7.600 dólares</strong>.</li>
+</ol>
+<p>El salto exponencial de producción tiene una explicación mecánica: arreglar ahí obliga al desarrollador a bajar el código productivo a su ambiente, modificarlo y repetir todo el proceso; mientras tanto puede haber otra versión avanzando en UAT que también hay que modificar o mergear, y ambas versiones —la productiva y la que estaba en UAT— deben re-probarse. Todo eso suma horas. Y encima está el riesgo de que la vulnerabilidad se explote: pérdida de datos confidenciales, daño reputacional y robo de dinero.</p>
+<p>La comparación con el sector salud deja clara la especificidad del argumento financiero: si se filtra la historia clínica de un paciente, igual va a seguir yendo al mejor médico de su confianza. En un banco, si te vulneran, el cliente se va a la competencia. La reputación, en el sistema financiero, es parte del activo.</p>
+<p>Multiplicado por todas las vulnerabilidades relevadas, ese cálculo consiguió el aval del negocio para que el equipo estuviera en el medio del desarrollo. El segundo frente fue convencer a IT: presentarse como uno más del proceso, con el mismo lenguaje, disponible para migraciones y proyectos nuevos, y capaz de articular al resto de las áreas de seguridad para que nada se resuelva a último momento.</p>
+<h2>Las definiciones que sostienen la implementación</h2>
+<ul>
+<li><strong>Política inicial y alcanzable</strong>: una política aplicativa que bloqueaba vulnerabilidades críticas y fijaba un score máximo. Nada restrictivo al principio, pero suficiente para que el desarrollador empezara a trabajar con seguridad en el código y pudiera ver el estado de salud de su aplicación desde temprano.</li>
+<li><strong>Owners y definiciones base esenciales</strong>: el equipo de arquitectura de IT define los frameworks y sus versiones, y mantiene una librería común que sirve como base para todos los desarrollos. Si esa librería no se valida por seguridad, una sola vulnerabilidad se multiplica por los N microservicios que parten de ella.</li>
+<li><strong>Proceso automático de "servicio de seguridad"</strong>: cuando el despliegue necesita certificados, roles o credenciales, el equipo actúa como intermediario automatizado — nunca los crea ni los define, eso lo hace otro equipo de seguridad — pero elimina la burocracia del ticket o del mail, para que los certificados estén a disposición justo cuando se los requiere.</li>
+<li><strong>Actualización automática de imágenes base de Docker</strong>: con los arquetipos de frameworks definidos, el proceso busca siempre la última versión disponible, no deprecada; si esa versión trae una vulnerabilidad, se arregla en el proceso y el desarrollador recibe siempre la imagen base limpia.</li>
+<li><strong>Fechas de alineación</strong>: la política arrancó laxa, pero con plazos comunicados para que cada equipo estimara su camino hacia el cumplimiento.</li>
+</ul>
+<h2>Los controles del ciclo de vida</h2>
+<p>Los resultados llegaron por capas. Las librerías comunes y los arquetipos dejaron de tener vulnerabilidades y pasaron a cumplir el proceso de seguridad informática. Los frameworks deprecados —que sí existían corriendo en producción— dejaron de permitirse. El escaneo se volvió un atributo del propio ambiente de trabajo: una herramienta integrada al IDE (IntelliJ, VS Code, Eclipse, Visual Studio son los más usados) que escanea en la computadora del desarrollador y, con una IA propietaria de la empresa —no un Copilot, sino exclusiva de seguridad—, lee el código vulnerable y propone varias soluciones; el desarrollador debe evaluarlas y aplicar la compatible con su código, compilar y verificar.</p>
+<p>El proceso de ciclo de vida completo hoy es:</p>
+<ol>
+<li><strong>IDE</strong>: escaneo no bloqueante con asistencia de IA desde la primera línea de código.</li>
+<li><strong>Desarrollo</strong>: escaneo vía pipeline, informativo — el desarrollador ve su estado de salud temprano, pero puede avanzar.</li>
+<li><strong>Integración</strong>: el punto donde la imagen y el código se taggean y el desarrollador ya no puede modificarlos. Ahí se aplica la política real, restrictiva y bloqueante: sin cumplimiento, el código no avanza.</li>
+<li><strong>Homologación (UAT)</strong>: escaneo dinámico (DAST), que corre en este ambiente porque la empresa no puede entregar credenciales productivas a ninguna herramienta externa; el reporte se deriva directamente al red team.</li>
+<li><strong>Despliegue</strong>: solo imágenes firmadas. La firma certifica que la imagen es segura y es lo único desplegable en la infraestructura; si aparece en producción una imagen sin firma, se baja automáticamente.</li>
+</ol>
+<p>Sobre los tipos de escaneo, la cobertura incluye SAST, SCA, IaC y DAST.</p>
+<h2>Elegir herramientas: el challenge anual</h2>
+<p>El equipo no se casa con ninguna marca: cada año challengea el top 3 de herramientas de escaneo del mercado más una cuarta, y evalúa tres criterios por encima del resto: automatizable de punta a punta (el mindset del equipo es automatizar todo, cero tareas manuales), reportes legibles para el desarrollador y tasa de falso positivos muy baja. El criterio no es "la que más encuentra", sino la que mejor se adapta al proceso.</p>
+<p>Las elegidas, confirmadas en las preguntas: <strong>Veracode</strong> para el escaneo estático y dinámico, con una tasa de falsos positivos del 0,1%; y <strong>Prisma Cloud</strong> para el escaneo de imágenes, contenedores y el registro, con despliegue en Kubernetes que cubre todo el cluster, más una funcionalidad de protección en runtime (en evaluación todavía) que aprende del comportamiento del contenedor — con quién se comunica, qué datos intercambia y de qué tamaño — y ante una anomalía puede alertar o cortar la comunicación.</p>
+<p>Hay un matiz interesante sobre los falsos positivos: casi nunca son errores de detección, sino de contexto de despliegue — una vulnerabilidad de exposición que en la práctica solo es alcanzable internamente. El equipo igual no lo descarta: el factor más débil de toda la cadena es el ser humano, y un empleado que entrega credenciales por phishing puede recorrer lateralmente y llegar a esa "exposición interna". El riesgo se puede aceptar, pero con fecha comprometida de arreglo.</p>
+<h2>Ownership: la vulnerabilidad es del desarrollador</h2>
+<p>La filosofía sobre el ownership es directa: el que desarrolla el microservicio es el responsable de sus vulnerabilidades. Para las críticas no existe el backlog ni el ticket: o se soluciona, o el código no avanza. La razón es de experiencia pura — cualquier vulnerabilidad que entra a un backlog pierde siempre contra la nueva funcionalidad.</p>
+<p>Conseguir que desarrollador y negocio interioricen eso fue trabajo de concientización apoyado en el argumento financiero del comienzo: en una empresa de rubro financiero, una vulnerabilidad crítica expuesta no se puede dejar pasar.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El aval del negocio no se consigue con riesgo técnico sino con lenguaje económico: en el sector financiero, arreglar en desarrollo cuesta 80 dólares y en producción 7.600, más el costo reputacional que ahí sí expulsa clientes.</li>
+<li>Empezar con una política alcanzable y bloqueante solo en el punto donde el código deja de ser modificable (integración) permite evolucionar hacia políticas restrictivas sin sabotear el despliegue desde el día uno.</li>
+<li>Centralizar la base (librería común, arquetipos, imágenes base actualizadas y validadas) multiplica la seguridad por cada microservicio sin pedirle esfuerzo extra a cada equipo.</li>
+<li>El challenge anual de herramientas y la obsesión por la automatización — incluida la intermediación sin fricción de certificados y credenciales — son lo que mantiene el modelo vivo: si la seguridad se siente como un servicio, IT la incorpora; si se siente como un freno, la rodea.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ocglFgC7jIk">«Cocina DevSecOps, cómo logramos el caso de éxito implementándolo en el rubro financiero - D. Madeira»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat hunting sin alertas: cazar amenazas cuando nada disparó — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Threat hunting sin alertas: cazar amenazas cuando nada disparó</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/1wQOTxX-KF0">«Ekoparty Summer Workshops 2025 #3 | Hunting Threat as a Security Ninja I Roberto Martinez»</a> · ver el <a class="nz-link" href="https://youtu.be/1wQOTxX-KF0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El monitoreo y la detección reactiva tienen un límite incómodo: solo avisan cuando algo ya disparó una alerta. El threat hunting parte de la premisa opuesta: se asume que el atacante ya está dentro y que ninguna herramienta pudo verlo. Es una actividad proactiva, impulsada por hipótesis, que busca comportamientos anómalos que las reglas estándar dejaron pasar.</p>
+<p>El recorrido práctico gira alrededor de un escenario concreto: un controlador de dominio con Active Directory que podría estar comprometido y sobre el cual no existe ninguna alerta. Desde esa hipótesis, el análisis de logs con reglas Sigma revela la creación de un usuario administrador que no sigue los estándares de la organización, y ese hallazgo se convierte en el punto de partida para correlacionar tráfico de red, artefactos de Windows y ejecución de programas hasta expandir el incidente a más equipos.</p>
+<p>La idea central que atraviesa todo el enfoque: la estrategia importa más que la herramienta. Sigma, YARA, Suricata, Velociraptor o cualquier SIEM sirven si se piensan como piezas de un kit flexible; la cacería se define por cómo se formulan hipótesis y se pivota entre fuentes de evidencia, no por la plataforma que se use.</p>
+<h2>Cazar no es monitorear: la diferencia es la premisa</h2>
+<p>El monitoreo y la detección identifican situaciones cuando se presentan: esperan una alerta. El threat hunting asume justo lo contrario — que algo no pudo ser detectado — y sale a buscarlo sin que nadie lo avise. Esa inversión cambia todo el flujo de trabajo: en el hunting, el resultado de la búsqueda es lo que dispara el incidente, y recién después entran las herramientas convencionales de detección y respuesta.</p>
+<p>Esta lógica también implica aceptar un hecho incómodo: en algún punto, la herramienta que se use no va a cubrir todo. En el escenario del controlador de dominio comprometido, ninguna alerta saltó — ni de un SIEM, ni de un EDR — y aun así había un usuario administrador malicioso activo. La detección fue proactiva, construida desde una hipótesis sobre comportamiento, no desde una firma.</p>
+<p>El enfoque es deliberadamente agnóstico: pensar en términos de estrategias (¿qué información necesito?, ¿qué artefactos existen en este sistema operativo?, ¿cómo los correlaciono?) antes que en términos de vendors. El conocimiento de los internos del sistema operativo — Windows, Linux o Mac — es lo que permite elegir los artefactos adecuados para cada investigación.</p>
+<h2>De una hipótesis al primer hallazgo: el usuario que no debía existir</h2>
+<p>El punto de partida es una hipótesis: el servidor de Active Directory podría estar comprometido. La primera fuente son los logs de eventos de Windows analizados con reglas Sigma, cuyo resultado se cruza en un visor (Timeline Explorer, sobre archivos CSV) que resume las detecciones en lugar de mostrar un archivo de logs crudo.</p>
+<p>Entre los comportamientos anómalos que las reglas marcan, varios son candidatos clásicos de compromisos:</p>
+<ul>
+<li>Creación de cuentas locales y de usuarios agregados al grupo global o al grupo de administradores (el event ID 4720 indica creación de cuenta de usuario).</li>
+<li>Logons remotos de usuarios administradores desde IPs específicas.</li>
+<li>Instalación de servicios raros o desconocidos.</li>
+<li>Logons de tipo Anonymous Logon, que aportan poco contexto legítimo.</li>
+</ul>
+<p>El hallazgo que dispara la cacería: un acceso remoto con privilegios elevados desde cierta IP con un usuario que podría no ser válido. Para confirmarlo se pivota — se filtran todas las detecciones relacionadas con ese usuario — y se reconstruye su línea de tiempo: cuándo se creó, qué logons hizo, si su nombre cumple los criterios estándar de la organización (nombre.apellido, formato usuario@dominio). Un usuario creado fuera de estándar y agregado a administradores ya es evidencia sólida.</p>
+<p>Con la fecha y hora de creación de la cuenta aparece el <strong>pivot time</strong>: el momento desde el cual la búsqueda se bifurca. Hacia atrás, para saber cómo se creó esa cuenta (si no fue un insider, alguien tuvo que crearla); hacia adelante, para identificar todo lo que hizo a partir de que existió.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Hipótesis: AD comprometido] --> B[Logs + reglas Sigma]
+    B --> C[Usuario admin no estándar]
+    C --> D{¿Creación no oficial?}
+    D -->|Sí| E[Hallazgo de hunt = incidente]
+    E --> F[Triage: colectores de artefactos]
+    F --> G[Correlación: red + timeline + ejecución]
+    G --> H[Otros hosts comprometidos]
+    H --> G
+
+</pre>
+
+<h2>Confirmado el incidente: triage y colectores</h2>
+<p>Cuando se confirma que el usuario no fue creado de manera oficial, el hallazgo de hunt se escala como incidente y el hunter pasa a ayudar al equipo de respuesta a encontrar más indicadores de compromiso y de comportamiento.</p>
+<p>En escenarios sin infraestructura forense, los colectores permiten hacer triage desde cero: herramientas como Velociraptor pueden levantar un server al vuelo, sin instalación, incluso desde un dispositivo externo conectado a la red. Los artefactos típicos a recolectar en un servidor Windows:</p>
+<ul>
+<li><strong>Prefetch</strong>: evidencia de programas ejecutados, explorable como línea de tiempo o mapeado a MITRE ATT&amp;CK.</li>
+<li><strong>Forensic timeline</strong>: líneas de tiempo del sistema para ordenar qué pasó primero y qué después.</li>
+<li><strong>Eventos de Sysmon</strong> ya centralizados en Elastic, cuando existen.</li>
+<li><strong>Evidencia de descargas y ejecución</strong> por usuario.</li>
+</ul>
+<p>El colector genera un ejecutable que se corre en cada equipo y entrega los resultados en CSV y JSON; puede configurarse para subir la evidencia automáticamente a AWS, Google Cloud, Azure, una carpeta compartida o SFTP, creando un punto central de recolección aunque los equipos estén remotos. Con los artefactos recolectados se correlaciona todo: la ejecución de Mimikatz, el uso de binaries living-off-the-land, y ProcDump haciendo volcado del LSASS para capturar contraseñas en memoria.</p>
+<p>Un detalle operativo: conviene correr Velociraptor desde Linux para evitar que el antivirus local cuarentene o borre justo los archivos que se quieren investigar.</p>
+<h2>Correlación de red: Suricata, reglas Sigma y reglas YARA</h2>
+<p>La captura de tráfico es la tercera pata de evidencia. Suricata no tiene que desplegarse necesariamente como IDS/IPS de red: el mismo motor sirve para leer un archivo pcap y aplicarle reglas que buscan patrones de comportamiento malicioso conocido — movimientos laterales, transferencias de archivos, conexiones a puertos específicos. El resultado es un JSON (analizable con jq o cualquier visor) con los matches.</p>
+<p>La analogía que ordena las tres familias de reglas:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Reglas</th>
+<th>Qué detectan</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>YARA</strong></td>
+<td>La presencia e identidad de archivos: buscan la estructura, el "ADN" del programa, sin importar ofuscación, nombre o hash</td>
+</tr>
+<tr>
+<td><strong>Sigma</strong></td>
+<td>Comportamientos en logs</td>
+</tr>
+<tr>
+<td><strong>Suricata</strong></td>
+<td>Patrones en tráfico de red</td>
+</tr>
+</tbody>
+</table></div>
+<p>En la captura analizada aparecen los indicadores que confirman el alcance del ataque: transferencias de <code>keylogger.exe</code>, <code>nc.exe</code> (netcat), un <code>OneDrive.exe</code> ejecutándose desde un directorio temporal — algo que no tiene explicación legítima en ese contexto — y, sobre todo, la IP interna de otro equipo de la red desde el cual se movieron archivos hacia una carpeta compartida del servidor. Ese último dato activa el proceso de identificación de respuesta a incidentes: no se puede asumir que el único equipo comprometido es el servidor, y la búsqueda debe expandirse al resto de la red, verificando el mismo comportamiento en todos los hosts mediante queries y reglas Sigma.</p>
+<h2>Cuando nada lo detecta: zero days y la respuesta con YARA</h2>
+<p>Hay escenarios donde el malware es invisible para todo: antivirus, EDR, XDR. En investigaciones de ataques APT se han visto muestras que explotaban tres o cuatro vulnerabilidades desconocidas simultáneamente, sin parche disponible. Reportar la muestra al vendor ayuda, pero genera el efecto del "whack-a-mole": el vendor crea la firma, el atacante cambia la muestra y la detección vuelve a cero — con el ataque aún en curso.</p>
+<p>La estrategia que rompe ese ciclo es crear una regla YARA sobre la muestra: en lugar de firmas o heurísticas, la regla captura componentes estructurales del binario que el atacante difícilmente pueda cambiar a corto plazo. No se recompila un malware nuevo en dos horas; normalmente se reempaqueta la misma muestra para evadir detección, y una regla estructural sigue encontrándolo sin importar cuánta ofuscación lleve. Integrada a Velociraptor, la misma regla se despliega como plugin sobre los activos críticos: detecta el archivo — sin importar nombre, hash o recompilación — y además trae la muestra para análisis.</p>
+<h2>Hacer del hunting un programa, no una ocurrencia</h2>
+<p>El hunting funciona como práctica sostenida cuando se define un programa con disparadores claros:</p>
+<ul>
+<li><strong>Vulnerabilidad publicada</strong> que afecta plataformas propias: aun parcheando, se busca evidencia de que nadie la explotó antes.</li>
+<li><strong>Ciclos periódicos</strong>: hunts trimestrales o semestrales planificados con recursos definidos.</li>
+<li><strong>Inteligencia de amenazas</strong>: reportes de campañas contra el sector financiero, energético o gubernamental generan la hipótesis "ya somos víctimas" y la búsqueda de todos los indicadores relacionados.</li>
+</ul>
+<p>Las metodologías — como TaHiTI — aportan lo que la cacería improvisada no tiene: métricas. Cantidad de hunts realizados, resultados obtenidos, eficiencia del programa, reducción de incidentes y detecciones tempranas atribuibles. Es el lenguaje que permite justificar el programa ante la organización. Complementariamente, la formación formal combina bien dos perfiles: certificaciones técnicas que integran forense, threat hunting y respuesta a incidentes (como la de SANS orientada a artefactos de Windows y Linux), y certificaciones de metodologías mapeadas a MITRE ATT&amp;CK que aportan conceptos de precisión y entropía aplicables en la práctica.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Threat hunting</strong>: búsqueda proactiva de amenazas asumiendo que la detección automática falló; se dispara por hipótesis, no por alertas.</li>
+<li><strong>Pivot time</strong>: fecha y hora de un hallazgo clave (p. ej., creación de la cuenta maliciosa) desde la cual la búsqueda se extiende hacia atrás y hacia adelante.</li>
+<li><strong>Reglas Sigma</strong>: detección de comportamientos anómalos en logs; el conocimiento de la comunidad expande la capacidad de detección.</li>
+<li><strong>Reglas YARA</strong>: identificación de archivos por su estructura; la respuesta práctica ante malware que evade firmas y heurísticas.</li>
+<li><strong>Reglas Suricata</strong>: detección de patrones maliciosos en tráfico de red; útil incluso solo para analizar pcaps sin desplegar un IDS.</li>
+<li><strong>Windows Event Logs / event ID 4720</strong>: creación de cuentas de usuario; junto a eventos de agregación a grupos administradores, primer indicador típico.</li>
+<li><strong>Sysmon</strong>: motor de telemetría de Windows configurable por archivos de config; complementa (no reemplaza) herramientas de comportamiento, con cuidado de no generar fatiga de alertas.</li>
+<li><strong>Wazuh</strong>: detección basada en comportamientos y correlación; combinable con Sysmon según el caso de uso y la carga que soporten los equipos.</li>
+<li><strong>Velociraptor</strong>: colector y plataforma forense que corre sin instalación, levanta server al vuelo, genera colectores ejecutables y ejecuta reglas YARA como plugins; recomendable desde Linux.</li>
+<li><strong>Timeline Explorer</strong>: visor de CSV para explorar detecciones y líneas de tiempo; la única herramienta del kit que requiere instalación.</li>
+<li><strong>Prefetch</strong>: artefacto de Windows con evidencia de programas ejecutados.</li>
+<li><strong>ProcDump / LSASS dump</strong>: volcado de memoria de contraseñas; indicador de robo de credenciales.</li>
+<li><strong>Mimikatz</strong>: herramienta de enumeración y extracción de credenciales observada en la ejecución del atacante.</li>
+<li><strong>Living off the land</strong>: uso de binaries legítimos del sistema para actividades maliciosas.</li>
+<li><strong>Security Onion</strong>: distribución open source de detección que integra Suricata, Zeek (Bro), Elasticsearch y reglas Sigma.</li>
+<li><strong>jq</strong>: consulta directa sobre archivos JSON de resultados.</li>
+<li><strong>TaHiTI</strong>: metodología de threat hunting que aporta estructura y métricas al programa.</li>
+<li><strong>MITRE ATT&amp;CK</strong>: framework de mapeo de técnicas, usado para organizar detecciones y artefactos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La diferencia entre monitoreo y threat hunting es la premisa: uno espera alertas, el otro asume que algo no fue detectado y sale a buscarlo con hipótesis. Ese cambio de mentalidad vale más que cualquier herramienta.</li>
+<li>Un buen hunt pivota entre tres fuentes de evidencia — logs, red y artefactos de endpoint — y usa cada hallazgo (un usuario anómalo, una IP interna, un ejecutable en temporal) para expandir la búsqueda. Nunca se asume que hay un solo equipo comprometido.</li>
+<li>Contra malware invisible para EDR/XDR, las reglas YARA basadas en estructura son el contraataque sostenible: el atacante cambia empaquetado, no ADN.</li>
+<li>El hunting escala cuando se vuelve programa: disparadores definidos (vulnerabilidades, inteligencia, ciclos periódicos), metodología con métricas y un kit portable de herramientas open source que funciona incluso sin infraestructura forense previa.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/1wQOTxX-KF0">«Ekoparty Summer Workshops 2025 #3 | Hunting Threat as a Security Ninja I Roberto Martinez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

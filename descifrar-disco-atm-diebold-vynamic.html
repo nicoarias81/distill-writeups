@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gato y ratón en el cajero: cómo cae el cifrado de disco de un ATM — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Gato y ratón en el cajero: cómo cae el cifrado de disco de un ATM</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lF8NEsl3-kQ">«DEF CON 32 - Where’s the Money-Defeating ATM Disk Encryption - Matt Burch»</a> · ver el <a class="nz-link" href="https://youtu.be/lF8NEsl3-kQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El mercado de cajeros automáticos se divide en dos clases. Los de grado consumidor son las unidades independientes del supermercado o la estación de servicio: suelen correr Windows CE y carecen de buena parte de los controles de seguridad empresariales. Los de clase financiera son los ATM empresariales de los bancos —de pie o empotrados en pared—, equipados con Windows Embedded 10 (y Windows 11 en los modelos más nuevos), cada uno con su stack de seguridad propietario que ofrece detección de endpoints y cifrado de disco completo. En Estados Unidos solo hay tres grandes fabricantes: Hyosung, NCR y Diebold Nixdorf.</p>
+<p>Físicamente, un ATM se divide en dos hemisferios con controles radicalmente distintos. La parte inferior, la bóveda, contiene las casetes de efectivo: autenticación multifactor con candado de combinación digital y botón de autorización, acero de ~2,5 cm, pernos de bloqueo pesados y detectores sísmicos y de manipulación. La parte superior, el top hat, aloja los periféricos y componentes del PC: acero de apenas ~3 mm, orificios de ventilación, cerraduras tubulares por defecto que se compran fácilmente online y un mecanismo de cierre tipo cantiléver accionado por cable desde el cilindro. Entre los componentes plásticos frontales del equipo, llegar a ese mecanismo por entrada destructiva —o simplemente metiendo un gancho por el orificio del altavoz— es trivial.</p>
+<p>La mayoría de los vectores de ataque conocidos requieren algún nivel de acceso físico: dispositivos black box que se colocan dentro o fuera del ATM para manipular las órdenes de dispensado simulando la red del host; skimmers de tarjeta adheridos al frente; el ram raid, que consiste en enganchar el cajero a una camioneta y arrancarlo del suelo; y ataques explosivos, raros en Estados Unidos porque su billete —de papel— prende fuego al detonar, pero frecuentes internacionalmente, donde el billete tiene más plástico y ya existen cajeros a prueba de explosivos.</p>
+<p>Pero el problema de fondo es lógico: miles de dispositivos cargados de efectivo, cuya infraestructura ofrece poca resistencia a un ataque lógico. El funcionamiento del ATM descansa en una API sin autenticación, XFS (Extension for Financial Services), la capa de abstracción entre software y hardware que permite instalar casetes de efectivo independientes del fabricante. Además, la mayoría del software corre en contexto de alto privilegio y los sistemas se diseñan con capas de credenciales por defecto para el modo operador, la administración del sistema y otras funciones. Resultado: un objetivo lucrativo para el crimen organizado.</p>
+<h2>Vynamic Security: el stack que abre la red del banco</h2>
+<p>Para liberar el dinero, el ATM se conecta a la red de cajeros, una red privada controlada por el proveedor de hosting o gatekeeper, con un esquema de certificación: solo combinaciones específicas de software y hardware obtienen acceso. Gestionar plataformas de varios fabricantes —software distintos, niveles de parcheo distintos— es tan difícil que las instituciones financieras terminan delegando en proveedores de servicios gestionados.</p>
+<p>Ahí entra Diebold Nixdorf con su suite propietaria Vynamic Security. A diferencia de otros stacks, tiene certificación multivendor: su software se instala en cualquier plataforma de hardware de ATM y gana acceso a la red de cajeros. En 2015 representaba, se estima, el 35% del mercado de ATMs, y en 2018-2019 se asoció con dos de las mayores instituciones financieras de la industria del juego estadounidense: Vynamic está presente en casi todos los casinos del país, incluidos los de la propia Las Vegas.</p>
+<p>Vynamic incluye filtrado USB, políticas de firewall, detección de manipulación, acceso delegado y cifrado de disco. Pero el cifrado no es completo: hay dos particiones sin cifrar en el disco. Una es la partición UEFI estándar de cualquier configuración empresarial. La otra es una partición Linux sin cifrar, y esa es la anomalía interesante.</p>
+<h2>La partición que se hacía llamar "superschaff"</h2>
+<p>Investigando esa partición Linux, el sistema se auto-identificaba como "superschaff". La búsqueda online no arrojaba nada sobre ATMs, pero sí llevaba a un videojuego: Worms Armageddon, donde se lanzan ovejas como proyectiles móviles. Nada que ver con cajeros —aunque sí hizo perder unos minutos de juego—, pero la pista era lingüística: "superschaff" es una transliteración de "SuperSheep", la oveja super del juego. Y "SuperSheep" resultó ser el directorio de instalación bajo <code>user</code> que contiene la mayoría de los binarios del sistema.</p>
+<p>Con el nombre correcto, la investigación externa floreció: en 2016, la consultora SecConsult publicó un artículo sobre una vulnerabilidad de ejecución de código en software de Cryptware/CryptoPro sobre el sistema operativo Linux SuperSheep. Las similitudes entre ese sistema y el de Vynamic llevaron a revisar los acuerdos de licencia de Diebold: Cryptware/CryptoPro aparece como integrador de terceros una única vez, en la versión 3.0; las versiones 4.0 a 4.3 eliminan toda referencia. La empresa es un spin-off criptográfico fundado en 2002 para mejorar BitLocker de Microsoft introduciendo justamente un proceso de pre-boot authentication (PBA). Hoy opera en varios países con una presencia web sorprendentemente inconsistente entre dominios, presumiendo más de medio millón de licencias vendidas.</p>
+<h2>Anatomía del arranque: dos fases y una partición sin cifrar</h2>
+<p>Vynamic Security usa un arranque dual: desde UEFI se lanza un sistema Linux ligero (SuperSheep) que hace "magia" contra el disco, se apaga, vuelve a pasar por UEFI y arranca Windows, que hace auto-logon y lanza el software del ATM. Cualquier intento de modificar contenido de la partición Linux produce un error de integridad —y los mensajes de error según lo que se toque revelan cuánto valida el sistema—: unos 253 elementos se validan en el disco.</p>
+<p>La partición Linux completa tiene apenas 11.000 archivos, y en su directorio de logs hay un índice con aproximadamente 2.500 archivos evaluados. Delta: unos 8.000 archivos potencialmente sin validar. En lugar de auditarlos uno a uno, la prueba clásica: modificar una imagen de fondo, reiniciar, y observar. Tras el reinicio, la imagen pirateada aparece en pantalla. La fase de pre-boot authentication no es infalible y se puede aprovechar para ejecutar algo malicioso.</p>
+<p>Con esa palanca se mapearon las fases: los 253 elementos se validan en UEFI, durante la inicialización del BIOS, en los binarios boot-xsa/boot-xsa2. Completada esa validación, Linux se inicializa y valida los otros ~2.500 archivos. Esos 2.500 archivos se usan para desbloquear el TPM y recuperar la clave de cifrado del disco. La muralla evidente: el ATM tiene Secure Boot y los binarios UEFI están firmados digitalmente contra el BIOS, así que modificar boot-xsa no es opción. El camino es mapear qué valida la fase 1 y encontrar algo no verificado que permita redirigir el flujo de ejecución de Linux antes de que arranque la fase 2.</p>
+<h2>Cinco rondas de gato y ratón</h2>
+<pre class="mermaid">
+flowchart TD
+    A[v18.x: /etc/inittab sin validar<br/>CVE-2023-24064] -->|parche 3.0: inittab validado<br/>pero fase 1 baja de 253 a 56| B[SR9: mtab borrado antes de mount<br/>CVE-2023-24063]
+    B -->|parche SR10: se quita el delete| C[SR10: mount falla en punto ya montado<br/>CVE-2023-24062]
+    C -->|parche SR12: recrea directorios<br/>borrando symlinks| D[SR12: mover mountfs a /proc<br/>CVE-2023-28865]
+    D -->|parche SR15: null sums<br/>sobre puntos críticos| E[SR15: symlink roto vía /dev/block<br/>CVE-2023-33206]
+    E -->|parche SR16: valida symlinks| F[SR16: quitar permiso de ejecución a IMA<br/>CVE-2023-40261]
+
+</pre>
+
+<p><strong>Ronda 1 — v18.x (CVE-2023-24064).</strong> La fase 1 valida 253 elementos desde boot-xsa2; Linux arranca por arquitectura System V con scripts de inicialización RC; root hace auto-logon y la fase 2 arranca desde el script de perfil de root. Los sistemas de archivos temporales, que dan pseudo-solo-lectura, se poblan desde archivos TAR que sí se validan en fase 1. Examinando el índice de integridad contra toda la arquitectura System V, casi todo está blindado... salvo un archivo que nadie miró: <code>inittab</code>. Controlar <code>/etc/inittab</code>, que la fase 1 no valida, da pie en la arquitectura. Faltaba un directorio de staging, y aquí hay un detalle delicioso: SuperSheep no escanea sus propios archivos de instalación, así que el staging perfecto es su propio directorio Avira. Se clona el script RC al directorio seguro, se parchean variables globales, se inyecta el proof-of-concept y se invoca el nuevo runlevel 3 desde la inicialización. Con el disco parcheado fuera de línea, al arrancar root hace auto-logon y llega la shell de callback. Pero la shell de Linux no basta: Windows sigue cifrado. La solución la trae el propio sistema: el comando <code>mountwinpart</code> toma la clave de cifrado del TPM, descifra Windows e inicializa una tercera fase de validación. Basta reiniciar la verificación de integridad y monitorear <code>/proc/cmdline</code> para capturar la clave del TPM en segundos. Con Windows descifrado, se instala malware que interactúa directamente con la API XFS y dispensa dinero del cajero a demanda. Vulnerabilidad identificada en diciembre de 2021; el siguiente lanzamiento mayor (3.0, ya que Diebold reinició la numeración) valida <code>inittab</code> en fase 1... aunque la fase 1 baja de 253 a 56 elementos, un 20% menos de validación.</p>
+<p><strong>Ronda 2 — Service Release 9 (CVE-2023-24063).</strong> La arquitectura Linux no cambió, pero en el script de inicialización mountfs, <code>mtab</code> se borra antes de llamar a <code>mount</code>. Como la seguridad del sistema se basa en sistemas de archivos temporales definidos en <code>fstab</code>, basta reemplazar <code>mtab</code> por <code>fstab</code>: <code>fstab</code> se borra justo antes del mount, lo que otorga persistencia sobre el directorio home de root, permite parchear el script de perfil y recuperar la shell. Identificada en junio de 2022 y confirmada remediada al día siguiente, "mágicamente de forma preventiva", en el Service Release 10.</p>
+<p><strong>Ronda 3 — Service Release 10 (CVE-2023-24062).</strong> <code>inittab</code> ya se valida y <code>mtab</code> ya no sirve. Pero hay un detalle de <code>mount</code>: si se invoca contra un punto de montaje ya montado, la llamada falla. ¿Y cuál es el punto de montaje asociado a cualquier sistema de archivos Linux? El raíz. Aplanando el sistema de archivos y reasociando los puntos críticos al raíz, se recupera persistencia sobre el home de root, se parchea el perfil y vuelve la ejecución de código. Esta vez el parche abarca 4.0, 4.1 y 4.2 —prácticamente todo el software publicado—; identificada en junio de 2022, remediada en diciembre de 2022 en el Service Release 12, que añade llamadas de borrado y recreación de los directorios raíz, temp y var, eliminando symlinks y contenido persistente.</p>
+<p><strong>Ronda 4 — Service Release 12 (CVE-2023-28865).</strong> ¿Cómo se sortea un delete? Los puntos de montaje de las extensiones del kernel se inicializan antes en el proceso de arranque: si se coloca un archivo en un punto de montaje, al montarlo ese contenido deja de ser accesible. Así que se mueve mountfs a <code>/proc</code>: cuando el kernel se inicializa, el archivo ya no es accesible, el delete nunca se ejecuta, no borra el directorio de root y la persistencia vuelve. De nuevo todo el stack —3.3.0 y anteriores, más 4.0 a 4.2— vulnerable; identificada en diciembre de 2022, remediada en febrero de 2023 con el Service Release 15, una estrategia más compleja: la fase 1 ahora incluye índices de suma nula (null sum) sobre los puntos de montaje críticos, confirmando que esos directorios están vacíos y sin modificar antes de permitir el arranque de Linux.</p>
+<p><strong>Ronda 5 — Service Release 15 (CVE-2023-33206).</strong> Cuanto más complicado es un control de seguridad, más fácil que algo se le escape. Crear un archivo o un symlink a un archivo conocido genera una suma hash en la fase 1 y el sistema no arranca; crear un directorio o un árbol de directorios vacíos no genera suma y el sistema arranca. Y los symlinks nulos también producen suma nula. Con eso, el objetivo es un punto de cruce (transversal) hacia una ruta que no exista en el disco offline: un symlink que en el disco aparezca roto —sin generar suma en la fase 1— pero se vuelva válido al arrancar Linux. Apareció rápido: <code>/dev/block</code>, un punto de montaje especial que monta el propio dispositivo de bloques del sistema, presente además en todas las versiones anteriores de Vynamic. Se mueven los puntos de montaje a secundarios (var a var2, raíz a raíz2) y se crean symlinks a través de <code>/dev/block</code>. En el disco offline los enlaces están rotos, no hay sumas, Linux arranca, los enlaces son válidos y se recupera el acceso al home de root. Una vez más, todo el stack vulnerable (3.3.0, 4.0, 4.1, 4.2 y 4.3); identificada en abril de 2023, remediada en julio de 2023 con el Service Release 16, donde la fase 1 valida la integridad de los symlinks —un symlink roto detiene el arranque—. Curiosidad: las mitigaciones anteriores de borrado de directorios en el script mountfs quedaron comentadas y eliminadas.</p>
+<p><strong>Ronda final — Service Release 16 (CVE-2023-40261).</strong> Validación de symlinks y sumas nulas: control de seguridad sólido. Pero todo el proceso de integridad se basa en crear y validar sumas hash de archivos. ¿Qué no cambia el hash de un archivo? Sus atributos. Eliminar el permiso de ejecución deja la suma intacta. Basta quitar el permiso de ejecución de IMA —el módulo del kernel que verifica firmas digitales de todos los binarios y valida el proceso padre-hijo de todo ejecutable— para desactivar la arquitectura de seguridad completa y ejecutar cualquier binario sin firmar. Todo el stack vulnerable otra vez, incluida 4.3; identificada en julio de 2023, mitigada según Diebold en el Service Release 17 de noviembre de 2023, y la versión 3.3 quedó declarada end-of-life a fin de diciembre de 2023.</p>
+<p>Una nota sobre la primera respuesta del fabricante: al reportar la ronda 1, Diebold indicó que no era una vulnerabilidad de seguridad por la "protección superior" de IMA. IMA verifica firmas de binarios contra el kernel como atributo extendido de cada archivo, validando nombre, ruta y detalles del inodo, y comprueba el proceso padre-hijo de cada ejecutable. Lo que IMA no valida es la interpretación de scripts: una shell certificada que interpreta un archivo como <code>profile</code> ejecuta sus comandos en el contexto de un binario certificado. Esa grieta conceptual sostiene media cadena de ataque.</p>
+<h2>Mitigaciones: cifrar el disco completo y vigilar el top hat</h2>
+<p>El defecto raíz de todo el ciclo es uno: la partición Linux del sistema está sin cifrar, y eso hace que defenderse sea un gato y ratón continuo, con nuevos ataques probablemente por venir. La compensación parcial es que explotarlo requiere acceso físico.</p>
+<p>Las recomendaciones concretas:</p>
+<ul>
+<li>Parchear Vynamic Security a la última versión de cualquiera de los Service Releases discutidos.</li>
+<li>La investigación influyó directamente en Diebold Nixdorf para rediseñar la arquitectura SuperSheep: desde abril de este año, la versión 4.4 ofrece cifrado completo del sistema operativo SuperSheep, atacando la causa raíz.</li>
+<li>Verificar la opción de configuración "enable security check" (introducida en la versión 4.0): si está deshabilitada, la clave del TPM no se envía al comando mountwinpart como argumento de línea de comandos, lo que reduce sustancialmente la superficie de ataque desde el propio Linux.</li>
+<li>Considerar reemplazar Vynamic Security por una solución de cifrado de disco reconocida por la industria, como BitLocker de Microsoft.</li>
+<li>Como acciones secundarias: monitorear el acceso al top hat (toda entrada maliciosa debería disparar una alerta), deshabilitar los puertos USB no utilizados, validar los periféricos conectados a los USB restantes y bloquear los tornillos del disco duro —no hay justificación de negocio para extraer el disco de un ATM sin desmontar el chasis completo—.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>XFS (Extension for Financial Services)</strong>: API sin autenticación que abstrae software y hardware del ATM; el objetivo final del malware que dispensa dinero.</li>
+<li><strong>Vynamic Security Suite</strong>: stack de seguridad propietario de Diebold Nixdorf con certificación multivendor; cifrado de disco con dos particiones sin cifrar.</li>
+<li><strong>SuperSheep / "superschaff"</strong>: sistema operativo Linux sin cifrar del pre-boot; su directorio de instalación bajo <code>user</code> es además el staging ideal porque no se auto-escanea.</li>
+<li><strong>Cryptware / CryptoPro</strong>: spin-off criptográfico de 2002 que aporta el pre-boot authentication; documentado por SecConsult en 2016.</li>
+<li><strong>Arranque dual UEFI → Linux → Windows</strong>: fase 1 valida 253 elementos en boot-xsa2; fase 2 valida ~2.500 archivos, desbloquea el TPM y recupera la clave de cifrado.</li>
+<li><strong><code>/etc/inittab</code> sin validar</strong>: punto de entrada de la ronda 1, con scripts RC clonados al staging y nuevo runlevel.</li>
+<li><strong><code>mountwinpart</code> / <code>/proc/cmdline</code></strong>: comando del sistema que descifra Windows con la clave del TPM; la clave se captura monitoreando la línea de comandos durante la re-verificación de integridad.</li>
+<li><strong>IMA (Integrity Measurement Architecture)</strong>: verificación de firmas del kernel por atributos extendidos; no valida la interpretación de scripts y su permiso de ejecución puede quitarse sin alterar el hash.</li>
+<li><strong>Manipulación de puntos de montaje</strong>: mtab→fstab (SR9), aplanado del sistema de archivos hacia el raíz (SR10), mountfs reubicado en /proc (SR12) y symlinks de travesía vía /dev/block (SR15).</li>
+<li><strong>Índices de suma nula y validación de symlinks</strong>: contramedidas de las SR15 y SR16 que cierran el ciclo de cinco CVEs.</li>
+<li><strong>Máquina virtual</strong>: toda la demostración se ejecuta sobre Vynamic Security virtualizado, parcheando el disco fuera de línea entre reinicios.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La seguridad física brutal de la bóveda de un ATM convive con una infraestructura lógica frágil: una API sin autenticación (XFS), software de alto privilegio y credenciales por defecto.</li>
+<li>El cifrado de disco de Vynamic Security dejaba una partición Linux sin cifrar, y sobre ella se encadenaron cinco CVEs consecutivos: cada parche introdujo una nueva grieta (inittab, mtab, la semántica de mount, los delete calls, las sumas nulas, los atributos de archivo) y la superficie de ataque resultó recursiva entre versiones.</li>
+<li>La ejecución de código en Linux no era el objetivo final: capturar la clave del TPM en /proc/cmdline permite descifrar Windows e instalar malware contra la API XFS que dispensa efectivo a demanda.</li>
+<li>La respuesta del fabricante terminó atacando la causa raíz —cifrado completo de SuperSheep en la versión 4.4—, junto a configuraciones de endurecimiento (security check activo, monitoreo del top hat, USB restringido, disco duro bloqueado) y la opción de migrar a BitLocker.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lF8NEsl3-kQ">«DEF CON 32 - Where’s the Money-Defeating ATM Disk Encryption - Matt Burch»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

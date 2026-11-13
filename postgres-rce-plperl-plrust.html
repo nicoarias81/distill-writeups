@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De variables de entorno a shell: RCE en PostgreSQL gestionado en la nube — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">De variables de entorno a shell: RCE en PostgreSQL gestionado en la nube</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/eroPf1N-pAk">«DEF CON 33 - Rusty pearls: Postgres RCE on cloud databases - Tal &#x27;TLP&#x27; Peleg, Coby Abrams»</a> · ver el <a class="nz-link" href="https://youtu.be/eroPf1N-pAk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>PostgreSQL es una de las bases de datos relacionales más extendidas del mundo, y casi todos los proveedores de nube ofrecen instancias gestionadas de Postgres. Esta ubiquidad la convierte en un objetivo de alto valor: romper el aislamiento entre el usuario y el proveedor de nube puede exponer credenciales o incluso abrir camino a movimientos laterales entre clientes.</p>
+<p>Investigadores de Varonis descubrieron y demostraron una cadena de escalada que parte de un usuario de base de datos sin privilegios de superusuario y termina ejecutando código arbitrario en el sistema operativo que aloja la base de datos. La cadena combina dos extensiones oficiales de Postgres: PL/Perl, que permite modificar variables de entorno de la sesión pese a ser un lenguaje "trusted", y PL/Rust, cuyo proceso de compilación con Cargo puede ser secuestrado mediante esas mismas variables.</p>
+<p>La investigación no quedó en el laboratorio: el equipo ejecutó código en una instancia real de AWS RDS. El entorno cloud resultó estar fuertemente restringido —sin acceso a la red interna ni tokens a la vista—, pero el hallazgo demuestra que las superficies de ataque de los servicios gestionados van mucho más allá de las cargas de trabajo tradicionales.</p>
+<h2>El punto de partida: el usuario admin de RDS no es superusuario</h2>
+<p>Tras divulgar una inyección SQL muy impactante en una base de datos alojada en AWS RDS, la pregunta natural era qué podría hacer un atacante real con ese acceso. En RDS, el usuario administrador que entrega Amazon puede gestionar esquemas y datos, pero no es superusuario de Postgres. La barrera de confianza entre cliente y proveedor permanece intacta.</p>
+<p>El objetivo se fijó entonces en dos niveles: obtener acceso de superusuario o, mejor todavía, ejecutar código en el sistema subyacente. Lograrlo en la nube tendría implicaciones graves: romper esa frontera podría permitir exfiltrar credenciales de la nube o moverse lateralmente entre clientes de la misma plataforma.</p>
+<h2>PL/Perl: un lenguaje "trusted" que escribe variables de entorno</h2>
+<p>Las extensiones de lenguaje de Postgres permiten definir funciones en SQL, C, Python, Perl o, más recientemente, Rust. Postgres las divide en dos categorías: los lenguajes <strong>untrusted</strong> tienen acceso pleno al sistema —variables de entorno, ficheros, sockets, procesos— y solo un superusuario puede ejecutarlos; los lenguajes <strong>trusted</strong> operan en un entorno restringido y cualquier usuario puede usarlos.</p>
+<p>Esa suposición de seguridad se rompió a través de Perl mismo. Perl expone el "hash mágico" <code>%ENV</code>, que permite leer y escribir las variables de entorno del proceso actual. La hipótesis fue que algo tan enterrado en el corazón del lenguaje no estaría neutralizado por el sandbox de PL/Perl —y lo era—. Con una función PL/Perl trivial, un usuario sin superusuario puede modificar variables de entorno del proceso de su sesión de Postgres.</p>
+<p>Tener la capacidad de alterar variables de entorno suele ser casi sinónimo de ejecución de código. El resto del trabajo consistió en encontrar dónde consumirías.</p>
+<h2>Secuestrar a Cargo: la segunda mitad de la cadena</h2>
+<p>Postgres complica el camino clásico: las extensiones no lanzan procesos directamente, sino a través de una API de background workers, así que los procesos creados por Postgres no heredan las variables de entorno modificadas. La búsqueda se centró entonces —con GitHub Search y Copilot sobre extensiones open source— en código que ejecutara binarios de forma directa: funciones <code>system</code>, la familia <code>execv</code> o, en Rust, el constructor <code>Command</code>.</p>
+<p>El blanco fue PL/Rust. Al crear una función PL/Rust, Postgres invoca Cargo, el gestor de paquetes de Rust, que a su vez llama al compilador <code>rustc</code>. Ese proceso es sensible a variables de entorno. PL/Rust sanitiza el entorno antes de lanzar Cargo y elimina, entre otras, <code>RUSTC_WRAPPER</code> —que permite sustituir el binario del compilador—. Pero olvidó su equivalente <code>CARGO_BUILD_RUSTC_WRAPPER</code>, con exactamente el mismo efecto.</p>
+<p>Con ese vector solo se puede cambiar <em>qué</em> binario se ejecuta, no sus argumentos. La pieza final fue el script <code>rust-gdb</code> que instala la toolchain de Rust: ejecuta el contenido de la variable <code>RUSTGDB</code>. La cadena completa queda así:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Función PL/Perl] -->|escribe %ENV| B[CARGO_BUILD_RUSTC_WRAPPER = rust-gdb]
+    B --> C[RUSTGDB = comandos bash]
+    C --> D[Creación de función PL/Rust]
+    D --> E[Cargo compila y llama al binario sustituido]
+    E --> F[Script rust-gdb ejecuta los comandos inyectados]
+    F --> G[RCE como usuario de Postgres]
+
+</pre>
+
+<p>El procedimiento: instalar las extensiones PL/Perl y PL/Rust, crear una función Perl que apunte <code>CARGO_BUILD_RUSTC_WRAPPER</code> a <code>rust-gdb</code> y cargue los comandos deseados en <code>RUSTGDB</code>, y luego crear una función PL/Rust —vacía, basta con que se compile—. Al compilar, la cadena dispara la ejecución y devuelve la salida estándar de los comandos: código ejecutado en Postgres sin ser superusuario.</p>
+<h2>La prueba de fuego en AWS RDS</h2>
+<p>RDS ofrece tanto PL/Perl como PL/Rust, así que el equipo replicó la explotación en su propia instancia gestionada. El entorno resultó mucho más limitado que el de un Postgres local: el script <code>rust-gdb</code> dependía de binarios que no existían allí, y hubo que recurrir al parámetro <code>ENV</code> de bash —que bash expande antes de arrancar— para ajustar la cadena al entorno restringido.</p>
+<p>El código se ejecutó, pero el entorno estaba bien aislado: sin acceso a la red interna, sin tokens interesantes al alcance, sin indicios de acceso entre tenants. Y la respuesta de AWS fue rápida y contundente: en muy poco tiempo llegaron avisos desde la propia AWS, correos al CEO de la empresa de los investigadores y contactos vía LinkedIn —facilitados porque la base de datos se llamaba como uno de ellos—. La instancia fue apagada preventivamente.</p>
+<h2>Cómo se eligió el objetivo</h2>
+<p>La selección de PL/Perl fue deliberada: es parte del repositorio oficial de Postgres, así que viene incluida en muchas instalaciones y multiplica el impacto; Perl es un lenguaje de los años 80, con décadas de código escrito con una conciencia de seguridad muy inferior a la actual; tiene variables "mágicas" integradas que son terreno fértil; y al ser open source resulta fácil inspeccionarlas.</p>
+<p>Esta clase de hallazgos no es rara. El caso de "Sekicle umbrella" de Emerico Rodi en GCP siguió una línea parecida, y el mismo equipo descubrió poco después una vulnerabilidad en Azure Cosmos DB for PostgreSQL que también permitía ejecutar código en el backend. El patrón se repite: los servicios gestionados son enjambres de microservicios donde algo puede salir mal, y conviene buscar RCE en todos ellos, no solo en las cargas de trabajo de moda.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>PostgreSQL</strong>: base de datos relacional open source y extensible, base de las ofertas gestionadas de prácticamente todos los proveedores de nube.</li>
+<li><strong>AWS RDS</strong>: servicio gestionado cuyo usuario admin no es superusuario de Postgres; escenario donde se validó el RCE.</li>
+<li><strong>Extensiones de lenguaje (PL/Perl, PL/Rust)</strong>: mecanismo de Postgres para definir funciones en otros lenguajes, divididas en trusted y untrusted.</li>
+<li><strong>%ENV de Perl</strong>: hash mágico que expone las variables de entorno del proceso; vía de escritura desde un lenguaje trusted.</li>
+<li><strong>Cargo y rustc</strong>: gestor de paquetes y compilador de Rust, invocados al compilar funciones PL/Rust.</li>
+<li><strong>CARGO_BUILD_RUSTC_WRAPPER</strong>: variable de entorno no sanitizada por PL/Rust que permite sustituir el binario del compilador.</li>
+<li><strong>rust-gdb y RUSTGDB</strong>: script de la toolchain de Rust que ejecuta el contenido de esa variable; pivote final hacia comandos arbitrarios.</li>
+<li><strong>bash ENV</strong>: parámetro que bash expande antes de arrancar, usado para adaptar el exploit al entorno restringido de RDS.</li>
+<li><strong>GitHub Search y Copilot</strong>: herramientas empleadas para rastrear extensiones que lanzan procesos sin la API de Postgres.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La barrera "trusted vs. untrusted" de los lenguajes de Postgres es frágil: un lenguaje supuestamente confinado permitió alterar variables de entorno del proceso, y eso bastó como primera piedra de un RCE completo.</li>
+<li>Las variables de entorno son una superficie de ataque sistemáticamente subestimada: sanitizar una variable (<code>RUSTC_WRAPPER</code>) sin su equivalente (<code>CARGO_BUILD_RUSTC_WRAPPER</code>) dejó la puerta abierta.</li>
+<li>Los servicios gestionados en la nube merecen la misma atención de seguridad que las cargas de trabajo propias: un RCE en Postgres gestionado toca territorio del proveedor y puede escalar a amenazas entre tenants.</li>
+<li>Para administradores: mantener Postgres al día al menos en versiones menores (el parche cubre desde la versión 12), aplicar el mínimo privilegio —sin crear funciones ni instalar extensiones a usuarios que no lo necesiten— y restringir las extensiones cargables con el parámetro <code>allowed_extensions</code>.</li>
+<li>Para la comunidad: la investigación responsable sobre nube debería institucionalizarse, con marcos que permitan verificar que un exploit no alcanza recursos de red ni acceso entre tenants.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/eroPf1N-pAk">«DEF CON 33 - Rusty pearls: Postgres RCE on cloud databases - Tal &#x27;TLP&#x27; Peleg, Coby Abrams»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

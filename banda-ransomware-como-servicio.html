@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un vistazo dentro de una banda de ransomware como servicio — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Un vistazo dentro de una banda de ransomware como servicio</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/x7br73M7nu8">«Don&#x27;t do crime....CRIME IS BAD: RaaS from the inside - Martin Anzaldo y Luciano Lopez»</a> · ver el <a class="nz-link" href="https://youtu.be/x7br73M7nu8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El 7 de mayo de 2025 un mensaje anónimo en un foro cambia el estado del juego: "aquí está la base de datos de una banda de ransomware". No es una filtración más: es el panel de administración de un grupo que operaba bajo el modelo Ransomware as a Service, con parte de sus registros internos, chats de negociación y datos de víctimas. El análisis recorre qué se puede aprender de esa fuga, comparándola con el antecedente de mayo de 2022, cuando un defacement —"don't do crime, crime is bad"— ya había expuesto los servidores de Conti, una de las bandas más activas de la época.</p>
+<p>La conclusión principal: el ransomware no es un Hacker con mayúsculas, es una empresa. Tiene áreas de soporte, gerentes, agentes afiliados que generan ingresos, métricas de producción y liquidaciones de sueldos. Y como toda empresa, cuando se filtró dejaron ver la operatoria completa: desde el primer test de cifrado hasta las tácticas psicológicas de la negociación.</p>
+<h2>El contexto: Kronos y la caída de LockBit</h2>
+<p>La Operación Kronos, liderada por el NCA del Reino Unido con Europol y el FBI, había logrado incautar servidores y arrests de afiliados de LockBit. La banda siguió operando bajo el nombre Loki —y también Lodvik, que fue cuando la filtración llegó—. Los actores hablaban de dónde habían sido hackeados y quién estaba detrás de la caída; el propio nombre en clave de la operación apareció en los registros internos.</p>
+<p>La fuga expuesta incluía la base de datos del grupo, publicada el 7 de mayo de 2025 con el defacement ya famoso —"don't do crime, crime is bad"— y una invitación a contactar por Tox. Alrededor de esa fecha también se había filtrado información de la banda Everest, otra organización activa, lo que dio dos juegos de datos comparables en poco tiempo.</p>
+<h2>La máquina de extorsión: qué decía la base</h2>
+<p>Las cifras del panel son elocuentes. Los sectores más golpeados: servicios, servicios tecnológicos, fabricación —con foco en Estados Unidos y Europa—. La base contenía el nombre del grupo, víctima, país, sector, fecha, el monto del rescate y el nombre del afiliado que había hecho el ataque.</p>
+<p>El switch de idioma ruso aparece como regla de negocio: los actores de habla rusa no podían atacar a la Comunidad de Estados Independientes. La nota curiosa es que el administrador baneó a un actor que igual intentó atacar una organización rusa —y los intentos de esas entidades seguían apareciendo en los chats de soporte, con el clásico "no funciona" que también padecen las empresas legítimas.</p>
+<p>Los chats de negociación dejan ver el método: primero una transferencia pequeña de prueba, después la grande. Una víctima envió 484 mil dólares en dos transferencias. La pauta de precios no era fija: el precio de entrada se inflaba y de ahí se negociaba a la baja.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Afiliado compromete<br/>la red de la víctima] --> B[Sube el<br/>cifrador]
+    B --> C[Exporta datos<br/>doble extorsión]
+    C --> D[Panel: listado,<br/>rescate y chat]
+    D --> E[Negociación<br/>y pago]
+    E --> F[Soporte interno:<br/>debug y cobro]
+
+</pre>
+
+<h2>La parte que nadie imagina: soporte y refunds</h2>
+<p>Detrás de cada ataque había un canal de soporte interno. Los afiliados pedían ayuda con los errores de los binarios: el sistema estaba orientado a Linux y algunas versiones arrancaban, otras no. Los desarrolladores avisaban "estamos en eso" —igual que cualquier mesa de ayuda—, asignaban un agente, cobraban y ofrecían la herramienta.</p>
+<p>Y había devoluciones: si el descifrador fallaba, la banda devolvía parte del dinero. El motivo es de continuidad del negocio: la reputación del ransomware depende de que las víctimas paguen, y para eso el descifrador tiene que funcionar.</p>
+<h2>La industrialización del crimen</h2>
+<p>El modelo RaaS divide roles: los desarrolladores mantienen el cifrador y el panel; los afiliados llevan la intrusión, el reconocimiento, la explotación y la exfiltración. Los nombres de los afiliados que más aparecían en la base coinciden con las arrestadas por Kronos —Noberus, Shadow— y con los sucesores de Conti tras la caída de 2022.</p>
+<p>Los porcentajes del panel muestran el reparto: el grupo se llevaba una comisión por cada rescate, y a veces el administrador cobraba de más. También se puede rastrear la rotación: afiliados que se van a fundar su propia banda con una porción del equipo.</p>
+<h2>Tácticas psicológicas de la negociación</h2>
+<p>Los chats internos muestran el manual: fijar un precio inflado de arranque y bajarlo de a poco para simular concesiones; meter urgencia y presión de plazo; amenazar con publicar los datos si no hay pago; usar la segunda extorsión como palanca. Algunas víctimas, agotadas, terminaban pidiendo formar parte de la banda —pedidos literales de "contrátenme para pentesting"—. Los criminales, claro, no contratan a quien intentaron extorsionar.</p>
+<p>Y hay consejos de seguridad de los propios atacantes, por lo irónico: implementar controles en Active Directory, capacitar contra phishing, segmentar redes, backups con retención. El manual de defensa que la industria repite estaba, también, en el registro de la banda.</p>
+<h2>Lecciones</h2>
+<ul>
+<li>El ransomware es un negocio con soporte técnico, refunds y métricas: entenderlo como empresa cambia el enfoque de la defensa.</li>
+<li>La doble extorsión y la presión psicológica son parte del diseño del ataque, no efectos colaterales.</li>
+<li>Los datos filtrados permiten cruzar nombres de afiliados con operaciones policiales y mapear la rotación hacia nuevas bandas.</li>
+<li>La reputación importa incluso en el delito: la promesa de descifrado funcional es lo que sostiene el modelo de pagos.</li>
+<li>Las medidas de higiene básica —AD endurecido, anti-phishing, segmentación, backups— siguen siendo lo que más duele al operador promedio de estas bandas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/x7br73M7nu8">«Don&#x27;t do crime....CRIME IS BAD: RaaS from the inside - Martin Anzaldo y Luciano Lopez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

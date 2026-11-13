@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orquestar DevSecOps con Secure Code Box — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Orquestar DevSecOps con Secure Code Box</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JYev018b9W8">«Orquestando un ambiente DevSecOps con Secure Code Box - Sergio Correa - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/JYev018b9W8">video original</a></p>
+</header>
+<div class="nz-prose">
+<hr />
+<p>Gestionar un ecosistema de SecOps es, en la práctica, gestionar el caos: herramientas SAST, DAST, pentest, threat modeling; alternativas open source y pagas; cada una con su propio gestor de vulnerabilidades y su propio formato de findings. El resultado es un entorno no estandarizado donde representar lo mismo de diez maneras distintas complica cualquier intento de gestión.</p>
+<p><strong>Secure Code Box</strong>, un proyecto open source de OWASP, propone resolver exactamente eso: integrar más de 20 herramientas de seguridad conocidas —Nmap, ZAP, Nuclei, Semgrep, Trivy, Gitleaks, entre muchas otras— en un mismo ecosistema basado en Kubernetes, con salida unificada hacia gestores de vulnerabilidades como DefectDojo o Elasticsearch y notificaciones por Slack o mail.</p>
+<h2>Por qué Kubernetes</h2>
+<p>Estar construido sobre Kubernetes no es un detalle: es la decisión que define la herramienta. Cada scan es un manifiesto YAML con el mismo formato que cualquier recurso de Kubernetes; la ejecución se hace con comandos de <code>kubectl</code>; y la plataforma hereda todo lo bueno del ecosistema: modularidad, escalabilidad, jobs en paralelo y optimización de recursos. Para pedir un scan se describe la actividad en YAML —por ejemplo, Nmap contra scanme.nmap.org con ciertos parámetros—, se aplica el archivo y el cluster se encarga del resto.</p>
+<p>Los resultados se almacenan en un bucket: S3, Google Cloud o, por defecto, <strong>MinIO</strong>, el bucket open source que viene integrado. Desde ahí, los findings se consultan por línea de comando o se visualizan directamente.</p>
+<h2>Scans agendados y en cascada</h2>
+<p>Dos características destacan:</p>
+<ul>
+<li><strong>Scans agendados</strong>: un tipo de recurso que ejecuta el scan con la frecuencia definida (cada minuto, cada hora) y cuyo estado y findings se consultan después con comandos de Kubernetes.</li>
+<li><strong>Scans en cascada</strong>: cuando la salida de una herramienta matchea un patrón JSON definido, se dispara automáticamente un segundo scan sobre los campos indicados. Kubernetes levanta los jobs en paralelo y la cadena continúa sola.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[GitRepoScanner: organizacon de GitHub] -->|patrn JSON| B[Semgrep: anlisis esttico por repo]
+    B --> C[Findings al bucket MinIO]
+    D[Nmap: subred] -->|puertos SSH| E[Ncrack: fuerza bruta]
+    E --> C
+
+</pre>
+
+<p>Los escenarios demostrados muestran el potencial:</p>
+<ol>
+<li><strong>Repositorios → SAST</strong>: GitRepo Scanner enumera los repos de una organización de GitHub o GitLab; cada hallazgo dispara un análisis estático con Semgrep en paralelo, y los findings terminan en el bucket.</li>
+<li><strong>Dominios → ZAP</strong>: AMASS enumera dominios y subdominios de un sitio, y sobre esa salida se lanza ZAP contra cada uno.</li>
+<li><strong>Subred → fuerza bruta</strong>: Nmap barre una subnet buscando puertos SSH; los servicios detectados disparan Ncrack, cuyas listas de usuarios y contraseñas se cargan como secretos de Kubernetes.</li>
+</ol>
+<h2>Autodiscovery: seguridad continua sin pedir permiso</h2>
+<p>La funcionalidad de <strong>autodiscovery</strong> escucha los recursos de un namespace o de todo el cluster: cuando aparece un servicio nuevo con endpoint HTTP, dispara automáticamente el scan definido (ZAP, por ejemplo). El complemento de <strong>container autodiscovery</strong> analiza con Trivy cada imagen desplegada y devuelve la lista de librerías vulnerables, que puede alimentar herramientas como Dependency-Track.</p>
+<p>La demo lo muestra en vivo: se instala OWASP Juice Shop en el namespace default con un comando de Helm, y el autodiscovery, al detectar el nuevo servicio HTTP, lanza el scan sin intervención adicional.</p>
+<h2>Integración y adopción</h2>
+<p>Como todo pasa por la API de Kubernetes, los flujos se automatizan fácilmente: un GitHub Action puede disparar scans cuando se pushea código, y los resultados pueden alimentar DefectDojo o integrarse con Jira mediante un hook. La instalación también es mínima: un cluster local (Minikube o kind), un comando para instalar Secure Code Box vía Helm y un comando por cada escáner que se quiera agregar.</p>
+<p>Sobre extenderla: las integraciones existentes las aportaron los desarrolladores, pero al ser open source cualquiera puede agregar un escáner —incluso herramientas pagas, entendiendo la lógica del programa—, y la documentación explica cómo. Tampoco hay restricción sobre los objetivos: se escanea desde dentro del cluster o hacia afuera, como el scan a scanme.nmap.org.</p>
+<h2>Limitaciones honestas</h2>
+<ul>
+<li><strong>Dependencia de Kubernetes</strong>: conocer al menos lo básico del ecosistema es requisito previo.</li>
+<li><strong>Curva de aprendizaje</strong>: aunque la documentación es muy buena —algo poco frecuente en open source—, hay que entender cómo se estructura un YAML para armar los manifiestos.</li>
+<li><strong>Sin interfaz gráfica</strong>: no hay UI para visualizar la información; está pensado para desarrolladores y gente de seguridad.</li>
+<li><strong>Configuración manual</strong> mínima en los flujos en cascada.</li>
+</ul>
+<h2>Cierre</h2>
+<p>El proyecto nació como trabajo de investigación universitario sobre cómo mejorar la gestión de herramientas de seguridad en un ambiente de SecOps, y el recorrido muestra la idea central: cuando la orquestación es el problema, la respuesta no es otra herramienta aislada sino una capa que unifique formatos, automatice cadenas de análisis y aproveche una plataforma que ya existe. Secure Code Box convierte cada scanner en un recurso de Kubernetes y deja que la plataforma haga el trabajo pesado.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JYev018b9W8">«Orquestando un ambiente DevSecOps con Secure Code Box - Sergio Correa - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

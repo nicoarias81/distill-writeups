@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bypass de autenticación y toma de cuentas: técnicas que siguen funcionando en 2025 — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Bypass de autenticación y toma de cuentas: técnicas que siguen funcionando en 2025</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gg5zsWyZJ90">«DEF CON 33 - Account Takeover &amp; Authentication Bypass - Vikas Khanna»</a> · ver el <a class="nz-link" href="https://youtu.be/gg5zsWyZJ90">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Vikas Khanna, especialista técnico en Prevasec con foco en seguridad de aplicaciones web y API, ocho años de pentesting, red teaming y bug bounty (reconocimientos de Google, Microsoft y Apple, contribuciones a OWASP WSTG, CVEs en productos de Oracle e IBM), presenta un catálogo de técnicas de account takeover y bypass de autenticación que usa profesionalmente, dirigido a pentesters, red teamers, bug hunters y estudiantes. Cierra con su primer bug en Apple: un session puzzling que dio acceso a módulos post-login de un dominio interno.</p>
+<p>La premisa: la autenticación protege los módulos post-login con información sensible y datos personales, y las funcionalidades alrededor —olvidé mi contraseña, OTP, gestión de sesión, cambio de email/teléfono— son el terreno donde aparecen los bugs. El vector no se limita a una lista: estas son las vulnerabilidades y técnicas que él mismo encontró una y otra vez.</p>
+<h2>El catálogo de técnicas</h2>
+<p><strong>Session puzzling</strong> — una sesión creada en etapa pre-login (por ejemplo, al pedir el restablecimiento de contraseña y entrar email) con más permisos de los necesarios puede servir para acceder a módulos post-login sin completar OTP ni respuestas de seguridad. La sesión queda activa globalmente aunque el flujo de verificación nunca se completó.</p>
+<p><strong>Session fixation</strong> — pre-login y post-login comparten el mismo valor de variable de sesión; solo cambia el estado (activa/inactiva). Dos variantes: con víctima remota, si el session ID aparece en URL en pre-login, se le envía el link legítimo, la víctima inicia sesión y el atacante ya tiene la sesión activa; con máquina compartida, se copian las cookies pre-login y se reutilizan cuando la víctima inicia sesión.</p>
+<p><strong>Access control / IDOR</strong> — funcionalidades sensibles (cambio de contraseña, actualización de perfil) que validan solo un user ID, a veces en parámetros ocultos: modificarlo con Burp Suite da la cuenta de la víctima. En grey box, escalar de la cuenta con menos privilegios a los módulos admin (listar usuarios, desactivarlos, cambiarles contraseñas).</p>
+<p><strong>Force browsing</strong> — golpear módulos post-autenticación sin credenciales: si hay bug de access control, entran igual; y archivos de configuración no enlazados pero presentes en el servidor filtran información sensible.</p>
+<p><strong>Host header injection para secuestrar links de reset</strong> — si el valor del header Host se refleja en el Location de redirecciones 301/302, se pide reset para el email de la víctima, se cambia el Host al dominio del atacante, y el servidor legítimo envía el link de reset apuntando al dominio del atacante. La víctima hace clic, el token llega a los logs del atacante, y como aún está activo, se usa contra la aplicación real para cambiar la contraseña.</p>
+<p><strong>Archivos JS</strong> — los JS del frontend son oro: API keys, credenciales, endpoints sensibles que nadie mira.</p>
+<p><strong>PHP type juggling</strong> — la comparación con <code>==</code> convierte tipos: un string sin dígitos se convierte a 0. Si el hash de la contraseña del admin es un string sin enteros, enviar 0 como contraseña hace 0 == 0 verdadero. Requisito: el valor debe llegar por JSON o objeto serializado.</p>
+<p><strong>CSRF</strong> — sin tokens anti-CSRF, una página HTML enviada a la víctima logueada cambia su email o teléfono; después se pide el reset de contraseña y el OTP/link llega al canal que controla el atacante. También: reset directo sin pedir la contraseña anterior.</p>
+<p><strong>HTTP parameter pollution</strong> — repetir el parámetro de email con el correo de la víctima y el del atacante: si la aplicación envía el token a ambos y solo valida el primero (o el segundo, según la app), el atacante recibe un link activo para cambiar la contraseña. Aplica igual a OTPs.</p>
+<p><strong>Manipulación de respuestas</strong> — aplicaciones que validan la respuesta previa (true/false, 200/400) antes del siguiente paso: cambiar el false por true o el 400 por 200 en Burp y continuar el flujo.</p>
+<p><strong>Ruptura de OTP / 2FA</strong> — chequear la integridad: pedir un OTP al número propio y otro a la víctima, y probar el propio contra la cuenta de la víctima —si la app no valida la vinculación, entra—; reutilizar OTPs; leer OTPs que algunos sistemas (encontró uno en un banco popular) revelan en la respuesta; y OTPs maestros: en una app de home banking, el OTP maestro era seis ceros, suficiente para entrar a cualquier cuenta.</p>
+<p><strong>Brute force / password spraying</strong> — con un solo diccionario de contraseñas contra muchos usuarios alcanza para red team, donde se necesita una sola cuenta. Chequear rate limiting; rotar IP antes del umbral de bloqueo (si bloquea a los 50 intentos, rotar en el 49); mandar múltiples credenciales por request. El lab de la PortSwigger Web Security Academy es la referencia.</p>
+<p><strong>Credenciales por defecto</strong> — casi toda organización usa productos enterprise con contraseñas de fábrica: siguen funcionando y son oro para red teaming.</p>
+<p><strong>Enumeración de usuarios en WordPress</strong> — el parámetro <code>?author=N</code> revela usernames, posts y comentarios por ID incremental. Y wpscan con API key (gratuita) en lugar de sin ella: los resultados cambian.</p>
+<p><strong>Gestión de logout insegura</strong> — especialmente en banca: reutilizar sesiones tras logout, verificar si cerrar el navegador destruye la sesión del lado servidor (reabrir en una pestaña nueva no debería funcionar), y si la sesión está vinculada a la IP —protección que frena el robo de cookies.</p>
+<h2>El bug en Apple: session puzzling con domain fronting de subdirectorios</h2>
+<p>Su primer hallazgo en Apple fue un bypass de autenticación por session puzzling. El dominio principal redirigía al SSO de Apple —que a su juicio es sólido, no lo auditó—. Pero con Google dorking encontró un subdirectorio con nombre de cadena aleatoria que contenía un módulo de login propio. Fluye así: se envían usuario y email falsos; la aplicación responde "try again" pero, al fallar, crea una sesión vinculada a ese email y la activa globalmente, incluidos los módulos de administración; con esa sesión activa se salta el login y se accede directamente al subdirectorio, descargando información confidencial (contenido blurreado en las capturas).</p>
+<h2>Tips finales</h2>
+<ul>
+<li><strong>Pastebin</strong> para red teaming: filtra credenciales y datos sensibles.</li>
+<li><strong>DeHashed</strong> para contraseñas filtradas de las víctimas.</li>
+<li><strong>Open Bug Bounty</strong> para reutilizar vulnerabilidades que otros investigadores revelaron públicamente cuando el proveedor no respondió.</li>
+</ul>
+<pre class="mermaid">
+flowchart TD
+    A[Superficie de ataque] --> B[Flujos pre-login: forgot password, OTP]
+    A --> C[Gestion de sesion: fixation, puzzling, logout]
+    A --> D[Access control: IDOR, force browsing]
+    A --> E[Canales de reset: host header, HPP, CSRF]
+    B --> F[Token u OTP activo en manos del atacante]
+    C --> G[Sesion valida sin credenciales]
+    D --> H[Modulos admin y datos post-login]
+    E --> F
+    F --> I[Account takeover]
+    G --> I
+    H --> I
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Session puzzling</strong> — sesión pre-login con permisos excesivos que habilita módulos post-login (el bug de Apple).</li>
+<li><strong>Session fixation</strong> — pre-login y post-login comparten valor de sesión; solo cambia el estado.</li>
+<li><strong>IDOR / access control</strong> — user ID en parámetros (u ocultos) como única validación en cambios de contraseña y perfil.</li>
+<li><strong>Force browsing</strong> — acceso directo a módulos post-auth y archivos de configuración sin enlazar.</li>
+<li><strong>Host header injection</strong> — redirecciones que reflejan el Host para secuestrar tokens de reset.</li>
+<li><strong>PHP type juggling</strong> — <code>==</code> convierte strings sin dígitos a 0; bypass con JSON/objetos serializados.</li>
+<li><strong>CSRF sin tokens</strong> — cambio de email/teléfono vía página maliciosa para redirigir OTPs.</li>
+<li><strong>HTTP parameter pollution</strong> — parámetro duplicado con dos emails para recibir el token de reset el atacante.</li>
+<li><strong>Response manipulation</strong> — true/false y códigos de estado editables en el proxy para saltarse pasos del flujo.</li>
+<li><strong>OTP abuse</strong> — falta de integridad entre OTP y cuenta, reutilización, OTPs en respuestas, OTPs maestros (seis ceros en un banco).</li>
+<li><strong>Password spraying + rotación de IP</strong> — un diccionario, muchos usuarios, rotar IP bajo el umbral de bloqueo.</li>
+<li><strong>Credenciales por defecto</strong> — productos enterprise con contraseñas de fábrica vigentes.</li>
+<li><strong>Enumeración en WordPress</strong> — <code>?author=N</code> para usernames; wpscan con API key gratuita.</li>
+<li><strong>Gestión de logout</strong> — reutilización de sesión, destrucción al cerrar navegador, vinculación sesión-IP.</li>
+<li><strong>OSINT</strong>: Pastebin, DeHashed, Open Bug Bounty.</li>
+<li><strong>Burp Suite</strong> — proxy central para capturar, modificar y reenviar en todas las técnicas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Los flujos de recuperación son la superficie más rentable.</strong> Casi todas las técnicas de takeover pasan por olvidé mi contraseña, OTPs o cambio de email/teléfono: auditar esos flujos primero.</li>
+<li><strong>El estado de sesión es el activo más mal gestionado.</strong> Sesiones con permisos de más, valores que sobreviven al logout, estados que solo cambian de activo a inactivo: la gestión de sesión merece tanto análisis como las credenciales.</li>
+<li><strong>La validación del lado cliente es decorativa.</strong> Respuestas true/false editables, user IDs en parámetros ocultos, OTPs revelados en la respuesta: todo lo que decide el servidor basándose en datos que el cliente puede tocar es bypass potencial.</li>
+<li><strong>Lo viejo sigue funcionando.</strong> Credenciales por defecto, type juggling, host header injection y OTPs maestros de seis ceros siguen abriendo puertas en 2025; no hay que descartar técnicas por antiguas.</li>
+<li><strong>La reputación y la disciplina importan.</strong> Reportar responsablemente (Apple, Google, Microsoft, Oracle, IBM) y compartir metodología en la comunidad — OWASP, talks, colaboración abierta — es parte del trabajo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gg5zsWyZJ90">«DEF CON 33 - Account Takeover &amp; Authentication Bypass - Vikas Khanna»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

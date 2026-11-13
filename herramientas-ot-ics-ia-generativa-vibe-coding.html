@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Construir herramientas de seguridad OT/ICS con IA generativa: del &quot;no soy desarrollador&quot; al honeypot en 30 segundos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Construir herramientas de seguridad OT/ICS con IA generativa: del &quot;no soy desarrollador&quot; al honeypot en 30 segundos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/iVmS5dPjggU">«DEF CON 33 - The Worst ICS/OT Love Story Every Told - 2025 Mike Holcomb»</a> · ver el <a class="nz-link" href="https://youtu.be/iVmS5dPjggU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Mike Holcomb —profesional de ciberseguridad de infraestructura en una de las mayores empresas mundiales de ingeniería y construcción, con 14 años en el sector y vocación divulgativa (un curso introductorio de OT/ICS de 25 horas en YouTube y una clase de pentesting OT en camino)— relata cómo pasó de sentirse estafado por el fardo de las herramientas a convertirse en creador de las suyas propias. Su tesis de maestría era un sitio web con scripts que consultaran PLCs de distintos fabricantes para verificar si estaban en modo de ejecución: el modo "solo lectura" que impide a un atacante cargar firmware malicioso. Un sistema lo alertaría si un PLC salía de ese estado —señal de que alguien estaba cambiando algo fuera de ventana—, con "no harm no foul" si era un técnico autorizado. El asesor descartó la versión ambiciosa ("eso es un libro de 500 páginas"), pero el proyecto de los modos de ejecución siguió en pie. El problema: no era desarrollador y no tenía la paciencia para serlo.</p>
+<p>Ese fardo lo resolvió la IA generativa. Partiendo de la constatación de que grupos de ransomware ya usaban ChatGPT para armar plataformas de phishing funcionales, el autor adoptó el "vibe coding": describir la herramienta en lenguaje natural y dejar que el modelo produzca el código. El resultado es una serie de utilidades OT concretas —escáner de puertos, generador de registros de activos desde PCAPs, mapas de conexiones a PLCs expuestos, honeypots Modbus— construidas en minutos y con walkthroughs públicos en GitHub.</p>
+<h2>Los puertos y el living off the land</h2>
+<p>El primer experimento: un mini escáner de puertos estilo Nmap, limitado a cinco puertos —80 y 443 para tráfico web (los hospitales y las plantas también tienen muchas interfaces web) y 102, 502 y 44818 para protocolos OT—. Contra su red OT, el script detectó el puerto 502 abierto: Modbus, el protocolo OT más extendido precisamente por ser abierto. La versión Python funciona, pero un atacante o un defensor sin permiso para instalar Python no puede usarla; y en OT hay máquinas Windows por todas partes, con las mismas ventajas y desventajas que en TI. La solución es "vivir de la tierra": pedir a ChatGPT la conversión a PowerShell, un lenguaje que puede hacer de todo con Windows sin instalar nada. Cuando el script falló, el autor pegó el mensaje de error de vuelta en el chat y el modelo encontró y corrigió su propio bug en segundos. Su recomendación central: usar la IA generativa también para depurar mensajes de error de Linux, porque explica el problema y de paso enseña.</p>
+<h2>Registros de activos desde PCAPs, sin escaneo activo</h2>
+<p>Nadie tiene un inventario completo de activos —"o creen que lo tienen o están mintiendo directamente"—, y en OT es un millón de veces peor: ni en plantas de energía ni en instalaciones nucleares hay certeza de qué equipo está conectado y con qué direcciones IP. El escaneo activo está descartado: golpear un sistema de control puede colgarlo, reiniciarlo o ladrillarlo, y a veces ni se sabe dónde están los repuestos. La vía pasiva: un script, generado con IA, que parsea PCAPs, extrae direcciones IP y MAC, y resuelve el fabricante a partir de los primeros tres octetos de la MAC (registrados ante los organismos correspondientes). Cuando la versión de línea de comandos exigía escribir la ruta del archivo a mano, una iteración más con ChatGPT produjo una GUI con selector de archivos, y la salida es una planilla de Excel —el formato donde todos guardan sus registros de activos. Hay empresas que cobran fortunas por exactamente eso.</p>
+<h2>De las firmas de la NSA a los PLCs expuestos por Google</h2>
+<p>La plataforma Shodan nació, precisamente, para encontrar sistemas de control expuestos a Internet: semáforos, plantas de tratamiento de agua. Cuando la NSA liberó un proyecto de firmas (que en el repositorio resultaron ser firmas Snort en tres archivos de texto), la decepción inicial se volvió oportunidad: entre las firmas para un fabricante importante de PLCs había URLs. Shodan no busca URLs, pero Google sí. Pegar esas URLs en el buscador reveló alrededor de 60 PLCs de ese modelo expuestos directamente a Internet —y la cifra crece—, cada uno un controlador físicamente cableado a equipos reales: turbinas que giran a 3600 RPM y que un sistema de control debe mantener en el rango correcto. La página de estado de esos PLCs, accesible públicamente, mostraba algo peor: un listado de conexiones TCP activas, con la IP interna del equipo, conexiones al puerto 80 (la interfaz web) y conexiones desde IPs públicas de todo el mundo al puerto 44818, el protocolo EtherNet/IP: gente mapeando controladores industriales en vivo, un paso previo a impactar lo que controlan en el mundo físico. Con otra herramienta generada en 30 segundos, esas IPs se geolocalizaron y se graficaron sobre un mapa.</p>
+<h2>El honeypot Modbus de fidelity total</h2>
+<p>La pieza final desmonta la idea de que un honeypot industrial cuesta decenas de miles de dólares. El autor, veterano de monitoreo de seguridad de red y respuesta a incidentes, desconfía de los vendedores de honeypots: en OT no hacen falta. Con IA generativa, un listener en TCP 502 (Modbus) que reacciona a pings y detecta escaneos por el patrón SYN/SYN-ACK sin ACK final —algo que en un entorno OT simplemente no ocurre— se construye en segundos. El siguiente nivel: hacer que parezca un PLC real. Los PLCs almacenan datos en coils (ceros y unos, binario) y registers (valores de 0 a 65535): en una planta, el coil en 1 puede ser literalmente "la turbina está encendida", y en muchos entornos conectar al equipo y poner ese coil en 0 basta para apagarla. El honeypot resultante acepta conexiones como un PLC verdadero, responde a lecturas con esos valores y, sobre todo, detecta escrituras: si alguien intenta escribir en el honeypot, hay un atacante dentro del entorno, sin falsos positivos. Fidelity total, sin gastar 50.000 dólares.</p>
+<h2>El método iterativo</h2>
+<p>Una última lección de oficio con IA generativa: no pedir diez cosas de golpe, porque el modelo suele fallar en alguna. Pedir una cosa, probar que funciona, agregar la siguiente, volver a probar. Ese ciclo iterativo ahorra tiempo y produce herramientas que realmente sirven.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La barrera de entrada para crear herramientas de seguridad OT/ICS cayó: la IA generativa permite a perfiles no desarrolladores construir utilidades funcionales en minutos, y el mismo mecanismo que usan los grupos de ransomware para sus plataformas de phishing sirve para defender.</li>
+<li>El inventario de activos es el punto ciego estructural de OT, y el escaneo activo es inaceptable; el análisis pasivo de PCAPs con resolución de fabricantes por MAC produce registros de activos en Excel sin tocar un solo sistema de control.</li>
+<li>Los PLCs expuestos a Internet se encuentran más fácil con búsquedas web sobre URLs de firmas de detección que con plataformas especializadas, y sus propias páginas de estado filtran información sensible: IP interna, conexiones públicas y tráfico sobre puertos OT como EtherNet/IP.</li>
+<li>Un honeypot Modbus con coils y registers reales ofrece detección de alta fidelidad (cualquier escritura es un atacante confirmado) sin el costo de soluciones comerciales, y detecta también pings y escaneos de puertos, eventos anómalos por definición en redes OT.</li>
+<li>El modo de ejecución de un PLC es una señal de monitoreo valiosa —su pérdida indica cambios fuera de ventana—, pero no es una barrera total: seguir permitiendo cambios de programación aunque no cargas de firmware.</li>
+<li>Trabajar con IA generativa exige método iterativo: una instrucción, una prueba, un incremento; pedir todo de una vez garantiza fallos parciales.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Vibe coding con IA generativa</strong>: descripción de herramientas en lenguaje natural para generar scripts Python y PowerShell sin saber programar.</li>
+<li><strong>Depuración asistida</strong>: alimentar mensajes de error de vuelta al modelo para obtener diagnosis, fix y explicación.</li>
+<li><strong>Escáner de puertos dirigido</strong>: chequeo de 80/443 (web) y 102, 502, 44818 (protocolos OT) para reconocer servicios de control.</li>
+<li><strong>Living off the land en OT</strong>: uso de PowerShell nativo de Windows para operar sin instalar herramientas, aprovechando la abundancia de máquinas Windows en entornos industriales.</li>
+<li><strong>Parseo pasivo de PCAPs</strong>: extracción de IPs y MACs de tráfico capturado, con resolución de fabricante por OUI y salida a Excel con GUI de selección de archivos.</li>
+<li><strong>Google dorking sobre firmas Snort</strong>: uso de URLs encontradas en firmas de detección liberadas por la NSA para localizar PLCs expuestos vía buscador web, donde Shodan no llega.</li>
+<li><strong>Análisis de páginas de estado expuestas</strong>: lectura de conexiones TCP activas (equivalente a netstat) en PLCs públicos para identificar IP interna, interfaz web y conexiones remotas por EtherNet/IP (puerto 44818).</li>
+<li><strong>Geolocalización y visualización de conexiones</strong>: mapeo de IPs públicas que se conectan a controladores expuestos.</li>
+<li><strong>Honeypot Modbus</strong>: listener en TCP 502 que detecta pings y escaneos (patrón SYN/SYN-ACK/ACK incompleto) y emula un PLC con coils (binario) y registers (0-65535), registrando lecturas y alertando escrituras.</li>
+<li><strong>Monitoreo del modo de ejecución de PLCs</strong>: detección de salidas del modo "solo lectura" como señal de actividad no autorizada.</li>
+<li><strong>Stuxnet</strong>: caso de referencia sobre manipulación encubierta —los operadores veían todos los indicadores normales mientras las centrifugadoras se destruían físicamente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/iVmS5dPjggU">«DEF CON 33 - The Worst ICS/OT Love Story Every Told - 2025 Mike Holcomb»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

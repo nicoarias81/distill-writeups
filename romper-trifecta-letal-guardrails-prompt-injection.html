@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Romper la trifecta letal sin arruinar los agentes: guardrails contra prompt injection en producción — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Romper la trifecta letal sin arruinar los agentes: guardrails contra prompt injection en producción</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cNE7P5FkqR8">«Andrew Bullen - Breaking the Lethal Trifecta (Without Ruining Your Agents) | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/cNE7P5FkqR8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El jefe del equipo de seguridad de IA de Stripe —una década en la empresa— plantea el elefante en la sala: la comunidad de seguridad habla mucho de prompt injection, pero la mayoría de quienes construyen IA lo evita escrupulosamente. En el ciclo de euforia actual, con todo el foco en construir rápido, pocas compañías consideran el riesgo; es más fácil fingir que prompt injection no existe y esperar que no haya problema, lo que en la práctica significa dejar que el usuario cargue con él. El enfoque de Stripe parte de una confesión: no hay solución técnica mágica que resuelva prompt injection sin riesgo. Hay que asumir que las inyecciones van a ocurrir y diseñar para que el agente comprometido no cause daño cuando ocurran. Y la parte más difícil no son los guardrails sino lo que viene después: la fricción que generan, porque un guardrail que hace al agente inútil o molesto simplemente no se adopta.</p>
+<h2>El modelo de amenaza: dos daños y una bifecta letal</h2>
+<p>El punto de partida es la trifecta letal acuñada por Simon Willison: para que un agente exfiltre datos tras un prompt injection necesita contenido no confiable, datos privados y capacidad de egress. De esas tres patas, eliminar el contenido no confiable no es viable —gran parte del valor de un LLM es justamente arrojarle contenido desordenado y que figure qué hacer, y los atacantes son muy creativos metiendo inyecciones donde no se las busca—. Los datos privados tampoco: tickets de soporte, emails, un sinfín de agentes los necesitan. Queda una sola pata atacable: el egress. El segundo daño es la acción sensible —un término que el propio expositor bautiza "bifecta letal" por falta de uno oficial—, y ahí la ecuación es la misma: no se puede eliminar el contenido no confiable, así que el foco es impedir que los agentes tomen acciones sensibles de forma unilateral. La regla del pulgar para "sensible": derechos que impactan producción, comunicaciones amplias y envío de mensajes.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Prompt injection asumido<br/>va a ocurrir] --> B[Daño 1: exfiltración de datos]
+    A --> C[Daño 2: acción sensible unilateral]
+    B --> D[Prevenir egress<br/>safe search sin acceso web externo<br/>proxy central de SaaS]
+    C --> E[Revisión humana obligatoria<br/>anotaciones por herramienta<br/>production write / broadcast]
+    D --> F[Enforcement: tags de servicio + CI checks]
+    E --> F
+    F --> G[UX: batch de confirmaciones,<br/>reverts, LLM como segundo revisor]
+
+</pre>
+
+<h2>Egress: búsqueda segura y SaaS bajo proxy</h2>
+<p>El primer guardrail es cortar el egress al internet público. La objeción inmediata del negocio —"necesitamos investigar, necesitamos datos de la web"— revela la distinción clave: los agentes no necesitan hacer requests HTTP arbitrarios, necesitan obtener datos de internet. La solución es una búsqueda segura construida sobre la web search de OpenAI con <code>external_web_access</code> en false, para que la búsqueda sirva resultados sin que el propio agente dispare un egress; dejar que OpenAI egressée los datos en lugar del agente no hace nada más seguro. El segundo vector sneaky son las integraciones SaaS: escribir en un Google Doc público con la herramienta de Google Docs es una exfiltración perfecta. La respuesta de Stripe es proxy: un servidor MCP central, Toolshed, por el que pasa toda conexión a terceros, lo que permite escribir reglas como "no permitir escrituras a tenants que no sean Stripe" en Google Docs o Figma. El efecto colateral es positivo: los usuarios solo conectan un MCP server para todo.</p>
+<h2>La fricción del humano en el loop y cómo se resuelve</h2>
+<p>Los guardrails por sí solos producen el problema de Claude Code preguntando "¿puedo hacer esto?" veinte veces por sesión, con el usuario buscando dónde activar el skip de permisos. Hay tres problemas estructurales en el flujo de confirmación humana: el diálogo detiene al agente en seco cuando lo deseable es lanzarlo y volver cuando termine; la fatiga de revisión (confirmar un <code>find</code> por décima vez); y el rubber stamping, la consecuencia natural de la fatiga. Las palancas de mejora: batching de confirmaciones, porque muchos derechos y comandos no necesitan resolverse al instante para que el agente avance; execute-then-revert, ejecutar y ofrecer revertir después como compromiso razonable para evitar daño irreversible; y un LLM como segundo revisor que detecte rubber stamping y avise al agente de que intenta algo malo sin involucrar al humano. El expositor subraya que esta área necesita mucha más investigación de UX, y que la experiencia de confirmación debe centralizarse en un framework único que se mejora en un solo lugar.</p>
+<h2>Enforcement a escala</h2>
+<p>Nada de esto sirve si cada equipo escribe agentes en frameworks distintos sin control. Para egress, Stripe parte con ventaja: su programa de control de egress (con el proxy open source Smokescreen) existía antes de los agentes. El mecanismo: tagear todo servicio que hable con foundation models —ser agente implica hablar con un LLM, así que el proxy del LLM es el marcador natural— y, con ese tag, escribir checks de CI que rechacen cualquier configuración de egress sin un proceso de revisión escalada. Para las acciones sensibles hay dos lugares donde se escriben herramientas: inline en el framework o en el MCP central, y en ambos se exigen anotaciones legibles por humanos en cada herramienta —production impacting write, broadcast data— que determinan si la herramienta dispara revisión humana automática. El problema que viene: los agentes cada vez más no usan herramientas especiales, escriben su propio código y pegan APIs existentes de los servicios internos. El trabajo en curso es proxyear las conexiones que salen de los sandboxes de agentes y usar ese choke point con anotaciones por endpoint de API para decidir qué requiere revisión del operador.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Trifecta letal de Simon Willison</strong> como marco de análisis y la decisión explícita de atacar solo la pata de egress.</li>
+<li><strong>Safe search</strong> sobre web search de OpenAI con external web access deshabilitado: datos de internet sin egress arbitrario del agente.</li>
+<li><strong>Toolshed</strong>: MCP server central de proxy para SaaS de terceros, con reglas por tenant (Google Docs, Figma).</li>
+<li><strong>Smokescreen</strong>: proxy de egress open source de Stripe, reutilizado para el programa de agentes.</li>
+<li><strong>Tags de servicio + CI checks</strong>: cualquier servicio que habla con foundation models se marca como agente y su egress exige revisión escalada.</li>
+<li><strong>Anotaciones de herramientas</strong> (production impacting write, broadcast data) que disparan human-in-the-loop automático desde un framework central de UX.</li>
+<li><strong>UX de confirmación</strong>: batching, execute-then-revert, LLM como segundo revisor anti rubber-stamping.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Prompt injection no se resuelve; se asume. El diseño correcto es arquitectural: impedir que el agente comprometido exfiltre datos o tome acciones sensibles, no confiar en que el modelo resista el ataque.</li>
+<li>"Los agentes no necesitan HTTP arbitrario, necesitan datos de internet" es la distinción que permite cortar egress sin matar la utilidad; el SaaS de confianza es un vector de exfiltración disfrazado y debe pasar por proxy.</li>
+<li>Un guardrail inadoptable no protege nada: el trabajo real de seguridad está en la fricción posterior —batching, reverts, revisión automática por LLM— para que el humano intervenga pocas veces y en el momento justo.</li>
+<li>El enforcement es organizacional, no técnico: tags que identifican agentes, checks de CI en egress y anotaciones obligatorias en herramientas convierten la política en infraestructura verificable.</li>
+<li>La tendencia de agentes que escriben código propio contra APIs internas obliga a mover el control al proxy de red y a anotar endpoints, no solo herramientas MCP.</li>
+<li>La lección de liderazgo que resume la exposición: la seguridad no es solo averiguar la forma segura de hacer las cosas, sino ayudar a la organización a lograr sus objetivos de forma segura.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cNE7P5FkqR8">«Andrew Bullen - Breaking the Lethal Trifecta (Without Ruining Your Agents) | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

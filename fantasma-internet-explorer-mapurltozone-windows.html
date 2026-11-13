@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El fantasma de Internet Explorer: doce CVEs en MapUrlToZone — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El fantasma de Internet Explorer: doce CVEs en MapUrlToZone</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8cb_OF_6Ek8">«DEF CON 33 - The Ghost of Internet Explorer in Windows - George Hughey, Rohit Mothe»</a> · ver el <a class="nz-link" href="https://youtu.be/8cb_OF_6Ek8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Internet Explorer 11 está retirado, pero su esqueleto sigue sostiendo la seguridad de Windows moderno. El concepto de <strong>security zones</strong> —esa ventana clásica donde se clasificaba Internet, intranet local, sitios de confianza y restringidos— sigue vivo en cada Windows actual, y las decisiones de seguridad de componentes como Mark of the Web, el Explorador de archivos, los antivirus y Office pasan por él. La API que lo materializa es <code>MapUrlToZone</code> ("MUTs"): recibe una URL o ruta y devuelve la zona a la que pertenece. Cuando esa clasificación se equivoca, se abre la puerta a lo peor: el caso Outlook de 2023 (Forrest Blizzard, zero-click, robo y relay de hash NTLM) se mitiga precisamente con una llamada a MUTs. Sobre esa superficie, dos investigadores internos del MSRC encontraron y reportaron <strong>12 CVEs corregidos desde enero de 2025</strong> en cuatro categorías —prefijos de ruta, clasificación errónea de hostnames, canonicalización y misceláneos—, además de un double-free, y terminaron atacando la raíz: hacer que MUTs canonicalice con el mismo código que <code>CreateFile</code>.</p>
+<h2>Por qué importa una API que nadie llama</h2>
+<p>El caso que demuestra el impacto máximo: en Outlook se podía crear un recordatorio cuyo sonido de aviso apuntara a un archivo en un recurso compartido de red controlado por el atacante. Cuando el recordatorio saltaba —sin un solo clic de la víctima—, Windows se autenticaba contra ese servidor con NTLM, y el hash se podía relayar contra un Exchange vulnerable para autenticarse como la víctima. Explotado in the wild en 2023 por el threat actor estatal Forrest Blizzard.</p>
+<p>El fix de 2023: Outlook/Exchange descartan la propiedad del sonido en recordatorios nuevos, y para los recordatorios antiguos con fecha futura se añadió una llamada a MUTs —si la zona del archivo es Internet o no confiable, no conectarse—. Es decir: <strong>la mitigación de un ataque zero-click depende de que MUTs clasifique bien</strong>. El peor caso de un bug en MapUrlToZone queda definido.</p>
+<p>La investigación externa previa (Ben Barnea, serie de cuatro posts) marcó el camino: diferencias de canonicalización entre cómo <code>CreateFile</code> colapsa una ruta y cómo la clasifica MUTs —por ejemplo, <code>//localhost/../...</code>: CreateFile elimina <code>localhost</code> y termina pidiendo a un dominio remoto; MUTs cree que el host es <code>localhost</code> y la clasifica como local—. Barnea publicó tres bypasses y un double-free; ese trabajo fue el trampolín del estudio interno.</p>
+<h2>Categoría 1: prefijos de ruta</h2>
+<p>Aplican cuando el atacante controla el esquema inicial de la ruta (CreateFile solo abre rutas <code>file:</code>, pero otras APIs no son tan estrictas). El hallazgo: toda ruta que empieza con <code>shell:</code> la clasifica MUTs como local. El truco para hacerla remota: la carpeta "Network places" seguida de tres barras y una IP. Causa raíz: MUTs consulta los defaults de protocolo del registro, y el valor por defecto del esquema <code>shell</code> es <code>0</code> —que mapea a máquina local—, así que corta el análisis ahí mismo. El path es remoto; MUTs dice local.</p>
+<h2>Categoría 2: clasificación errónea de hostnames</h2>
+<p>MUTs decide si el hostname es IPv6, IPv4 o DNS. Si se logra engañar a <code>IsIPv4</code>/<code>IsIPv6</code> con una IP real, MUTs cae en la rama DNS y hace lookup; y si el hostname <strong>no contiene puntos</strong>, la resuelve como intranet local. Dos requisitos: romper el parser de IP y no usar puntos (los dotless TLD y la notación hexadecimal de IP resuelven lo segundo). Dos bypasses:</p>
+<ul>
+<li><strong>IPv6 con interface ID larga</strong>: <code>//&lt;ipv6&gt;%&lt;ceros...&gt;12/&lt;ruta&gt;</code> — CreateFile recorta los ceros y conecta por la interfaz 12; pero las APIs subyacentes de <code>IsIPv6</code> fallan cuando el interface ID excede 8 caracteres, así que MUTs lo trata como DNS, sin puntos → intranet local.</li>
+<li><strong>Puerto con cero inicial en IPv4</strong>: <code>//&lt;ip-hex&gt;:080/&lt;ruta&gt;</code> — CreateFile ve el puerto 80; MUTs lo interpreta como notación octal, y como <code>8</code> no es dígito octal válido, decide que no es una IP sino un nombre DNS → sin puntos → intranet local.</li>
+</ul>
+<p>En ambos casos MUTs cree que el recurso está al lado cuando está en Internet.</p>
+<h2>Categoría 3: canonicalización</h2>
+<p>Las favoritas: sin fruta fácil restante (el terreno de Barnea) y ubicuas —funcionan en cualquier contexto y hacen clasificar rutas remotas como <strong>de la máquina local</strong>, no solo de la intranet—.</p>
+<ul>
+<li><strong>El signo de interrogación</strong>: <code>//./C:/?/../..//&lt;ip&gt;/&lt;ruta&gt;</code>. MUTs asume que tras el <code>?</code> vienen parámetros de query HTTP y canonicaliza la ruta a <code>//./C:</code> —máquina local—. Pero no es una ruta HTTP: CreateFile procesa los <code>..</code> y termina abriendo el recurso remoto. Hallado, según el propio investigador, probando tecla por tecla en esa posición hasta que cayó el <code>?</code>.</li>
+<li><strong>Landman redirector con barra extra</strong>: <code>\??\UNC\//&lt;ip&gt;/&lt;share&gt;</code>. CreateFile colapsa las dos barras y conecta por SMB al host remoto; MUTs no canonicaliza primero y busca un hostname entre las dos barras —vacío—, defaulteando a máquina local. Un solo carácter de diferencia.</li>
+<li><strong>El orden de operaciones de una barra</strong>: dos rutas que difieren en una única barra cambian el orden de canonicalización en CreateFile: con una barra, <code>localhost</code> sobrevive y la conexión falla; con dos, <code>localhost</code> desaparece y se abre el recurso remoto. MUTs siempre hace lo primero: piensa que el path empieza en <code>//localhost</code> → local. La lección estructural: MUTs debe manejar una nuance diminuta en todos los casos o se produce el peor escenario.</li>
+<li><strong><code>//./UNC/C:</code> + IPv6</strong>: Barnea había notado en un post que ese prefijo siempre devuelve 0 (local) y lo descartó porque ningún network provider manejaba rutas con dos puntos. La observación hecha desde la cama: IPv6 está hecho de dos puntos. Una dirección IPv6 que empiece con <code>C:</code> burla MUTs —aunque reconocen que comprar una IPv6 que empiece con <code>C:</code> no es trivial.</li>
+</ul>
+<h2>El double-free</h2>
+<p>Durante pruebas de un fix propuesto, MUTs crasheaba: el cleanup añadido liberaba un campo de propiedad que tenía una referencia colgante en otro lugar —double free clásico. Interés especial: un bug de memory safety en MUTs es explotable directamente, sin pasar por toda la cadena NTLM/relay. Por eso valía cazarlos.</p>
+<h2>Balance y la mitigación estructural</h2>
+<p>Total: 2 bypasses por prefijo de ruta, 4 por hostname, 4 por canonicalización, 2 misceláneos —<strong>12 CVEs corregidos desde enero de 2025</strong> en MapUrlToZone, más el double-free.</p>
+<p>La causa raíz única de todas las categorías: <strong>diferencias de parsing entre dos APIs críticas</strong> — MUTs, que clasifica, y CreateFile, que conecta — a veces sutiles, a veces grotescas. La mitigación (activa desde enero de 2025): MUTs ahora ejecuta el mismo camino de código de canonicalización que usa CreateFile, eliminando las diferencias en los escenarios especiales. Beneficio colateral: menos complejidad y menos código, al converger dos implementaciones que llevaban décadas divergiendo con cada point-fix. Hubo regresiones por los años de decisiones legacy —cada una resuelta con lógica de caso especial—.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>"Muerto" es un estado engañoso: el motor HTML, el scripting engine y las utilidades de IE siguen en system32 del Windows más reciente, y de ellos depende la clasificación de seguridad de Office, AV, shell y Mark of the Web.</li>
+<li>Una discrepancia de canonicalización entre "decidir" y "ejecutar" es una clase de bug entera: cada divergencia es un bypass potencial con impacto de tipo NTLM-leak, MITM o peor.</li>
+<li>El doble estándar CreateFile-vs-MUTs era el root cause; unificar el código de canonicalización vale más que cualquier cantidad de point-fixes.</li>
+<li>Para investigadores: la investigación externa (los "throwaway thoughts" de los posts de Barnea) es material de primera para el trabajo interno; y los bugs de memory safety en una API de clasificación de seguridad son el atajo directo a la explotación.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8cb_OF_6Ek8">«DEF CON 33 - The Ghost of Internet Explorer in Windows - George Hughey, Rohit Mothe»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

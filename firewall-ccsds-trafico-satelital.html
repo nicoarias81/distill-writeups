@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un firewall CCSDS a bordo: vigilancia del tráfico de mando y telemetría satelital — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Un firewall CCSDS a bordo: vigilancia del tráfico de mando y telemetría satelital</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Dr4NvzPYzJo">«DCSG1 - WAF for Satellites: Automated Security Checks for CCSDS Traffic - Shinichi Kan, Daehee Jang»</a> · ver el <a class="nz-link" href="https://youtu.be/Dr4NvzPYzJo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La superficie de ataque de los sistemas satelitales crece rápido. El satélite y la estación terrena ya no operan aislados: el satélite se conecta a estaciones terrenas, a otros satélites y, en el futuro, directamente a dispositivos como smartphones. El CCSDS (Consultative Committee for Space Data Systems) es el estándar de facto para la comunicación espacial: define cómo se estructuran los paquetes, las múltiples capas de cabeceras y hasta cómo modular y demodular las señales. Toda su especificación es pública, y eso rompe el viejo modelo de la industria espacial de "seguridad por ocultamiento": cumplir el protocolo no equivale a estar seguro. Incluso con cifrado, un atacante que comprometa la estación terrena puede enviar comandos válidos pero peligrosos.</p>
+<p>Los incidentes reales ya ocurrieron: la intrusión en la estación terrena del Landsat 7 (con más de diez minutos de interferencia) y el ciberataque a Viasat/KSAT en Europa, que dejó fuera de servicio decenas de miles de terminales de usuarios.</p>
+<p>La respuesta de esta investigación conjunta entre GMO Cybersecurity by Ierae (Japón) y el profesor Daehee Jang de la Universidad Kyung Hee (Corea del Sur) es un firewall específico para tráfico CCSDS que corre dentro del OBC —el ordenador de a bordo del satélite—, donde pasa toda la comunicación del sistema. Evaluado en OBCs de grado espacial reales, su impacto en rendimiento y consumo resultó despreciable.</p>
+<h2>Por qué el OBC es el punto de vigilancia</h2>
+<p>Un satélite moderno no es un solo computador: es un conjunto de placas, FPGAs y componentes integrados. Mover el satélite implica enviar un comando al componente de propulsión; gestionar energía, enviarlo al de power management. Todas esas comunicaciones atraviesan el OBC (On-Board Computer), lo que lo convierte en el punto perfecto para monitorear el tráfico de todo el sistema.</p>
+<p>Hay además una razón organizativa: los satélites se vuelven tan complejos que es cada vez más común que un fabricante construya parte de los componentes, otro construya el OBC y otra organización opere la estación terrena. Ninguna entidad desarrolla todo. Un firewall embebido en el firmware del OBC puede entonces inspeccionar el tráfico entre estación terrena, payload y demás sistemas intermedios, y detectar errores de configuración —o actividad maliciosa— sin necesidad de colaborar con los desarrolladores de la estación ni del payload. Esa es la clave del diseño: si una sola persona construyera todo el sistema, este firewall no haría falta; en un ecosistema compartimentado, sí.</p>
+<pre class="mermaid">
+flowchart LR
+    GS["Estación terrena"] -->|"TC (telecommand) uplink"| OBC
+    OBC -->|"TM (telemetry) downlink"| GS
+    subgraph SAT["Satélite"]
+        OBC["OBC con firewall\nCCSDS embebido"] --> PROP["Propulsión"]
+        OBC --> PWR["Power management"]
+        OBC --> PAY["Payload"]
+    end
+
+</pre>
+
+<p>El sistema completo fue modificado para el experimento: la estación terrena y todo el satélite usan CCSDS, y el firmware del OBC incorpora la lógica de firewall con reglas de detección.</p>
+<h2>Modelo de amenaza</h2>
+<p>El modelo asume un atacante capaz de:</p>
+<ul>
+<li>Comprometer parcialmente la estación terrena (por ejemplo, vía web hacking).</li>
+<li>Acceder al software y firmware del satélite: los archivos pueden filtrarse y el atacante puede inspeccionar cómo funciona el satélite internamente.</li>
+<li>Consultar la información TLE (elementos orbitales, posición pública del satélite).</li>
+<li>Recibir y transmitir señales de radio con SDR.</li>
+</ul>
+<p>Lo que se asume fuera de alcance: romper primitivas criptográficas, acceso físico al satélite y compromiso de la cadena de suministro.</p>
+<h2>Escenarios de ataque que el firewall detecta</h2>
+<p><strong>AS1 — Fuerza bruta del sync marker.</strong> En CCSDS, el sync marker es un patrón de bits específico que inicia cada space packet. Módems y software satelital verifican ese identificador y descartan el paquete si no coincide. Es un punto de entrada real: un atacante puede intentar adivinarlo por fuerza bruta. El firewall analiza los tráficos TC y TM buscando patrones de fuerza bruta sobre este valor, que además es personalizable por cada operador.</p>
+<p><strong>AS2 — Abuso de la randomización.</strong> El estándar CCSDS define una randomización para la transmisión: un scrambler LFSR, un algoritmo simple para barajar bits y hacer la transmisión de radio más eficiente. El problema es que algunos desarrolladores lo usan como si fuera cifrado, para ocultar la comunicación —y no lo es. Como la randomización es personalizable (con semillas aleatorias y parámetros), un atacante puede intentar extraer información sobre ella o forzarla por fuerza bruta. El firewall vigila intentos anormales de este tipo.</p>
+<p><strong>AS3 — Control del satélite por terceros.</strong> Si un atacante secuestra el satélite y transmite comandos con su propio SDR, el satélite responderá con telemetría. Dado que las señales espaciales se dispersan en un radio amplio (típicamente unas 10 millas), la detección es indirecta pero efectiva: si se observa una respuesta de telemetría sin que nadie haya enviado un comando uplink, alguien más está mandando señales al satélite.</p>
+<p><strong>AS4 y AS5 — Cifrado mal usado o ausente.</strong> Los sistemas espaciales no pueden usar el cifrado de nivel Internet: TLS/SSL y la infraestructura PKI completa son demasiado pesados para un hardware optimizado para radiación y consumo energético. El resultado es que muchos desarrolladores espaciales improvisan: cifrado AES con claves simétricas hardcodeadas en el firmware y en el dispositivo de estación terrena, algoritmos y modos elegidos sin criterio criptográfico —vectores de inicialización incorrectos, o modos peligrosos como ECB—. Si esas claves se filtran, el sistema queda expuesto.</p>
+<p>El firewall combate esto de forma pasiva: monitorea el tráfico, calcula la entropía del flujo de bits, detecta patrones repetitivos y distingue si un canal está cifrado o no. Combinando cabeceras CCSDS (que revelan mucho sobre el cifrado), payloads y entropía global, alerta a los administradores si el cifrado no se usa, se usa mal, o presenta modos débiles.</p>
+<h2>Replay: negación de servicio sin romper el cifrado</h2>
+<p>Incluso con cifrado correctamente desplegado, un protocolo de red inseguro permite ataques básicos que el hardware espacial, centrado en otras prioridades de rendimiento, no siempre contempla. El replay es el más peligroso, y la cadena de ataque es enteramente factible con información pública:</p>
+<ol>
+<li>Localizar el satélite con la información TLE, abierta en Internet.</li>
+<li>Capturar las señales de radio legítimas entre estación terrena y satélite —con SDR, antenas propias, incluso drones para acercarse a la señal.</li>
+<li>Capturar un comando cifrado. Aunque no se pueda descifrar, deducir su efecto observando el contexto (por ejemplo: "este paquete probablemente incrementa la velocidad del rotor un 1%").</li>
+<li>Repetir el comando cifrado maliciosamente, muchas veces, transmitiéndolo con SDR y drones.</li>
+</ol>
+<p>Si el comando original mueve la actitud del satélite un grado en el eje X, repetirlo cien veces seguidas hace que el satélite cambie bruscamente de actitud y posición. Las consecuencias físicas son reales: perder la orientación que permite cosechar luz solar con los paneles, o cortar la conexión de la antena al moverla de su posición. Es un efecto de denegación de servicio sobre el satélite <strong>sin descifrar nunca el comando</strong>.</p>
+<p>La defensa que implementa el firewall es verificar, por simple observación man-in-the-middle de los paquetes, si el sistema usa secuenciación correcta de paquetes, timestamps o nonces. Ninguna de esas comprobaciones requiere cooperación con los desarrolladores de la estación terrena o del payload.</p>
+<h2>Evaluación: detectar sin matar la misión</h2>
+<p>Insertar reglas y algoritmos de detección ingenuamente en el software de a bordo podría degradar el rendimiento y afectar la disponibilidad del sistema —y en una misión espacial, la seguridad es parte de la mission assurance, no algo que pueda costarle la misión. Por eso la evaluación se hizo sobre OBCs de grado espacial reales, optimizando los algoritmos para verificar la seguridad consumiendo pocos recursos y poca potencia.</p>
+<p>El resultado: el impacto en rendimiento fue despreciable —variaciones leves en uso de CPU y temperatura del sistema—, lo que demuestra que el enfoque es realista para operaciones espaciales reales. Los detalles de la evaluación y el código están publicados en un paper académico y en un repositorio de GitHub.</p>
+<p>Una limitación reconocida: las pruebas no usaron señales de radio reales contra los dispositivos.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CCSDS:</strong> estándar abierto de protocolos espaciales; define estructura de paquetes, cabeceras por capas y modulación/demodulación de señales.</li>
+<li><strong>TC (telecommand) / TM (telemetry):</strong> comandos uplink de la estación terrena al satélite y respuestas de telemetría del satélite a la estación.</li>
+<li><strong>SDLS (Space Data Link Security):</strong> protocolo de cifrado para CCSDS, con biblioteca open source provista por NASA, ya que CCSDS no cifra por defecto.</li>
+<li><strong>OBC (On-Board Computer):</strong> ordenador principal del satélite; punto de vigilancia elegido porque todo el tráfico del sistema lo atraviesa.</li>
+<li><strong>Sync marker:</strong> patrón de bits que inicia cada space packet; adivinable por fuerza bruta y personalizable.</li>
+<li><strong>Randomización / scrambler LFSR:</strong> algoritmo de barajado de bits definido por CCSDS para eficiencia de transmisión; no es cifrado, aunque a veces se usa como tal.</li>
+<li><strong>TLE:</strong> elementos orbitales públicos que permiten localizar la posición de un satélite.</li>
+<li><strong>SDR y drones:</strong> herramientas del atacante para capturar y retransmitir señales de radio cerca de la estación terrena o el satélite.</li>
+<li><strong>Análisis de entropía:</strong> cálculo de entropía del flujo de bits para detectar cifrado ausente, patrones repetitivos y modos débiles (ECB, IVs incorrectos).</li>
+<li><strong>Detección de replay:</strong> verificación pasiva de secuenciación de paquetes, timestamps y nonces vía observación MITM.</li>
+<li><strong>OBC de grado espacial:</strong> hardware real usado para evaluar el impacto del firewall en CPU, temperatura y consumo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La industria espacial heredó una mentalidad de "seguridad por ocultamiento" que ya no funciona: las especificaciones son públicas y los incidentes (Landsat 7, Viasat/KSAT) demuestran el riesgo.</li>
+<li>Cumplir CCSDS no implica seguridad; el protocolo no cifra por defecto y las restricciones de hardware empujan a criptografía improvisada con claves hardcodeadas y modos débiles.</li>
+<li>Un firewall embebido en el OBC permite monitorear todo el tráfico del satélite de forma independiente a los desarrolladores de cada componente, algo crítico en un ecosistema donde estación, OBC y payload los construyen organizaciones distintas.</li>
+<li>Los chequeos —fuerza bruta de sync markers, abuso de randomización, telemetría sin comando previo, cifrado mal usado, replay— tienen impacto despreciable en rendimiento sobre OBCs de grado espacial reales, haciendo viable su despliegue en misiones reales.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Dr4NvzPYzJo">«DCSG1 - WAF for Satellites: Automated Security Checks for CCSDS Traffic - Shinichi Kan, Daehee Jang»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

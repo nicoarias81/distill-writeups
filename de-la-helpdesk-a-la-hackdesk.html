@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De la HelpDesk a la HackDesk: así se entró al Jira interno de HackerOne — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">De la HelpDesk a la HackDesk: así se entró al Jira interno de HackerOne</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/waArEAf7pAc">«De la HelpDesk a HackDesk:Vulnerabilidades ocultas en sistemas d soporte -Edison Poveda Andrés Gómez»</a> · ver el <a class="nz-link" href="https://youtu.be/waArEAf7pAc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Andrés Gómez (Penetration Tester Lead en Evertech, embajador de HackerOne en Colombia) y Edson Pineda (bug hunter y pentester, 100% dedicado al bug bounty, conocido como Madara en HackerOne) subieron por primera vez al escenario de Ekoparty con una propuesta curiosa y poco técnica en apariencia pero de un entendimiento de flujo exigente: abusaron del sistema de tickets de soporte de HackerOne y lo convirtieron de HelpDesk en HackDesk, logrando acceso a información interna contenida en Trello y en toda la suite de Atlassian de la empresa.</p>
+<h2>Los ingredientes del hallazgo</h2>
+<p>Una tiquetera es, en esencia, un software que centraliza todas las solicitudes de clientes y usuarios en un solo lugar — llamadas, correos, formularios — para que no queden dispersas por canales distintos. El escenario del hallazgo tenía estos actores:</p>
+<ul>
+<li><strong>support.hackerone.com</strong>: el sistema de soporte para hackers y empresas.</li>
+<li><strong>Procesamiento automático de correos</strong>: mandar un mail a <code>hacker101@hackerone.com</code> (luego renombrado a <code>support@</code>) creaba automáticamente un ticket con su ID, sin validación de origen.</li>
+<li><strong>La feature de colaboradores</strong>: cualquier ticket admitía agregar un colaborador (un correo electrónico externo), que podía comentar el ticket.</li>
+<li><strong>La correlación por asunto</strong>: para que el comentario del colaborador apareciera en el historial del ticket, bastaba poner el ID del ticket en el asunto del correo.</li>
+<li><strong>Atlassian confiado en el dominio</strong>: HackerOne tenía varias instancias de Jira (pruebas, preproducción, producción) configuradas para compartir información a quien se autenticara con un correo del dominio — sin evaluación de administrador, puerta abierta.</li>
+<li><strong>XAML deshabilitado</strong>: en el momento del testeo, autenticarse en Atlassian con un correo de HackerOne no redirigía al SAML (que corre sobre Okta).</li>
+</ul>
+<h2>El ataque, paso a paso</h2>
+<ol>
+<li>Crear una cuenta normal como atacante y abrir un ticket enviando un correo desde la cuenta registrada: el sistema de soporte genera el ticket con su ID.</li>
+<li>Agregar como <strong>colaborador</strong> del ticket el correo estático desde el cual Trello envía sus invitaciones a organizaciones y tableros.</li>
+<li>Desde la cuenta de Trello del atacante, invitar a un usuario a la organización. La invitación llega con el formato "Santiago Martínez te invitó al board de Trello" — y ese <strong>nombre público es controlable</strong> desde la configuración de la cuenta de Trello/Jira.</li>
+<li>Cambiar el nombre público por el <strong>ID del ticket</strong>: la invitación que Trello envía al colaborador agregado llega al sistema de soporte, que la indexa como comentario del ticket (porque el asunto lleva el ID).</li>
+<li>Abrir el enlace de invitación desde el correo de soporte: como el sistema confía en que el enlace fue abierto desde el correo del dominio, no pide verificación — solo nombre completo y contraseña.</li>
+<li>Resultado: una cuenta de Trello "de HackerOne" en manos del atacante. Y como Trello hace parte del ecosistema de Atlassian, y Jira comparte información según el dominio de autenticación, el siguiente paso fue entrar al Jira interno: ver, crear, editar y eliminar documentos.</li>
+</ol>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante
+    participant T as Trello
+    participant S as support.hackerone.com
+    A->>S: Crea ticket (correo con asunto "hello") → ID de ticket
+    A->>S: Agrega colaborador: correo estático de invitaciones de Trello
+    A->>T: Cambia nombre público a "ID del ticket" e invita al colaborador
+    T->>S: Invitación con "ID del ticket" en asunto
+    S->>S: Indexa la invitación como comentario del ticket
+    A->>S: Abre el enlace de registro desde el correo del ticket
+    S->>A: Sin verificación: solo nombre y contraseña
+    A->>A: Cuenta creada en el dominio → acceso al Jira interno
+
+</pre>
+
+<h2>La búsqueda previa: cuatro condiciones</h2>
+<p>La investigación duró alrededor de dos meses de pruebas y error, condensados en 30 minutos de relato. Buscaban plataformas de colaboración que cumplieran cuatro condiciones a la vez: confiar en el dominio para compartir información (como GitHub muestra repositorios de una empresa registrada a quien entra con su correo), tener un correo estático para las invitaciones, permitir invitar colaboradores externos, y dejar cambiar el nombre del usuario por caracteres especiales que se reflejaran en el asunto.</p>
+<ul>
+<li><strong>Slack</strong>: descartado — genera un correo random para cada invitación.</li>
+<li><strong>GitLab</strong>: descartado — al invitar exige verificación de correo electrónico.</li>
+<li><strong>GitHub</strong>: los criterios no funcionaron; tiene varias cosas divididas.</li>
+<li><strong>Trello</strong>: cumplió las cuatro, y al formar parte del ecosistema de Jira abrió la puerta completa.</li>
+</ul>
+<h2>El descubrimiento: Wayback Machine</h2>
+<p>El vector original surgió en una sesión nocturna de colaboración "a ver qué sale". Andrés usa la herramienta Wayback Machine (vía <code>web.archive.org</code>) porque indexa información que Google no muestra fácilmente. Buscando subdominios de HackerOne — donde ya habían encontrado un bug previo de SSL — identificaron el dominio inverselink.com, iteraron sobre sus subdominios y <code>looker.inverselink.com</code> "les estalló en la cara": el panel completo de HackerOne en Confluence. A partir de ahí hicieron ingenieria inversa de lo ocurrido para entender y ajustar la investigación.</p>
+<h2>Lo que había adentro</h2>
+<p>El impacto justificó la gravedad: llaves de SAML, temas de CSIM, flujos internos, infraestructura interna de AWS — "un mundo de temas de infraestructura". No pudieron mostrar más del proof of concept porque, según bromeaban, "publicamos algo y nos llega el FBI en tres segundos".</p>
+<h2>Timeline: el calvario del triage</h2>
+<ul>
+<li><strong>26 de abril</strong>: reporte como crítico. Estado: Pending Program Review.</li>
+<li>Les pidieron más información; ellos demostraron el impacto.</li>
+<li><strong>1 de mayo</strong>: triage finalmente.</li>
+<li><strong>9 de mayo</strong>: la bajaron a "none" — sin criticidad.</li>
+<li>Apelación: de crítica a none, otra vez, hasta que quedó en <strong>high</strong>.</li>
+<li>Recompensa: <strong>$2.500</strong>, repartida entre los dos.</li>
+</ul>
+<p>Un dato que sintetiza la ironía: a HackerOne — la plataforma donde se gestiona el bug bounty de medio mundo — le costó tres semanas y dos apelaciones reconocer una falla en su propio perímetro.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>"Todos esos sistemas son tan fuertes como su sistema de integración más débil". No se explotó una vulnerabilidad per se: se abusó de un flujo donde, mirado inocentemente, cada pieza funciona bien.</li>
+<li>El procesamiento automático de correos sin validación de origen, la correlación insegura de tickets mediante el asunto, la visualización completa de enlaces en Jira y la ausencia de verificación en procesos críticos se combinaron en un vector de impacto crítico.</li>
+<li>La colaboración entre investigadores y herramientas como Wayback Machine para reconstruir superficies de ataque olvidadas siguen siendo multiplicadores de hallazgos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/waArEAf7pAc">«De la HelpDesk a HackDesk:Vulnerabilidades ocultas en sistemas d soporte -Edison Poveda Andrés Gómez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

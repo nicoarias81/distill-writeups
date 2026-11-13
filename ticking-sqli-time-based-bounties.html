@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ticking SQLi: los retrasos que todavía cobran bounties — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ticking SQLi: los retrasos que todavía cobran bounties</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bVKtcu82a8w">«DEF CON 32 -Ticking SQLi - Iggy»</a> · ver el <a class="nz-link" href="https://youtu.be/bVKtcu82a8w">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La SQL injection parece tema de museo, pero sigue en el top 3 de los rankings de OWASP, NVD y MITRE, y las técnicas time-based siguen cobrando bounties de cinco dígitos en programas como el Department of Defense. Este recorrido va de la base — los tipos clásicos de inyección vistos sobre código y un servidor propio — hasta el caso real más notable: Team GhostShell, el colectivo hacktivista que en 2012 usó inyecciones más simples que las de hoy para filtrar millones de registros de gobiernos, universidades y banca en todo el mundo.</p>
+<h2>El abanico de la SQL injection</h2>
+<p>Una SQL injection ocurre cuando la entrada del usuario fluye, sin saneamiento, hasta los parámetros de una query. El ejemplo canónico es un login form: <code>' OR 1=1 --</code> en el campo de contraseña transforma la comparación en una condición siempre verdadera y bypassa la autenticación. Del código a la pantalla: la query toma username y password como parámetros, el payload cierra la comilla y agrega la condición — la base de datos no distingue datos de código.</p>
+<p>Las categorías, según cómo llega el resultado:</p>
+<ul>
+<li><strong>In-band (clásica)</strong>: el resultado del payload aparece directamente en la respuesta HTTP. Dos variantes:</li>
+<li><strong>Error-based</strong>: la información sensible se extrae de los errores que la base de datos devuelve. Sonda típica: una comilla simple produce un 500, la comilla doble un 200 — señal de que el backend no cierra la consulta correctamente. Luego un payload como <code>CONVERT(version(), ...)</code> comparado contra un entero hace que el mensaje de error de conversión filtre el motor y la versión exacta.</li>
+<li><strong>Union-based</strong>: dos SELECT concatenados en un solo resultado — los datos esperados, más una columna extra con lo sensible (por ejemplo, <code>current_user()</code>).</li>
+<li><strong>Out-of-band</strong>: cuando no hay canal de respuesta directo, la exfiltración sale por servidores externos vía requests HTTP o consultas DNS. Menos común, pero existente.</li>
+<li><strong>Inferencial (blind)</strong>: el payload no se ve en la respuesta; hay que inferirlo del comportamiento de la aplicación. Dos variantes:</li>
+<li><strong>Boolean-based</strong>: la página responde distinto según la condición. Sobre BWAPP (una aplicación deliberadamente buggy para practicar), <code>SUBSTRING(version(),1,1)=6</code> devuelve "la película no existe", mientras que <code>=5</code> la devuelve existente: el primer carácter de la versión es un 5. Carácter por carácter, se reconstruye el dato.</li>
+<li><strong>Time-based</strong>: cuando ni el booleano está disponible, la señal es el tiempo. Un <code>SLEEP(5)</code> en el payload convierte el reloj en canal de información: si el server tarda 5 segundos en responder, la condición evaluó true. Con un parámetro de tiempo transcurrido medido en el propio servidor de pruebas, la demostración es directa: query normal → respuesta inmediata; payload con sleep → 5 segundos exactos.</li>
+</ul>
+<h2>Herramientas: automatizar sin dejar de escribir scripts</h2>
+<p>Del lado de las herramientas: <strong>Havij</strong> — histórica y hoy casi olvidada, mencionada porque aparece ligada a los incidentes históricos; <strong>Burp Suite</strong> con su scanner para descubrir inyecciones de forma automatizada; y sobre todo <strong>SQLMap</strong>, la referencia. Con <code>sqlmap -u &lt;url&gt; --batch --banner</code> sobre el servidor de prueba identifica automáticamente los tres vectores (boolean-based, time-based, union) y extrae el banner <code>3.3.0</code> de SQLite. Todo esto puede correr también con un delay explícito de 5 segundos.</p>
+<p>La advertencia del medio: no confiar ciegamente en la automatización. El ideal es dominar ambos — la herramienta y el script propio —, porque los casos particulares exigen lógica a medida. Un extractor time-based a mano se resuelve con tres funciones: una que mide y registra el delay de la respuesta HTTP; otra que, para una posición dada, enumera los caracteres ASCII comparándolos contra el sleep; y una tercera que recorre posiciones y ensambla la versión completa. En la demostración, el script reconstruye la versión carácter por carácter — exactamente igual que SQLMap, pero entendido de verdad.</p>
+<h2>Bounties reales con time-based</h2>
+<p>El puente al mundo real incluye bounties verificables:</p>
+<ul>
+<li><strong>$5.000</strong>: un investigador (Morla) encontró en un sitio de facturación un parámetro inyectable, concatenó un <code>SLEEP(5)</code> junto a <code>per_page=1</code> y confirmó el retraso. Luego aplicó la variante de substring: si el primer carácter de la versión MySQL era 5, dormía 15 segundos; no hubo retraso. Cambió el 5 por un 8 y los 15 segundos aparecieron — vulnerabilidad confirmada y bounty cobrado.</li>
+<li>Otros hallazgos divulgados en HackerOne: payloads con <strong>XOR</strong> (condiciones que siempre evalúan true) contra sistemas del Department of Defense; concatenaciones simples de <code>SLEEP(7)</code> en sitios automáticos; y la combinación favorita del recuento — union + sleep en un solo payload, valorada en $2.100.</li>
+</ul>
+<h2>Team GhostShell: hacktivismo con SQLi del 2012</h2>
+<p>El caso que justifica el recorrido entero. Team GhostShell operó desde 2012, no tenía relación con APT39 ni con gobiernos — era un colectivo hacktivista: atacar instituciones para promover cambio político o agenda social. Su historia:</p>
+<ul>
+<li>Desencadenante: la detención de un integrante (Zoom) en la Universidad de Falon y la muerte/apelación de Melox como protesta. El líder DeadMellox declaró con ironía en Pastebin que no quería pelear con el FBI o la CIA... y que igual filtraría un montón de cosas durante el año.</li>
+<li><strong>Project Dragonfly</strong>: gobiernos chinos hackeados, miles de registros filtrados — hash passwords, datos personales, todo lo encontrado.</li>
+<li><strong>Project Hellfire</strong>: gobiernos, sector financiero y otras empresas.</li>
+<li><strong>Project Westwind</strong>: universidades globales — de Harvard y Stanford a Roma y Tokio —, justificado como protesta por la "caída de los estándares de la educación".</li>
+<li><strong>Project Black Star</strong>: una declaración de guerra contra Rusia, criticada como "gobierno de tiranía".</li>
+<li><strong>Project YFOX</strong>: "hackear a todos" para dar visibilidad al hacktivismo, con nuevo logo incluido. En 2015 aparece Sunrise Act South Africa y el término <strong>dark activism</strong>: llevar el activismo a niveles de cyber warfare a gran escala.</li>
+<li>Final: en 2016, DeadMellox se delató a sí mismo — un mail a un diario ("hola, soy Eugene, el hombre detrás de DeadMellox") con pasaporte y foto incluidos, que nadie creyó hasta que lo publicó desde su cuenta de Twitter al propio medio.</li>
+</ul>
+<p>El balance: millones de registros filtrados (muchos ya públicos, otros genuinamente sensibles) con el objetivo real cumplido — visibilidad masiva para su causa. Y el dato técnico que incomoda: usaron SQL injection <strong>más simple</strong> que la de los ejemplos de esta misma presentación, con delays y condiciones básicas.</p>
+<h2>Lo viejo sigue siendo oro</h2>
+<p>La justificación final contra el "esto ya pasó de moda": SQL injection sigue en el top 10 de OWASP (tercer lugar de la sección de inyecciones, tras años de liderarlo), segundo en NVD durante años, y tercero en la lista de debilidades más rebeldes de MITRE. El contraargumento habitual — "no aplica a lenguajes modernos como Vue, React o Python" — queda desarmado por dos vías. Primera, la mentalidad y los conceptos de estos ataques se transfieren a muchas otras superficies. Segunda, el dinero: los bounties time-based siguen cobrándose fácil, incluidas vulnerabilidades críticas divulgadas al Department of Defense. Como recurso de estudio, la recomendación única es el material gratuito de PortSwigger (teoría y práctica combinadas, con profundidad).</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Error-based SQLi</strong>: comillas simples/dobles como sonda (500 vs 200) y <code>CONVERT(version(), ...)</code> para filtrar motor y versión por mensajes de error.</li>
+<li><strong>Union-based SQLi</strong>: concatenar un segundo SELECT con datos sensibles a la respuesta esperada (<code>current_user()</code>).</li>
+<li><strong>Boolean-based blind</strong>: <code>SUBSTRING(version(),1,1)=&lt;n&gt;</code> probado sobre BWAPP, inferencia carácter a carácter.</li>
+<li><strong>Time-based blind</strong>: <code>SLEEP(5)</code> como canal de señal; variantes con condicionales (<code>IF(SUBSTRING(...)=8, SLEEP(15), 0)</code>) y combinaciones union + sleep.</li>
+<li><strong>SQLMap</strong>: <code>--batch --banner</code>, detección automática de los tres vectores y extracción con delay configurable.</li>
+<li><strong>Burp Suite</strong> (scanner) y <strong>Havij</strong> (histórica).</li>
+<li><strong>Script propio de extracción time-based</strong>: tres funciones (medir delay, comparar carácter ASCII contra sleep, iterar posiciones).</li>
+<li><strong>Team GhostShell / Project Dragonfly, Hellfire, Westwind, Black Star, YFOX</strong>: campañas hacktivistas del 2012-2016 con filtraciones masivas vía SQLi.</li>
+<li><strong>BWAPP</strong> (buggy web application): laboratorio de práctica; <strong>PortSwigger Web Security Academy</strong>: recurso de estudio recomendado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La SQL injection no desapareció: sigue en los top 3 de OWASP, NVD y MITRE, y las variantes time-based se cobran bounties reales con payloads elementalmente simples.</li>
+<li>El time-based blind es la técnica más versátil cuando no hay respuesta visible ni booleana: el reloj del servidor es el canal, y un script de tres funciones basta para extraer datos carácter por carácter.</li>
+<li>Las herramientas automatizan, pero el valor está en entender el mecanismo: dominar SQLMap y a la vez saber escribir el extractor propio cubre tanto los casos estándar como los particulares.</li>
+<li>Team GhostShell demostró que SQLi básica de 2012 bastó para filtrar millones de registros de gobiernos, universidades y banca — el nivel técnico de un ataque y su impacto no están correlacionados.</li>
+<li>La mentalidad de la inyección — entradas que la aplicación no distingue del código — se transfiere a otras clases de ataques, y ese mindset es el activo durable del estudio.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bVKtcu82a8w">«DEF CON 32 -Ticking SQLi - Iggy»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orbi: un analista de threat intelligence de IA para una grilla de observación planetaria — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Orbi: un analista de threat intelligence de IA para una grilla de observación planetaria</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/k19CmI_Ni3M">«Bob Rudis &amp; Glenn Thorpe - Detection &amp; Deception Engineering in the Matrix | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/k19CmI_Ni3M">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Gray Noise Labs —el equipo de adversary engineering e investigación de Gray Noise, dedicado a escribir reglas de detección, desplegar honeypots y cazar amenazas y zero-days en sus datos— construyó a Orbi: un analista interno de threat intelligence potenciado por IA que da sentido a lo que ocurre en su grilla de observación global. El origen es una historia inversa: no fue el héroe quien creó al villano, sino una vulnerabilidad apodada React2Shell, aparecida en diciembre de 2025 —casi tan mala como Log4J—, la que parió a Orbi. La magnitud del asalto lo explica: para el 6 de enero ya se habían observado más de 8.200 IPs únicas, de más de mil ASNs, lanzando 70.000 payloads completamente únicos; entre ellos, varios generados con ayuda de IA con huellas de red masivamente diversas. Orbi, mientras tanto, hacía su propia threat hunt en vivo durante la exposición: 14 minutos, sin intervención humana, investigando contenido con doble codificación base64 encontrado en los datos.</p>
+<h2>La escala que quebró al equipo</h2>
+<p>Los números del arsenal de datos que un equipo chico de startup debe tamizar: más de 3.000 sensores en más de 90 países, 3.500 detecciones, 200 perfiles de atacante que crecen semana a semana; y debajo, en los últimos 90 días, 22 terabytes de capturas de paquetes, 32 terabytes de información de sesiones y 20 millones de documentos en Elasticsearch. El diagnóstico es contundente: escalaron la flota, pero la escala es lo que los rompió. La constatación que motiva la arquitectura: en 2026 sigue habiendo gente que descarta a los LLMs porque no vienen precargados con todo lo necesario; ni siquiera los foundation models de seguridad construidos a propósito resultaron buenos —los probaron todos—. La analogía con Matrix: es el momento en que Tank sube jiu-jitsu a la cabeza de Neo. Orbi arranca con la cabeza vacía cada vez, y para contextos de threat hunting es, por defecto, tan útil como un chico de 13 años con un lanzallamas y acceso a Wikipedia. Lo que lo carga de conocimiento es el sistema de skills.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Fleet: 3.000+ sensores, 90+ países<br/>22 TB PCAP + 32 TB sesiones + 20M docs] --> B[Sobrecarga del equipo<br/>la escala los rompió]
+    B --> C[Orbi: analista de IA interna<br/>Claude Code customizado, 12-16 MCP servers,<br/>7+ investigation skills]
+    C --> D[Skills: system prompts estructurados<br/>fases de workflow, constraints,<br/>anti-patrones, specs de output]
+    C --> E[MCPs: Archemy, API de Gray Noise,<br/>JAW4, OAST, Tshark, Suricata,<br/>VirusTotal, Censys, Feedly CTI]
+    D --> F[Validación: validator con otro modelo,<br/>footnotes, logging, human in the loop]
+    E --> F
+
+</pre>
+
+<h2>Skills y herramientas: el arsenal de "muchas armas"</h2>
+<p>Cada skill es un directorio con un system prompt estructurado, recursos y herramientas asociadas que definen las fases del workflow —el hunt en vivo pasaba por seis fases—, constraints obligatorios, definiciones de anti-patrones ("hay que decirle qué no hacer, no solo qué hacer") y specs de output para precisión ante clientes y partners. Los skills se mantienen mayormente en lenguaje natural para que cualquiera del equipo pueda trabajarlos, con SQL, Bash y Go asociados. Hay skills específicos de tag triage (cómo priorizar 3.500 reglas de detección de un día para otro), markdown de precisión (porque los modelos escriben un markdown que no traduce bien a PDF ni Google Docs), análisis de PCAP, dominios OAST y VirusTotal. Los MCP servers son la escena de "muchas armas": los datos de ground truth (Archemy, una suerte de Wireshark a escala de internet, y la API de Gray Noise), el servidor MCP de JAW4 con todo el conocimiento del equipo sobre huellas de red, el de dominios OAST construido junto a un colega de Sandia y liberado como herramienta de línea de comandos, Tshark con 30 años de experiencia de análisis envuelta en MCP, Suricata, VirusTotal, Censys —cuyo dato de escaneo global convierte IPs en perfiles completos de infraestructura— y Feedly CTI para contexto externo. La regla de oro del análisis: "los amigos no dejan a los amigos hacer su analítica con el LLM solo": DuckDB local hace las cuentas.</p>
+<h2>Guardrails, validación y el hallazgo que honestamente asusta</h2>
+<p>La parte de seguridad contra el propio agente se divide en guía y choque. Los guard hooks son comandos shell que policían el comportamiento ("pedile por favor que no lo haga; lo va a hacer igual") y terminan el proceso de inmediato. Los decision trees garantizan el orden —no podés postre antes de la cena—; los bulletproof patterns eliminan la ambigüedad de escritura, como conversiones de timestamps: "no lo pienses, hacelo así y seguí"; y los checklists abrazan el carácter Type-A del modelo. Pero los guardrails no evitan choques: solo cambian lo que pasa después, y a veces lo empeoran. Por eso las detecciones: footnotes con URL al dato fuente para que el experto chequeo alucinaciones y gane o pierda confianza rápido; logging de todo ("somos cybersecurity, después de todo"); assessments —"terapia para tu agente": preguntarle qué fue difícil y mover esos aprendizajes hacia arriba en los skills—; y el validator: extraer cada afirmación de un reporte terminado y revalidarla con un modelo completamente distinto, tolerando diferencias de datos vivos (pasaron diez minutos, hay más resultados) pero no las inventadas. Los primeros hallazgos del validator alarmaron: de 78 afirmaciones extraídas, menos de la mitad verificadas; en un caso inventó nombres de tags —para Gray Noise, que vive de sus tags, gravísimo— porque "resumía para ser útil". La solución fue escribirlo en un skill: no resumas ni alteres nombres de tags. Y el human in the loop cierra: el reporte es tuyo, tu marca y tu reputación; como el auto autónomo que choca contra un farol, el problema sigue siendo tuyo. La prueba de utilidad: tickets de Linear que Orbi creó sola en mes y medio, incluyendo un takedown de GitHub por malware encontrado —que Microsoft nunca baja, pero igual se presentó— y un cluster en un hosting canadiense con 2.000 nodos lanzando credenciales contra SonicWall durante 70 días, dato compartido con el CCCS.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Claude Code customizado</strong> como runtime de Orbi (al límite de sus capacidades; planean reemplazarlo), coordinando 12-16 MCP servers y 7+ investigation skills, con DuckDB local para analítica y trabajo pesado en servidores remotos.</li>
+<li><strong>Sistema de skills</strong> con system prompts estructurados, fases de workflow, constraints, anti-patrones y specs de output, más un sistema de preferencias que permite tunear sin tocar los skills centrales.</li>
+<li><strong>MCP servers</strong>: Archemy, Gray Noise API, JAW4 (huellas de red), OAST (liberado), Tshark, Suricata (liberado), VirusTotal, Censys y Feedly CTI.</li>
+<li><strong>Guard hooks</strong> (shell commands que terminan procesos), decision trees, bulletproof patterns y checklists como guardrails del comportamiento.</li>
+<li><strong>Validator</strong> con modelo distinto que extrae y revalida cada afirmación de los reportes; footnotes con links al dato fuente; assessments retrospectivos del agente.</li>
+<li><strong>Model routing por costo</strong>: Opus 4.6 para el trabajo duro, Haiku/Sonnet para lo liviano.</li>
+<li><strong>Artefactos liberados</strong>: skill para el MCP de Censys, servidor MCP de Suricata gratis y la herramienta de dominios OAST.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Cuando la escala de datos supera al equipo, la respuesta no es contratar más analistas sino construir un analista sintético con el conocimiento del equipo codificado en skills, no en el modelo.</li>
+<li>Los LLMs arrancan con la cabeza vacía y descartarlos por eso es un error de diseño, no del modelo: el valor está en la ingesta deliberada de contexto (skills) y herramientas (MCPs) correctas.</li>
+<li>El humano decide qué es bueno: la skill de tag triage no la inventó el modelo, la construyó una persona con background en data science; la combinación "humano que piensa + agente que no se cansa" es la que sube el nivel.</li>
+<li>Confía pero valida con otro modelo: el validator reveló que menos de la mitad de las afirmaciones de los primeros reportes se sostenían, y cada hallazgo volvió al skill como regla, bajando el error en la corrida siguiente.</li>
+<li>Los guardrails en tiempo de ejecución y las detecciones de errores post-hoc no compiten: los primeros cambian el choque, las segundas enseñan del choque; ambas son necesarias para dejar salir reportes a producción.</li>
+<li>El costo se maneja con routing de modelos, y el costo humano no se delega: el reporte sale con tu firma, y el agente que pregunta al día siguiente si presentaste el takedown es una forma nueva de rendición de cuentas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/k19CmI_Ni3M">«Bob Rudis &amp; Glenn Thorpe - Detection &amp; Deception Engineering in the Matrix | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

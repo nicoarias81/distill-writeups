@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Envenenamiento de EPM: secuestrando servicios RPC para escalar privilegios en Windows — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Envenenamiento de EPM: secuestrando servicios RPC para escalar privilegios en Windows</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Xn7um2mMVso">«DCSG1  - You snooze you lose  Winning LPEs by racing services for RPC endpoints - Ron Ben Yizhak»</a> · ver el <a class="nz-link" href="https://youtu.be/Xn7um2mMVso">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El mapeador de endpoints (EPM) es el mecanismo de Windows que resuelve UUIDs de interfaces RPC a endpoints concretos — funciona como un servidor DNS para RPC. Su diseño no verifica quién registra una interfaz: cualquier proceso, incluso de integridad baja y sin privilegios de administrador, puede registrarse con el UUID de un servicio del sistema. Si el servicio legítimo todavía no arrancó, los clientes RPC conectan al impostor. A esta técnica la llamamos envenenamiento de EPM (EPM poisoning), y el giro conceptual es importante: en lugar de cazar código vulnerable en servidores RPC, se ataca el código confiado de los clientes RPC.</p>
+<p>La demostración recorre dos escaladas completas. La primera, como proceso de integridad media: suplantar al servicio de almacenamiento (delayed start) para que el servicio de entrega de actualizaciones — protegido como Process Light — devuelva una ruta controlada y autentique contra un servidor SMB propio con la cuenta de máquina, habilitando reenvío NTLM hacia ADCS (ESC8) y volcado completo de secretos del dominio. La segunda, como proceso de integridad baja: suplantar al servicio de compartición de datos, lanzar una tarea programada mediante una combinación de teclas que UIPI no bloquea, e inyectar XML en una notificación del sistema para conseguir ejecución con un clic a integridad media. Microsoft parcheó ambos clientes (julio y octubre de 2025) y, dos meses después de la publicación de la técnica, ya había parcheado un tercer componente propio vulnerable.</p>
+<h2>Cómo funciona el mapeo y por qué es envenenable</h2>
+<p>En RPC, un servidor expone funcionalidades que el cliente pide ejecutar. Ambos comparten un archivo IDL con estructuras, enums, funciones y, sobre todo, el UUID de la interfaz. Antes de comunicarse, el cliente construye un binding handle con tres partes: secuencia de protocolo (TCP, named pipes sobre SMB o ALPC, la más común para procesos locales), dirección de red y endpoint (puerto, nombre de pipe o cadena única del servidor). Dos servidores no pueden compartir el mismo endpoint.</p>
+<p>El punto débil aparece con los endpoints dinámicos: si el servidor no registra uno fijo, el EPM genera una cadena y publica el mapeo UUID→endpoint. Las reglas del EPM son dos: una entrada solo se elimina cuando el proceso original se desregistra o termina, y el EPM siempre usa el primer endpoint registrado para una interfaz — el orden no se puede modificar. Lo crítico es que al registrarse con la API <code>RpcEpRegister</code> <strong>no hay ninguna verificación de identidad</strong>: nada impide a un proceso sin privilegios registrar la interfaz de Defender o de cualquier componente central. Solo gana quien llega primero — de ahí el componente de carrera (race) contra el arranque de los servicios.</p>
+<p>Para encontrar objetivos conviene dividir el mundo RPC en dos: interfaces registradas temprano en el arranque (intocables) e interfaces registradas tarde por servicios con inicio diferido o manual (secuestrables). La herramienta RPC Recon automatiza esa medición: crea una tarea programada elevada que se ejecuta al iniciar sesión, consulta el EPM y escanea la memoria de los procesos (localizando RPCRT4 y parseando sus estructuras internas, como hace RPCView), espera unos minutos a que arranquen los servicios diferidos, vuelve a medir y compara. La diferencia es la lista de interfaces hijackables. La herramienta de ataque, RPC Racer, registra interfaces suplantadas, reporta los clientes que conectan y ejecuta las cadenas de explotación.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante (integridad media)
+    participant E as EPM (RPCSS)
+    participant DO as Delivery Optimization (protegido)
+    participant R as SMB del atacante
+    A->>E: Registra interfaz de StorageSvc (delayed start)
+    A->>DO: Dispara petición RPC
+    DO->>E: Resuelve UUID → endpoint
+    E-->>DO: Devuelve el endpoint del atacante (primero registrado)
+    DO->>A: getStorageDeviceInfo()
+    A-->>DO: Ruta = share SMB del atacante
+    DO->>R: Autentica NTLM con la cuenta de máquina
+    R->>R: Reenvía la autenticación (relay)
+
+</pre>
+
+<h2>Primera escalada: la cuenta de máquina y ESC8</h2>
+<p>El camino intuitivo — recibir conexiones de servicios SYSTEM y llamar a <code>RpcImpersonateClient</code> — se cierra con la política de impersonación: un hilo de integridad media solo obtiene el nivel <em>identification</em> (puede leer privilegios y SID del cliente), no <em>impersonation</em>, y mucho menos <em>delegation</em> para acceder a recursos remotos. Los servicios de autenticación candidatos (Vault, Microsoft Account Signing Assistant, Sync Host) además exigen por calidad de servicio que el servidor corra como SYSTEM.</p>
+<p>El plan B fue suplantar a un servicio de archivos: si un proceso privilegiado pide datos a un "servicio de almacenamiento" falso, termina copiando lo que el atacante diga. El elegido fue StorageSvc (inicio diferido), y los clientes que conectaron naturalmente lo confirmaron todo: Windows Update — capaz de modificar drivers y DLLs del núcleo — conectó a un proceso sin privilegios, y también lo hizo el propio servicio de entrega de optimización, que corre como Process Protected Light. De los 36 métodos de la interfaz, solo se invocaban tres; los símbolos públicos de <code>appxdeploymentclient.dll</code> revelaron que la estructura devuelta por <code>getStorageDeviceInfo</code> contiene una ruta, y el desensamblado mostró que el servicio de entrega de optimización valida la ruta con chequeos saltables y luego crea un directorio con ella.</p>
+<p>La escalada real pasa por entender la cuenta NETWORK SERVICE: integridad alta como SYSTEM pero sin pertenecer al grupo de administradores, y con la capacidad única de autenticar a máquinas remotas usando la cuenta de máquina del equipo (el objeto del NTDS cuyo nombre termina en <code>$</code>, con contraseña y membresías propias). Devolviendo como ruta un share SMB externo, el servicio privilegiado autentica contra el atacante con esas credenciales, y la autenticación se reenvía. Como NTLM no puede reenviarse de vuelta al equipo de origen, el blanco es otro servidor del dominio: sobre un controlador de dominio, el relay hacia el web enrollment de ADCS (ataque ESC8) produce un certificado de la cuenta de máquina del DC, <code>Certify</code> lo convierte en un TGT de Kerberos, y <code>secretsdump</code> vuelca todos los hashes del dominio.</p>
+<p>El parche de Microsoft (8 de julio de 2025) tocó al cliente RPC <code>storageusage.dll</code>: ahora aplica una calidad de servicio que solo acepta servidores corriendo como SYSTEM.</p>
+<h2>Segunda escalada: integridad baja, hotkeys e inyección XML</h2>
+<p>Con integridad baja — el nivel de Edge WebView, Chrome, VS Code o Slack, que no puede escribir en claves de registro de persistencia ni crear tareas programadas — la técnica seguía funcionando: registrar interfaces RPC es posible incluso desde ese sandbox. El filtro de objetivos fue simple: servicios de inicio manual (las carreras contra los diferidos son poco fiables) con métodos que devuelvan strings — una cadena controlada siempre tiene más jugo que un entero.</p>
+<p>El elegido fue el servicio de compartición de datos (DSSVC), un broker que intercambia tokens de archivos entre apps. Su cliente, <code>performance-trace-center.dll</code>, pertenece a una tarea programada de diagnóstico con tres formas de arranque, todas aparentemente bloqueadas para integridad baja: el COM del programador de tareas, un trigger WNf no documentado y una hotkey (Win+Shift+Ctrl+T). La sorpresa fue la tercera: el aislamiento de UI por integridad (UIPI) bloquea el envío de pulsaciones de teclas y hooks de journal, pero <strong>no bloquea las hotkeys</strong>: <code>SendInput</code> con la combinación lanzó la tarea.</p>
+<p>La tarea comparte un ZIP de diagnóstico con Feedback Hub pidiendo un token al (falso) servicio DSSVC, y la cadena que devuelve se concatena a la URI que lanza Feedback Hub. La URI no se valida: se formatea directamente dentro de comillas dobles en el XML de una notificación toast. Cerrar esas comillas e inyectar XML arbitrario — manteniendo el documento válido — permite añadir un botón a la notificación cuya acción ejecuta cualquier archivo. Los procesos lanzados por notificaciones corren a integridad media: escalada de un clic. Microsoft lo parcheó el 14 de octubre de 2025 endureciendo el cliente DSClient con el mismo patrón de calidad de servicio; el exploit es público en RPC Racer.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Proceso de integridad baja] --> B[Registra interfaz de DSSVC]
+    B --> C[SendInput: Win+Shift+Ctrl+T lanza la tarea de diagnóstico]
+    C --> D[La tarea pide token al servidor falso]
+    D --> E[Devuelve string maliciosa: cierra comillas e inyecta XML]
+    E --> F[Toast con botón personalizado]
+    F --> G[Clic del usuario ejecuta el payload a integridad media]
+
+</pre>
+
+<h2>Detección, mitigación y líneas futuras</h2>
+<ul>
+<li><strong>Verificar identidad del servidor:</strong> como SSL pinning valida no solo un certificado válido sino una clave concreta, cada cliente RPC debería validar la identidad de su servidor. El diseño actual del EPM no lo hace, así que la carga recae en el cliente (calidad de servicio con SID, como en los parches).</li>
+<li><strong>Cuidado con el inicio diferido:</strong> los servicios se retrasan para acelerar el arranque, pero cualquier ventana donde código no confiado puede ejecutarse antes debe considerarse insegura. El rendimiento no puede pagar con seguridad.</li>
+<li><strong>Detección por hooking:</strong> los productos de seguridad pueden monitorear <code>RpcEpRegister</code> y alertar cuando un proceso no legítimo registra una interfaz conocida del sistema.</li>
+<li><strong>Detección por eventos:</strong> el proveedor Microsoft-Windows-RPC de Event Tracing for Windows correlaciona PID del proceso atacante, PID del servicio víctima, interfaz secuestrada e incluso el número de procedimiento invocado — señal clara de "proceso desconocido recibió conexión en interfaz conocida".</li>
+<li><strong>Superficie restante:</strong> hay muchas más interfaces vulnerables (el Windows Security Center arranca diferido y Defender interactúa con él); UIPI no bloqueando hotkeys merece auditoría sistemática; y el envenenamiento también habilita man-in-the-middle silencioso (reenviar peticiones al servicio real filtrando llamadas) y denegación de servicio elegante sin matar procesos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El mapeador de endpoints de Windows no autentica a quien registra una interfaz: cualquier proceso, hasta de integridad baja, puede adelantarse a un servicio y recibir las conexiones de sus clientes privilegiados.</li>
+<li>Atacar clientes RPC confiables — que validan poco porque creen hablar con un servidor verificado — rinde más que buscar bugs en los servidores endurecidos: rutas no validadas, URIs formateadas en XML y cadenas devueltas son vectores de escalada.</li>
+<li>Las dos vulnerabilidades demostradas (cuenta de máquina reenviable → ESC8 → dominio completo; e inyección XML en toasts → ejecución con un clic) fueron parcheadas por Microsoft, y la técnica ya está siendo usada internamente para encontrar más.</li>
+<li>Las herramientas RPC Recon y RPC Racer son públicas: mapear interfaces tempranas vs. tardías, elegir servicios manuales que devuelvan strings y auditar a sus clientes es un método replicable.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li>Mapeador de endpoints de Windows (EPM) y envenenamiento de EPM (EPM poisoning)</li>
+<li>Interfaces RPC de Windows y registro de endpoints por procesos de integridad baja</li>
+<li>Servicios con arranque retardado (delayed start) y protección Process Light</li>
+<li>Reenvío NTLM a AD CS (ESC8) con autenticación de cuenta de máquina</li>
+<li>Volcado de secretos del dominio</li>
+<li>Tareas programadas vía combinaciones de teclas que UIPI no bloquea</li>
+<li>Inyección XML en notificaciones del sistema para escalada con un clic</li>
+<li>Parches de Microsoft (julio y octubre de 2025)</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Xn7um2mMVso">«DCSG1  - You snooze you lose  Winning LPEs by racing services for RPC endpoints - Ron Ben Yizhak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

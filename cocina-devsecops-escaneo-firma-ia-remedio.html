@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cocina de DevSecOps 2.0: tres escaneos, una firma y una IA que receta el remedio — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Cocina de DevSecOps 2.0: tres escaneos, una firma y una IA que receta el remedio</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WdGZ_DbMUc0">«Cocina DevSecOps 2.0 (Receta Mejorada) - Damian Madeira»</a> · ver el <a class="nz-link" href="https://youtu.be/WdGZ_DbMUc0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cómo escanea, firma y despliega una aplicación un banco grande: un pipeline completo, cocinado en vivo, que combina tres tipos de análisis (SAST, SCA y DAST), firma de imágenes con certificados, y como "ingrediente secreto", un LLM local que recibe cada vulnerabilidad y devuelve una recomendación de remediación acotada a las políticas internas. Todo con herramientas open source para que cualquiera pueda replicarlo, aunque el banco opera en producción con Veracode, Prisma y un firewall de librerías de Sonatype.</p>
+<p>El equipo de DevSecOps del Banco Galicia repitió la demo — un home banking vulnerable, compilado, escaneado, firmado y desplegado en minutos — y mostró la dirección hacia donde van: que la IA le diga al desarrollador, directamente por Teams, "no estás cumpliendo con la política, esta es la vulnerabilidad y así se soluciona".</p>
+<h2>De dónde vienen: la cadena de suministro también es superficie de ataque</h2>
+<p>Antes de los ingredientes, una advertencia ganada a fuerza de experiencia: la seguridad de las aplicaciones no basta si la herramienta que despliega el software está comprometida. Con Jenkins como orquestador detectaron que un pipeline puede revelar las credenciales del store de credenciales propio. Reportado a Jenkins, la respuesta fue que es comportamiento esperado — así que la mitigación quedó de su lado:</p>
+<ul>
+<li>Definir con precisión los privilegios de los usuarios de Jenkins: cualquiera que pueda escribir o redeployar un pipeline puede hacerse de credenciales.</li>
+<li>Entender que Jenkins abre todas las librerías y permite modificarlas: quien logre eso no solo revela credenciales, puede saltarse los pasos de seguridad del proceso completo.</li>
+</ul>
+<h2>Los cuatro ingredientes</h2>
+<h3>SAST: análisis estático del código</h3>
+<p><strong>Static Application Security Testing</strong>: análisis secuencial de todo el código. Para la demo usaron Semgrep (open source) dentro de un pipeline con tres etapas: preparar el espacio de trabajo, análisis, y reporte. La política definida determina qué criticidades bloquean el avance — por ejemplo, solo las <em>high</em> y <em>very high</em> — y si el pipeline falla, hay que corregir el código antes de continuar. Es la materialización del <em>shift left</em>: correr la seguridad lo más temprano posible. En la ejecución en vivo: 14 vulnerabilidades en el backend y una en el frontend, con reporte completo y contador como artefactos.</p>
+<h3>SCA: las librerías de terceros</h3>
+<p><strong>Software Composition Analysis</strong>: analizar las dependencias. En producción, la estrategia es un <strong>firewall previo al repositorio</strong>: los desarrolladores pasan obligatoriamente por Nexus (repositorio de binarios del banco), y Sonatype IQ — integrado con Nexus — bloquea la descarga de cualquier librería que no cumpla la política. Para la demo usaron Snyk; las alternativas open source: JFrog, Sonatype, OWASP Dependency-Check y Dependabot.</p>
+<p>El reporte indica remediación según el tipo de dependencia: si es <strong>directa</strong>, actualizar a la versión recomendada; si es <strong>transitiva</strong>, recorrer el árbol de dependencias hasta encontrar de dónde viene. ¿Y si un desarrollador descarga por afuera? Doble control: las PCs del banco tienen configurado cada lenguaje para salir solo por Nexus, y aunque alguien eluda el control, el escaneo posterior bloquea el deploy de cualquier aplicación con una librería fuera de política.</p>
+<h3>DAST: la aplicación corriendo, como en un ataque real</h3>
+<p><strong>Dynamic Application Security Testing</strong>: corre la aplicación en runtime y la ataca como lo haría un atacante real, lo que cubre un escenario que el análisis estático no ve. Herramienta de la demo: OWASP ZAP; en producción, Veracode (alternativas: Netsparker, Rapid7). El pipeline comprueba los targets y ejecuta el escaneo activo completo.</p>
+<p>Su lugar en el pipeline es deliberadamente <strong>no bloqueante</strong>: el DAST tarda (5 minutos en la demo, mucho más en aplicaciones reales) y genera falsos positivos, así que el reporte se trabaja aparte en lugar de cortar el flujo. Otra particularidad bancaria: no pueden entregar credenciales productivas a ninguna herramienta, así que el escaneo dinámico corre en homologación — y con o sin credenciales, los tiempos y hallazgos cambian.</p>
+<h3>Firma de imágenes: el sello de que todo pasó</h3>
+<p>Último paso antes del deploy, en tres etapas: build &amp; push de la imagen, <strong>firma con Cosign</strong> y despliegue. Cosign genera un par de certificados: la clave privada firma la imagen; la pública permite verificar tantas veces como se quiera que no fue adulterada. La firma valida que la aplicación no tiene vulnerabilidades bloqueantes y que pasó toda la política — "si la imagen está firmada, quiere decir que pasó por todo lo que definimos". La meta siguiente: que OpenShift rechace directamente cualquier despliegue de imagen sin firmar. El dilema en curso: los artefactos "enlatados" de proveedores no vienen firmados; algunos responden y firman, otros se resisten.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Código / pull] --> B[SAST\nSemgrep - bloqueante]
+    B --> C[SCA\nSnyk / firewall Nexus - bloqueante]
+    C --> D[Build de imagen]
+    D --> E[Escaneo de imagen\nPrisma - bloqueante]
+    E --> F[Firma con Cosign]
+    F --> G[Deploy a registry]
+    G --> H[Runtime / OpenShift]
+    H --> I[DAST\nOWASP ZAP - reporte no bloqueante]
+    I --> J[LLM local: recomendación de remediación]
+
+</pre>
+
+<h2>El ingrediente secreto: un LLM que receta el remedio</h2>
+<p>Detectar vulnerabilidades ya es el estado del arte; el diferencial está en cómo se remedian. Su propuesta: un LLM propio con arquitectura RAG:</p>
+<ul>
+<li><strong>Modelo local (DeepSeek)</strong> corriendo en un backend del banco. Ventaja doble: la información del código y las vulnerabilidades no sale a internet — clave para las políticas de fuga de información de un banco — y no se paga por consulta, bajando el costo.</li>
+<li><strong>RAG con una base vectorial (LanceDB)</strong>: cargan archivos con la respuesta institucional para cada tipo de vulnerabilidad; al ejecutar el prompt, se busca en la base vectorial la información relacionada y se envía pregunta más contexto al modelo.</li>
+<li><strong>Respuesta acotada</strong>: el desarrollador recibe una recomendación alineada con lo que el equipo de seguridad definió — en la demo, por ejemplo, una librería específica para sanitizar parámetros — no una divagación genérica.</li>
+</ul>
+<p>¿Por qué no Copilot o un servicio cloud? Tres razones: dedicar el modelo a los casos de uso de seguridad que ya conocen, que las recomendaciones sean reales y aplicables, y minimizar el divague y el costo por consulta. El objetivo final, todavía en construcción: enganchar el paso al pipeline completo, de modo que al detectarse una vulnerabilidad, la IA redacte el mensaje y se lo envíe al desarrollador por Teams: no estás cumpliendo con la política, esta es la vulnerabilidad, así se soluciona.</p>
+<h2>Gobernanza y riesgo aceptado</h2>
+<ul>
+<li><strong>Segregación de funciones</strong>: el DevOps construye; el equipo de seguridad es dueño de sus librerías y del pipeline de seguridad. La gobernanza no es compartida.</li>
+<li><strong>Reporting centralizado</strong>: cada equipo ve sus vulnerabilidades en el dashboard de Veracode; además, todo hallazgo (imágenes, aplicaciones, DAST) sube a un risk management donde se arma un top 5 y se ataca primero lo más crítico o repetitivo.</li>
+<li><strong>Riesgo con fecha de vencimiento</strong>: cuando una vulnerabilidad choca con una incompatibilidad (otro microservicio espera ese formato de log, por ejemplo), se acuerda con el desarrollador una fecha de resolución; hasta entonces la vulnerabilidad convive con el riesgo documentado y los equipos atentos.</li>
+<li><strong>Estado de salud antes que política dura</strong>: el flag de <em>discovery scan</em> permite escanear todas las aplicaciones sin bloquear nada, conocer el estado real de la seguridad del banco y recién entonces calibrar la política — bloquear todo de golpe es receta para que nada avance.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SAST</strong> (análisis estático): Semgrep (open source), Veracode (producción).</li>
+<li><strong>SCA</strong> (composición de software): Snyk (demo), JFrog, Sonatype IQ + Nexus firewall (producción), OWASP Dependency-Check, Dependabot.</li>
+<li><strong>DAST</strong> (análisis dinámico): OWASP ZAP (demo), Veracode, Netsparker, Rapid7; escaneo en homologación por la restricción de credenciales productivas.</li>
+<li><strong>Jenkins</strong>: orquestador; su store de credenciales expuesto vía pipeline requiere mitigación por privilegios.</li>
+<li><strong>Cosign</strong>: firma y verificación de imágenes de contenedor con par de claves pública/privada.</li>
+<li><strong>OpenShift (Kubernetes)</strong>: plataforma de despliegue; objetivo: rechazar imágenes sin firma.</li>
+<li><strong>Prisma</strong>: escaneo de contenedores, imágenes e infraestructura.</li>
+<li><strong>DeepSeek + RAG + LanceDB</strong>: LLM local con base vectorial para recomendaciones de remediación alineadas a políticas internas.</li>
+<li><strong>Shift left</strong>: correr la seguridad lo más temprano en el ciclo de desarrollo.</li>
+<li><strong>Risk management con top 5</strong>: priorización central de vulnerabilidades por criticidad y frecuencia.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La política bloqueante funciona en cascada: código que no pasa SAST o SCA no compila imagen, imagen que no pasa escaneo no se firma, y sin firma no hay despliegue. La firma de imágenes es el eslabón que transforma toda la cadena en un solo requisito verificable.</li>
+<li>El DAST merece trato distinto: costoso y con falsos positivos, corre en paralelo sin bloquear y su reporte alimenta el risk management — forzarlo a ser bloqueante rompería el pipeline sin mejorar la seguridad.</li>
+<li>La cadena de suministro es parte del perímetro: un Jenkins mal privilegiado o una librería que entra por afuera anulan todo el escaneo aguas abajo; los controles deben ser redundantes (firewall de Nexus + escaneo en el pipeline + firewall de red en las PCs).</li>
+<li>El siguiente salto en DevSecOps no es detectar más: es remediar más rápido. Un LLM local con RAG convierte cada hallazgo en una instrucción concreta para el desarrollador, sin fuga de información y sin costo por consulta — y aplicado por Teams, cierra el ciclo de la vulnerabilidad en el mismo día que se la descubre.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WdGZ_DbMUc0">«Cocina DevSecOps 2.0 (Receta Mejorada) - Damian Madeira»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

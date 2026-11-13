@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del Bluetooth del coche al secuestro de cuentas: una cadena de ataque de dos clics — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Del Bluetooth del coche al secuestro de cuentas: una cadena de ataque de dos clics</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JL7a_oLoXHY">«DEF CON 32 - Exploiting Bluetooth from your car to the bank account - Vladyslav»</a> · ver el <a class="nz-link" href="https://youtu.be/JL7a_oLoXHY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los coches modernos acumulan al menos diecinueve interfaces de ataque distintas, del puerto OBD cableado al llavero, y la única respuesta tradicional del fabricante ante un problema en cualquiera de ellas es el recall, algo que por coste casi nunca ocurre por motivos de seguridad. Frente a esa superficie, el Bluetooth había quedado curiosamente sin examen a gran escala: más de mil millones de vehículos lo incorporan y es imposible comprar uno sin él. Esta investigación aplicó técnicas de bug bounty —web, móvil e infraestructura— a un dominio ajeno a su autor original y ejecutó la primera evaluación sistemática de vulnerabilidades Bluetooth conocidas sobre una flota de 22 coches reales, con 73 vulnerabilidades encontradas y 64 reportadas responsablemente.</p>
+<p>El resultado más incómodo no es la lista de fallos sino su estructura: los coches se entregan con implementaciones Bluetooth que promedian siete años de retraso respecto a la versión vigente del estándar, y una parte sustancial de las debilidades vive en el propio protocolo, no en el firmware. Y lo más grave: desde una posición de atacante frente al vehículo se puede escalar hasta el teléfono del usuario y, desde ahí, hasta sus cuentas bancarias y de correo, con una cadena que exige uno o dos clics de la víctima y que en iOS sigue sin parchear.</p>
+<h2>Un estándar que envejece dentro del coche</h2>
+<p>Bluetooth no es un protocolo único sino una pila de protocolos mantenidos por entidades distintas, y esa fragmentación es la fuente primaria de las vulnerabilidades que se siguen encontrando. A marzo de 2024 el estándar acumulaba más de 108 ataques documentados, y SANS contabilizaba unos 650 CVEs relacionados con dispositivos Bluetooth ya en 2022. El modelo de seguridad se resume como "todo o nada": tras el emparejamiento se accede a casi toda la funcionalidad sin autorización adicional, así que todo el peso recae en la fase de pairing.</p>
+<p>Esa fase tiene modos claramente desiguales:</p>
+<ul>
+<li><strong>Legacy pairing</strong>: usado cuando algún dispositivo no soporta las opciones de seguridad; vulnerable a acceso no autenticado y su seguridad de enlace depende de un PIN de cuatro dígitos forzable.</li>
+<li><strong>Just Works</strong>: para dispositivos sin capacidades de entrada; sin ninguna garantía de que se esté emparejando con el dispositivo deseado, intrínsecamente vulnerable a man-in-the-middle.</li>
+<li><strong>Passkey entry</strong>: afectado por un ataque de confusión de mensajes en MITM aún no remediado en la última versión de la especificación.</li>
+<li><strong>Numeric comparison</strong>: el único modo realmente seguro, reservado a dispositivos con pantalla y entrada.</li>
+</ul>
+<p>El agravante automotriz es temporal: un coche de 2023 puede llevar hardware Bluetooth de 2014 —nueve años de diferencia; media y mediana de siete—. Ese lapso concentra más de diez ataques contra el core de la especificación que afectan a la versión instalada. Y no hay salida por firmware: los ataques de nivel de especificación exigen arreglar primero el estándar, esperar años a que exista hardware nuevo y sustituir físicamente el componente del coche, algo que nadie va a hacer. La mayoría de los fabricantes, además, ni siquiera distribuye actualizaciones de firmware para el stack Bluetooth.</p>
+<h2>El mapa de vulnerabilidades en 22 coches reales</h2>
+<p>Para evaluar de forma comparable se construyó un framework open source de pruebas para Bluetooth Classic que recopila y reimplanta 44 exploits conocidos, con el lado del atacante automatizado y el de la víctima semimanual (algunas interacciones en la pantalla del infotainment siguen siendo necesarias). El kit carga un perfil de exploit predefinido, comprueba la pairability del objetivo, ejecuta el ataque y verifica la disponibilidad del dispositivo para distinguir éxito de falso positivo; la mitad de los exploits se validó antes sobre hardware no automotriz. El equipo completo cabe en una laptop, cables USB, una placa de desarrollo y un Nexus 5, con una a tres horas por coche y unas 40 horas en total.</p>
+<p>Sobre 22 vehículos —la mayor muestra pública hasta la fecha, aportados por el Swiss Cyber Defense Campus, la logística del ejército y conocidos, y elegidos para cubrir rangos de precio y fabricantes principales— aparecieron 73 vulnerabilidades, 64 reportables. Los hallazgos estructurales:</p>
+<ul>
+<li>La mayoría de los coches 2022-2023 aún arrastraba vulnerabilidades conocidas, contra la expectativa inicial de que ya no las tendrían.</li>
+<li>Solo tres fabricantes concentraban vulnerabilidades críticas (RCE, fugas de memoria e información), entre ellos Renault y Volkswagen, con fallos corregibles por firmware que seguían sin parche.</li>
+<li>Ataques de denegación de servicio y man-in-the-middle son omnipresentes y fungibles: ambos sirven para establecer una posición MITM, y conviene combinarlos —si un fabricante aparece fuerte en uno, suele tener el otro.</li>
+</ul>
+<h2>Del coche al teléfono: los ataques nuevos</h2>
+<p>La evaluación también produjo ataques inéditos. El <strong>contact destructor</strong> explota el contexto de car sharing: la víctima sincroniza sus contactos vía Phone Book Access Profile, sale del coche sin desemparejar, y quien entre después busca el número en la pantalla del infotainment —accesible sin arrancar el motor— y ve los contactos residuales. Otra familia ataca el emparejamiento numérico: coches con defectos de diseño o de estado que cancelan el pairing sin confirmación en pantalla, muestran ventanas no-input/no-output sin número que comparar, o presentan números estáticos entre intentos. Hyundai, Audi, BMW y Renault exhibieron variantes distintas del problema, con Renault ofreciendo al usuario cero control y dejando que cualquiera conectara.</p>
+<p>Para explotar la posición MITM hace falta salir del "sandbox Bluetooth" —no hay ejecución de código arbitrario— y pasar a los perfiles del teléfono. Las llamadas y el audio funcionan sin autorización; el perfil SIM Access, que emularía la tarjeta SIM, está deprecado y limitado a Android con avisos. El objetivo real es el <strong>Message Access Profile (MAP)</strong>: permite leer los SMS entregados alguna vez al teléfono y enviar mensajes nuevos, con una UX que ayuda al atacante —en iOS la funcionalidad se llama "notificaciones" y en Android "mensajes", sin mencionar SMS por ningún lado.</p>
+<p>La cadena completa queda así:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Posición MITM
+spoofing de MAC + DoS/jamming] --> B[Solicitar acceso MAP
+1 clic de la víctima]
+    B --> C[Extraer número, emails
+y nombres de los SMS]
+    C --> D[OSINT: localizar cuentas
+asociadas al número]
+    D --> E[Disparar OTP por SMS]
+    E --> F[Leer OTP vía MAP]
+    F --> G[Secuestrar la cuenta
+y cerrar sesiones]
+
+</pre>
+
+<p>Contra Android el ataque es directo: casi todos los teléfonos están siempre pairables y descubribles, se fuerza una ventana de confirmación sin número que comparar, y un nombre de dispositivo bien elegido —reloj, altavoz, coche— completa el engaño. Sobre un Samsung S23 se disparó el OTP de la cuenta Samsung, se leyó vía MAP, se cerraron todas las sesiones y se secuestró la cuenta al completo; Samsung parcheó su parte en junio de 2024.</p>
+<p>En iOS el vector es más sutil y sigue abierto: la especificación exige reiniciar los permisos de notificación en cada emparejamiento, pero iOS no lo hace. Basta suplantar la MAC de un dispositivo ya conectado con permisos vigentes —iOS, además, recupera el nombre del dispositivo anterior de su caché y lo usa en el pedido de emparejamiento, lo que multiplica la credibilidad— para heredar el acceso a notificaciones y ejecutar el mismo robo de OTP contra Facebook o contra el Apple ID mediante SMS de phishing suplantando a Apple. Apple respondió que los usuarios están a salvo porque ven el prompt de emparejamiento; el estado real es que cada usuario queda a un clic de perder su cuenta. La herramienta liberada cubre, según los autores, más del 50% del mercado mundial de smartphones.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Framework de testing Bluetooth Classic (open source)</strong>: recopila y reimplanta 44 exploits, con automatización del lado atacante y verificación post-ataque del objetivo.</li>
+<li><strong>Selective jamming / DoS + MAC spoofing</strong>: caminos para forzar la posición MITM suplantando al coche o al usuario.</li>
+<li><strong>BlueSquiz / Ubertooth (con USRP, ~2.000 USD de equipo)</strong>: descubrimiento de direcciones MAC no descubribles.</li>
+<li><strong>Phone Book Access Profile (PBAP)</strong>: sincronización de contactos que habilita el ataque contact destructor en car sharing.</li>
+<li><strong>Message Access Profile (MAP)</strong>: lectura y envío de SMS desde el coche; base del secuestro de cuentas.</li>
+<li><strong>SMS OTP + OSINT</strong>: localización de cuentas por email/login en filtraciones y relay del código interceptado.</li>
+<li><strong>Swiss Cyber Defense Campus</strong>: entidad que articula la investigación de vulnerabilidades en fase previa a la adquisición pública.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los coches nuevos se fabrican con vulnerabilidades de protocolo Bluetooth incrustadas: el diseño se congela años antes de la producción y la versión de hardware no se cambia por firmware, así que hay que asumir que estarán expuestos.</li>
+<li>El pairing es la única línea de defensa contra los MITM, y re-emparejar puede ser una acción maliciosa: los prompts sin número que comparar o con nombres familiares son señales de ataque, no de confianza.</li>
+<li>Un mito operativo caído: una posición MITM frente a un coche escala al teléfono del usuario y de ahí a sus cuentas. Servicios que dependen exclusivamente de OTP por SMS —PayPal, Coinbase, Meta— son secuestrables con uno o dos clics de la víctima.</li>
+<li>Para usuarios y organizaciones, migrar de OTP por SMS a canales alternativos (por ejemplo email) añade una salvaguarda real frente a esta cadena.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JL7a_oLoXHY">«DEF CON 32 - Exploiting Bluetooth from your car to the bank account - Vladyslav»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

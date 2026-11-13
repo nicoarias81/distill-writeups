@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CLASP: evaluar a los agentes de seguridad por capacidades, no por resultados — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">CLASP: evaluar a los agentes de seguridad por capacidades, no por resultados</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/uImn7_dmeoY">«Mudita Khurana - Rethinking how we evaluate security agents for real-world use | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/uImn7_dmeoY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Todos conocen a alguien que da la respuesta correcta pero, al pedirle la explicación, resulta que adivinó, memorizó o copió. El problema con los agentes evaluados en benchmarks centrados en outcome es el mismo: un agente con 80% de éxito no dice por qué acierta, por qué falla el otro 20%, cómo llegar a 90-95, ni si esos resultados se transferirán a tu infraestructura. CLASP —framework de evaluación centrado en capacidades, trabajo personal de la autora, sin relación con su empleador— propone seis rúbricas para seis capacidades agénticas, calificadas de brittle a adaptive, con un hallazgo central: para cada tarea de seguridad importan capacidades distintas, y saber cuáles es lo que permite mejorar un agente sin adivinar por dónde empezar.</p>
+<h2>El problema del outcome-only scoring</h2>
+<p>El ejemplo canónico: ante código potencialmente vulnerable, un agente reporta "encontré SQL" — el benchmark da pass y se sigue de largo. Pero el trace muestra análisis superficial: no siguió el taint flow hasta el método, no chequeó si los datos se sanitizan downstream, no evaluó explotabilidad, no aportó evidencia más allá del pattern matching. En seguridad eso importa doble, porque la seguridad es un workflow cerrado: encontrar el bug, explotarlo, parcharlo, validar que el bug y sus variantes no quedan en el entorno. Si el agente de la etapa "find" no lleva contexto (escenarios de explotación, evidencia) a la siguiente etapa, se terminan generando parches incompletos o incorrectos: éxito de etapa, fracaso end-to-end.</p>
+<h2>Las seis rúbricas de CLASP</h2>
+<p>El framework da rúbricas para seis capacidades agénticas (razonamiento, memoria, planificación, uso de herramientas, entre otras). La escala distingue ejecución brittle de ejecución adaptativa, y el efecto es que el framework obliga a preguntarse cómo se logró el éxito, además de si se logró.</p>
+<p>Aplicado a agentes existentes, el hallazgo destacado: <strong>para tareas de enumeración pesada (recon), la amplitud importa más que la profundidad</strong>. Los agentes que planearon bien qué herramientas usar y las usaron extensivamente para enumerar todo lo posible superaron a los que razonaban sobre lo que encontraban y profundizaban. Ese tipo de atribución de skill por etapa de seguridad —documentado en el paper— responde la pregunta práctica: "tengo un agente, quiero mejorarlo, ¿por dónde arranco?". Conocés el tipo de agente, sabés qué capacidad priorizar, y la rúbrica te dice cómo subir de score.</p>
+<h2>Uso práctico en tres pasos</h2>
+<ol>
+<li><strong>Observabilidad</strong>: hornear al workflow el acceso a todo lo que el agente toca — contexto recuperado, reasoning trace, tool calls.</li>
+<li><strong>Evaluación</strong>, por dos caminos:</li>
+<li><strong>LLM-as-a-judge</strong> (lift liviano): darle al juez la rúbrica CLASP y el trace del agente, pedir el score por capacidad; con un 2, la rúbrica indica cómo llegar a 4, y se re-corre para ver si el outcome mejora también.</li>
+<li><strong>Escenarios de test por capacidad</strong> (lift mayor), inspirado en evidence-centered benchmark design: escenarios de complejidad creciente por capacidad. Para tool use: score bajo = herramientas por defecto, siempre en el mismo orden, sin feedback del entorno; score alto = elige herramientas dinámicamente, escucha errores y feedback del entorno, encadena herramientas y construye su flujo de explotación.</li>
+<li><strong>Mejora guiada</strong>: la tabla de atribución como punto de partida, la rúbrica como camino.</li>
+</ol>
+<p>En el pipeline de la autora: un benchmark en construcción (blueprint en el paper) que correrá agentes y evaluará también la huella conductual — trace de razonamiento, enfoque brittle vs. adaptativo, reflejo de señales del entorno — y la posibilidad de open sourcear los prompts del juez.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CLASP</strong>: framework de evaluación capability-centric con seis rúbricas agénticas, de brittle a adaptive.</li>
+<li><strong>Outcome-only scoring vs. trace analysis</strong>: el pass de etapa que esconde fracaso end-to-end del workflow de seguridad.</li>
+<li><strong>Skill attribution</strong>: mapeo de capacidades por tipo de tarea (recon → amplitud sobre profundidad).</li>
+<li><strong>LLM-as-a-judge con rúbrica</strong> como camino rápido de evaluación.</li>
+<li><strong>Evidence-centered benchmark design</strong>: escenarios de test por capacidad y complejidad.</li>
+<li><strong>Observabilidad de agentes</strong>: contexto, reasoning trace y tool calls como requisito previo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un benchmark que solo mira el outcome no permite predecir ni mejorar: esconde por qué funciona, por qué falla y si transferirá a otro entorno.</li>
+<li>Las capacidades importan tanto como el resultado porque la seguridad es un workflow en loop; el contexto que el agente no transporta entre etapas (evidencia, escenarios de explotación) es el que rompe el parche final.</li>
+<li>La atribución de capacidades por tarea (amplitud para recon, por ejemplo) convierte la evaluación en un plan de mejora concreto en lugar de una nota.</li>
+<li>CLASP se aplica con LLM-as-a-judge como vía rápida o con benchmarks de escenarios por capacidad como vía rigurosa; el paper y el benchmark en curso están orientados a que la comunidad no repita el trabajo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/uImn7_dmeoY">«Mudita Khurana - Rethinking how we evaluate security agents for real-world use | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

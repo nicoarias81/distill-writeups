@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi en bruto: frames 802.11 sin access point ni asociación — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Wi-Fi en bruto: frames 802.11 sin access point ni asociación</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/B6_my_bDSx0">«DEF CON 33 - RF Village - Layer 2 Liberation: Things Your AP Never Dreamed Of - Allan Riordan Ball»</a> · ver el <a class="nz-link" href="https://youtu.be/B6_my_bDSx0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Todo lo que da utilidad al Wi-Fi —asociación, autenticación, retransmisiones, cifrado— vive en capas altas del stack. Debajo hay una radio 802.11 que acepta enviar y recibir frames casi vacíos, sin cabeceras de más, a cualquier dispositivo que escuche. Dejar de lado el access point y operar en modo raw convierte el Wi-Fi en algo parecido a la radioafición: sin garantías, sin seguridad, sin infraestructura — pero con una libertad que las capas superiores no permiten.</p>
+<p>El recorrido aquí es deliberadamente lúdico: un enlace mínimo de enviar/recibir en pocas líneas, un AirDrop casero ("file drop"), un walkie-talkie de audio sobre frames raw, un Meshtastic que corre sobre Wi-Fi en lugar de LoRa, y Wi-FiFS, un sistema de archivos FUSE que expone el espectro Wi-Fi como árbol de directorios. Ninguna de estas piezas es "útil" en el sentido productivo; todas demuestran cuánta capa innecesaria hay entre la radio y las aplicaciones, y cuánto se puede construir cuando se prescinde de ella.</p>
+<h2>El frame más pequeño posible</h2>
+<p>El punto de partida es un socket raw atado a la interfaz Wi-Fi. Para inyectar, el kernel exige una cabecera de radiotap que no se transmite; después, una cabecera 802.11 mínima con direcciones de origen, destino y BSSID — que pueden inventarse, porque nadie está asociado a nada. Con eso, <code>send()</code> emite el frame al aire y <code>recv()</code> lo recoge del otro lado, pelando la cabecera del driver.</p>
+<p>En Python puro son unas decenas de líneas de manipulación de bytes. Con <strong>Scapy</strong> se reduce a una expresión con su sintaxis de capas separadas por barras y una llamada a <code>sendp()</code>. El receptor es aún más simple: abrir el socket, leer N bytes, quitar la cabecera.</p>
+<p>Lo que se pierde al bajar a este nivel es todo lo que da nombre al Wi-Fi:</p>
+<ul>
+<li><strong>Sin retransmisión</strong>: si el receptor no capta el frame, el frame se perdió. No hay acuse ni control.</li>
+<li><strong>Sin seguridad</strong>: nada de cifrado ni autenticación; cualquier escucha recibe todo.</li>
+<li><strong>Sin asociación</strong>: emisor y receptor no comparten red, SSID ni configuración; basta que ambos tengan interfaces capaces de inyección en el mismo canal.</li>
+</ul>
+<p>En la práctica es una radio digital básica: best-effort, abierta y peer-to-peer. Esa simplicidad es la característica, no el defecto.</p>
+<h2>File drop: AirDrop sin Apple</h2>
+<p>Cualquier pareja de dispositivos sin relación entre sí puede intercambiar datos si ambos operan en modo raw. Un "file drop" se construye en una tarde:</p>
+<ul>
+<li>El transmisor lee el archivo en memoria, lo trocea (un frame 802.11 se queda en torno a 2 KB) y envía cada trozo precedido de un <strong>número mágico</strong> propio, para distinguir los frames del protocolo del ruido del espectro.</li>
+<li>El receptor descarta todo lo que no lleve el número mágico y reensambla el archivo, verificando un MD5 que viaja junto a los datos.</li>
+</ul>
+<p>En la demo, un "hello world" cabe en un solo paquete y llega íntegro. Una imagen de 30 paquetes llega al 96% a la primera: el archivo es visible pero tiene trozos faltantes. La estrategia de fiabilidad es deliberadamente rústica — reejecutar el envío — y a la segunda pasada los paquetes que faltaban completan el archivo, con el MD5 confirmando la integridad. Sin ACKs, sin ventana deslizante, sin TCP: para archivos pequeños y enlaces cortos, "reintentar hasta que el hash cuadre" es un protocolo suficiente.</p>
+<p>La misma idea aplicada a un stream de audio en lugar de un archivo produce un <strong>walkie-talkie</strong>: sin marcado, sin conexión, sin handoff — quien transmite, transmite, y quien escucha, escucha. Con la librería <code>sounddevice</code> de Python, un hilo recibe del socket raw y alimenta un buffer de salida; bajar la resolución de muestreo reduce el ancho de banda por frame y mejora las probabilidades en un enlace tan pérdida-prone. El resultado es audible pero quebradizo: cualquier hueco en el ritmo de llegada se traduce en silencio o estática, exactamente lo esperable de una radio sin buffer ni retransmisión.</p>
+<h2>Meshtastic sobre Wi-Fi</h2>
+<p>Meshtastic es una red mesh popular para mensajería off-grid que normalmente corre sobre <strong>LoRa</strong>, una radio de largo alcance y bajo consumo, en microcontroladores a los que el teléfono se conecta por Bluetooth. El experimento aquí reemplaza la capa LoRa por Wi-Fi raw.</p>
+<p>La bisagra es que Meshtastic ofrece una build Linux (imagen Docker) que, para pruebas, emite sus paquetes por <strong>UDP a una dirección multicast</strong> en lugar de por LoRa. El puente es entonces un script que escucha esos paquetes UDP multicast y los reinyecta como frames 802.11 raw — con el número mágico "mesh" de cabecera — mientras un script espejo en el otro extremo hace el camino inverso: captura el frame raw y lo vuelve a inyectar en la interfaz UDP del contenedor.</p>
+<pre class="mermaid">
+flowchart LR
+    A[App web Meshtastic<br/>contenedor 1] -- UDP multicast --> B[Puente: script raw]
+    B -- frame 802.11 raw --> C[Puente: script raw<br/>otro dispositivo]
+    C -- UDP multicast --> D[App web Meshtastic<br/>contenedor 2]
+    D -- respuesta --> C
+    C -- frame raw --> B
+    B -- UDP --> A
+
+</pre>
+
+<p>Dos contenedores Docker aislados se encuentran por el aire y la mensajería mesh fluye en ambas direcciones, con retransmisión y cifrado de Meshtastic intactos (Wireshark confirma los frames cifrados en el canal). El interés no es reemplazar LoRa — el Wi-Fi de un portátil no compite en alcance — sino demostrar que la capa física de una red mesh completa es intercambiable, y que con suficientes portátiles en un recinto, la propia sala se convierte en la malla, sin ningún access point de por medio.</p>
+<h2>Wi-FiFS: el espectro como sistema de archivos</h2>
+<p><strong>FUSE</strong> permite implementar un sistema de archivos en espacio de usuario implementando dos funciones esenciales: <code>readdir</code> (qué contiene cada directorio) y la lectura de archivos (qué bytes devuelve el sistema operativo al abrir una ruta). Combinado con Scapy produce una visión alternativa del espectro Wi-Fi, estructurada como árbol de directorios:</p>
+<ul>
+<li>El primer nivel enumera las <strong>interfaces</strong> Wi-Fi disponibles.</li>
+<li>Bajo cada interfaz, un directorio por <strong>canal</strong>; entrar en el directorio del canal 6 sintoniza la interfaz en el canal 6, porque el <code>readdir</code> de ese directorio ejecuta el cambio.</li>
+<li>Dentro de cada canal aparecen directorios por <strong>BSSID</strong> — cada MAC vista en el canal, más los beacons que revelan el SSID del access point (en la demo aparece, por ejemplo, el SSID de una villa de RF).</li>
+<li>Bajo cada BSSID, <strong>un archivo por paquete capturado</strong>.</li>
+</ul>
+<p>El efecto es que el análisis de espectro se hace con herramientas de archivos comunes: un <code>ls</code> actualiza la vista, un <code>cd</code> cambia de canal, un <code>grep</code> busca contenido dentro de los paquetes capturados. Transmitiendo el "hello world" de Scapy en el canal 6, el paquete aparece como archivo en el directorio del BSSID correspondiente, y <code>grep</code> localiza el contenido entre cientos de megabytes de captura acumulada. Wireshark sigue siendo la herramienta superior para este trabajo; Wi-FiFS es una demostración de que la captura de paquetes puede modelarse como operaciones de archivos, con la ergonomía Unix que eso implica.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Raw socket / modo monitor con inyección</strong>: envío y recepción de frames 802.11 sin asociación, con cabecera radiotap mínima.</li>
+<li><strong>Scapy</strong>: construcción e inyección de frames con sintaxis de capas (<code>/</code>), alternativa compacta a la manipulación de bytes.</li>
+<li><strong>Número mágico en cabecera propia</strong>: filtro mínimo para distinguir frames de un protocolo casero del ruido del espectro.</li>
+<li><strong>File drop</strong>: transferencia de archivos por frames raw con troceado (~2 KB/frame) y verificación por MD5.</li>
+<li><strong>sounddevice (Python)</strong>: reproducción de audio en hilo aparte para el walkie-talkie sobre raw frames.</li>
+<li><strong>Meshtastic + imagen Docker Linux</strong>: mesh messaging que en modo prueba emite UDP multicast, puenteable a Wi-Fi raw.</li>
+<li><strong>FUSE</strong>: implementación de sistemas de archivos en espacio de usuario (<code>readdir</code> + lectura), base de Wi-FiFS.</li>
+<li><strong>Interfaces con soporte de inyección</strong>: dongles USB dedicados; las tarjetas integradas de portátiles rara vez la soportan.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las capas de asociación, autenticación y fiabilidad del Wi-Fi son opcionales: debajo hay una radio abierta y best-effort utilizable directamente por aplicaciones, como se hace en radioafición.</li>
+<li>Sin retransmisión ni cifrado, la fiabilidad se resuelve a mano (reenviar hasta el hash correcto) o se delega en una capa superior que ya la trae (Meshtastic); para TCP y tráfico convencional, el access point sigue siendo la elección correcta.</li>
+<li>La desacoplamiento entre capa física y lógica es total: una red mesh diseñada para LoRa funciona sin cambios sobre frames Wi-Fi raw, porque su build Linux ya abstrae el transporte.</li>
+<li>Modelar el espectro como sistema de archivos (cambiar de canal = entrar en un directorio, capturar = leer) convierte el análisis inalámbrico en operaciones Unix cotidianas.</li>
+<li>El requisito hardware real es una interfaz con soporte de inyección: los dongles USB económicos cubren la necesidad; las tarjetas integradas, casi nunca.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/B6_my_bDSx0">«DEF CON 33 - RF Village - Layer 2 Liberation: Things Your AP Never Dreamed Of - Allan Riordan Ball»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

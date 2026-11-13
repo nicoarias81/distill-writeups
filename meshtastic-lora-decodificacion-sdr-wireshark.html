@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo decodificar Meshtastic con SDR: de los chirps de LoRa a los mensajes en Wireshark — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cómo decodificar Meshtastic con SDR: de los chirps de LoRa a los mensajes en Wireshark</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SM1XSxP6W78">«DEF CON 33 - Understanding Meshtastic Packets from Scratch - Anton Molodtsov»</a> · ver el <a class="nz-link" href="https://youtu.be/SM1XSxP6W78">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Meshtastic es una red mesh fuera de la red celular: mensajes de varios kilómetros con equipos de bolsillo, sobre la modulación de radio LoRa. Es open source, con muchísimo impulso comunitario, y en eventos como DEF CON buena parte del público lleva un nodo en el bolsillo. La pregunta que guía este trabajo es sencilla de formular y profunda de responder: ¿qué hay exactamente en el aire cuando alguien envía "hola" por Meshtastic?</p>
+<p>La respuesta se construye por capas. Primero la modulación LoRa —chirp spread spectrum, propiedad de Semtech, cerrada como tecnología pero suficientemente documentada por la comunidad como para decodificarla con software libre—. Después la codificación del símbolo: cómo un chirp que arranca en una frecuencia determinada representa un número. Y por último la capa de aplicación: el header de 16 bytes en claro, el payload cifrado con AES-256 de claves precompartidas, y el formato Protobuf de los mensajes. Todo el camino se recorre con herramientas asequibles: un HackRF (o incluso un RTL-SDR barato), GQRX para capturar, InSpectrum para visualizar, GNU Radio con los bloques libres de Joachim Tappel para demodular, un disector Lua propio para Wireshark y Python para pegarlo todo.</p>
+<p>El resultado final es un flujo completo de recepción que imprime en pantalla los mensajes de chat y la información de nodos de la red Meshtastic del evento, capturados en vivo —y también la capacidad inversa: inyectar paquetes propios con un Arduino de pocos dólares, saltándose las reglas de cortesía del canal.</p>
+<h2>LoRa: datos codificados en la posición de arranque de un chirp</h2>
+<p>LoRa no es LoRaWAN. LoRaWAN es el sistema comercial de estaciones base que conectan dispositivos IoT a internet; Meshtastic solo usa la capa física, LoRa, para tráfico peer-to-peer en malla. La modulación de LoRa —chirp spread spectrum o frequency shift chirp modulation— es radicalmente distinta de AM o FSK: en vez de fijar una amplitud o una frecuencia, emite tonos que barren linealmente de una frecuencia a otra (suben, llegan arriba, caen abajo y vuelven a subir).</p>
+<p>La clave de la codificación está en dónde arranca el chirp. Un chirp es siempre el mismo barrido ascendente; lo que varía es su punto de partida y el "salto" (wrap-around) cuando llega arriba y continúa desde abajo. Con una rejilla alineada al ancho de símbolo en InSpectrum se ve a simple vista: un chirp que arranca a mitad de camino y salta es, por ejemplo, el símbolo 50. Cada chirp es un símbolo, y los símbolos son los datos.</p>
+<p>La robustez de esta modulación frente al ruido es su razón de ser: mientras FSK pasa largos tramos en una frecuencia fija (fácil de ahogar en ruido), un chirp se dispersa por todo el ancho de banda. El resultado, difícil de intuir pero verificado experimentalmente, es que funciona por debajo del piso de ruido: mensajes que un espectro normal ni siquiera muestra.</p>
+<p>La estructura de una trama LoRa es fija: primero los upchirps del preámbulo (con los dos últimos ligeramente desplazados para codificar el sync word —Meshtastic usa el byte 0x2B—, aunque hay issues abiertas sobre chips que lo codifican mal), luego dos chirps y un cuarto descendentes que marcan el fin del preámbulo, y a continuación los símbolos del payload.</p>
+<p>Dos trucos hacen funcionar todo el sistema:</p>
+<ul>
+<li><strong>Dechirping</strong>: multiplicar (en el sentido complejo) cada chirp recibido por un downchirp lo "aplana" en una frecuencia fija, convirtiendo el problema en FSK trivial: una FFT por chirp indica el símbolo dominante.</li>
+<li><strong>Sincronización por repetición</strong>: el receptor no necesita saber dónde empieza el preámbulo. Puede poner su rejilla en cualquier posición: durante el preámbulo leerá el mismo símbolo una y otra vez (desplazado). Al detectar la repetición, corre su ventana hacia atrás la cantidad necesaria. La repetición es la señal de alineación.</li>
+</ul>
+<h2>Del símbolo al byte: las capas de corrección</h2>
+<p>La modulación entrega símbolos (con el preset usado, valores de 0 a 127, es decir 2^7 posiciones posibles). Para llegar a bytes, la cadena de codificación añade, en orden de envío: un CRC de detección de errores, whitening (un XOR con una secuencia pseudoaleatoria conocida para evitar corridas largas de ceros que se confundirían con preámbulos), corrección forward de errores (bits extra para reparar errores), interleaving (bits de cada byte repartidos entre símbolos distintos, para que un símbolo mal leído no arruine un bloque entero) y gray coding (numerales vecinos que difieren en pocos bits, para que una lectura desplazada sea recuperable en vez de catastrófica).</p>
+<p>Todo eso está implementado en bloques GNU Radio publicados por Joachim Tappel —intentar escribirlos desde cero es mucho trabajo, y los suyos funcionan bien—. El flowgraph resultante: HackRF → bajada a banda base → filtro → sincronización de trama (detección del preámbulo por símbolos repetidos) → demodulación → gray mapping → de-interleaving → de-whitening → verificación de CRC → bytes hacia Python.</p>
+<p>Los presets de módem (Short Turbo en DEF CON para no saturar el aire con tantas transmisiones, Medium Slow en el Área de la Bahía) cambian frecuencia, ancho de símbolo y robustez: los cortes ocupan menos tiempo en el aire, los lentos llegan más lejos.</p>
+<h2>La capa Meshtastic: header en claro, payload cifrado, todo Protobuf</h2>
+<p>Un paquete Meshtastic son 16 bytes de header en texto claro —destino, emisor, packet ID, flags de hops (que decrecen en cada relay para evitar bucles infinitos), channel hash— seguidos del payload cifrado. En Python, tras la demodulación, se descifra (AES-256 con claves precompartidas por canal) y se parsea con las definiciones Protobuf oficiales: el "portnum" indica el tipo (mensaje de texto, node info), y el contenido son los campos correspondientes.</p>
+<p>Para inspeccionarlo byte a byte, el flujo vuelca los paquetes por UDP y un disector Lua propio en Wireshark los decodifica: clic en un byte y Wireshark resalta a qué campo corresponde. La mayor parte del tráfico de una red Meshtastic real no es chat sino node info: nodos anunciando nombre corto, nombre largo, modelo de hardware y clave pública —la necesaria para enviarles mensajes cifrados directos—.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Chirps LoRa<br/>en el aire] --> B[GNU Radio<br/>sync + demod + FEC]
+    B -- bytes --> C[Python<br/>decrypt AES-256 + Protobuf]
+    C -- UDP --> D[Wireshark + disector Lua<br/>header + payload]
+    D --> E[Mensajes de texto<br/>y node info]
+
+</pre>
+
+<h2>Transmitir: un Arduino, sin firmware de Meshtastic</h2>
+<p>Conocer el formato abre la puerta a emitir. La transmisión no necesita HackRF ni el firmware oficial: un Arduino con chip LoRa integrado (de los baratos en Amazon) basta. El emisor de demostración construye el paquete con Protobuf, lo cifra con la clave del canal (precompartida, "defconnet"), antepone el header —dos enteros de 32 bits (destino y emisor), packet ID aleatorio, y los campos de un byte: flags, channel number y resto— y lo envía con un comando de datos en hex.</p>
+<p>La demo incluyó la parte fea a propósito: sin carrier sense, sin multiple access, sin collision avoidance y sin relay de mensajes ajenos —todo lo que un emisor Meshtastic correcto debe respetar—. El espectro es no licenciado y no hay nada técnico que lo impida: poner un bucle alrededor del envío con un sleep convierte el emisor en spam. Que la app receptora filtra parte del spam es cortesía de software, no del protocolo físico.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Meshtastic</strong>: red mesh off-grid de bajo consumo sobre LoRa; app móvil + nodo de bolsillo; presets de módem (Short Turbo en DEF CON, Medium Slow en la Bahía).</li>
+<li><strong>LoRa (chirp spread spectrum)</strong>: modulación de Semtech; el dato va en el punto de arranque del chirp; funciona por debajo del piso de ruido.</li>
+<li><strong>Estructura de trama LoRa</strong>: preámbulo de upchirps, sync word (0x2B en Meshtastic), 2¼ downchirps de delimitación, payload en símbolos.</li>
+<li><strong>Dechirping + FFT</strong>: multiplicar por el chirp inverso aplana el símbolo; la FFT revela la frecuencia dominante.</li>
+<li><strong>Sincronización por símbolos repetidos</strong>: la repetición del preámbulo delata la posición de la rejilla; se realinea restando el offset del símbolo repetido.</li>
+<li><strong>Cadena de codificación</strong>: CRC, whitening (XOR con secuencia pseudoaleatoria), FEC, interleaving, gray coding.</li>
+<li><strong>Bloques GNU Radio de Joachim Tappel</strong>: sincronización de trama, demodulación, gray mapping, de-whitening, CRC.</li>
+<li><strong>HackRF / RTL-SDR + GQRX + InSpectrum</strong>: captura y análisis visual de chirps con rejilla alineada al ancho de símbolo.</li>
+<li><strong>Wireshark + disector Lua propio</strong> sobre volcado UDP: inspección byte a byte del header (destino, emisor, packet ID, flags de hops, channel hash) y del payload.</li>
+<li><strong>AES-256 con claves precompartidas + Protobuf</strong>: cifrado de payload y parseo de mensajes de texto y node info.</li>
+<li><strong>Emisor con Arduino + LoRa</strong>: construcción de paquetes con Protobuf y cifrado propio, bypassing carrier sense / CSMA / CA.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Decodificar Meshtastic de cero es un proyecto realista: la modulación LoRa es cerrada pero su comportamiento es descifrable, y toda la cadena —demodulación, corrección de errores, capa de aplicación— tiene implementaciones libres que se pueden combinar con herramientas de escritorio comunes.</li>
+<li>El preámbulo es un mecanismo de auto-sincronización elegante: el propio diseño de la trama le dice al receptor dónde alinearse, sin canal de control previo.</li>
+<li>La seguridad de la capa de aplicación es la de un sistema de confianza abierta: cifrado AES-256 por canal con claves precompartidas, header en claro y filtrado de spam por cortesía del software, no del protocolo. Cualquiera con un SDR ve los headers y, conociendo la clave del canal, todo el contenido.</li>
+<li>Un hardware de pocos dólares alcanza en ambas direcciones: recibir con un RTL-SDR probablemente baste, y emitir sin respetar el protocolo de acceso al medio está a un Arduino de distancia — el espectro no licenciado no ofrece ninguna barrera técnica.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SM1XSxP6W78">«DEF CON 33 - Understanding Meshtastic Packets from Scratch - Anton Molodtsov»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

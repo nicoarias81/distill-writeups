@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>19 agentes viviendo en el homelab: lecciones de un enjambre personal — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">19 agentes viviendo en el homelab: lecciones de un enjambre personal</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SzLVXAzjOEU">«Brooks McMillin - Building Secure Agentic Systems | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/SzLVXAzjOEU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Brooks, ingeniero de seguridad de infraestructura y nube en Dropbox, no presenta el trabajo de su empresa sino su laboratorio personal: un enjambre de <strong>19 agentes</strong> —13 interactivos y varios agentes-servicio tipo cron que llaman a Claude Code o a otros agentes— corriendo a diario sobre un servidor MCP local stdio con <strong>73 tools</strong> (email, creación de archivos, lectura del file system, herramientas del SO). Todo el código está en GitHub como referencia —open source para mirar, no para descargar y ejecutar; él sí lo corre todos los días—. Los números están actualizados a la noche anterior y ya volvieron a quedar viejos.</p>
+<p>Cada agente arranca por CLI, por web UI con wrapper de voz, por app standalone o por Slack personal con un filtro que enruta cada mensaje al agente correcto. Sobre ese bus conviven MCPs remotos (los personales y GitHub), y los controles de seguridad atraviesan todo: capabilities acotadas, scopes por tool (read/write/admin), memoria aislada, observabilidad y un tope de iteraciones por turno —optimizado a unas 3 o 4, también para no fundir la tarjeta de crédito—.</p>
+<h2>El ecosistema que se mantiene solo</h2>
+<p>El flujo estrella es una task management propio: un cron job con <code>claude -p</code> que revisa tareas, las corrige u optimiza y emite reportes. Cuando se queda sin tareas, despierta a sub-agentes de code review —auditoría de seguridad, cobertura de tests, calidad de código, documentación— que generan tareas nuevas: un <strong>ecosistema auto-sostenido de optimización</strong> que corre hasta que se agota el crédito y Anthropic corta. El humano en el loop cada vez participa menos —lo cual, reconoce, da miedo—. Los contrapesos: revisión semanal de PRs y dos agentes revisores de Claude que deben aprobar cada PR antes de cerrar los tasks automatizados, como check de que el LLM no está entregando basura.</p>
+<h2>Security by default, demostrada en vivo</h2>
+<p>El sistema de capabilities tiene dos capas por agente: qué tools puede usar y con qué permisos. Ejemplos: el task manager (el daily driver) puede buscar, escribir por Slack, enviar email y usar memoria; el security researcher es <strong>read-only</strong> sobre un RAG de blogs; y existe un chatbot con todo habilitado —que es a la vez el conejillo de indias—. Al agregar tools al MCP server en expansión perpetua, la regla es <strong>denegar por defecto</strong>: sin configuración explícita, todo queda locked down a admin. En la demo, un agente sin permiso de escritura intenta guardar una memoria, recibe un error verboso, y entiende solo qué le falta y qué pedir. Con permisos, la memoria funciona y muestra el key-value crudo que después se limpia.</p>
+<h2>El MCP relay: depurar LLMs conversando entre sí (o un implant, según se mire)</h2>
+<p>Para dejar de copiar y pegar entre Claude Code del servidor y del cliente, Brooks construyó un <strong>MCP relay</strong>: una sala de chat para sus LLMs, donde el agente del servidor comparte el código fuente y los dos conversan hasta depurar el cliente aunque el código del servidor no sea accesible para él. También sirve para equipos sin Claude Code instalado: un agente remoto corre en contenedores LXC de Proxmox con <strong>medio giga de RAM</strong>, se autentica por OAuth —el mecanismo estándar de todos sus agentes— y espera comandos en la sala. Herramienta de debugging para él; <strong>implant</strong> para cualquier otro lector. Él mismo lo advierte: inyección de contexto de un LLM a otro sin scoping de capabilities, todo en memoria —no está listo para producción, no lo usen—; en la hoja de ruta, Redis de backend y transferencia de capabilities del agente a permisos reales de Linux sobre usuarios restringidos.</p>
+<h2>Memoria: el bug de los mil dólares al mes</h2>
+<p>La v1 de memoria era una tabla Postgres compartida: funcionaba, hasta que cruzaron las identidades. Brooks le pidió a un business agent —lanzándole la meta "optimizá para llegar a mil dólares al mes"— y desde entonces <strong>cada desglose de tareas del task manager</strong> mencionaba la meta de los mil dólares. La solución: identidad por agente (cada agente es una subclase de su framework; el nombre de la clase se traduce, al levantar el MCP server local, en un <strong>namespace de memoria</strong> que el LLM no puede elegir ni suplantar) más inyección selectiva: solo las memorias con importancia alta se inyectan solas, el resto se busca por función. Menos contexto quemado, agentes menos distraídos.</p>
+<h2>Firewall de LLM: cuando la seguridad bloquea tus propias tareas</h2>
+<p>Un firewall de prompts con detección de prompt injections cierra el circuito —y demostró su filo doble en vivo: bloqueó la consulta del security agent buscando memorias ajenas, que era justamente la demo. Pero el hallazgo más incómodo llegó dos semanas después revisando logs: una tarea que Brooks mismo había creado ("agregar el campo de hora del servidor a cada respuesta de la API") llevaba semanas <strong>bloqueada junto a otras dos docenas</strong> por la configuración de fábrica del firewall, demasiado agresiva. Lección: la seguridad de fábrica sin tuning mata funcionalidad silenciosamente; hay que definir tolerancia al riesgo por setting, y las queries de research de seguridad requieren baja sensibilidad o ninguna.</p>
+<h2>Recortar contexto sin perder las señales de ataque</h2>
+<p>Para análisis de logs a largo plazo planteó otro problema sutil: si el contexto se llena y se recorta, un atacante puede lanzar un evento malicioso cada 200.000 tokens y solo se ve uno por ventana. Su solución: <strong>tagging consciente del trimmer</strong> —los eventos de seguridad (SSRF bloqueado, permission denied) se marcan como importantes y sobreviven al recorte, quedando disponibles para el análisis posterior. No es perfecto: con más logs y sesiones más largas el contexto igual se llena, y calibrarlo es trabajo continuo.</p>
+<h2>Observabilidad: la que paga las facturas</h2>
+<p>Activar cost tracking reveló despilfarro inmediato: memorias completas inyectadas en cada llamada (que además empeoraban la función) y coding agents que despertaban los cinco review agents constantemente —cada ronda vale unos 250k tokens—. Hoy corre <strong>LangFuse</strong> para trazas por agente, detectó usos accidentales de Opus donde iba Sonnet, y mantiene dashboards de costo con desglose diario y audit trail de seguridad: si a la mañana hay un cargo extra de cien dólares, se puede trazar de qué agente y qué llamada vino.</p>
+<h2>Lecciones</h2>
+<ul>
+<li><strong>Seguridad bien hecha también mejora la funcionalidad</strong>: scoping de 73 tools por agente ahorra contexto y mantiene a cada agente enfocado en su misión, igual que con un humano.</li>
+<li>Cost tracking desde el día uno, no después del primer susto.</li>
+<li>Arquitectura en madurez: hoy agentes en el desktop personal y MCPs externos en un web server; la migración en curso es a un clúster K3s con contenedores, service mesh y controles de red por delante.</li>
+<li>Deuda declarada: delegation chains e identidad transversal —con la promesa de robar ideas a la sesión de SANS de más tarde—.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>MCP server local stdio</strong> con 73 tools y restricciones por llamada (directorios y tipos de archivo permitidos), tipo sidecar por agente.</li>
+<li><strong>Capabilities bounding</strong>: allowlists por agente, scopes read/write/admin, denegación por defecto a admin.</li>
+<li><strong>Memoria con namespaces derivados de identidad</strong> (nombre de clase → namespace), inyección selectiva por importancia y búsqueda on-demand.</li>
+<li><strong>MCP relay</strong>: sala de chat LLM-a-LLM para debugging cliente-servidor; agente remoto con OAuth en LXC de 512 MB de RAM.</li>
+<li><strong>Firewall de LLM</strong> con detección de prompt injection (requiere tuning agresivo) y tagging de eventos de seguridad que sobreviven al context trimming.</li>
+<li><strong>LangFuse</strong> para trazas, cost tracking con dashboards y audit trail; cron jobs con <code>claude -p</code>; migración a K3s con service mesh.</li>
+<li>Alternativa mencionada por la audiencia para boundaries fuera de la ventana de contexto: <strong>Envoy + OPA</strong>.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un enjambre personal es el banco de pruebas perfecto: los errores —memorias que se contagian, firewalls que bloquean tus propias tareas— enseñan más rápido que cualquier postura teórica.</li>
+<li>Identidad y namespace no negociables: si el LLM puede elegir su identidad, el aislamiento es decorativo.</li>
+<li>Todo control de seguridad tiene un costo funcional oculto; los logs del firewall son el único lugar donde se descubre a tiempo.</li>
+<li>La observabilidad no es lujo: es lo que explica por qué la factura se multiplicó y qué agente lo hizo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SzLVXAzjOEU">«Brooks McMillin - Building Secure Agentic Systems | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

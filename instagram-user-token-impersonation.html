@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impersonación de usuario en Instagram: del token de primera parte a la suplantación total — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Impersonación de usuario en Instagram: del token de primera parte a la suplantación total</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/NSODwJFEXZg">«Instagram User Token Impersonation: From discovery to disclosure»</a> · ver el <a class="nz-link" href="https://youtu.be/NSODwJFEXZg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un investigador independiente con una década de bug bounty en Meta encontró una vulnerabilidad que permitía actuar como cualquier usuario de Instagram: publicar comentarios y respuestas suplantando su identidad, borrar comentarios ajenos, deshabilitar los comentarios de cualquier publicación y crear medios sin publicar en cuentas de otros. La recompensa: 50.000 dólares más un bonus por demora del 10%.</p>
+<p>La técnica de descubrimiento es tan instructiva como el impacto. El punto de partida fue leer la documentación para desarrolladores —una fuente que el propio investigador describe como el mejor mapa inicial del producto, incluida la documentación desactualizada con endpoints que suelen seguir activos—. Sobre esa base entendió el flujo OAuth 2.0 de la Instagram API con Instagram Login, notó que la autenticación OIDC de meta.com se comportaba igual que su app de prueba, reemplazó el ID de aplicación en la URL y obtuvo un token de primera parte con privilegios que ningún token de tercero tendría. Meta explicó la causa raíz, parchó el flujo de intercambio de código y audité el resto de las mutaciones sin encontrar camino a la publicación de contenido ajeno.</p>
+<h2>El método de partida: documentación y flujos conocidos</h2>
+<p>El método de trabajo declarado es deliberadamente básico y probado: leer documentación para entender cómo funciona el producto, y luego desviarla. Si la documentación dice que un endpoint requiere ciertos permisos, la prueba consiste en retirarlos y ver qué ocurre. Buscar documentación vieja, con endpoints descontinuados, resultó a lo largo de los años una mina de "galletas de oro" en los productos de Meta, porque esos endpoints permanecían activos.</p>
+<p>Instagram ofrece varias formas de interactuar con su API: el legacy con OAuth 1.0, la Instagram API con Facebook Login (que exigía vincular la cuenta de Instagram a una de Facebook) y, más reciente, la Instagram API con Instagram Login: un flujo OAuth 2.0 donde el usuario concede permisos —perfil, comentarios, contenido, métricas de publicación— y la app recibe un token para obtener datos. Las claves del flujo:</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant U as Navegador del usuario
+    participant A as Aplicación (server code)
+    participant I as API de Instagram
+    U->>A: Login con Instagram
+    A->>I: Diálogo de permisos (client_id + redirect_uri)
+    I-->>U: Diálogo de permisos
+    U->>I: Permitir
+    I-->>A: redirect con code + state
+    A->>I: Intercambio code por token
+    I-->>A: Instagram user token (prefijo IG)
+
+</pre>
+
+<p>Para probar, la documentación permite generar tokens de prueba en el dashboard de desarrolladores (<code>developers.facebook.com/app/&lt;app-id&gt;/Instagram-business-api-setup</code>), con usuarios de test delegados. Cada token de Instagram empieza con <code>IG</code> —a diferencia de los tokens de Facebook (<code>EAA...ZDZD</code>), que se dividen en user, page, client y application tokens—. Ese patrón de prefijos ayuda a reconocer qué tipo de token hay en juego en cada request.</p>
+<h2>El hallazgo: OIDC de meta.com y el token de primera parte</h2>
+<p>La incógnita del investigador fue directa: puedo generar tokens para mí, ¿puedo generar tokens bajo aplicaciones que no controlo? La pista llegó en una parte de meta.com donde se gestionan dispositivos Oculus y soporte de cliente: un inicio de sesión que ofrece tres opciones —Facebook, Instagram o email—. Eligiendo Instagram, la URL mostraba <code>/oauth/oidc</code> en lugar de <code>/oauth/authorize</code>: OpenID Connect, autenticación en vez de autorización. El flujo era el mismo diagrama OAuth 2.0, con un detalle llamativo: el client ID <code>...899</code>, propio de la app de meta.com para ese proceso OIDC.</p>
+<p>La prueba fue reemplazar ese ID por el de su propia app de desarrollador y ver si el flujo igual generaba un token. La respuesta fue sí: el token se generó igual, con el mismo intercambio de código, apuntando al generador de tokens del dashboard en lugar del flujo de login. La validación de propiedad llegó con la llamada estándar a <code>graph.instagram.com/me</code>, que devolvió su usuario. La ID, sin embargo, no era su ID de Instagram sino una ID "scopada" a la aplicación meta.com.</p>
+<p>Quedó establecido el punto crítico: era posible crear tokens de acceso bajo una aplicación de primera parte —desarrollada y operada por Meta— para el propio usuario. Y en bug bounty, los tokens de primera parte suelen llevar permisos adicionales que los de terceros no tienen.</p>
+<h2>El impacto: cuatro ataques con un token propio</h2>
+<p>El reporte inicial demostró el primer vector: con el token del usuario PHWD, un POST para responder a un comentario hecho por otro usuario de prueba (PHWD 456) creaba la respuesta con la identidad de ese otro usuario, no con la del dueño del token. La colaboración entre el investigador y el equipo de bounty amplió el impacto a cuatro ataques:</p>
+<ol>
+<li><strong>Comentarios suplantando a cualquier usuario de Instagram</strong>: obtener el FBID de una publicación ajena y hacer un POST a <code>&lt;media-id&gt;/comments</code> crea el comentario con la identidad del creador del post, no la del dueño del token. El requisito es que el post sea de la víctima.</li>
+<li><strong>Respuestas suplantando a cualquier comentarista</strong>: responder a un comentario ajeno —de cualquier post— crea la respuesta con la identidad de quien hizo ese comentario.</li>
+<li><strong>Borrado de cualquier comentario de Instagram</strong>: con el ID del comentario, una sola llamada lo elimina, sin importar el autor.</li>
+<li><strong>Deshabilitar o habilitar comentarios de cualquier publicación</strong>: alternando el campo correspondiente entre <code>true</code> y <code>false</code>.</li>
+<li><strong>Creación de medios sin publicar para cualquier usuario</strong>: con el FBID de la víctima y una imagen, se agrega un medio no publicado a su cuenta. No aparece en el perfil, pero si el contenido viola las reglas de la comunidad, puede desencadenar una penalización o amenaza para esa cuenta. Con media de tipo historia, el anillo aparece en el perfil pero falla al visualizarse.</li>
+</ol>
+<p>El techo del impacto lo estableció la auditoría posterior de Meta: no existía forma de publicar un post como otra persona, porque los chequeos sobre el ID de creación no eran bypasseables.</p>
+<h2>Causa raíz: privilegios de primera parte y viewer context</h2>
+<p>El análisis de Meta identificó dos fallas combinadas:</p>
+<ul>
+<li><strong>Política de privilegios de primera parte.</strong> Un token asociado a una app de tercero solo puede ver e interactuar con los datos propios, y la política de privacidad de la plataforma niega el acceso a usuarios arbitrarios. Pero existía una regla que permitía a las apps de primera parte ese acceso privilegiado. El token generado bajo meta.com heredaba ese privilegio, y con él la capacidad de cargar objetos de otras personas. El diseño de la Instagram Graph API asumía que esas mutaciones solo se invocarían sobre objetos del propio solicitante —la política debería negar lo demás—, pero se pasó por alto que un atacante podía crear tokens de primera parte que cargaran objetos ajenos.</li>
+<li><strong>Viewer context construido desde el request.</strong> La mayoría de estas mutaciones usa un "viewer context" (VC): la identidad del usuario autenticado, base de los chequeos de autorización. En la mutación de comentarios, el handler cargaba el media según el ID recibido en la llamada a la Graph API, tomaba al dueño de ese media y usaba ese ID como commenter ID. En la práctica: generaba un VC de la nada a partir del ID suministrado en el request y creaba el comentario con el usuario de Instagram equivocado.</li>
+</ul>
+<p>La corrección: deshabilitar el intercambio del código OAuth por tokens de acceso de primera parte.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Flujo OIDC de meta.com<br/>(/oauth/oidc)"] -->|"reemplazo de client_id"| B["Genera token de 1a parte<br/>para usuario propio"]
+    B --> C["Regla de privilegios<br/>de primera parte"]
+    C --> D["Acceso a objetos de<br/>cualquier usuario"]
+    D --> E["Viewer context tomado<br/>del ID del request"]
+    E --> F["Comentarios/borrados/medios<br/>suplantando identidad"]
+    G["Fix: bloquear intercambio de código<br/>por tokens de primera parte"] -.->|mitiga| B
+
+</pre>
+
+<h2>Disclosure y recompensa</h2>
+<p>El pago de 50.000 dólares se justificó por comparación con casos previos de impersonación —incluido uno anterior sobre cambios de cover photo de otros usuarios, pagado en el mismo monto— y por el volumen: no era un vector único sino cuatro impactos distintos, aunque los comentarios son menos visibles que los reels en un perfil. El investigador recibió además un bonus de demora de 2.500 dólares: el programa paga hasta el 10% adicional de la bounty total, calculado desde la última respuesta que el investigador debió entregar para el triage hasta el día del pago.</p>
+<p>Del lado del programa, las habilidades que el equipo valora para incorporar analistas son concretas: revisión de código como competencia número uno, saber comunicarse con investigadores de bounty —cada uno es distinto y hay que adaptarse— y capacidad de respuesta a incidentes, porque cuando aparece una vulnerabilidad de esta magnitud hay que involucrar a los equipos correctos, hacer el análisis de causa raíz y parchar rápido.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La documentación oficial —y la descontinuada— es un vector de investigación de primer orden: describe flujos, permisos y endpoints que luego se pueden desviar sistemáticamente.</li>
+<li>Una diferencia sutil de URL (<code>/oauth/authorize</code> frente a <code>/oauth/oidc</code>) y un client ID reemplazable bastaron para convertir un flujo de autenticación en un generador de tokens con privilegios de primera parte.</li>
+<li>La suplantación total de identidad —comentar, borrar, silenciar y crear medios como cualquier usuario— nació de la combinación de dos fallas: una regla de privilegio excesiva para apps de primera parte y un chequeo de autorización que confiaba en el ID del request en lugar del dueño del token.</li>
+<li>El ciclo completo —descubrimiento, reporte con video, colaboración para ampliar impacto, causa raíz, parche y bounty de 50.000 dólares más 10% de bonus— muestra cómo funciona la divulgación responsable a escala de una plataforma con miles de millones de usuarios.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/NSODwJFEXZg">«Instagram User Token Impersonation: From discovery to disclosure»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

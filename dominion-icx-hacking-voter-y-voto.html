@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dominion ICX: alterar la pantalla y el QR sin dejar rastro en papel — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Dominion ICX: alterar la pantalla y el QR sin dejar rastro en papel</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gRU0-z1of2Y">«DEF CON 33 - Dominion ICX: Hacking the Voter &amp; Hacking the Vote - Drew Springall, Philip Davis, Marilyn Marks»</a> · ver el <a class="nz-link" href="https://youtu.be/gRU0-z1of2Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Demo en vivo sobre las terminales táctiles Dominion ICX (ballot marking devices): cómo un atacante que controle la definición de la elección puede cambiar lo que el votante ve en pantalla ("hacking the voter") y, por separado, hacer que el código QR del boleto impreso registre votos por un candidato distinto al que el votante eligió ("hacking the vote"), sin alterar el texto legible que el votante verifica. Presentado por Drew Springall (profesor de Auburn, hacker de máquinas de votación veterano del Voting Village, con acceso autorizado por tribunales al sistema Dominion junto a Alex Halderman), Philip Davis (desarrollador sin experiencia electoral, que descubrió las bases de datos de programación electoral de Georgia expuestas en línea) y Marilyn Marks (Coalition for Good Governance, demandante contra el sistema de Georgia).</p>
+<p>El hilo conductor: la cadena de suministro criptográfica del sistema está rota por diseño —claves AES simétricas publicadas por descuido, firmas y HMAC inexistentes sobre los datos de la elección—, y el hardware no fue diseñado para seguridad sino para quioscos de comida rápida.</p>
+<h2>Cómo se juntaron las piezas: hardware y software por separado</h2>
+<ul>
+<li><strong>La máquina.</strong> Una ICX real, variante de hardware correcta, con Android y Democracy Suite 5.5, comprada en eBay después de pasar por Goodwill y haber sido estrenada en el Voting Village dos años atrás. Sin malware, sin modificaciones de hardware: una máquina normal.</li>
+<li><strong>El kit de demostración.</strong> Un "famous names demonstration kit" para ICX —pensado para ensayos y capacitación, no para elecciones reales— comprado por internet a un proveedor de servicios electorales, que lo envió tras verificar una credencial universitaria. Incluye la definición de la elección (candidatos, comicios, preguntas, límites de selección), la tarjeta de trabajador electoral con su PIN y la <strong>tarjeta de técnico</strong> con su PIN: acceso administrativo completo, el "modo dios" que permite entrar al sistema operativo Android y cargar configuraciones.</li>
+<li><strong>El boleto QR.</strong> La ICX imprime un boleto con dos partes: el texto de resumen legible (abreviatura del cargo + nombre de la selección) y el <strong>código QR</strong>. El texto sirve solo para auditorías puntuales; los escáneres/tabuladores parsean exclusivamente el QR. Dos propiedades clave del QR: no contiene nombres, solo índices/referencias a posiciones ("votaste por el primer candidato"), y su visualización permite compararlo a ojo entre boletos como quien compara huellas dactilares.</li>
+</ul>
+<p>Con hardware + kit de demo + software, la pareja ejecutó una elección de práctica completa y legítima en una máquina real, sin clonar ni falsificar nada —y eso fue justo el punto: el ataque usa el sistema tal como fue diseñado.</p>
+<h2>La base de datos de Georgia: llaves en texto plano</h2>
+<p>Philip Davis, aburrido un día desde Florida, buscó boletos escaneados de Georgia publicados en un repositorio de archivos públicos para contar votos duplicados. Cinco de esos archivos incluían de más: las <strong>bases de datos SQL Server</strong> con la programación electoral de cinco condados. Un simple <code>SELECT</code> sobre una tabla devolvió <strong>claves de cifrado AES y la clave HMAC en texto plano</strong>. Cifrado simétrico: cualquiera que pueda cifrar puede descifrar; cualquiera que pueda verificar un HMAC puede firmar uno. (Las claves mostradas en pantalla fueron ligeramente alteradas.)</p>
+<p>Días después, en una llamada con Marilyn Marks, localizaron el archivo de configuración de una ICX: un zip cifrado que, descifrado con esas mismas claves, contenía otra base de datos tipo SQL Server con boletos, selecciones, comicios, eventos electorales —y, por si quedaban dudas, las claves de cifrado otra vez en la tabla de eventos—. El software de votación no tiene texto propio: lee todo de esa base de datos. La tabla crítica es <strong>choice_localized</strong>, con el HTML que se muestra en pantalla y el texto que se imprime. Sin firmas, sin HMAC, sin chequeo de integridad: editable a voluntad.</p>
+<h2>Hackear al votante: cambiar la pregunta, no la respuesta</h2>
+<p>Con control total del HTML de la pantalla y del texto impreso —el primer prototipo tomó menos de una hora, primera vez de Philip frente a una ICX—:</p>
+<ul>
+<li><strong>Cambiar la filiación partidaria</strong>: Charles Curtis, demócrata, pasa a mostrarse como candidato del Partido Verde. El votante que venía a votarlo vota a otro.</li>
+<li><strong>Reducir selecciones</strong>: en una contienda con dos escaños (Booker T. y Albert Einstein), cambiar el "vote por 2" por "vote por 1" hace perder votos a un candidato.</li>
+<li><strong>Invertir el sentido de una pregunta</strong>: la pregunta real "¿debería legalizarse el consumo de marihuana en el estado?" se cambia por "¿debería <strong>ilegalizarse</strong>?" insertando "IL" en el HTML. El votante que apoya la legalización vota "No" convencido de que vota a favor. La pantalla de revisión y el boleto impreso repiten la versión falsificada —y el boleto, encima, no imprime la pregunta: solo "Proposición 1: Sí/No". No queda registro escrito de la manipulación.</li>
+</ul>
+<p>La demostración en vivo: editar el texto en la base de datos, recomprimir, re-cifrar (sin HMAC que valide nada), copiar a un pendrive y cargar el archivo en la máquina usando la tarjeta de técnico y la tarjeta de trabajador electoral —esta última contiene la clave AES, el IV y el secreto HMAC que la ICX usa para descifrar localmente—. Springall subrayó que cargar configuración con esas tarjetas no es un hack: es la máquina operando como fue diseñada.</p>
+<h2>Hackear el conteo: el QR miente</h2>
+<p>Segunda fase, más devastadora: intercambiar los nombres de los candidatos (copy-paste en las tablas de recursos) entre la pantalla y el texto impreso, <strong>sin tocar el QR</strong>. Resultado: el votante toca "Charles Curtis" (que ahora aparece donde estaba Dirksen), el boleto impreso dice "Charles Curtis", pero el QR —que no cambió— codifica la posición de Dirksen. El tabulador le dará el voto a Dirksen, siempre, para cualquier votante. El texto verificado por el votante y el voto registrado divergen por completo, y la comparación visual de QR (huella vs. huella) es la única señal, si alguien pensara en hacerla.</p>
+<h2>Qué hace falta para replicarlo y qué tan escalable es</h2>
+<p>Cuatro requisitos genéricos: entender el formato de la definición electoral (público), obtener la clave AES + IV, obtener la definición electoral sin modificar y reemplazar la versión alterada. En el demo se cumplieron con tarjeta de técnico + tarjeta de trabajador; en el mundo real, <strong>basta sustituir "nosotros" por "trabajador electoral"</strong>: recibe la tarjeta con las claves, recibe la definición electoral (directa o indirectamente) y tiene acceso semiprivado a la máquina antes y después de la votación. Las claves están en el servidor EMS del condado, en la tarjeta de trabajador y en cada ICX; la definición sin modificar, en el EMS, en los USB de configuración y en cada máquina. La sustitución de la definición puede ocurrir en tránsito, en almacenamiento, la noche previa en el gimnasio de la escuela donde duerme el equipo. El atacante elige sus trade-offs: dificultad por escala, impacto por probabilidad.</p>
+<p><strong>¿Por qué no se detectaría como en Antrim County (Michigan) o DeKalb County (Georgia)?</strong> Allí una definición mal configurada desvió votos a candidatos equivocados, pero era universal y predecible: afectaba a estilos de boleto y lugares concretos, y se pudo remapear ("los votos de Alice van a Bob"). Un ataque con definición alterada es lo contrario: parcial (no hace falta tocar todas las máquinas), impredecible y con incógnitas imposibles de reconstruir —cuántas máquinas, cuánta gente leyó el texto, cuánta gente cambió de voto por eso, cuánta gente quería invalidar su boleto de todos modos.</p>
+<h2>Causas de raíz y remedios</h2>
+<p>Las causas directas (definición electoral sin firmar, sin HMAC, sin chequeos cruzados en la base de datos) son síntomas. Las decisiones de arquitectura son la raíz:</p>
+<ul>
+<li>Separar el texto en pantalla del texto impreso fue una elección de diseño.</li>
+<li>Cifrado <strong>simétrico</strong> (secrets compartidos) en lugar de asimétrico: una elección de diseño.</li>
+<li>Un único juego de claves criptográficas universales para todas las máquinas del condado: una elección de diseño.</li>
+</ul>
+<p>Los remedios propuestos son simples y ya conocidos: boletos marcados a mano contados por tabuladores, con auditorías limitadoras de riesgo para verificar los resultados. Y la ventana de oportunidad: la versión 2.0 del estándar de certificación VBSG está en camino y varios proveedores re-implementarán desde cero — es el momento de elegir mejor arquitectura.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Definicion electoral sin firmar ni HMAC] --> B[Editar choice_localized: HTML de pantalla y texto impreso]
+    B --> C[Hackear al votante: cambiar partido, reducir selecciones, invertir pregunta]
+    B --> D[Hackear el conteo: swap de nombres, QR intacto]
+    C --> E[Voto contrario a la intencion, sin registro en papel]
+    D --> F[QR indexa posicion: el tabulador asigna el voto al otro candidato]
+    E --> G[Boleto impreso dice Proposicion 1: Si/No, sin la pregunta]
+    F --> G
+    G --> H[Indetectable por recuento y no comparable con Antrim/DeKalb]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Dominion ICX / Democracy Suite 5.5</strong> — terminal táctil de marcado de boletos sobre Android, desplegada en ~30 estados; en Georgia, ~40.000 unidades y 5 millones de votantes obligados a usarla en el centro de votación.</li>
+<li><strong>Bases de datos de programación electoral expuestas</strong> — dumps de SQL Server de cinco condados de Georgia publicados como respuesta a solicitudes de registros públicos, con claves AES y HMAC en texto plano.</li>
+<li><strong>Cifrado simétrico universal</strong> — claves AES compartidas por condado en EMS, tarjetas y máquinas; whoever-can-encrypt-can-decrypt.</li>
+<li><strong>choice_localized</strong> — tabla con HTML de la pantalla y texto del boleto impreso, editable sin validación de integridad.</li>
+<li><strong>Código QR como índice de posición</strong> — el QR no contiene nombres, solo referencias; el texto legible no es lo que se cuenta.</li>
+<li><strong>Tarjetas de técnico y de trabajador electoral</strong> — contienen claves, IV y secreto HMAC; el vector de acceso insider equivalente.</li>
+<li><strong>Famous names demo kit</strong> — kit oficial de práctica con definición electoral y tarjetas legítimas, comprado en línea con una credencial universitaria.</li>
+<li><strong>Antrim County / DeKalb County</strong> — misconfiguraciones universales y predecibles; contraejemplo de por qué un ataque deliberado no sería recuperable igual.</li>
+<li><strong>Boletos marcados a mano + auditorías limitadoras de riesgo</strong> — el remedio estructural propuesto.</li>
+<li><strong>VBSG 2.0</strong> — próxima versión del estándar de certificación federal: oportunidad de rediseño.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El boleto impreso de una BMD no es prueba de nada.</strong> El votante verifica texto; el tabulador cuenta QR; nada obliga a que ambos digan lo mismo, y un atacante con la definición electoral puede hacerlos divergir a propósito.</li>
+<li><strong>Las claves simétricas compartidas convierten a cualquier insider en atacante potencial.</strong> La tarjeta de trabajador electoral contiene exactamente lo que hace falta para descifrar y recargar una definición alterada: "atacante" y "trabajador" son el mismo rol con distinta intención.</li>
+<li><strong>Un sabotaje deliberado es irrecuperable, a diferencia de un error de configuración.</strong> Los casos Antrim y DeKalb se remapearon porque eran universales y predecibles; un ataque parcial y discrecional no tiene forma fiable de reconstrucción.</li>
+<li><strong>Las decisiones de arquitectura son la raíz, no los bugs.</strong> Texto separado de impresión, cifrado simétrico, claves universales: con VBSG 2.0 en puerta, cada una es una elección de diseño que se puede rehacer.</li>
+<li><strong>La salida operativa no es parchear BMDs: es boleto marcado a mano + auditorías limitadoras de riesgo.</strong> La fuente de registro debe ser papel escrito por el votante, no papel generado por una máquina editable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gRU0-z1of2Y">«DEF CON 33 - Dominion ICX: Hacking the Voter &amp; Hacking the Vote - Drew Springall, Philip Davis, Marilyn Marks»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OT SOC: seguridad operacional donde las vidas están en juego — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">OT SOC: seguridad operacional donde las vidas están en juego</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AXN3sTAr9R4">«DEF CON 33 - Safeguarding the Industrial Frontier OT SOC &amp; Incident Response - Adam Robbie»</a> · ver el <a class="nz-link" href="https://youtu.be/AXN3sTAr9R4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Proteger entornos OT (Operational Technology) choca con una realidad que el mundo IT no conoce: los dispositivos se instalan para durar 30-40 años, más de la mitad no genera los logs de auditoría necesarios para investigar un incidente, y el presupuesto para reemplazarlos simplemente no existe. En ese contexto, la pregunta de si hace falta un SOC específico para OT —y cómo debe relacionarse con el SOC de IT— deja de ser teórica.</p>
+<p>La discusión recorre tres frentes: la crudeza de heredar infraestructura legacy sin documentación ni personal que la conozca, el debate sobre hibridar (o no) SOC de IT y OT, y las lecciones de Ucrania, donde la ciberseguridad se integró directamente en los centros de despacho de energía durante la guerra. El hilo conductor: en OT, "prevenir" no basta; hace falta detectar y responder, y eso exige personas que entiendan tanto el proceso industrial como la tecnología.</p>
+<h2>El problema de fondo: 30 años de vida útil, cero logs</h2>
+<p>Los equipos OT tienen una longevidad media de 30 años o más; hay fabricantes que emiten certificados PKI de 30 y 40 años para sus productos. Cuando esos productos se diseñaron, el logging ni siquiera estaba en el alcance. El resultado práctico:</p>
+<ul>
+<li>Más de la mitad del equipamiento no produce la información de auditoría que una investigación de seguridad necesita.</li>
+<li>Muchos dispositivos son legacy: no se puede ni identificar de qué equipo proviene cada log.</li>
+<li>El personal que los instaló ya no está —se jubiló o falleció— y rara vez existe un diagrama del sistema.</li>
+<li>Solo un porcentaje pequeño se moderniza o reemplaza cada año.</li>
+</ul>
+<p>Un episodio ilustra el punto: en un ejercicio red-blue (programa que tomó una red eléctrica completa de una isla cerca de Nueva York), se encontraron RTUs corriendo Windows 2012, sobre las que los implants en PowerShell funcionaban sin problema. La regla implícita: lo que hoy es Windows 10/11 en una HMI será, en 20 años, infraestructura heredada que alguien tendrá que asegurar sin presupuesto de rip-and-replace.</p>
+<p>La conclusión operativa es dura: hay que tomar <strong>decisiones mercenarias</strong> — invertir donde el retorno de seguridad es mayor, ser realista, y jugar lo mejor posible una mano mala, porque el equipo no se puede tirar a la basura y durará décadas.</p>
+<h2>¿Hace falta un OT SOC? Y por qué no es un IT SOC</h2>
+<p>Un SOC en sí mismo es dinero de grandes: si ya se tiene uno, se está en el 1% privilegiado de las organizaciones. Las cooperativas eléctricas que sirven a 50.000 personas no pueden contratar —ni equipar— a una analista de SOC con 10 años de experiencia; su opción realista es un MSSP.</p>
+<p>Tener las herramientas no basta, como muestran dos casos reales:</p>
+<ol>
+<li>Un cliente tenía SIEM de IT y herramienta SIEM de OT. Ante un incidente, el analista investigó el lado IT, escaló... y no tocó el SIEM de OT: <strong>no sabía usarlo</strong>. Sin personas formadas, las herramientas son decorativas.</li>
+<li>Otro analista sabía usar la herramienta, pero su gerente le prohibió usarla: <strong>si le escalaban algo, no sabría qué hacer con ello</strong>. La barrera también es organizativa.</li>
+</ol>
+<p>Por eso la propuesta es hibridar: derribar la barrera entre IT y OT para poder conectar puntos y contar la historia completa de un incidente, incluido el movimiento lateral de IT hacia OT. Pero la hibridación tiene una trampa de scoring: los incidentes IT son riesgo de negocio; los OT pueden ser riesgo de <strong>vidas humanas</strong>. Son perfiles de riesgo fundamentalmente distintos, y si ambos conviven en un mismo sistema de priorización, "crítico" pierde todo significado — si todo es crítico, nada lo es.</p>
+<h2>Ucrania: la integración que funciona</h2>
+<p>La experiencia del sector eléctrico —13 años en redes eléctricas globales, mucho en Ucrania durante la guerra— ofrece el modelo más avanzado. En Occidente existe privilegio monetario: un reloj atómico para un data center cuesta 40.000 dólares y se compra; en una subestación o en una instalación de oil &amp; gas no se justifica, pero la opción existe. En Ucrania no existe, y aun con toda la ayuda internacional, hacen maravillas con lo que tienen.</p>
+<p>La clave ucraniana no es tecnológica sino organizativa: integraron la ciberseguridad <strong>directamente en el despacho de energía a granel</strong>, con el personal correcto. El analista de seguridad está sentado junto a los ingenieros de potencia: una caminata de 30 segundos para preguntar "¿esto es normal o no?". Es el extremo de una idea más general: el equipo de seguridad OT debería estar embebido en el centro de despacho, al lado de las personas a las que va a tener que llamar.</p>
+<p>La contraparte cultural: el personal de seguridad OT que no conoce a nadie. En una gran utility, el grupo OT centrado en medidores inteligentes (AMI) no conocía a ningún ingeniero de potencia ni de subestaciones, ni a los directores de operaciones OT de las filiales. La receta: pasar un día a la semana con los linemen, ver qué tecnología tocan, construir relaciones. Cuando salta una alerta —"este recloser está flapeando, ¿lo hackeó alguien o es un problema del switch?"—, el técnico veterano de 30 años que vive cerca de la subestación responde en segundos que una ardilla tocó lo que no debía, que pasa siempre en esta época y que no hay de qué preocuparse. Ninguna regla de correlación contempla a la ardilla.</p>
+<h2>Gestión de activos y ejercicios: lo que hay que hacer hoy</h2>
+<p>Desde la perspectiva de un fabricante con servicios y capacidad de SOC, los pilotos prácticos:</p>
+<ul>
+<li><strong>Nadie opera un solo producto</strong>: el entorno siempre es heterogéneo. Incluso los mejores productos de discovery de activos OT solo ven un porcentaje de lo que hay. Hace falta presencia física ("boots on the ground") y entender el sistema —líneas de manufactura, agua, energía— porque casi nunca existe un plano.</li>
+<li>Con el inventario de activos, identificar <strong>los procesos críticos</strong>: ¿qué pasa si esto se cae? ¿qué significa esta alerta? Tabla-top exercises como los de IT, aplicados a OT.</li>
+<li>Incluir al SOC en esos ejercicios, y que hable con quienes operan y mantienen los sistemas, para distinguir el falso positivo absurdo del real. Cuando hay que decidir un failover en segundos, las decisiones equivocadas se pagan.</li>
+<li>La primera vez que se enfrenta un incidente OT no debería ser con fuego real: los operadores no deberían estrenarse bajo fuego en un ejercicio en vivo, pero tampoco descubrir el incidente cuando ya arde (la lección de Colonial Pipeline).</li>
+<li>Los <strong>digital twins</strong> ayudan, pero no son perfectos.</li>
+</ul>
+<p>El consejo social no es broma: para hacer amigos en OT, llevar donas hasta que te pidan que pares — ahí están los verdaderos campeones internos.</p>
+<h2>El caso de negocio ante el CFO</h2>
+<p>La seguridad es mitigación de riesgo, no generación de ingresos: para un CFO, pedir dinero para un OT SOC suena a gasto. La táctica que funciona: antes de pedir presupuesto, entender exactamente qué se pide; luego presentar amenazas y consecuencias concretas de no actuar, y dejar que la dirección responda la pregunta: "¿quiere asumir este riesgo o no?". La respuesta habitual —no quiere— convierte la petición en decisión del negocio, no del equipo de seguridad.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SIEM de IT y SIEM de OT</strong> — herramientas presentes pero inútiles sin analistas formados ni respaldo organizativo.</li>
+<li><strong>MSSP</strong> — alternativa realista para cooperativas y utilities pequeñas sin presupuesto de SOC propio.</li>
+<li><strong>Ejercicio red-blue sobre red eléctrica</strong> (programa con una red completa de una isla cerca de Nueva York) — implants en PowerShell contra RTUs con Windows 2012.</li>
+<li><strong>Tabletop exercises adaptados a OT</strong> — identificación de procesos críticos y significado de alertas, incluyendo al SOC.</li>
+<li><strong>Digital twins</strong> — ayuda parcial para simular entornos OT.</li>
+<li><strong>Discovery de activos OT</strong> — herramientas limitadas: solo ven un porcentaje del entorno; hace falta presencia física.</li>
+<li><strong>Certificados PKI de 30-40 años</strong> — práctica de fabricantes que evidencia la longevidad del equipamiento.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La longevidad de 30+ años del equipamiento OT y la ausencia de logging de auditoría hacen imposible "cubrirlo todo": hay que decidir dónde invertir con criterio mercenario y complementar con vigilancia en los bordes y expertos humanos.</li>
+<li>Tener SIEM de OT no sirve sin analistas formados ni respaldo organizativo: los fracasos documentados son de personas y procesos, no de tecnología.</li>
+<li>Hibridar IT y OT exige perfiles de riesgo separados; mezclar incidentes de negocio con incidentes que amenazan vidas destruye el sistema de priorización.</li>
+<li>El modelo ucraniano —ciberseguridad embebida junto a los ingenieros de despacho, a 30 segundos de la respuesta— es la referencia para SOC OT híbridos.</li>
+<li>Inventario de activos con presencia física, ejercicios tabletop que incluyan al SOC y al personal de operaciones, y un caso de negocio planteado como transferencia de riesgo son las palancas inmediatas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AXN3sTAr9R4">«DEF CON 33 - Safeguarding the Industrial Frontier OT SOC &amp; Incident Response - Adam Robbie»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

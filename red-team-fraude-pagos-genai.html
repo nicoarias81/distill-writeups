@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red teaming de controles antifraude de pagos con IA generativa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Red teaming de controles antifraude de pagos con IA generativa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/EiXbzVlNYro">«DEF CON 33 - Gen AI Red Team Testing for Payment Frauds - Karthik Taranada, Martin Hickson»</a> · ver el <a class="nz-link" href="https://youtu.be/EiXbzVlNYro">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los sistemas de prevención de fraude de pagos —construidos por quienes levantaron los sistemas antifraude del débito australiano, Worldpay y gran parte del tráfico de dinero del Reino Unido— enfrentan una marea nueva: la IA generativa abarató a cero el costo de falsificar documentos, identidades, voces y rostros en vivo. El enfoque es de red team: tests adversariales para descubrir cómo fallan los controles antes que los atacantes, en modo black box (imágenes y video) y white box (monitoring de transacciones).</p>
+<p>El contexto económico: pérdidas globales por fraude de medio billón de dólares el último año; en el Reino Unido los bancos gastan ~50 mil millones en fraude y AML —el 12% del presupuesto de defensa nacional se invierte en defensa contra fraude—; aumento de 20x en fraude por deepfakes; volúmenes de fraude en EE.UU. cuadruplicados en cuatro años. El propio Sam Altman advirtió sobre una crisis de fraude inminente impulsada por lo que sus modelos ya permiten.</p>
+<h2>Por qué onboarding y autenticación son los eslabones débiles</h2>
+<pre class="mermaid">
+flowchart LR
+    OB["Onboarding de cuenta"] --> DV["Verificación documental\nutility bills, IDs"]
+    DV --> LIV["Liveness:\ngirar cabeza, selfie en vivo"]
+    LIV --> AUTH["Step-up authentication\n(voice, video)"]
+    AUTH --> MM["Controles de movimiento de dinero\n(la última línea)"]
+    style OB fill:#f66
+    style DV fill:#f66
+    style LIV fill:#f66
+    style AUTH fill:#f66
+
+</pre>
+
+<p>Nadie va más a la sucursal bancaria (la digitalización se aceleró post-COVID), así que toda la verificación es remota: documentos, fotos de ID, selfies y checks de liveness — todo son imágenes o video, exactamente lo que los modelos generativos manipulan con un prompt de texto. Y el cómputo se localizó: modelos potentes corren en MacBooks sin los guardrails de un proveedor cloud.</p>
+<h2>Demos: todo con herramientas de estantería, sin escribir código</h2>
+<p><strong>Utility bills.</strong> Pedirle a ChatGPT "readdress" una factura de gas encontrada online produce una factura casi genuina (los guardrails no aparecen ni con nombre y dirección reales). Los tells son sutiles: texto que no se lee bien tras generaciones encadenadas y un "Bill FAQs" que sangró de negro a azul. Una empresa pequeña de utilities, con pocos ejemplos positivos, tiene menos chance de detectarlo que British Gas.</p>
+<p><strong>Foto de ID.</strong> ChatGPT hace el face swap pero mal; mejor: el repo open source Deep-Live-Cam mapea el rostro sobre una licencia DVLA de muestra del sitio del gobierno británico + upscaler. Un detector de IA comercial (de los que venden a universidades) lo puntúa con 0.22 de probabilidad de ser IA — "parece legítimo".</p>
+<p><strong>Detección: siempre varios pasos atrás.</strong> Los detectores académicos con 99% en su training set se desploman a AUC ~0.58 (moneda al aire) en otros benchmarks. Reentrenando el modelo Capsule con los deepfakes propios se llega al 91% de accuracy, pero con imágenes tan baratas de generar los estafadores prueban 100 veces para lograr 10: la ecuación económica se inclina hacia el atacante.</p>
+<p><strong>Voz.</strong> Con 7 minutos de audio (lecturas de artículos de diario, el mínimo absoluto para entrenar) en Eleven Labs se genera una voz sintética que una audiencia en vivo no distingue de la real. El banco difícilmente tiene buena muestra de la voz del cliente.</p>
+<p><strong>Liveness en vivo.</strong> Deep-Live-Cam (modelo de 128 píxeles, varios años viejo, cero entrenamiento) en Windows usa GPU a 25-30 FPS, se pipea como cámara virtual a cualquier Google Meet/Zoom o emulador de Android/iOS. Detalles clave: la compresión de las videollamadas destruye justamente las señales útiles de detección, y los modelos de transformado en tiempo real preservan señales fisiológicas como el flujo sanguíneo (los píxeles se expanden con la cara), que las máscaras de silicona clásicas no lograban — los trucos de detección viejos mueren con los nuevos generadores.</p>
+<h2>Controles de movimiento de dinero: testing white box</h2>
+<p>Los controles de dinero son como firewalls: "allow/deny" sobre una diversidad enorme de usos legítimos (Apple Pay, chip, magstripe, varios países). Los estafadores buscan los gaps escalables y monetizables. Problemas estructurales:</p>
+<ul>
+<li>Las reglas viven en lenguajes propietarios (Actimize, FICO): se necesita dominio de fraude + dominio de programación, intersección escasa. O hay gaps de entendimiento de pagos, o gaps de calidad de código.</li>
+<li>El momento de mayor riesgo son los primeros 2-3 meses tras lanzar un producto nuevo.</li>
+<li>Un banco español perdió 400.000 USD en 3 días porque un cambio en los datos de entrada silenció su regla más importante: el volumen de alertas bajó 10% y nadie lo notó. Alertas infrecuentes pueden esconder problemas de datos o lógica.</li>
+<li>El patching es reactivo: tras un ataque, un banco escribió una regla que bloqueaba el postcode del usuario atacante — el siguiente atacante con otro postcode pasaba directo. Queda una malla orgánica de 100-300+ reglas imposibles de auditar a mano.</li>
+</ul>
+<p><strong>IA como red teamer white box</strong>, con DeepSeek corriendo offline:</p>
+<ol>
+<li><strong>Auditoría de regla</strong>: dar descripción + pseudocódigo de la regla ("5.000 USD en 24 horas") y pedirle exploits. El modelo detecta que el truncado de fecha permite explotar la barrera de medianoche (debería ser rolling window) y señala problemas de timezones.</li>
+<li><strong>Variación de exploits conocidos</strong>: dado un ejemplo real (dos transacciones presenciales, Manchester y Londres, 200 millas en 2 horas — más rápido que el transporte británico), pedirle más ejemplos del vector: baja los montos sospechosos, redistribuye la geografía, agrega internacional — datos de test para verificar que el patrón real (distancias imposibles, no "Londres") está cubierto.</li>
+<li><strong>Gap analysis a escala</strong>: alimentar sets completos de reglas a modelos grandes (con RAG) para que identifiquen pagos no cubiertos — el objetivo del proyecto: convertir el análisis individual en red testing a escala sobre sets completos de reglas de fraude.</li>
+</ol>
+<h2>Conclusiones</h2>
+<ul>
+<li>La autenticidad de imágenes, video y voz ya no es un control válido por sí sola: editarlas cuesta un prompt y las herramientas (ChatGPT image, QN image local, Deep-Live-Cam, Eleven Labs, generadores de escenarios) son accesibles para cualquiera.</li>
+<li>El blanco más blando sigue siendo el humano: los trabajadores del contact center, presionados y sin tiempo, frente a voces sintéticas convincentes — el caso de los "trabajadores IT coreanos" que entrevistan demasiado bien.</li>
+<li>Defensa en profundidad real: combinar imágenes + ubicación + otras señales multiplica la dificultad del fraude.</li>
+<li>El dilema del diseño: los controles ultra-secureos excluyen a clientes no técnicos; la fricción pierde clientes y en el peor caso excluye gente del sistema bancario. Hay que testear los controles contra esta ola manteniendo usabilidad.</li>
+<li>Para los controles de transacciones, el testing white box con LLMs (auditoría de reglas, generación de variantes de exploits, gap analysis de sets completos) es la vía pragmática donde la superficie es demasiado grande para el black box.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/EiXbzVlNYro">«DEF CON 33 - Gen AI Red Team Testing for Payment Frauds - Karthik Taranada, Martin Hickson»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

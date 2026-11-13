@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 2 — Operating System and Programming Theory — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 2 — Operating System and Programming Theory</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Operating System and Programming Theory) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Theory-only module (no exercises, no course videos): the programming-language landscape and the Windows concepts that the rest of PEN-300 leans on — language levels, OOP vocabulary, WOW64, Win32 APIs, and the registry. The course's stance on the classic "do I need to program?" question: formal programming education is not required, but <em>broad</em> language knowledge pays off directly in understanding software vulnerabilities and OS concepts.</p>
+<h2>Programming theory</h2>
+<h3>Language levels</h3>
+<ul>
+<li><strong>Compiled vs interpreted:</strong> compiled code is converted to binary before execution; interpreted scripts are parsed line-by-line at run time. (Course note: this framing ignores JIT/optimization subtleties — deliberately, as they rarely matter to pentesters.)</li>
+<li><strong>Low level → opcodes:</strong> the CPU acts on <strong>opcodes</strong> (binary values mapped to specific actions); opcodes render as <strong>assembly</strong> for human readability. The <strong>x86</strong> architecture (and ARM on most smartphones/tablets) defines which opcodes are valid and what they do. OS kernels and browsers have assembly elements for low overhead; pentesters rarely write it but benefit from reading it for security-product bypasses and advanced attacks.</li>
+<li><strong>C / C++:</strong> C is human-readable but still low-level; C++ spans both — full C feature set plus <strong>inline assembly</strong>, plus OOP (classes/objects).</li>
+<li><strong>Unmanaged vs managed:</strong> C/C++ compile to opcodes executed directly by the CPU and must do their own memory management (<strong>unmanaged code</strong>). Java/C# compile to <strong>bytecode</strong> run by a virtual machine (<strong>managed code</strong>) — the VM provides memory management that can prevent bug classes like buffer overflows. Java → JVM (part of the JRE); C# → CLR (part of .NET). Browsers run JS in a VM too, with <strong>JIT compilation</strong> to native code for hot loops.</li>
+<li><strong>Portability note:</strong> Java is OS-independent by design; C# was historically Windows-bound until <strong>.NET Core</strong> brought it to Linux/macOS.</li>
+<li>High-level scripting languages (Python, JavaScript, PowerShell) are OOP-based.</li>
+</ul>
+<h3>OOP concepts (vocabulary used throughout the course)</h3>
+<ul>
+<li><strong>Class</strong> = template for objects; holds variables (data) and <strong>methods</strong> (actions on them).</li>
+<li>Objects are instantiated from a class via a <strong>constructor</strong> — a special method named after the class that initializes instance variables.</li>
+<li><strong>Access modifiers:</strong> <code>public</code> (callable/reachable from inside and outside the class) vs <code>private</code> (inside the class only). In the module's <code>MyClass</code> example, any code can call the <code>MyClass(int aNumber)</code> constructor, but outside code must go through the public <code>getNumber()</code> method to read the private <code>myNumber</code> field.</li>
+</ul>
+<pre><code class="language-java">public class MyClass
+{
+    private int myNumber;
+
+    // constructor
+    public MyClass(int aNumber)
+    {
+        this.myNumber = aNumber;
+    }
+
+    public getNumber()
+    {
+      return myNumber;
+    }
+}
+</code></pre>
+<p>These terms matter as soon as custom attack tooling is written and when reverse-engineering high-level code.</p>
+<h2>Windows concepts</h2>
+<h3>Windows On Windows 64 (WOW64)</h3>
+<ul>
+<li>Lets 64-bit Windows run 32-bit applications with almost no efficiency loss (64-bit <em>Linux</em> does <strong>not</strong> natively run 32-bit binaries — worth knowing when choosing shellcode runners).</li>
+<li>Implemented with four 64-bit libraries: <strong>Ntdll.dll, Wow64.dll, Wow64Win.dll, Wow64Cpu.dll</strong>, which emulate 32-bit execution and translate between the app and the kernel.</li>
+<li>Filesystem split: on 64-bit Windows, 64-bit binaries/DLLs live in <code>C:\Windows\System32</code> while 32-bit ones live in <code>C:\Windows\SysWOW64</code> (the counterintuitive naming — <em>SysWOW64 holds 32-bit</em> — trips people up constantly).</li>
+<li>Why it matters operationally: target <strong>bitness dictates the shellcode and compiled payloads</strong> we can use.</li>
+</ul>
+<h3>Win32 APIs</h3>
+<ul>
+<li>Pre-built OS functionality documented with C-style types and prototypes, invocable from many languages (the course uses them from C#, PowerShell, etc. throughout).</li>
+<li>Example prototype — <code>GetUserNameA</code> (exported by <strong>Advapi32.dll</strong>, returns the executing user's name):</li>
+</ul>
+<pre><code class="language-c">BOOL GetUserNameA(
+  LPSTR   lpBuffer,
+  LPDWORD pcbBuffer
+);
+</code></pre>
+<p><code>LPSTR</code> = pointer to a character array (output buffer), <code>LPDWORD</code> = pointer to a 32-bit unsigned integer (buffer size in/out), <code>BOOL</code> return.
+- Two details to check on every API call:
+  1. <strong>Bitness</strong> — some argument types and sizes differ between 32- and 64-bit processes.
+  2. <strong>ASCII vs Unicode ("wide")</strong> — most APIs exist in two versions; the suffix picks the character set. <code>GetUserNameA</code> takes <code>LPSTR</code> (ANSI), <code>GetUserNameW</code> takes <code>LPWSTR</code> (Unicode/UTF-16).</p>
+<pre><code class="language-c">BOOL GetUserNameW(
+  LPWSTR  lpBuffer,
+  LPDWORD pcbBuffer
+);
+</code></pre>
+<h3>Windows Registry</h3>
+<ul>
+<li>The OS's "global variables": a database of <strong>keys</strong> with associated <strong>values</strong>, hierarchically organized in <strong>subkeys</strong>, rooted in <strong>hives</strong>. <code>HKEY_CURRENT_USER</code> (HKCU) holds per-user data; <code>HKEY_LOCAL_MACHINE</code> (HKLM) holds OS-wide data.</li>
+<li>Privilege split with direct offensive value: <strong>HKCU is writable by the current user; HKLM modifications require administrative privileges</strong> — persistence/evasion edits are scoped by which hive you can touch.</li>
+<li>Each hive carries a <strong>Wow6432Node</strong> duplicate section storing 32-bit application settings (the registry-side mirror of WOW64).</li>
+<li>Access is programmatic (Win32 APIs) or via <code>regedit</code>; later modules abuse the registry for reconnaissance, attack improvement, and evasion.</li>
+</ul>
+<h2>Extraction artifacts</h2>
+<p>Source is HTML-extracted course text (not ASR) — clean prose, but:</p>
+<ul>
+<li><strong>Inline link anchors collapsed into the words they decorate</strong>, leaving doubled/garbled tokens: <code>interpreted.interpret</code>, <code>object-oriented programming.oop</code>, <code>opcodesopcode</code>, <code>assemblyassembly</code>, <code>x86.x86</code>, <code>ARM.arm</code>, <code>C.clan</code>, <code>C++cpp</code>, <code>inline assemblyinasm</code>, <code>Javajava</code>, <code>C#csharp</code>, <code>bytecodebytecode</code>, <code>CLRclr</code>, <code>.NET framework.dotnet</code>, <code>.NET Coredotnetcore</code>, <code>instantiatedinst</code>, <code>constructor.const</code>, <code>methods.method</code>, <code>access modifier.accmod</code>, <code>GetUserNameAgetnane</code>, <code>prototypeproto</code>, <code>ASCIIascii</code>, <code>Unicodeuni</code>, <code>UTF-16utf16</code>, <code>unmanaged code.managed</code>, <code>hivesrhive</code>, <code>Wow6432Nodewow32node</code>, <code>just-in-time (JIT) compilationjit</code>. All were resolved back to the intended term when transcribing above.</li>
+<li><strong>Code listings are wrapped in doubled fences</strong> (an empty ``` pair around each listing) — normalized here.</li>
+<li>Listing 1's <code>getNumber()</code> method lost its return type in the original extraction (<code>public getNumber()</code> — the original book listing declares <code>public int getNumber()</code>); reproduced verbatim from the source and flagged rather than silently fixed.</li>
+<li>Red-centered "extra context" blocks (the course's margin notes) survive as unmarked paragraphs; the two relevant ones (JIT caveat; HKCU/HKLM privilege split; native vs managed code naming) are folded into the text above with attribution.</li>
+<li>Footnote markers <code>[6]</code>–<code>[10]</code> survive as bare bracketed numbers.</li>
+<li>No lab IPs and no credentials appear in this module (none exist in it to redact).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

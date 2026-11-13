@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La casa no siempre gana: seguridad de aplicaciones en la industria del casino — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">La casa no siempre gana: seguridad de aplicaciones en la industria del casino</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/k7odY9gCxaI">«DEF CON 32 - AppSec Considerations From the Casino Industry - Aleise McGowan, Tennisha Martin»</a> · ver el <a class="nz-link" href="https://youtu.be/k7odY9gCxaI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los casinos parecen fortalezas físicas —lectores de patentes en el estacionamiento, alrededor de 2.000 cámaras conectadas a entre 50 y 75 monitores, reconocimiento facial en la entrada— pero su superficie de ataque digital es enorme y está peor defendida de lo que el lobby sugiere. La industria mueve un mercado de cientos de miles de millones de dólares con crecimiento anual cercano al 5%, acumula millones de visitantes por año y colecciona exactamente lo que un ciberdelincuente quiere: dinero y datos personales a escala masiva.</p>
+<p>La paradoja que subyace a todo el problema es de prioridades: Jeff Jonas, quien ayudó a desarrollar el sistema de reconocimiento facial que hoy usan la mayoría de los casinos de Las Vegas, ya lo decía en 2008 — a la industria le gustaría gastar lo mínimo en seguridad y preferiría comprar tres tragamonedas más antes que invertir ese dinero en protegerse. Los casinos, de hecho, valoran la información incluso por encima del dinero: rastrean historial de navegación, educación, preferencias, predisposiciones psicológicas y ubicación precisa dentro del recinto, todo con fines de marketing. Ese tesoro de datos los convierte en objetivo de ransomware y filtraciones desde aproximadamente 2014, con alrededor de diez brechas de seguridad relevantes desde entonces.</p>
+<p>El caso de estudio más ilustrativo es el doble ataque a Caesars y MGM del verano de 2023: dos incidentes esencialmente idénticos con respuestas opuestas que produjeron resultados radicalmente distintos, y que exponen las fallas de planificación de contingencia de todo un sector.</p>
+<h2>Un juego de póker con datos como bote</h2>
+<p>La dinámica de un ataque a un casino se puede mapear casi literalmente sobre una mano de póker. La casa tiene la ventaja inicial: medidas de seguridad extensas sobre sus activos. Los ciberdelincuentes son jugadores hábiles que apuestan con su expertise técnico. La baraja es el sistema de ciberseguridad del casino; la mano que se juega, los datos sensibles de los clientes.</p>
+<p>Las jugadas se encadenan de forma predecible pero efectiva:</p>
+<ol>
+<li><strong>Ante:</strong> los atacantes buscan una debilidad en la seguridad del casino para ganar un punto de apoyo inicial.</li>
+<li><strong>Farol:</strong> ingeniería social — phishing y tácticas de engaño para que empleados entreguen acceso o información.</li>
+<li><strong>Subida:</strong> infiltración del sistema; una vez dentro, escalan acceso y control.</li>
+<li><strong>All-in:</strong> la brecha de datos, intentando extraer la mayor cantidad de información valiosa posible.</li>
+<li><strong>Showdown:</strong> el casino detecta la brecha y apaga los sistemas afectados; luego investiga, notifica a los clientes y refuerza defensas.</li>
+</ol>
+<p>A esto se suman las amenazas internas: empleados maliciosos o simplemente negligentes que entregan acceso a sistemas sensibles. La respuesta necesaria es multicapa —defensas técnicas avanzadas más entrenamiento y políticas que minimicen el error humano—, porque la sofisticación de los ataques ya no depende de un solo vector.</p>
+<h2>Cuando el ransomware apaga el piso de juego</h2>
+<p>Lo más revelador de los ataques recientes no fue la intrusión sino el apagón operativo. Con los sistemas caídos, los clientes no podían abrir sus habitaciones con llaves electrónicas ni Bluetooth: hubo que volver a llaves físicas. Los puntos y comps —el sistema de fidelidad que sostiene buena parte de las transacciones internas— dejaron de funcionar. El check-in se hizo con recibos en papel y, para aceptar tarjetas de crédito, el personal anotaba los datos a mano para procesarlos después: un salto atrás de unas dos décadas.</p>
+<p>El alcance llegó incluso a los juegos. Las tragamonedas, todas conectadas al mismo sistema, fueron apagadas, y parte de los juegos de mesa también, porque compartían la misma infraestructura. Los planes de recuperación ante desastres simplemente no contemplaban perder este tipo de acceso. Un precedente importante: el ataque a MGM de 2019 empezó como un intento de tomar control de algunas tragamonedas; al no funcionar la explotación, los atacantes pivotaron y terminaron pidiendo rescate por el sistema entero.</p>
+<h2>IoT, ICT y una superficie de ataque que crece sola</h2>
+<p>El casino moderno es un complejo de entretenimiento lleno de tecnología: máquinas tragamonedas y sistemas de vigilancia habilitados con IoT, y sistemas ICT que gestionan todo, desde los pagos de las máquinas hasta los datos de clientes, en hubs centralizados. Esa integración trae eficiencia, pero cada tecnología adoptada —de dispositivos IoT a servicios en la nube— expande la superficie de ataque.</p>
+<p>Los problemas estructurales son conocidos:</p>
+<ul>
+<li><strong>IoT conectado por diseño, con seguridad laxa o mínima:</strong> vulnerable desde accesos no autorizados simples hasta exploits sofisticados como el secuestro de red.</li>
+<li><strong>Hubs centralizados de ICT:</strong> si se comprometen, dan acceso a sistemas críticos completos.</li>
+<li><strong>Autenticación débil de fábrica:</strong> contraseñas simples o controles de acceso desactualizados que abren la puerta a atacantes.</li>
+<li><strong>Interconexión total:</strong> en un entorno donde las comunicaciones cableadas e inalámbricas son puntos de entrada potenciales, asegurar la red es el desafío central.</li>
+</ul>
+<h2>Caesars pagó, MGM no: la aritmética de la respuesta</h2>
+<p>La comparación entre las dos víctimas del mismo tipo de ataque es el experimento natural perfecto. Caesars pagó el rescate —en torno a los 4 millones de dólares— y estuvo operativa de nuevo en unos cuatro días. MGM no pagó: sus sistemas quedaron disruptos durante aproximadamente 14 o 15 días y el costo superó los 30 millones de dólares, además del impacto difícil de cuantificar sobre la organización.</p>
+<p>La misma brecha, dos decisiones, resultados drásticamente distintos. La lección no es tanto "pagar o no pagar" sino que la respuesta a un incidente de este tipo es, en la práctica, una decisión de negocio con precio conocido solo después — y que ninguna de las dos casas la había ensayado.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los casinos concentran los dos activos que más motivan a los ciberdelincuentes —dinero y datos personales masivos— mientras históricamente invierten lo mínimo en seguridad, lo que explica la escalada de ataques desde 2014.</li>
+<li>La ingeniería social es el vector de entrada dominante; ninguna inversión técnica compensa la falta de entrenamiento del personal.</li>
+<li>La dependencia de sistemas centralizados y IoT con autenticación débil convierte una intrusión en un apagón total: llaves físicas, recibos en papel y juegos apagados.</li>
+<li>El caso Caesars/MGM demuestra que la diferencia entre 4 días y 15 días de caída, y entre 4 y 30 millones de dólares de costo, se decide en la respuesta al incidente, no en la intrusión.</li>
+<li>Las lecciones son exportables: cualquier industria con datos masivos de clientes, IoT mal endurecido y sistemas monolíticos comparte exactamente estas fallas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/k7odY9gCxaI">«DEF CON 32 - AppSec Considerations From the Casino Industry - Aleise McGowan, Tennisha Martin»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

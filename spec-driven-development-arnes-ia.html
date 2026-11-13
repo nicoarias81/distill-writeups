@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spec-driven development: el arnés que impide que la IA improvise — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">Spec-driven development: el arnés que impide que la IA improvise</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/KILEn2VSXX8">«The SECRET to stopping AI from outputting GARBAGE: End-to-End Spec-Driven Development»</a> · ver el <a class="nz-link" href="https://youtu.be/KILEn2VSXX8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Pedirle a un agente de código "implementame esto" y esperar magia es la receta directa para recibir basura. El agente no sabe qué patrón se prefiere, qué trade-offs ya se descartaron, qué constraints existen, qué estrategia de testing se usa ni qué arquitectura tiene sentido para ese proyecto concreto. Puede devolver una solución "bastante buena" en abstracto que simplemente no encaja con el contexto. Un dev senior no le tira una tarea ambigua a otro dev y espera que adivine; ¿por qué se lo haría a la IA? El problema rara vez es el modelo: es la falta de contexto — o el exceso. Contraintuitivo pero clave: más contexto no siempre significa mejor agente. Volcarle todo introduce ruido que lo distrae del objetivo; hay que darle lo justo y necesario.</p>
+<p>La respuesta no es más prompt engineering, sino ingeniería de procesos: <strong>spec-driven development (SDD)</strong>, una metodología que define el cambio antes de implementarlo — requerimientos, diseño, tareas — inspirada en OpenSpec.dev y en la vieja idea del TDD (Test-Driven Development), que durante años fue tediosa de aplicar a mano pero que con IA se convierte en un limitador natural del agente. Gentle AI lleva SDD más lejos que simplemente "tener un spec": el problema no es escribir la especificación, es que el agente respete el proceso, no se mande solo, no pierda contexto y pueda verificar lo que hizo. Para eso lo implementa como un <strong>arnés</strong> (harness): calibración inicial, skill registry, subagentes por fase y evidencia en cada paso.</p>
+<h2>El paso cero: SDD init, calibrar antes de construir</h2>
+<p>Antes del flujo de SDD propiamente dicho hay un paso que la mayoría no conoce: <strong>SDD init</strong>. No es parte del cambio funcional; es la calibración del sistema, como medir la máquina antes de empezar a cortar piezas. Qué hace:</p>
+<ul>
+<li>Detecta el proyecto: lee <code>package.json</code>, <code>go.mod</code>, <code>pyproject.toml</code>, estructura de carpetas, frameworks, convenciones, tooling, tests y patrones existentes.</li>
+<li>Ejecuta un <strong>preflight</strong> interactivo que pregunta cómo trabajar: modo interactivo (mostrar cada paso, iterar, ir preguntando) o modo automático (que el agente haga todo).</li>
+<li>Pregunta dónde guardar los artefactos: la carpeta OpenSpec del repositorio (queda persistida) o <strong>Engram</strong>, donde se guarda siempre lo último que se hizo — útil para cosas rápidas, no como histórico.</li>
+<li>Pregunta cómo manejar PRs grandes: cuál es el presupuesto de líneas/review.</li>
+</ul>
+<p>Todo eso aterriza en un <code>openspec-config.yaml</code> que guarda el contexto del stack, las reglas por fase (con qué comando testear en apply, con qué verificar, si una fase debe preguntar antes de avanzar) y las capacidades de testing. Si encuentra tests y un runner configurable — vitest, Playwright con su modo browser, Cypress — deja identificado qué ejecutar y con qué scripts. Con esa información activa el <strong>strict TDD mode</strong> para las fases de Apply y Verify: el agente no "implementa y después vemos", sino que escribe primero los tests que satisfacen los requerimientos, los hace pasar, y encima busca <em>edge cases</em> que puedan romper la lógica para cubrirlos también. Cada paso deja evidencia, de modo que la verificación no puede saltearse.</p>
+<h2>El skill registry: un índice, no una bolsa de skills</h2>
+<p>Lo que más diferencia a este enfoque de cualquier otro setup es cómo maneja el contexto. No se le tiran todas las skills completas al agente como una bolsa de papas — sería carísimo en tokens y metería ruido. En su lugar funciona un <strong>skill registry</strong>: un índice en formato tabla (skill, trigger que la activa, path donde encontrarla) que agrega skills dispersas en configuraciones de Claude Code, Codex, Gemini, Cursor, Codeium, OpenCode y otros agentes. Existe tanto a nivel de proyecto como de usuario, y cargarlo en contexto es baratísimo: es un buscador, no una biblioteca.</p>
+<p>El orquestador lee el registry, detecta qué skills aplican según el contexto (React, TypeScript, Go testing, Playwright, arquitectura, PR, lo que corresponda) y le pasa al subagente los paths exactos de las skills relevantes. El subagente no recibe veinte documentos enormes con instrucciones que no aplican: recibe un contrato claro para esa tarea — cargá estas skills, respetá estas reglas. Eso reduce ruido, evita contexto innecesario y mantiene la separación esencial: <strong>el orquestador coordina, el subagente ejecuta y las skills siguen siendo la fuente de la verdad</strong>. No es un prompt largo: es una orquestación con contexto seleccionado.</p>
+<h2>La fase previa: research y briefing antes del flujo</h2>
+<p>Hay una fase <strong>pre-SDD</strong> donde el humano todavía dirige de cerca: investigar el patrón, valorar alternativas, tomar un briefing técnico que después se entrega al flujo como input. En la práctica es armar un documento en markdown con los approaches considerados, los trade-offs y las decisiones preliminares, abierto junto a repos, papers y documentación. Cuanto más contexto específico entra al arnés, mejores decisiones toma cada fase del flujo: si la mitad de la research ya está hecha, el agente no tiene que adivinar y además se ahorran tokens.</p>
+<p>Esa fase es trabajo real — hay días manuales con veinte pestañas abiertas y ni una línea escrita — y cada vez aparecen herramientas que la atacan específicamente. Una alternativa descrita en detalle es <strong>Genspark</strong>, un AI workspace <em>all-in-one</em> cuyas piezas encadenan bien con SDD:</p>
+<ol>
+<li>Un agente de <strong>Deep Research</strong> que investiga un tema en profundidad (por ejemplo, cómo implementar memoria persistente de agentes con SQLite + FTS5 + ranking BM25: approaches conocidos, trade-offs, riesgos en producción, alternativas, decisiones comunes en proyectos similares) y entrega el resultado en una vista exportable a PDF o conectable a Notion.</li>
+<li>Un segundo agente que convierte ese research en un <strong>briefing técnico</strong> con headings, decisiones de arquitectura y alternativas descartadas, con formato claro y templates listos para presentarlo a un equipo o como documentación de repositorio.</li>
+<li><strong>Agentes custom</strong>: con una instrucción corta ("creá un agente especializado en estructurar documentación de SDD para desarrollo de software") el workspace genera un agente con reglas, especificaciones y documentación propia guardada en su "AI Drive", y ese agente puede procesar el briefing y producir directamente la pre-ejecución de SDD — proposal, riesgos, escenarios, success criteria.</li>
+</ol>
+<p>También acá aplica el <em>lazy loading</em> de contexto: guardar los conceptos por separado y cargarlos de a poco, no todo de una.</p>
+<h2>El flujo de extremo a extremo</h2>
+<p>El caso de ejemplo: mejorar la performance de arranque de Pi. Con el sistema calibrado, el agente primero busca en Engram si ya hay información sobre el tema, carga la skill de Gentle AI, lee las configuraciones y el skill registry, y recién entonces hace las preguntas del preflight. Cada step del trabajo se ejecuta en un subagente, para que todo ese trabajo intermedio no contamine la conversación con el orquestador.</p>
+<pre class="mermaid">
+flowchart LR
+    R["Research + briefing (humano)"] --> P["Proposal"]
+    P --> S["Specs"]
+    S --> D["Design"]
+    D --> T["Tasks"]
+    T --> A["Apply · strict TDD"]
+    A --> V["Review + Verify"]
+    V --> X["Archive"]
+    E[("Engram")] -.observaciones y artefactos.- R
+    E -.-> X
+
+</pre>
+
+<ul>
+<li><strong>Proposal</strong>: detalla el problema, la intención, qué entra y qué no entra en la propuesta, qué áreas y archivos se ven afectados, las métricas a mejorar, los riesgos, el rollback y el success criteria. El humano puede discutirla y acotarla — en el ejemplo, la proposal sugería una optimización menor y se decidió ir solo con <em>profiling</em> para la primera PR. La decisión se guarda como observación en Engram: mañana se puede volver y preguntar qué se estaba haciendo.</li>
+<li><strong>Specs</strong>: un subagente define las especificaciones con requerimientos y escenarios del tipo <em>dado este caso / cuando pasa tal cosa / entonces debe suceder esto</em>. Si el alcance es grande, se particiona en partes más chicas.</li>
+<li><strong>Design</strong>: otro subagente define la implementación a nivel técnico — helpers internos nuevos, activación exacta, formato de salida JSON, hasta recomendaciones de qué API usar — para que la implementación ya vaya con una guía específica de qué tocar y cómo.</li>
+<li><strong>Tasks</strong>: se generan unidades de trabajo con checks, que van marcando qué se hizo, cómo y por qué. Esa constancia permite que cualquier persona continúe el trabajo sin fricción — más aún si queda en Engram.</li>
+<li><strong>Apply</strong>: el subagente recibe el autoforecast (estimación de tamaño, hasta ~400 líneas como presupuesto) y, si el trabajo excede el presupuesto, se pregunta cómo hacer el split, generando <strong>PRs encadenadas</strong>. Con el strict TDD activo usa el runner del proyecto (<code>pnpm test</code> en el ejemplo): tests primero en rojo, luego en verde, luego triangular y refactorizar — guardando evidencia de todo.</li>
+<li><strong>Review y Verify</strong>: la revisión verifica que lo implementado cumpla las especificaciones y el diseño. Aunque se haya seguido toda la guía, encuentra cosas: problemas mayores, menores, y en el ejemplo un gap de cobertura que corrige antes de dar por terminado el ciclo.</li>
+<li><strong>Archive</strong>: documenta todo, busca otros specs de OpenSpec relacionados para conectarlos (esto es una evolución de aquello) y arma el histórico: fecha de cierre, apply progress, reporte final, <code>state.yaml</code> de la sesión y verify report. El cambio desaparece de la carpeta de cambios activos y queda archivado.</li>
+</ul>
+<h2>Qué agrega este flujo sobre OpenSpec</h2>
+<ol>
+<li><strong>Engram</strong> — memoria persistente (base SQLite local con FTS5 y ranking BM25): cada fase guarda artefactos, el agente puede continuar sesiones sin perder contexto.</li>
+<li><strong>Strict TDD mode</strong> — al detectar tests y runner en SDD init, el agente recibe instrucciones más fuertes en Apply y Verify: no es "implemento y después vemos", es seguir TDD y no saltear la verificación.</li>
+<li><strong>Subagentes por fase</strong> — el orquestador no hace todo: coordina. Una fase puede correr con un agente distinto de la siguiente, lo que evita contaminar el contexto y permite usar modelos distintos por fase.</li>
+<li><strong>Harnesses y guardrails</strong> — no se confía en que el agente "se porte bien". Antes de avanzar, pregunta: automático o interactivo, dónde se guarda, qué se hace si se supera el presupuesto. Parece un detalle, pero no lo es: el problema con un coding agent no es que no sepa escribir código, es que si no le ponés límites, hace cualquier cosa — con muchísima confianza, y convencido de que así era.</li>
+</ol>
+<p>La diferencia entre un dev junior con IA y un senior con IA no es la herramienta: es el contexto. El junior le pide magia; el senior lo dirige con contexto, constraints, objetivos y feedback. El humano es el arquitecto, la IA es el ejecutor. Y el enfoque no se limita a código: aplica igual a data science o a cualquier dominio donde haya proceso que controlar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Spec-driven development (SDD)</strong> — metodología que define requerimientos, diseño y tareas antes de implementar; ingeniería de procesos, no prompt engineering.</li>
+<li><strong>OpenSpec.dev</strong> — fuente de inspiración del flujo; la carpeta <code>openspec/</code> del repositorio guarda proposals, specs y cambios.</li>
+<li><strong>SDD init / preflight</strong> — calibración inicial: detección del stack, modo interactivo o automático, ubicación de artefactos y presupuesto de PR.</li>
+<li><strong><code>openspec-config.yaml</code></strong> — contexto del stack, reglas por fase y comandos de testing/verificación.</li>
+<li><strong>Strict TDD mode</strong> — tests primero, rojo → verde → triangular y refactor, con búsqueda de edge cases y evidencia obligatoria.</li>
+<li><strong>Engram</strong> — memoria persistente open source basada en SQLite, FTS5 y ranking BM25, para guardar observaciones y artefactos por fase.</li>
+<li><strong>Skill registry</strong> — índice barato de skills (skill, trigger, path) que agrega skills de Claude Code, Codex, Gemini, Cursor, Codeium, OpenCode y otros.</li>
+<li><strong>Orquestador + subagentes por fase</strong> — separación coordinar/ejecutar, contextos aislados y modelos distintos por fase.</li>
+<li><strong>Autoforecast y PRs encadenadas</strong> — estimación de tamaño (ej. 400 líneas) y split automático cuando el trabajo excede el presupuesto.</li>
+<li><strong>Genspark</strong> — AI workspace all-in-one con Deep Research, generación de briefings técnicos y agentes custom con AI Drive.</li>
+<li><strong>Runners de testing</strong> — vitest, Playwright (modo browser), Cypress; detección automática de capacidades de testing.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La basura que escupe un agente casi nunca es culpa del modelo: es contexto ausente o ruido de más. SDD formaliza el "lo justo y necesario" como proceso, no como intuición.</li>
+<li>El valor real no está en tener un spec, sino en un arnés que obligue a respetarlo: preflight, strict TDD, evidencia por paso, review y verify que no se pueden saltear.</li>
+<li>Separar orquestación de ejecución (subagentes por fase, skill registry como índice) mantiene el contexto limpio, barato y alineado con la tarea.</li>
+<li>La investigación previa sigue siendo trabajo humano que define si la IA ejecuta bien o mal; las herramientas de research estructurado solo bajan la fricción de esa fase, no la eliminan.</li>
+<li>Sin límites explícitos, un coding agent hace cualquier cosa con total confianza. Convertir esos límites en proceso es exactamente lo que distingue a un senior dirigiendo IA de alguien pidiendo magia.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/KILEn2VSXX8">«The SECRET to stopping AI from outputting GARBAGE: End-to-End Spec-Driven Development»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Módulo Hashcat a medida para resolver un puzzle de brainwallet con una década de antigüedad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Módulo Hashcat a medida para resolver un puzzle de brainwallet con una década de antigüedad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/74_4Q329PH8">«DEF CON 33 - Making a custom Hashcat module to solve a decade-old puzzle challenge - Joseph Gabay»</a> · ver el <a class="nz-link" href="https://youtu.be/74_4Q329PH8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En abril de 2014, alguien bajo el seudónimo "Spencer Lucas" publicó en Twitter y Reddit el reto del "One Bitcoin Book": 20 pistas, cada una con una letra (mayúscula o minúscula; sin números ni caracteres especiales), que combinadas con una cadena extra entregada por email formaban la passphrase de una brainwallet con 1 Bitcoin de premio. Once años después seguía sin reclamarse — mientras el precio de Bitcoin se multiplicaba.</p>
+<p>La historia de cómo se resolvió es, en el fondo, un curso completo de cracking: combinatoria del espacio de búsqueda, Brainflayer sobre CPU y sus límites, por qué Vanitygen y Bitcrack no servían (inversión por lotes), la anatomía de un plugin de Hashcat (módulo en C + kernel en OpenCL), el ensamblaje de SHA-256, RIPEMD-160 y secp256k1 en un módulo nuevo, y el remate en GPUs alquiladas por centavos. El premio se reclamó el 13 de diciembre de 2024.</p>
+<h2>El puzzle y sus pistas</h2>
+<p>Cada pista entregaba exactamente una letra de la passphrase final. Algunos ejemplos resueltos:</p>
+<ul>
+<li><strong>Pista 12</strong>: cuatro formas geométricas con letras. La posición de cada forma (1-4) da un número; la cantidad de letras de ese número indica los lados del polígono; y la enésima letra del nombre de la forma es la respuesta (cinco → cuatro lados → "square" → la quinta letra es <strong>R</strong>).</li>
+<li><strong>Pista 4</strong>: una grilla 4×4 con KMPH en la diagonal invertida y números: la velocidad de la luz en km/h. La constante se escribe con <strong>c</strong> minúscula.</li>
+<li><strong>Pista de suma de secuencias</strong>: el enésimo número es la suma del enésimo primo, el enésimo Fibonacci y el enésimo cuadrado perfecto; el total (325) se decodifica con la tabla A-Z/a-z → <strong>B</strong> mayúscula.</li>
+<li><strong>Pista "Sudoku" que no lo era</strong>: grillas 3×3 con letras que parecían sudokus o sopas de letras — eran simplemente códigos de aeropuertos de países que empiezan con S. Respuesta: <strong>S</strong> mayúscula. La sobreinterpretación costó semanas de programas en Python resolviendo sudokus.</li>
+</ul>
+<p>Con 16 de 20 pistas resueltas (alta confianza en ~70%, conjeturas en otro 20% y dos totalmente desconocidas), el camino "intento" — resolver todo y meter la frase en la brainwallet — seguía cerrado. El resto fue fuerza bruta.</p>
+<h2>Brainwallets: cómo una frase se vuelve Bitcoin</h2>
+<pre class="mermaid">
+flowchart LR
+    P["passphrase (p. ej. hellodefcon33)"] -->|SHA-256| PK["clave privada / secret exponent"]
+    PK -->|secp256k1| PUB["clave pública (04A...)"]
+    PUB -->|hash160: SHA-256 + RIPEMD-160| H160["hash 160 bits"]
+    H160 -->|"bits, checksum, Base58"| ADDR["dirección Bitcoin"]
+
+</pre>
+
+<p>Una brainwallet deriva la clave privada directamente de una frase con SHA-256 (el hash de tamaño fijo garantiza una clave privada válida para cualquier entrada), y de ahí el circuito estándar de Bitcoin hasta la dirección. El problema de seguridad es obvio: cualquiera puede derivar las mismas direcciones. La herramienta Brainflayer de Ryan Castellucci (DEF CON 23) automatizó ese barrido en tiempo de CPU y es la razón por la que las brainwallets clásicas dejaron de ser seguras; el sitio original brainwallet.org fue retirado y sobrevive una réplica con advertencias en brainwalletx.github.io. Conclusión práctica: no almacenar nada de valor en una brainwallet.</p>
+<h2>Combinatoria: el espacio de búsqueda</h2>
+<ul>
+<li>Cada pista tiene 52 posibilidades (mayúscula/minúscula): el puzzle completo es 52^20. Cada pista resuelta con confianza divide ese número por 52.</li>
+<li>En CPU (1.4 M hashes/s en la PC casera), el espacio completo tomaría ~4.73×10^20 años — diez órdenes de magnitud más que la edad del universo.</li>
+<li>Con 15 pistas fijadas, el espacio restante se resuelve en ~270 segundos... en teoría. Un generador en C alimentó a Brainflayer con ~20 mil millones de candidatos: 4 horas, nada. Con 7 incógnitas: 8 días de PC al máximo, nada.</li>
+<li><strong>Sin feedback</strong>: como en un CTF con un único flag, no hay forma de saber qué pistas están bien. Ni siquiera si el puzzle es resoluble — un typo del creador habría perdido el dinero para siempre.</li>
+<li><strong>Rotación de wildcards</strong>: la única salida era asumir que alguna respuesta "segura" estaba mal y rotarla como comodín. La tabla de combinaciones castiga fuerte: 5 comodines fijos + 2 rotantes multiplican el tiempo por 105. Inviabilizaba seguir en CPU.</li>
+</ul>
+<h2>Por qué no sirvieron las herramientas GPU existentes</h2>
+<p>Las GPUs paralelizan el mismo cálculo sobre miles de candidatos en lockstep — ideal para criptografía y por eso mismo para minar. Tres candidatos:</p>
+<ul>
+<li><strong>Vanitygen / OCLVanitygen</strong>: genera direcciones con patrones a gigahashes/s, pero usa <strong>inversión por lotes</strong> (batch inversion): procesa claves privadas contiguas compartiendo la operación cara. Con claves arbitrarias y desordenadas, no aplica.</li>
+<li><strong>Bitcrack</strong>: busca claves en rangos definidos (para otro puzzle de Bitcoin con claves con ceros a la izquierda) — y también usa batch inversion: solo importa que las claves no se repitan, no cuáles son.</li>
+<li><strong>Hashcat</strong>: utilidad open source de cracking acelerada por GPU, con optimizaciones a mano, generador de máscaras, entrada por pipe y framework de plugins... pero sin soporte de brainwallets. Se necesitaba OpenCL. La opción de pedirle a ChatGPT "hacéme un módulo" no funcionó: tampoco sabe OpenCL.</li>
+</ul>
+<h2>Anatomía de un plugin de Hashcat</h2>
+<pre class="mermaid">
+flowchart TD
+    M["Módulo (C, CPU, compilado con Hashcat)"] -->|"digest size, kern_type (-m 1337),<br>hash_decode / hash_encode,<br>self-test y benchmark"| K["Kernel (.cl, OpenCL, compilado en runtime por GPU)"]
+    K --> I["init: setup, buffers, cálculos no intensivos<br>(aquí fue todo el hashing del brainwallet)"]
+    K --> L["loop: pasos iterativos (no se usó: sin rounds)"]
+    K --> C["comp: compara 4 bytes contra el hash objetivo,<br>confirmación completa si coinciden"]
+
+</pre>
+
+<ul>
+<li><strong>Módulo</strong>: estructura y metadatos del algoritmo — tamaño de digest, número de modo (<code>kern_type</code>; el nuevo quedó como <code>-m 1337</code>), funciones de decode/encode entre el formato del hash y el formato interno, y el par password/hash de autoprueba. Es "un archivo de configuración glorificado con algo de scripting".</li>
+<li><strong>Kernel</strong>: el trabajo pesado, en OpenCL, compilado al vuelo para cada modelo de GPU. Versiones <em>pure</em> vs <em>optimized</em> (atajos manuales, a veces menos legibles o con condiciones de uso) y ramas por modo de ataque (A0 con wordlist, A3 con máscaras).</li>
+<li><strong>Debugging en GPU</strong>: no hay introspección de un solo thread sin afectar a los demás. Workarounds: flags de Hashcat para forzar un único thread (a regañadientes) y <code>printf</code> como en CS101. Dos errores clásicos: <strong>digest size</strong> mal elegido (segfaults por intentar meter más datos de los que caben) y <strong>endianness</strong> incorrecto (resultados válidos pero equivocados).</li>
+</ul>
+<h2>Ensamblaje del módulo</h2>
+<p>Hashcat no soporta brainwallets, pero ya tiene optimizado en GPU cada operación del circuito: SHA-256, RIPEMD-160 y secp256k1. La receta fue hacerlas "funcionar juntas":</p>
+<ul>
+<li>Base: módulo 1400 (SHA-256 sin salt) fuertemente modificado — el cambio crítico fue el digest size, porque la clave pública es más grande que lo que SHA-256 espera devolver.</li>
+<li>Funciones init/update/final de SHA-256 y RIPEMD-160 tomadas de sus módulos.</li>
+<li>La multiplicación de curva (privada → pública) y las funciones decode/encode tomadas del módulo 28502 (wallet import format BIP38), que hace parte de ese recorrido.</li>
+</ul>
+<h3>El falso techo de rendimiento</h3>
+<p>El módulo propio giraba a ~7,600 kH/s contra 1,400 kH/s de la CPU — mejor, pero lejos de los 142 GH/s que benchmarkea el módulo 28502. La explicación no era batch inversion: ese benchmark <strong>filtra</strong> candidatos (descarta la gran mayoría por no tener un primer byte válido de WIF) y reporta la tasa sobre los descartados. Eliminado el filtro, las tasas se igualaron. Lección: desconfiar de benchmarks cuyo pipeline descarta candidatos.</p>
+<h3>La remata final</h3>
+<ul>
+<li>Un generador de máscaras en Python produjo la lista de todas las combinaciones de comodines (las 105 permutaciones de incógnitas rotantes) para alimentar Hashcat con máscaras en lugar de wordlists.</li>
+<li>GPUs alquiladas en vast.ai por centavos/hora (una 3080 a $0.16/h), ~$50 de cómputo en total, sin calentar la casa.</li>
+<li>El resultado llegó a los <strong>3 minutos</strong> de iniciada la corrida (descubierto al chequear mucho después). Desconexión de red, clave privada al wallet, sweep del fondo: <strong>1 Bitcoin reclamado el 13 de diciembre de 2024</strong>.</li>
+</ul>
+<h2>La pista maldita</h2>
+<p>¿Por qué tardó una década? La pista 20 tenía una respuesta ambigua: el texto mostraba que faltaba una Y... pero también era un haiku, y faltaba una <strong>K</strong>. La K era la correcta. Asumir la Y durante años aumentó el premio (el Bitcoin se apreció mientras tanto) — consuelo incompleto. Quedan dos pistas cuyas respuestas se conocen pero no el razonamiento; el autor ofrece un trofeo (una rueda de carrito de compras controlable por teléfono) a quien las explique.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Brainflayer</strong> (Ryan Castellucci, DEF CON 23): cracking de brainwallets en CPU; el generador en C le alimenta candidatos por pipe.</li>
+<li><strong>Vanitygen / OCLVanitygen</strong> y <strong>Bitcrack</strong>: rápidos pero atados a batch inversion (claves contiguas/rangos), inútiles para claves arbitrarias.</li>
+<li><strong>Hashcat</strong>: módulos (C, CPU) y kernels (OpenCL, runtime); modos <code>-m</code>; máscaras A3; funciones <code>hash_decode</code>/<code>hash_encode</code>; <code>init</code>/<code>loop</code>/<code>comp</code>; variantes pure/optimized.</li>
+<li><strong>Módulos base reutilizados</strong>: 1400 (SHA-256), 28502 (BIP38/secp256k1); variante propia <code>-m 1337</code> (y <code>-m 1338</code> para direcciones comprimidas), publicada en GitHub del autor.</li>
+<li><strong>Rotación de wildcards</strong>: combinatoria para asumir errores en respuestas "seguras" (factor ×105 con 5 fijos + 2 rotantes).</li>
+<li><strong>Vast.ai</strong>: alquiler de GPUs por minuto (~$50 en total).</li>
+<li><strong>brainwalletx.github.io</strong>: réplica de la utilidad brainwallet original, para derivar frase → clave privada.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El fingerprint de una brainwallet es su dirección</strong>: con la dirección objetivo conocida, cualquier frase candidata se verifica determinísticamente — por eso las brainwallets son inherentemente crackeables y no deben guardar valor.</li>
+<li><strong>Elegir la herramienta por su supuesto clave</strong>: batch inversion asume claves contiguas o intercambiables; cuando los candidatos son arbitrarios, esa optimización se vuelve un bloqueo. Hashcat ganó por ser extensible, no por ser el más rápido en benchmark.</li>
+<li><strong>Los benchmarks pueden mentir</strong>: una tasa de 142 GH/s sobre candidatos mayormente filtrados no dice nada sobre el rendimiento real del pipeline completo.</li>
+<li><strong>El cuello de botella fue el conocimiento, no el hardware</strong>: el espacio restante necesitaba minutos de GPU; lo que llevó años fue la ambigüedad de una pista y la barrera de entrada a OpenCL.</li>
+<li><strong>El cómputo en la nube cambió la economía del cracking</strong>: $50 alquilados reemplazan una rig dedicada — y la tentación de aplicar el mismo módulo a cualquier brainwallet con fondos es, hoy, la segunda mejor razón para no usarlas (la primera sigue siendo Brainflayer).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/74_4Q329PH8">«DEF CON 33 - Making a custom Hashcat module to solve a decade-old puzzle challenge - Joseph Gabay»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

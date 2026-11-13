@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un LLM local de 12B jugando Pokémon: harnesses y tooling por encima del tamaño del modelo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Un LLM local de 12B jugando Pokémon: harnesses y tooling por encima del tamaño del modelo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Egzf_aWSxZc">«DEF CON 34 - Video Team - AI Village - Pokemon»</a> · ver el <a class="nz-link" href="https://youtu.be/Egzf_aWSxZc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>AI Village Plays Pokémon es un proyecto open source en GitHub donde un LLM corre en local y termina el juego completo: Gemma 12B, ~16 GB de RAM, un laptop de gama alta corriente alcanza. La tesis que demuestra: el consejo dominante —"usá el modelo más grande y caro posible y tirale todos los datos"— es la estrategia equivocada. Lo que define lo que un modelo puede hacer no es su tamaño sino los harnesses y las herramientas construidas alrededor; un modelo chico con buen tooling hace lo que los gigantes cloud logran quemando decenas de miles de dólares en tokens.</p>
+<p>El contraste directo: OpenAI presumía de su modelo jugando Pokémon alimentado con screenshots en bruto, un enfoque de fuerza bruta que costó unos 20.000 USD en tokens para vencer un juego infantil de 2002. El proyecto local logra lo mismo con pesos que entran en un Dell.</p>
+<h2>Cómo se construyó el harness</h2>
+<pre class="mermaid">
+flowchart TB
+    LLM["Gemma 12B (local, ~16 GB RAM)"] -->|"decisión y prioridades"| H["Harness"]
+    H --> T1["Calculadora de daño\n(fórmula Gen 3 constante)"]
+    H --> T2["Navegación: maps extraídos\ndel decomp de FireRed +\nspanning tree"]
+    H --> T3["Tracking: OpenCV tile matching\n+ game state (mapa, HP rival)"]
+    H --> T4["Lista de objetivos\nescrita a mano por etapa"]
+    T1 --> E["Emulador Gen 3\n(Pokémon FireRed)"]
+    T2 --> E
+    T3 --> E
+    T4 --> LLM
+
+</pre>
+
+<ul>
+<li><strong>Calculadora de daño como herramienta externa.</strong> La fórmula de daño de Gen 3 es constante: si el modelo llama a la herramienta, sabe exactamente cuántos turnos necesita cada movimiento. Toda la aritmética sale del modelo.</li>
+<li><strong>Navegación por spanning tree.</strong> Los mapas se extrajeron de una versión decompilada de FireRed y se etiquetaron todos los paths a mano. El algoritmo encuentra la ruta a cualquier key location: en vez de memorizar el camino a Pewter City, el modelo solo dice "soy nivel 13, voy a pelear contra Brock" y la herramienta lo lleva.</li>
+<li><strong>Verificación por tile matching.</strong> Un script de OpenCV compara tiles del snapshot de cada paso con el game state para confirmar ubicación (¿creo que estoy en Pewter City? → ¿estoy en Pewter City?) y HP del rival. El modelo recibe confirmación, no adivinanza.</li>
+<li><strong>Objetivos acotados a mano.</strong> Una lista escrita a mano dice al modelo en qué etapa está y qué sigue; en todo momento maneja 5-6 variables (¿entreno más? ¿curación? ¿compro ítems?) y decide prioridades — esa decisión es lo que queda genuinamente en el LLM.</li>
+</ul>
+<h2>La tesis: harness &gt; tamaño</h2>
+<p>La crítica al criterio de política dominante: calificar a un modelo como peligroso o inocuo según su tamaño ("nivel frontier o no") ignora que el harnessing pesa más que los parámetros. Las implicaciones:</p>
+<ul>
+<li>Un modelo chico y local con buen tooling puede ejecutar tareas que se asumen exclusivas de modelos cloud gigantes.</li>
+<li>El enfoque de "más datos, más tokens, más confianza en el CEO" no escala ni en costo ni en diseño.</li>
+<li>La arquitectura de LLM como capa intermedia que hace tool calls traduce 1:1 a dominios serios: análisis de logs de red, PCAPs, respuesta a un data breach — cualquier estructura determinista pero voluminosa donde hay que explicarle al modelo qué es la data ("mad-libify" los datos).</li>
+</ul>
+<h2>Del juego al campo: detraining y accesibilidad</h2>
+<p>La misma filosofía, aplicada fuera del emulador, en otros proyectos del AI Village:</p>
+<ul>
+<li><strong>Bots en Meshtastic.</strong> Un LLM traduce un dongle de escaneo WiFi: war driving desde el teléfono, con explicación de canales y frecuencias sin conocer la spec de 802.11.</li>
+<li><strong>"Detraining".</strong> Remover el requisito de que el operador esté entrenado antes de usar el sistema: habla con el sistema y pedile lo que necesitás. El LLM conoce las capacidades del hardware y explica qué hace falta para cada acción, en vez de exigir manual o formación.</li>
+<li><strong>Rover Combi (año anterior).</strong> Un rover controlado por LLM al que se le pedía bailar o hacer comportamientos sin conocer sus comandos.</li>
+<li><strong>Drones en Ucrania.</strong> El caso más duro: operadores que dos semanas antes eran doctor y contador, preguntados por bandas de frecuencia, chip hopping o canales — jerga que para ellos no significa nada. Herramientas que traduzcan esa jerga llenan el gap de entrenamiento mientras se forma personal real. Un drone al que se le manda un texto "necesito que vayas ahí" libera el talento técnico para misiones específicas y permite que cualquiera llame apoyo aéreo.</li>
+</ul>
+<h2>Pedagogía inversa: el juego como puente</h2>
+<p>El efecto inesperado y central para el village: el contenido técnico suele ser un muro de jerga que espanta a los novatos ("análisis de red... no soy de redes, sigo de largo"). Un juego infantil conocido baja esa barrera: quien jugó Pokémon de chico entra sin miedo, se engancha, y recién después internaliza que la arquitectura que hace jugar al modelo es la misma que analizaría un PCAP. El formato entrega las lecciones envueltas en algo familiar, y la internalización es más profunda.</p>
+<p>El proyecto suma también un propósito comunitario: ocho años de workshops y demos, técnicas viejas de los "grey beards" siendo reutilizadas por la nueva generación de formas nuevas, y cross-pollination entre aerospace, drones y AI hacking.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El harness es el multiplicador: calculadora de daño, spanning tree de navegación, verificación por OpenCV y objetivos acotados convierten a Gemma 12B en un jugador completo de Pokémon por el costo de RAM de un laptop.</li>
+<li>La lección de diseño es agnóstica al dominio: externalizar todo lo determinista, dejar al modelo solo la decisión y la priorización, y darle herramientas de verificación en vez de screenshots en bruto.</li>
+<li>El criterio de peligrosidad por tamaño de modelo es un error de política; el tooling define la capacidad real.</li>
+<li>"Detraining" — sistemas que se operan hablando, sin formación previa — tiene aplicaciones que van de war driving amateur a drones en guerra, donde la jerga técnica es literalmente una barrera de vida o muerte.</li>
+<li>La pedagogía importa tanto como la ingeniería: el envoltorio lúdico es lo que convierte un demo técnico en una lección que la audiencia retiene.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Egzf_aWSxZc">«DEF CON 34 - Video Team - AI Village - Pokemon»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

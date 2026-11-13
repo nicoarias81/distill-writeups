@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El caballo de Troya del marítimo: código malo dentro de sistemas críticos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El caballo de Troya del marítimo: código malo dentro de sistemas críticos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/s1-4KoND6wM">«DEF CON 33 - Ships Sink &amp; Planes Fall &amp; Cars Crash: It&#x27;s the code not the hacker - Duvall / Reed / Stein»</a> · ver el <a class="nz-link" href="https://youtu.be/s1-4KoND6wM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En el transporte marítimo, la amenaza ciber más seria no escala muros: ya está dentro, ejecutándose exactamente como fue escrita. Mientras la industria corre hacia más automatización, digitalización y sistemas conectados —barcos y puertos—, la calidad del software y las prácticas de ingeniería avanzan mucho más despacio, y ese es el caballo de Troya que nadie mira entre tanto ruido de moda (IA, hackers de estado-nación, APTs). El mensaje central: no hace falta un hacker. El sistema hará exactamente lo que el código le ordene, aunque eso sea peligroso, y una sola línea mala puede causar daño físico real.</p>
+<p>Los autores llegan desde la operación: un director de ciberseguridad marítima que empezó como técnico en cubierta e investigó casus belli como el Costa Concordia; un consultor que pasó de la estiba clásica a la operación de terminales de contenedores automatizadas; y un ingeniero que desarrolló y mantuvo precisamente los sistemas que se analizan, autor de la simulación en vivo que demuestra el punto.</p>
+<h2>Todo lo que corre código es una computadora</h2>
+<p>La definición operativa: computadora es cualquier cosa con procesador, memoria y capacidad de ejecutar código —el llavero, las luces inteligentes, el reloj, la consola—. En un buque eso significa el sistema de navegación, los controles de motor, el sistema de lastre y hasta la cafetera del puente. El estándar IACS E22 mapea la jerarquía: buque, sistemas, subsistemas, dispositivos programables, y en el corazón de cada uno, módulos de software —el PLC de automatización, la bomba de fluidos críticos, el variador de frecuencia, el caudalímetro, el telegráfo de motor—. Si el código está mal, malinterpretado o comprometido, el sistema obedecerá igual.</p>
+<p>La transición de "tonto pero seguro" a "inteligente pero hackeable" se ilustra con un termostato: la válvula de cera mecánica no tiene IP, firmware, actualizaciones ni zero days —el air gap original del enfriamiento de motores—. Su reemplazo, un PLC con sensor, válvula motorizada e interfaz web con contraseña por defecto "admin", da precisión, registro y control remoto, y a cambio convierte un trozo de latón en superficie de ataque. Cada reemplazo de mecánica por red importe capacidades y también riesgos: en la cuarta revolución industrial, un bug, un sensor comprometido o una lógica alterada no solo hacen parpadear una pantalla; mueven, rompen o hacen fallar equipo real.</p>
+<h2>El historial: el software mata desde hace décadas</h2>
+<p>No es teoría: el Boeing 787 en tierra por un bug de energía, un F-35 perdido por código malo, el orbitador marciano de 327 millones de dólares por confundir unidades métricas e imperiales, el firmware asesino de Toyota, el cero-división que dejó sin propulsión a un buque de guerra, el Chinook caído por código inseguro. Y el precedente institucional más citado: la USS Yorktown, que a fines de los 90 digitalizó sus sistemas con Windows NT —más automatización, menos tripulación, operaciones optimizadas— hasta que un tripulante puso un set point de válvula en cero, la función dividió por cero, el sistema se colapsó y los sistemas del buque estuvieron dos semanas fuera de línea.</p>
+<h2>La simulación: de un set point a un apagón en 90 segundos</h2>
+<p>La demostración usa el simulador de Kongsberg del Viking Grace, un ropax (coches y pasajeros) que navega el archipiélago entre Estocolmo y Turku pasando cerca del 60% del tiempo en mar estrecha —por eso Viking Line exige potencia de reserva: un apagón ahí es un choque contra una roca, el escenario Dali en Baltimore que se quiere evitar—.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Set point de válvula de refrigeración manipulado: 70 a 700 grados] --> B[Sin circulación por el intercambiador: el motor se sobrecalienta]
+    B --> C[Primeras alarmas: alta temperatura del jacket de agua dulce]
+    C --> D[Preaviso de parada de emergencia y primeros motores disparados]
+    D --> E[Los cuatro generadores disparados en menos de 90 segundos]
+    E --> F[Apagón total del buque y pérdida de propulsión: rumbo a la roca]
+
+</pre>
+
+<p>El mecanismo no es un hacker: alguien manipula el set point de la válvula que desvía agua al intercambiador de calor —el software de los cuatro motores es idéntico y un único sistema de automatización controla esas válvulas, así que cualquier incidencia se propaga a los cuatro—. Al fijar 700 grados, por encima de la temperatura de apagado del motor, el agua del motor deja circular por el intercambiador, el motor se sobrecalienta y el apagado de emergencia dispara los generadores uno tras otro: en menos de 90 segundos, apagón total y pérdida de propulsión.</p>
+<p>Dos detalles agravantes. Primero, el incendio de alarmas: entre 600 y 800 alarmas saltan simultáneamente, y el operador debe recorrerlas a mano para descubrir qué pasó —se citan investigaciones en vivo impedidas por esa inundación, con el Viking Sky como caso recordado—. Segundo, la lección de ingeniería: el escenario no necesita software malicioso ni defectuoso; basta cualquier manipulación del set point (el ejemplo alternativo: apagar los compresores hace fallar la detección de niebla de aceite y produce el mismo resultado). La defensa, en parte, no está en el software sino en el diseño —separar el control, acotar qué puede propagarse—.</p>
+<h2>Vibe coding sobre sistemas críticos: la preocupación emergente</h2>
+<p>El riesgo futuro señalado con más fuerza es cultural: el desarrollo apresurado de hoy, apoyado en herramientas de IA, aplicado a sistemas críticos. En el sector marítimo —legacy, lento para cambiar— ya se ve personal que un día trabaja en WinZip y al siguiente en sistemas de control de propulsión; confiar en código generado sin entender los límites del proceso es la receta para "enshitificación" (el término de Cory Doctorow) de bases de código críticas. Y a diferencia de una plataforma web, no hay desinstalar y volver a las válvulas de latón: la fragilidad queda, sin los respaldos de ingeniería que habría que diseñar.</p>
+<h2>El marco regulatorio: E26, E27 y E22</h2>
+<p>El contrapeso institucional son los estándares del IACS (International Association of Classification Societies): E26 y E27 marcan la dirección general, y E22 aplica IEC 62443 SL-1 (control base) al sector marítimo para arrastrar las nuevas construcciones hacia procesos secure by design. La lectura recomendada para cualquiera interesado en el sector: E22, E26 y E27, saberlas y amarlas. El riesgo que las normas intentan contener: la pila de tecnología emergente sobre sistemas legacy, con código y procesos deficientes y falta de control —la "salsa mágica" del proveedor hasta que un solo mal set point o un sensor mal dirigido toma un buque entero—.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>En marítimo, el riesgo ciber dominante no es el atacante externo sino la calidad del software y de la ingeniería: el código mal escrito o mal comprendido ejecuta su error con la misma fidelidad con que ejecutaría lo correcto.</li>
+<li>La simulación demuestra que un apagón de buque completo cabe en 90 segundos a partir de un solo set point, con el agravante de 600-800 alarmas simultáneas que ocultan la causa raíz.</li>
+<li>La historia aeronáutica y naval (MCAS, Yorktown, Chinook, Mars Climate Orbiter) ya validó el patrón; el marítimo es el siguiente dominio en recibirlo si la industria no adopta secure by design.</li>
+<li>E22 sobre IEC 62443 es el instrumento regulatorio concreto para nuevas construcciones; el desafío pendiente es el parque instalado, que no admite retorno a la mecánica pura.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/s1-4KoND6wM">«DEF CON 33 - Ships Sink &amp; Planes Fall &amp; Cars Crash: It&#x27;s the code not the hacker - Duvall / Reed / Stein»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Revolut recortó 90% sus costos de IA en código self-hosteando modelos abiertos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aiecode.html">AIE CODE Summit</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · AIE CODE Summit</p>
+<h1 class="nz-h2">Revolut recortó 90% sus costos de IA en código self-hosteando modelos abiertos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">«How Revolut Cut AI Coding Costs 90% With Self-Hosted Open Models - David Abitbol, Revolut»</a> · ver el <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>El dato</h2>
+<p>Revolut, el banco digital europeo con 80 millones de clientes, midió el impacto de la IA sobre 2.000 ingenieros durante un año. Los asistentes comerciales (Gemini primero, Claude Code después) dieron mejoras de entre 10% y 20% en tiempo de código y lead time, con facturas que llegaban a 10.000 dólares mensuales por ingeniero y ROI discutible. El punto de inflexión llegó en abril de 2026 con el self-hosting de GLM: 60% de mejora en tiempo de código y 70% en lead time, a un costo mezclado de 30 centavos por millón de tokens — una décima parte de lo que pagaban a Anthropic y OpenAI.</p>
+<h2>El hallazgo central</h2>
+<p>El cuello de botella de la ingeniería no es escribir código. Con tokens ilimitados, el ahorro se concentrad en el trabajo alrededor: inbox, Jira, Confluence, documentación. Por eso el lead time (días) mejora más que el coding time (horas): el modelo se usa sin culpa para tareas que antes no justificaban gastar tokens reservados.</p>
+<h2>Infraestructura mínima viable</h2>
+<ul>
+<li><strong>56 GPUs B200</strong> sirven GLM 5.3 (800B parámetros) para 2.000 ingenieros.</li>
+<li><strong>Latencia objetivo: time-to-first-token bajo 3 segundos.</strong> Pasados 5 segundos, las quejas inundan Slack. El throughput importa menos: 200 TPS alcanzan porque ya nadie mira el stream de tokens — la gente corre tareas en paralelo y vuelve cuando terminan.</li>
+<li><strong>Tuning sobre la misma flota:</strong> de 10s de TTFT con 3 req/s (abril) a 1,6s con 7+ req/s (agosto) — 88% de mejora sin agregar una sola GPU.</li>
+</ul>
+<h2>Las reglas del tuning</h2>
+<p>Contexto largo es una trampa (256K alcanzan aunque se pueda servir 1M); en GPUs Blackwell, cuantización NVFP4 — pasar de FP8 a FP4 ahorra ~40% del footprint de GPU sin pérdida de precisión; TP8 en lugar de TP4 cuando el KV cache queda corto; cache hit por encima de 90% en coding; y las técnicas finas: speculative decoding, pre-fill secuencial, desagregación prefill/decode.</p>
+<h2>Compliance sin excusas</h2>
+<p>La objeción regulatoria al open source chino se desarma: solo se descargan los pesos y corren en infraestructura propia. Como banco regulado por la UE, Revolut lo resolvió con sandboxes con human-in-the-loop garantizado (permisos granulares: permitir grep pero no gradle), protección contra actores internos maliciosos, datos dentro del framework de equivalencia (US/EU/UK/Israel), zero data retention y telemetría abierta para forensic post-incidente.</p>
+<h2>La lección</h2>
+<p>Los modelos frontier siguen siendo la excepción, no la regla: se reservan para los casos donde de verdad aportan. El volumen del trabajo diario de código corre sobre pesos abiertos, hardware propio y facturas planas — sin bill shock y sin racionar tokens.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">«How Revolut Cut AI Coding Costs 90% With Self-Hosted Open Models - David Abitbol, Revolut»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

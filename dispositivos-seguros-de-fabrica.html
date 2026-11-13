@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dispositivos seguros de fábrica: hablar el idioma del ingeniero — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Dispositivos seguros de fábrica: hablar el idioma del ingeniero</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AdQwcvijMXA">«DEF CON 33 Video Team - Torvik from Tulip Tree Tech»</a> · ver el <a class="nz-link" href="https://youtu.be/AdQwcvijMXA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La mayoría de los dispositivos embebidos hackeables no salen mal por falta de herramientas de análisis: salen mal porque nadie está resolviendo los problemas reales de quien los fabrica. Un fabricante de cortadoras de césped no piensa en ciberseguridad; piensa en tiempo hasta el mercado, costos de desarrollo y plazos. "¿Y si hackean mi cortadora? Compro otra" es una respuesta razonable desde su mesa.</p>
+<p>El enfoque que se describe aquí invierte la fórmula de la seguridad ofensiva: en lugar de encontrar bugs más rápido y reportarlos, se integra en el proceso de desarrollo de los fabricantes una tecnología de fuzzing disfrazada de lo que los ingenieros ya entienden — tests unitarios que fallan —. El objetivo: que los dispositivos salgan de fábrica endurecidos por defecto, no que se parchen a los cinco años en un hospital donde actualizar puede inutilizar un MRI.</p>
+<h2>Por qué el modelo "encontrar bugs" no funciona</h2>
+<p>La primera iteración fue desarrollar herramientas para encontrar vulnerabilidades más rápido, y el mercado comercial la rechazó con lógica implacable: encontrar bugs obliga a arreglarlos, y arreglarlos cuesta dinero. Ya hay gente haciendo muy buen trabajo con análisis estático. Los problemas reales de los fabricantes son otros:</p>
+<ul>
+<li><strong>Time to market y costo de desarrollo</strong> dominan todas las decisiones.</li>
+<li><strong>Actualizar un dispositivo embebido es doloroso</strong>: no es un push a mil equipos; a veces es USB e interfaz a mano, a veces es recertificación, a veces el fabricante reclama las unidades no usadas y envía una caja nueva.</li>
+<li><strong>Actualizar es, en sí, un riesgo</strong>: un update mal hecho puede dejar el dispositivo no funcional — o sin MRI.</li>
+<li>La pregunta "¿de quién es la responsabilidad de la actualización?" — ¿la empresa que fabricó, o el técnico del hospital, y cuántos técnicos tiene? — no tiene buena respuesta.</li>
+<li>Muchos dispositivos ni siquiera están pensados para conectarse... hasta que alguien enchufa un adaptador de internet al puerto serie para sacar los datos más fácil.</li>
+</ul>
+<p>El modelo de la industria automotriz de los 80 lo resume: los "lemons" no se arreglaban en la fábrica, se arreglaban en el estacionamiento. Es demasiado tarde. Añadir seguridad en la hora once —o cuando el producto ya está en el piso— es exactamente eso.</p>
+<h2>Tres grupos que no hablan el mismo idioma</h2>
+<p>En una empresa grande conviven tres poblaciones:</p>
+<ol>
+<li><strong>El equipo de seguridad</strong>: sabe encontrar bugs, pentesting, reverse engineering, bug bounty.</li>
+<li><strong>Los ejecutivos</strong>: su meta es sacar producto al mercado; la seguridad es un centro de costos, y la conversación real es de tablas actuariales — ¿cuánto me costaría que hackeen las cortadoras? ¿Qué pasa con la responsabilidad legal si John Deere hace la cortadora cara y segura y DeWalt vende la barata sin todo ese proceso?</li>
+<li><strong>Los ingenieros</strong>: construyeron una caja negra que cumple el objetivo de negocio. Su conocimiento de dominio es una especialidad de una especialidad de una especialidad; el equipo de cyber no sabe pedirle firmware custom a la caja, y ellos no saben qué es lo que el equipo de cyber haría con ella.</li>
+</ol>
+<p>Y hay una capa estructural debajo: buena parte del software lo escriben firmas de diseño contratadas, que arman el equipo como los Vengadores, hacen un sprint de seis meses y se van — "hasta luego". La empresa cuyo nombre está en la caja recibe un software que no escribió y del que es responsable de asegurar, sin garantía de que la firma siga existiendo.</p>
+<p>Por eso el punto de entrada correcto no es el equipo de seguridad (que además, en un enfrentamiento interno con desarrollo, pierde: desarrollo es más grande, tiene más alcance y más presupuesto). Es la persona que escribe el software.</p>
+<h2>El truco: fuzzing vestido de test unitario</h2>
+<p>Los ingenieros entienden una cosa por encima de todas: <strong>tests unitarios que fallan</strong>. La tecnología de investigación de vulnerabilidades se reformula como "testing no determinístico":</p>
+<ol>
+<li>Se define el <strong>schema</strong> de los payloads (la forma, no el contenido).</li>
+<li>Un fuzzer clásico (AFL u otro, con feedback de ramas) genera entradas aleatorias dentro de esa estructura y observa la salida esperada.</li>
+<li>Si el sistema crashea, se cuelga o no devuelve — se encontró un edge case.</li>
+<li>Del input que causó el fallo se deriva un <strong>test unitario determinístico</strong> que falla siempre.</li>
+<li>El equipo lo arregla, como arreglaría cualquier test rojo.</li>
+</ol>
+<p>Nadie tiene tiempo de escribir tests funcionales para todos los edge cases posibles; el fuzzing los encuentra gratis. Y aunque el input sea "basura", cada crash convertido en test unitario hace el software más seguro de paso.</p>
+<p>El detalle de CI/CD es delicado y se discute explícitamente: si el test no es determinístico, un mismo PR puede pasar o no pasar según la semilla — reenviar el PR hasta que pase es un antipatrón absurdo (aunque gracioso). La respuesta del flujo propuesto: fuzzing breve (dos minutos, ~2.000 entradas aleatorias) en cada pipeline, y cada fallo se convierte en test determinístico permanente.</p>
+<pre class="mermaid">
+flowchart LR
+    S[Schema del payload] --> F[Fuzzer no deterministico<br/>2 min en CI]
+    F -->|crash o hang| I[Input que fallo]
+    I --> U[Test unitario deterministico<br/>que falla siempre]
+    U --> X[Fix del equipo]
+    X -->|re-run| U
+    F -->|sin crash| OK[PR merge]
+
+</pre>
+
+<h2>El terreno: un desierto de entornos de desarrollo</h2>
+<p>El espacio embebido es una torre de Babel de habilidades y herramientas: ingenieros de software tradicionales junto a ingenieros eléctricos que programan por hobby; board support packages distintos por fabricante (STM Cube, ESP-IDF, Code Composer — ¿qué versión?); equipos sin repositorio git que comprimen el directorio en un zip y se lo mandan por email al cliente; veteranos de 30 años acostumbrados a trabajar solos porque nunca hicieron falta equipos.</p>
+<p>El segmento elegido como cliente inicial no es el más necesitado sino el más listo: equipos que <strong>ya adoptaron desarrollo de software moderno</strong> — separación de capas, lógica de negocio testeada compilada para x86 corriendo en el escritorio ("software in the loop", análogo al hardware in the loop que ya conocen), abstracción del hardware suficiente para testear sin la placa. Emulator in the loop es el horizonte. Construir el "VS Code del desarrollo embebido" — o integrarse con Arduino, que profesionales usan en producción porque funciona — es un problema que otros están intentando y nadie ha resuelto; no es la batalla de hoy.</p>
+<h2>La realidad de las soluciones: aburridas</h2>
+<p>La seguridad efectiva para estos dispositivos es aburrida, y eso hay que aceptarlo:</p>
+<ul>
+<li><strong>No escribir tu propia lista enlazada</strong>: usá la STL de C++.</li>
+<li><strong>No reinventar cripto</strong>: jamás rolling your own crypto.</li>
+<li>Pero entender las <strong>restricciones reales</strong>: el cliente pide SBOM; la librería criptográfica es GPL2 y el negocio requiere cerrar el código; no entra en el flash y no se puede recompilar para esa arquitectura — y por eso alguien terminó escribiéndola a mano. Con testing adecuado (incluido el no determinístico), hasta un crypto casero puede ser aceptable.</li>
+<li>La definición de bug útil y sin jerga: <strong>la expectativa del desarrollador no coincide con la realidad del código</strong>. No los llames "vulnerabilidades" — llámalos bugs, defectos, edge cases. La palabra "vulnerabilidad" activa el reflejo de borrar el reporte del escaneo de la hora once y pedir que se lo lean en voz alta en una sala, sin PDF por email.</li>
+</ul>
+<h2>Consejos para quien viene de seguridad</h2>
+<ul>
+<li>Preguntar siempre: <strong>¿cuál es el problema real que estás intentando resolver?</strong> ¿Lo que hacés lo resuelve? Encontrar bugs y cobrar bounties está bien, pero no hace los dispositivos más seguros.</li>
+<li>Encontrar el problema correcto es más difícil que la parte técnica: "el 90% del problema es comunicación; después el código se escribe solo".</li>
+<li>Los equipos de seguridad quieren ayudar pero están atrapados entre política interna, desarrollo y ejecutivos; no esperes que ellos hagan el puente.</li>
+<li>Si podés, aprendé a construir estos sistemas vos mismo: escribí una app para ESP32, hacé una badge — y preguntate qué fuzzing le hiciste a tu badge, a las 2 de la mañana, reflashando miles de unidades porque el sistema de updates OTA crasheaba el dispositivo al usarlo.</li>
+<li>El lema: <strong>"te encontramos donde estás"</strong> — no exigir que el fabricante adopte un proceso de seguridad, sino integrarse en el proceso que ya tiene y aportar valor ahí.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Fuzzing / testing no determinístico</strong> — generación de entradas aleatorias con feedback de ramas (AFL) para descubrir edge cases.</li>
+<li><strong>Test unitario determinístico</strong> — caso fijo derivado del input que causó un crash, integrado al pipeline de CI.</li>
+<li><strong>Software in the loop / hardware in the loop</strong> — técnica embebida de testear la lógica compilada para x86 sin la placa física.</li>
+<li><strong>Board support packages</strong> — SDKs de fabricantes (STM Cube, ESP-IDF, Code Composer) con versiones dispares.</li>
+<li><strong>STL de C++</strong> — alternativa segura a escribir estructuras de datos propias.</li>
+<li><strong>SBOM</strong> — lista de componentes de software exigida por clientes, en tensión con licencias GPL2.</li>
+<li><strong>ESP32 / Arduino</strong> — plataformas recomendadas para que un security researcher aprenda a construir dispositivos embebidos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Fabricar dispositivos seguros por defecto exige resolver el problema del fabricante (plazos, costos, integración), no el problema del security researcher.</li>
+<li>El fuzzing presentado como testing no determinístico que produce tests unitarios que fallan es el puente cultural más efectivo entre seguridad e ingeniería embebida.</li>
+<li>Las soluciones de mayor impacto son el básico bien hecho — STL en vez de estructuras caseras, cripto estándar, capas separadas, tests en CI — dentro de las restricciones reales de licencias, SBOM y hardware.</li>
+<li>La ventana de oportunidad está en los equipos que ya modernizaron su desarrollo; para el resto, el "VS Code del embedded" sigue siendo un problema abierto.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AdQwcvijMXA">«DEF CON 33 Video Team - Torvik from Tulip Tree Tech»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

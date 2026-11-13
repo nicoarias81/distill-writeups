@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oblivious RAM: de la teoría de los 80 a producción a escala — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Oblivious RAM: de la teoría de los 80 a producción a escala</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/BGuaIun8qiA">«DEF CON 33 - Cryptocurrency Weekend Keynote - Elaine Shi - Oblivious RAM: from theory to large-scale development deployment»</a> · ver el <a class="nz-link" href="https://youtu.be/BGuaIun8qiA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cifrar los datos no protege la privacidad del usuario si el patrón de accesos a memoria queda expuesto. Esa es la lección central detrás de Oblivious RAM (ORAM), la técnica algorítmica propuesta por Goldreich y Ostrovsky en los 80 que "cifra" los patrones de acceso — no cifrando un dato, sino barajando y permutando los bloques en memoria a medida que se accede a ellos. La historia reciente de esta técnica pasó de la curiosidad teórica a despliegues a escala real: Signal redujo de 500 a 6 servidores su infraestructura de contact discovery adoptando PathORAM, y hoy Ethereum Foundation, Meta y Flashbots la integran en sus infraestructuras.</p>
+<h2>El problema: el patrón de acceso delata</h2>
+<p>El caso Motivador es el contact discovery de Signal: el usuario sube su libreta de direcciones y el servidor devuelve las entradas correspondientes a los amigos. Aunque el servidor sea un entorno de ejecución confiable (TEE) — una caja de hardware donde todo está cifrado y solo se descifra dentro del enclave —, el enclave necesita ir a buscar los registros a memoria y disco, y las ubicaciones accedidas revelan exactamente quiénes son tus amigos.</p>
+<p>La fuga no es exclusiva de ese caso. Una búsqueda binaria que ramifica según un valor secreto produce trazas de memoria distintas para cada rama: observar la secuencia de accesos revela si se busca un valor grande o pequeño — y análogo a nivel de bit de clave secreta. Investigadores de UT Austin y Microsoft Research demostraron que con software de procesamiento de imágenes de estantería corriendo en un TEE, observar solo los patrones de acceso a nivel de página basta para recuperar la forma y ubicación de los objetos de la imagen.</p>
+<p>La solución ingenua es el escaneo lineal: recorrer toda la base en cada consulta oculta qué ubicación interesa. Signal lo optimizó con batches (un solo escaneo por lote), pero el costo sigue siendo lineal — N sobre el tamaño del batch — y en su despliegue original exigía 500 servidores. Con PathORAM (propuesto en 2013 por el mismo grupo) bajó a <strong>6 servidores</strong>: casi 100x de ahorro operativo.</p>
+<h2>La construcción: un árbol que mueve todo</h2>
+<p>ORAM es sorprendentemente simple — 16 líneas de pseudocódigo, "cabe en una remera" — y más fácil de explicar que un árbol rojo-negro. Es un árbol binario donde cada nodo es un <strong>bucket</strong> con capacidad finita: bloques reales (cifrados, con datos útiles) y bloques de relleno (cifrado de ceros, presentes solo por seguridad).</p>
+<p>El invariante clave: <strong>cada bloque está asignado a un camino aleatorio del árbol</strong> (raíz→hoja). Leer un bloque es leer su camino completo y quedarse con el bloque en caché. Y acá está el insight central — la razón por la que la permutación estática no alcanza: igual que el cifrado determinista filtra estadísticas, un bloque que permanece en el mismo lugar filtra frecuencia y vinculabilidad al ser accedido dos veces. Los bloques deben seguir moviéndose.</p>
+<p>Al reubicar el bloque leído en un nuevo camino aleatorio, no puede escribirse en la hoja ni en nodos internos — revelaría el camino elegido. La única escritura que no filtra es <strong>en la raíz</strong>: está en todos los caminos. Claro que escribir todo en la raíz la desbordaría; la solución es la <strong>evicción</strong>: cada lectura de un camino aprovecha el contacto para repaquetar sus bloques lo más cerca posible de las hojas, respetando el invariante. Lectura y evicción viven en el mismo camino — de ahí el nombre PathORAM. La prueba estocástica de que ningún bucket desborda (salvo probabilidad despreciable) es la parte matemáticamente compleja del esquema.</p>
+<p>Queda la posición map — el mapa de qué camino le toca a cada bloque — que es demasiado grande para el caché del CPU. La respuesta es una palabra: <strong>recursión</strong>. La posición map se guarda en un árbol ORAM más chico, y se recurre logarítmicamente hasta que el mapa es lo bastante chico para vivir en caché o registros.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Request logico<br/>read/write addr] --> B[Posicion map recursiva<br/>camino actual del bloque]
+    B --> C[Leer camino completo<br/>raiz a hoja]
+    C --> D[Bloque a cache CPU]
+    D --> E[Remap a nuevo camino aleatorio]
+    E --> F[Escribir de vuelta en la RAIZ<br/>no revela el nuevo camino]
+    F --> G[Eviccion en el mismo camino<br/>reempaquetar hacia las hojas]
+    G --> H[Access pattern: camino aleatorio<br/>independiente del request]
+
+</pre>
+
+<h2>Rendimiento</h2>
+<p>Con la implementación de Oblivious Labs sobre datasets de escala Ethereum/Signal (100 GB a 1 TB), en una sola máquina de escritorio:</p>
+<ul>
+<li>Cada lookup clave-valor: <strong>20 a 50 microsegundos</strong> — ni siquiera milisegundos.</li>
+<li>Throughput: hasta <strong>200.000 consultas por segundo</strong> en un nodo, con escalado horizontal proporcional a la cantidad de máquinas.</li>
+<li>Comparativas: un orden de magnitud mejor que la implementación de Signal, ~100x mejor que la de Meta, ~600x mejor que Oblix (el estado del arte académico). Probablemente la implementación más rápida conocida.</li>
+</ul>
+<p>Teóricamente PathORAM tiene overhead log²N, pero uno de los logaritmos tiene base grande en la práctica: se observa overhead ~log N, en línea con la cota inferior de Goldreich-Ostrovsky (log N es necesario).</p>
+<h2>Aplicaciones: cuándo hace falta ORAM</h2>
+<p>La regla práctica: <strong>siempre que haya hardware confiable, preguntarse si hace falta ORAM</strong>. Muchas tareas acceden memoria dinámicamente (no escanean linealmente) y esos accesos filtran. Y no es exclusivo de TEEs: si el "sandbox" es computación segura criptográfica (multi-party computation), el problema de los patrones de acceso es idéntico.</p>
+<p>En el espacio blockchain, el motivo es estructural: las bases de datos tradicionales solo cifran contenido, pero acá la base es pública — lo que hay que ocultar son las consultas:</p>
+<ul>
+<li><strong>Ethereum Foundation</strong>: lecturas privadas de blockchain — RPC y full nodes que permiten acceder a datos públicos sin revelar qué se consulta.</li>
+<li><strong>Meta</strong>: implementación propia de PathORAM, presumiblemente para IA privada.</li>
+<li><strong>LLM privados</strong>: consultar un modelo sin revelar la consulta ni la intención.</li>
+<li><strong>Flashbots — private order flow y MEV</strong>: hoy las transacciones se envían en claro y el block builder puede front-run y back-run para lucrarse (MEV, miner extractable value). El daño no es solo al usuario: <strong>más del 85% de los bloques de Ethereum los crean dos block builders</strong> — una duopolio que rompe la descentralización. La solución es order flow cifrado y block building dentro del TEE; pero construir un bloque exige ejecutar especulativamente los contratos, y esos accesos al estado revelan qué activos se intercambian y con quién — exactamente lo que hay que ocultar. Ahí entra ORAM.</li>
+</ul>
+<h2>Obras en curso</h2>
+<ul>
+<li><strong>Oblivious STL</strong>: un equivalente oblivious de la STL de C++ — estructuras de datos, sorting y algoritmos de grafos convertidos a forma oblivious a medida, más rápidos que la compilación genérica vía ORAM. En desarrollo, con cobertura parcial.</li>
+<li><strong>Roadmap técnico</strong>: cerrar la brecha entre el esquema práctico desplegado y el esquema teóricamente óptimo (hoy son dos construcciones distintas).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El cifrado protege datos, no comportamiento: en cualquier TEE o computación segura, los patrones de acceso a memoria son un canal de fuga que expresa el secreto del programa.</li>
+<li>ORAM resuelve el problema con una estructura simple — árbol de buckets, remapeo a caminos aleatorios, escritura en la raíz, evicción — cuyo costo práctico es ~log N, cerca del límite teórico.</li>
+<li>La diferencia entre escaneo lineal y ORAM es de casi dos órdenes de magnitud en infraestructura real (500 → 6 servidores en Signal), lo que convirtió la técnica en despliegue industrial y no en curiosidad académica.</li>
+<li>En blockchains, donde los datos son públicos y el secreto está en las consultas, las bases cifradas tradicionales no aplican: ORAM es la herramienta correcta para lecturas privadas, block building privado y mitigación del MEV que hoy concentra la construcción de bloques en dos actores.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/BGuaIun8qiA">«DEF CON 33 - Cryptocurrency Weekend Keynote - Elaine Shi - Oblivious RAM: from theory to large-scale development deployment»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

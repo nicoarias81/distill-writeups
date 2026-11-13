@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Payloads almacenados en el registro para USB Rubber Ducky — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Payloads almacenados en el registro para USB Rubber Ducky</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/9MEqSUlgAD8">«DEF CON SG1 - CSIT Village -  Lim Jing Qiang -  Registry Stored Payloads For Usb Rubber Duckies»</a> · ver el <a class="nz-link" href="https://youtu.be/9MEqSUlgAD8">video original</a></p>
+</header>
+<div class="nz-prose">
+<p><em>Enumeración USB y descriptores Microsoft OS como canal de almacenamiento · CSIT Village</em></p>
+<ul>
+<li><strong>TL;DR</strong></li>
+<li>El USB Rubber Ducky se hace pasar por teclado y tipea a ~750 pulsaciones por segundo: un script de Invoke-Mimikatz de ~2 millones de caracteres tarda ~48 minutos en inyectarse, tiempo de sobra para que el objetivo reaccione.</li>
+<li>Las evasiones clásicas fallan en entornos aislados: download-and-run exige conectividad, el almacenamiento masivo suele estar restringido por listas de allowlist (VID/PID/serie) y otros clases USB (adaptador de red con servidor web propio, dispositivo de imagen) también se detectan con facilidad.</li>
+<li>La vía alternativa: antes de que Windows identifique la clase del dispositivo, la enumeración USB ya escribe en el registro los valores de los descriptores — y los descriptores Microsoft OS permiten definir propiedades de registro personalizadas con hasta ~64 KB de contenido arbitrario (REG_BINARY, nombre de propiedad y valor = payload).</li>
+<li>El límite de 2 bytes del header del descriptor set se evita forzando re-enumeraciones sucesivas con VendorRevision distinto: el SO suma las nuevas propiedades al registro y las viejas persisten; un script de 96 KB se parte en dos enumeraciones (64 KB + 30 KB).</li>
+<li>La reconstrucción se inyecta con apenas ~153 pulsaciones (o menos, almacenando los comandos de reconstrucción en otra propiedad y ejecutándolos con Invoke-Expression); funciona con cualquier archivo, no solo PowerShell, y no depende de clases USB.</li>
+</ul>
+<h2>El problema: la velocidad de tipeo</h2>
+<p>El USB Rubber Ducky es un dispositivo que parece un pendrive común pero que, al conectarse, se enumera como teclado y comienza a inyectar pulsaciones a velocidad inusualmente alta. En un entorno de pruebas, el máximo alcanzable ronda las 750 pulsaciones por segundo — y esa tasa es exactamente el talón de Aquiles: cuanto más largo el payload, más tiempo en el aire. Un script de PowerShell Invoke-Mimikatz de alrededor de 2 millones de caracteres necesita ~48 minutos de tipeo continuo; medio planeta de ventana para que el cliente detecte y bloquee el ataque.</p>
+<h2>Las evasiones clásicas y por qué no alcanzan</h2>
+<p>La solución tradicional es <em>download and run</em>: descargar el script de internet y ejecutarlo con <code>Invoke-Expression</code>, reduciendo las pulsaciones a un par de líneas. Pero en un entorno aislado (air-gapped) no hay conectividad — y los entornos aislados son justamente los objetivos de mayor valor.</p>
+<p>Alternativa siguiente: hacer que el ducky se comporte como teclado <strong>y</strong> almacenamiento masivo a la vez, guardar el script en la partición de almacenamiento e inyectar las pulsaciones que lo copian y ejecutan. El problema: los entornos aislados suelen restringir el almacenamiento USB — allowlist por ID de proveedor, ID de producto o número de serie, o bloqueo directo del almacenamiento en las estaciones de trabajo con kioscos dedicados para transferir archivos. El almacenamiento masivo deja de ser una opción viable.</p>
+<p>Queda la vía de usar <strong>otra clase USB</strong> para esconder el almacenamiento: la clase de comunicaciones (presentarse como adaptador de red, levantar un servidor web dentro del dispositivo e inyectar la descarga del script desde ahí) o la clase de imagen (presentarse como escáner y recuperar el script del dispositivo). Pero ambas también se detectan con facilidad: son clases inusuales en el inventario de un entorno restringido.</p>
+<h2>La ventana de enumeración: almacenar antes de que Windows decida la clase</h2>
+<p>La pregunta correcta: ¿existe una oportunidad de almacenamiento <strong>antes</strong> de que Windows identifique la clase del dispositivo? Sí — la propia enumeración.</p>
+<p>Cada vez que un dispositivo USB se conecta, corre el proceso de enumeración: el dispositivo se presenta mediante los descriptores USB estándar (dispositivo, configuración, interfaz, endpoint y, opcionalmente, descriptores de cadena). Tras la enumeración, parte de esa información se propaga al registro de Windows: ID de proveedor, ID de producto, número de serie y nombre de producto — y todos esos valores los controla el dispositivo. Limitación: los descriptores estándar son cortos (4 caracteres para VID/PID, 126 como máximo para número de serie y nombre de producto), insuficiente para un payload real.</p>
+<p>La puerta grande son los <strong>descriptores Microsoft OS</strong>, un mecanismo de Microsoft para dispositivos que no se ajustan a los descriptores USB estándar (dispositivos VR, webcams con sensor de profundidad, sensores industriales). Su propiedad clave: permiten definir <strong>propiedades de registro personalizadas</strong> para el dispositivo — valores de suspensión selectiva para ajuste de energía, GUIDs de interfaz de dispositivo, o cualquier propiedad que se quiera definir.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Conexión USB] --> B[Enumeración:<br/>descriptores Microsoft OS]
+    B --> C[Registro de Windows:<br/>propiedad personalizada<br/>LongPayload = payload hasta 64 KB]
+    C --> D[Inyección de pulsaciones mínima<br/>~90 pulsaciones: buscar propiedad + Invoke-Expression]
+    D --> E[Payload ejecutado]
+    F[Payload > 64 KB] --> G[Enumeración 1<br/>VendorRevision=1 → LongPayload1<br/>primera parte]
+    G --> H[Re-enumeración forzada<br/>VendorRevision=2 → LongPayload2<br/>segunda parte]
+    H --> I[Inyección: concatenar partes<br/>~153 pulsaciones, o valor reconstruct]
+    I --> E
+
+</pre>
+
+<p>La estructura de un descriptor Microsoft OS tiene un <em>descriptor set header</em> más una serie de <em>feature descriptors</em>. Para almacenar contenido basta con un feature descriptor de propiedad que declare el tipo de dato (por ejemplo <code>REG_BINARY</code>), el nombre de la propiedad (por ejemplo <code>LongPayload</code>) y el valor — que es el payload real. Un descriptor opcional adicional, <strong>VendorRevision</strong>, declara a qué versión del dispositivo corresponde esa propiedad (revision 1 → propiedades de la versión 1).</p>
+<p>Con esto, un script de PowerShell de ~45 KB (un Invoke-P0dsScan) queda íntegro dentro del valor de registro <code>long_payload</code> del dispositivo — visible con cualquier editor de registro como un valor de 45.000 bytes — y se despliega con ~90 pulsaciones: una inyección simple que busca la propiedad del dispositivo USB y ejecuta su contenido.</p>
+<h2>Superando el límite de 64 KB con re-enumeraciones</h2>
+<p>El techo: el header del descriptor set usa solo 2 bytes para representar el tamaño total del conjunto, así que ninguna propiedad puede superar los ~65.000 bytes. Pero hay escape: <strong>forzar una re-enumeración del dispositivo</strong> y enviar un descriptor set nuevo con valores de propiedad nuevos. Al ver los valores nuevos, el SO los agrega al registro de Windows — y los valores anteriores no desaparecen.</p>
+<p>El procedimiento para un script de ~96 KB (WinPCap), mayor que el límite:</p>
+<ol>
+<li><strong>Primera enumeración</strong>: VendorRevision = 1, se envía la primera parte del script → queda en <code>LongPayload1</code> (~64 KB).</li>
+<li><strong>Segunda enumeración</strong> (forzada): VendorRevision = 2, se envía la segunda parte → queda en <code>LongPayload2</code> (~30 KB).</li>
+<li><strong>Reconstrucción</strong>: la inyección consulta el registro del dispositivo, recupera la parte 1 de <code>LongPayload1</code> y la parte 2 de <code>LongPayload2</code>, y las concatena — ~153 pulsaciones en total.</li>
+</ol>
+<p>La mejora final: como a más partes, más pulsaciones de reconstrucción, los propios comandos de reconstrucción se almacenan en otra propiedad de registro (<code>reconstruct</code>). La inyección se reduce a leer esa propiedad y ejecutarla con <code>Invoke-Expression</code>: la variable pasa de longitud 0 a 96.000 bytes y WinPCap arranca. La demo de ejecución se registró en video: se conecta el dispositivo, aparece la clave de registro nueva, arranca la inyección de pulsaciones, se lee <code>reconstruct</code> y el script corre.</p>
+<h2>Ventajas, defensas y límites</h2>
+<p>Ventajas del método: no depende de ninguna clase USB — evita por completo las restricciones basadas en clases (ni almacenamiento masivo, ni red, ni imagen) — y no está limitado a scripts de PowerShell: archivos ejecutables, scripts de Python, cualquier cosa que quepa en el registro.</p>
+<p>Defensas posibles: la más directa es deshabilitar las aplicaciones que permiten consultar el registro (<code>reg.exe</code>, <code>cmd.exe</code>, <code>powershell.exe</code>) en los hosts sensibles. Es una mitigación parcial — rompe herramientas de administración legítimas — y es una pregunta abierta si existen defensas más finas (por ejemplo, monitoreo de claves de registro de dispositivos USB creadas por enumeración, o detección de re-enumeraciones repetidas del mismo dispositivo con VendorRevision cambiante).</p>
+<p>Límites a tener en cuenta: el canal depende de que el host acepte procesar los descriptores Microsoft OS (comportamiento estándar de Windows, pero sujeto a hardening del USB stack); cada parte cuesta una re-enumeración física — retirar y reconectar el dispositivo o forzar el reset del puerto —; y el contenido almacenado en registro queda expuesto a cualquier herramienta de consulta del registro del host mientras el dispositivo esté conectado.</p>
+<h2>Para profundizar</h2>
+<ul>
+<li>Especificación de Microsoft OS Descriptors (documentación oficial): https://learn.microsoft.com/windows-hardware/drivers/usbcon/microsoft-os-2-0-descriptor-specification</li>
+<li>USB Rubber Ducky, documentación oficial: https://docs.hak5.org/usb-rubber-ducky/</li>
+<li>Hak5, guía de payloads y ducky script: https://shop.hak5.org/</li>
+<li>Referencia de enumeración USB en Windows (registro y descriptores): https://learn.microsoft.com/windows-hardware/drivers/usbcon/usb-device-specific-registry-settings</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/9MEqSUlgAD8">«DEF CON SG1 - CSIT Village -  Lim Jing Qiang -  Registry Stored Payloads For Usb Rubber Duckies»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

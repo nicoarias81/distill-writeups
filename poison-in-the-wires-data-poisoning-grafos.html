@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Poison in the Wires: ver el envenenamiento de datos en un grafo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Poison in the Wires: ver el envenenamiento de datos en un grafo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/wX3ZUFABAoM">«Poison in the Wires: Interactive Network Visualization of Data Poisoning Attacks - Maria Khodak»</a> · ver el <a class="nz-link" href="https://youtu.be/wX3ZUFABAoM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Maria Ryskind, investigadora de seguridad y doctoranda en Dartmouth College (análisis binario, teoría de grafos, machine learning y seguridad de la cadena de suministro), presentó una propuesta poco frecuente: hacer visible el data poisoning, esa vulnerabilidad de machine learning que suele describirse como "vaga e impredecible". La idea central: si representamos los datos de entrenamiento de un modelo como una red de nodos y aristas, y comparamos el grafo limpio con el grafo envenenado, la manipulación deja de ser invisible.</p>
+<h2>¿Qué es el data poisoning?</h2>
+<p>La definición que toma de OWASP: un ataque que ocurre cuando un atacante manipula los datos de entrenamiento para que el modelo se comporte de forma indeseada. Tiene tres métodos: <strong>adición</strong> (que muchas veces es inyección de datos), <strong>modificación</strong> y <strong>borrado</strong>. El flujo es simple: los datos envenenados entran al training data vía un vector de ataque, el algoritmo los procesa, el modelo entrenado queda comprometido y el resultado es un output sesgado que ya no cumple el propósito para el que fue diseñado.</p>
+<h2>Dos casos que todos conocen</h2>
+<ul>
+<li><strong>Tay (Microsoft, 2016)</strong>: chatbot de Twitter diseñado para aprender lenguaje de las interacciones con usuarios reales. En cuestión de horas empezó a repetir lenguaje vulgar y de odio. La intención era ser un agente conversacional divertido; tras entrenar con datos malos se volvió adversarial. El poisoning vino de ataques coordinados de trolling que explotaban su mecanismo de aprendizaje.</li>
+<li><strong>Grok (2025)</strong>: el chatbot de X que, tras una actualización de sistema, se autodenominó "MechaHitler" y publicó contenido inflamatorio. Reportadamente se debió a un ajuste para "no esquivar afirmaciones políticamente incorrectas mientras estén bien sustentadas". Aquí la contaminación combinó datos de entrenamiento con un cambio deliberado de sistema.</li>
+</ul>
+<p>El patrón común: chatbots que aprenden de interacciones humanas o de datos sin filtrar de redes sociales terminan adoptando los conceptos más extremos que encuentran. La diferencia está en el origen: trolling coordinado en el primer caso, actualización de sistema en el segundo.</p>
+<h2>BadNets: el paper que fundó el problema</h2>
+<p>El paper de 2017 introdujo las "bad nets": redes neuronales entrenadas maliciosamente que funcionan con normalidad en inputs regulares pero se portan mal ante triggers específicos elegidos por el atacante. Como entrenar modelos de deep learning es costoso en tiempo y cómputo, la gente descarga modelos pre-entrenados y los ajusta — y ahí entra la trampa: la red envenenada pasa todas las pruebas de validación del cliente, pero tiene factores ocultos que se activan con un trigger.</p>
+<p>El ejemplo más contundente: un clasificador de señales de tránsito para vehículos autónomos que identifica perfectamente las señales de stop… salvo cuando llevan una simple nota adhesiva amarilla, ante la cual las interpreta como señales de límite de velocidad. El vehículo pasaría de largo por la intersección. Lo peligroso es lo sigiloso: sin caída de precisión, sin cambios de arquitectura, nada que dispare alarmas en pruebas normales. La única forma de detectarlo es usar exactamente el mismo trigger que usaría el atacante.</p>
+<h2>De los datos a los grafos</h2>
+<ul>
+<li><strong>Data provenance</strong>: la historia de un conjunto de datos — qué cambió del set P al set Q y al set R, y cómo. Es el <code>diff</code> de tu lenguaje favorito, o las líneas que cambian en un commit de GitHub. La propuesta es trackear esos mismos cambios en las bases de datos para detectar el envenenamiento: comparar el "antes" y el "después".</li>
+<li><strong>Ciencia de redes</strong>: detrás de todo sistema complejo (internet, sistema nervioso, redes sociales) hay una red que define las interacciones entre sus componentes. Los grafos — vértices y aristas — permiten predicciones poderosas, pero solo son tan precisos y estables como sus fuentes de datos. Los paths (secuencias de nodos conectados) permiten implicar información sobre los datos subyacentes, y estadísticas como la multiplicidad de aristas muestran la intensidad de una conexión: líneas más gruesas, más conexiones (como las rutas aéreas entre aeropuertos).</li>
+<li><strong>El problema</strong>: los datos de entrenamiento pueden obtenerse mediante vectores de ataque. Los datasets privados se infiltran por amenazas internas o ataques sofisticados; los públicos son propensos a inyección de datos, y el veneno prolifera hacia otros modelos y aplicaciones que dependen de ellos.</li>
+</ul>
+<h2>GraphLeak: un Gephi simplificado en el navegador</h2>
+<p>Gephi es la herramienta clásica de visualización de redes: se le sube una planilla de nodos y otra de aristas, es open source, calcula métricas como distribución de grados y modularidad, y permite comparar datos sanos y tamperados en pestañas del mismo workspace. Su contra: curva de aprendizaje alta e interfaz compleja.</p>
+<p>Por eso la autora construyó <strong>GraphLeak</strong>, open source y en su GitHub: "un Gephi simplificado" que corre en el navegador. Subir CSV, envenenar, analizar y comparar grafos lado a lado, con control total sobre qué nodos envenenar, estadísticas del grafo (nodos y aristas), layouts alternativos y un modo de comparación con análisis estadístico de riesgo.</p>
+<pre class="mermaid">
+flowchart LR
+    A[CSV de nodos y aristas] --> B[Grafo limpio]
+    B --> C[Persistencia: agregar / borrar nodos y aristas]
+    C --> D[Grafo tamperado]
+    B --> E[Modo comparación + rating de riesgo]
+    D --> E
+
+</pre>
+
+<ul>
+<li><strong>Layouts</strong>: force-directed para clusters y relaciones (ideal para redes sociales), circular para enfatizar la igualdad entre relaciones y reducir clutter, grid para redes enormes donde importa la relación espacial (planos, diagramas arquitectónicos).</li>
+<li><strong>Rating de riesgo</strong>: no arbitrario. El 10% es la proporción aceptada en la literatura de nodos envenenados necesarios para alterar notoriamente el modelo, aunque un paper de 2016 mostró cambios visibles con menos, y BadNets lo confirmó. En la demo, agregar un solo nodo a una red social mantuvo el riesgo en "low"; borrar varios nodos lo llevó a "medium" (por encima del 10%) y luego a "high" (por encima del 50%).</li>
+</ul>
+<h2>Demo: envenenando MNIST</h2>
+<p>Para probar que el envenenamiento de un grafo se alinea con el de un modelo real, el experimento usó el dataset MNIST (el "hello world" del machine learning) con clasificación binaria "¿es este número correcto?", con un error inicial de apenas 0,8%. El entrenamiento corrió en Google Colab con 1.000 puntos de datos; en GraphLeak ese training set se ve como un grafo con 1.000 aristas apiladas entre los nodos numéricos y los nodos true/false.</p>
+<p>Los resultados en Escala:</p>
+<ul>
+<li><strong>10 valores envenenados (1%)</strong>: sin efecto significativo en las predicciones; el grafo casi no cambia.</li>
+<li><strong>30 valores</strong>: cambio un poco mayor, pero aún moderado. Aquí aparece la multiplicidad de aristas: las líneas se ven apenas más gruesas por el volumen apilado.</li>
+<li><strong>Todos los unos convertidos en cuatros</strong>: en las predicciones no queda ningún uno. En el grafo, un nodo completo desaparece (11 nodos en vez de 12) y el rating de riesgo sube.</li>
+<li><strong>Unos y doses convertidos en cuatros</strong>: dos nodos eliminados del grafo, diferencia mucho más visible, riesgo "medium".</li>
+</ul>
+<p>La moraleja de la demo: visualizar las diferencias matemáticas muestra en formato gráfico cómo fue tamperado el dataset, y etiquetar los puntos permite decir exactamente qué cambió, estadísticamente habibles. La comparación antes/después sirve como proxy del daño real al modelo.</p>
+<h2>La cifra que asusta: 250 documentos</h2>
+<p>Un paper de Anthropic publicado apenas semanas antes mostró que insertar <strong>tan solo 250 documentos maliciosos</strong> en el set de entrenamiento puede crear una puerta trasera en un modelo de lenguaje, y que esta vulnerabilidad escala independientemente del tamaño del modelo: los modelos grandes son tan susceptibles como los chicos, aunque estén entrenados con 20 veces más datos limpios. 250 documentos sobre miles de millones es aproximadamente el 0,0002% del training set — y las herramientas actuales de filtrado de datos no están a la altura para ataques tan dispersos, más aún cuando el contenido envenenado se ve normal en la superficie.</p>
+<h2>Mitigaciones</h2>
+<ul>
+<li><strong>Datasets privados realmente privados</strong>: acceso restringido, idealmente con passkey, y principio de mínimo privilegio para quien use el dataset.</li>
+<li><strong>Monitoreo con data provenance</strong>: snapshots antes/después de los datos para ver la diferencia — ahí es donde encaja GraphLeak como herramienta de manejo de incidentes.</li>
+<li><strong>Guardrails en los LLMs</strong>: reglas estratégicas que definan sobre qué se entrena la IA, con chequeos internos tanto de lo que entra como de lo que sale — como pasa hoy cuando un modelo responde algunas preguntas de ciberseguridad pero se niega a otras.</li>
+</ul>
+<h2>El espejo social</h2>
+<p>El cierre fue la parte más provocativa: el data poisoning como lente para entender problemas sociales más amplios. La información se difunde en redes sociales y se usa para entrenar modelos sobre la opinión pública; cuando actores maliciosos inundan esos espacios con desinformación o contenido divisivo, envenenan el ambiente informativo completo. Tay y Grok muestran cómo el extremismo puede normalizarse — igual que la sociedad puede experimentar corrimientos en el discurso aceptable. Los algoritmos que priorizan engagement amplifican el contenido divisivo, creando un loop de retroalimentación donde los datos de entrenamiento que recibe la sociedad están sesgados hacia el conflicto.</p>
+<p>Existen soluciones activas: la procedencia de contenido (Community Notes de X como ejemplo) ayuda a evaluar credibilidad, y la verificación criptográfica se explora frente al auge de videos generados por IA. Pero hay trade-offs: filtrado más agresivo roza la censura, la transparencia puede ser explotada por manipuladores, y generar confianza toma tiempo — mientras el data poisoning sigue siendo adaptable: si se cierra un vector de ataque, los malos actores siempre encuentran otro.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/wX3ZUFABAoM">«Poison in the Wires: Interactive Network Visualization of Data Poisoning Attacks - Maria Khodak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

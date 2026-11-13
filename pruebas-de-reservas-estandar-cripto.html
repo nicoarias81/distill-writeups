@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pruebas de reservas: cómo verificar que un exchange tiene la plata de todos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Pruebas de reservas: cómo verificar que un exchange tiene la plata de todos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/sjCPobEr3wM">«El Nuevo Estándar Cripto: Pruebas de Reservas - Bustos Pedro - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/sjCPobEr3wM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los exchanges centralizados funcionan como bancos: guardan la plata de millones de usuarios, la prestan, la invierten y, a veces, la pierden. La diferencia con un banco es que ningún regulador exige un requisito de capital y ningún auditor puede revisar sus libros, porque no hay libros públicos. Las pruebas de reservas (Proof of Reserves) son la respuesta de la industria: un mecanismo criptográfico que permite a cualquier exchange demostrar que tiene más activos que pasivos, y a cada usuario verificar que su propio balance fue incluido en la cuenta — sin revelar los datos de nadie más.</p>
+<p>El panorama es el terreno de un auditor de pruebas de reservas que trabaja sobre exchanges como Bybit, Backpack, Crypto.com o Gate.io: qué es una prueba de activos, una de posesión y una de pasivos; por qué los árboles de Merkle son la herramienta clásica pero imperfecta; cómo las pruebas de conocimiento cero (Zero Knowledge) resuelven los problemas de privacidad; y qué desafíos técnicos y regulatorios quedan abiertos. Cierra con casos reales —anonimizados por acuerdos de confidencialidad— que muestran todo el espectro: clientes con solvencia automatizada, clientes con 55 millones de usuarios imposibles de auditar uno por uno, clientes que pagan una auditoría y luego desaparecen, y clientes que sencillamente no tenían la plata.</p>
+<h2>El problema: instituciones que no se pueden auditar</h2>
+<p>Las pruebas de reservas no nacen en el cripto: vienen del mundo financiero tradicional, donde las instituciones tienen que demostrarle a un ente regulador que no están haciendo "estupideces" con el dinero de los clientes. La historia demostró que confiar no alcanza: FTX era, esencialmente, un banco que invertía los fondos de sus usuarios y nadie lo vio hasta que quebró. Las bases de datos de un banco no son públicas, la información no se puede verificar y las auditorías están trabadas por capas regulatorias.</p>
+<p>La blockchain cambió el tablero: es una base de datos pública y permite probar cosas criptográficamente. Con eso se abrió la puerta a un tipo de auditoría más adecuada al sector.</p>
+<h2>Los tres pilares: activos, posesión y pasivos</h2>
+<p>Una prueba de reservas completa se apoya en tres componentes:</p>
+<ol>
+<li><strong>Prueba de activos.</strong> Cuánto dinero hay en un momento dado. La blockchain lo permite directamente: las direcciones y balances son públicos.</li>
+<li><strong>Prueba de posesión.</strong> Demostrar que la entidad es dueña de esas billeteras. Dos caminos: una transacción <em>send-to-self</em> con un monto aleatorio que solo la persona que controla la wallet puede ejecutar a tiempo — aunque mover fondos de cold wallets masivas suele ser impráctico o riesgoso—, o una <strong>firma digital</strong> con la clave privada sobre un mensaje aleatorio, verificable con la clave pública (la dirección). La firma es la vía preferida porque no mueve fondos ni levanta alarmas de seguridad. Matiz importante: en algunas cadenas como Ripple las cuentas se pueden transferir, así que la firma no siempre prueba posesión real.</li>
+<li><strong>Prueba de pasivos.</strong> Cuánto debe la entidad: la suma de los balances de todos los usuarios. Y el punto crítico que la vuelve interesante: cómo asegurarse de que el balance de cada usuario individual quedó incluido en esa suma total.</li>
+</ol>
+<p>Con las tres pruebas, la conclusión de la auditoría es simple: el exchange debe tener más activos que pasivos, y ser dueño de todos esos activos.</p>
+<h2>Historia: de Mt. Gox a FTX</h2>
+<ul>
+<li><strong>Mt. Gox (2011):</strong> el exchange más grande del mundo empieza a recibir reportes de robo de fondos vía contraseñas débiles; el 17 de junio se filtra la base de datos y un atacante coloca órdenes masivas de venta que llevan el Bitcoin de 17 dólares a un centavo durante minutos (unos 8 millones de dólares de pérdida). El 26 de junio, Mt. Gox anuncia una transferencia de 424.000 bitcoins entre dos billeteras: la primera prueba de reservas de la historia, con la técnica más rudimentaria posible.</li>
+<li><strong>Greg Maxwell (2013-2014):</strong> investigador de criptografía y desarrollador de Bitcoin Core, sistematiza cómo construir árboles de Merkle para verificar ownership de billeteras y acuña conceptos como Bulletproofs.</li>
+<li><strong>Zcash (2014):</strong> el white paper de Zero Cash introduce los ZK-SNARKs en una blockchain por primera vez, sentando la base tecnológica que hoy sostiene las pruebas modernas.</li>
+<li><strong>FTX (2022):</strong> la prueba de pasivos más un análisis básico de activos habría mostrado que FTX no podía cubrir sus pasivos. No hizo falta criptografía avanzada: bastaba con hacer la prueba.</li>
+</ul>
+<h2>Árboles de Merkle: el estándar con fallas conocidas</h2>
+<p>Un árbol de Merkle es, en esencia, un árbol de sumatoria: cada usuario es una hoja (leaf) con su balance, los nodos intermedios suman pares de hijos, y la raíz (root) condensa el total. Para que un usuario verifique que fue incluido, el exchange le entrega su hoja más la rama de nodos hermanos necesarios para recomputar la raíz publicada.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Usuario verifica: mi hoja + rama de hermanos] --> B[Recomputa la raíz del árbol]
+    B --> C{¿Coincide con la raíz publicada?}
+    C -->|Sí| D[Quedé incluido en la prueba de pasivos]
+    C -->|No| E[Alerta: fui excluido u omitido]
+
+</pre>
+
+<p>El mecanismo funciona, pero tiene falencias que los primeros años expusieron en la práctica:</p>
+<ul>
+<li><strong>Fuga de anonimidad.</strong> Para verificar, cada usuario recibe los datos de un vecino de árbol: los balances de otros usuarios se filtran a cada quien.</li>
+<li><strong>Manipulabilidad.</strong> Si en lugar de sumar se usa otra función (por ejemplo, el máximo entre dos balances), el exchange puede "dibujar" el árbol.</li>
+<li><strong>Fuga de la cantidad de usuarios.</strong> La cantidad de nodos que hay que entregar para una prueba revela aproximadamente cuántos usuarios hay en el árbol.</li>
+<li><strong>Colisiones de hashes.</strong> Un exchange conocido truncaba el hash resultante: de miles de millones de combinaciones posibles quedaban solo millones, insuficiente para una base de millones de usuarios.</li>
+<li><strong>IDs de usuario compartidos.</strong> El mismo ID usado para varios conjuntos de balances hacía las pruebas inconsistentes.</li>
+<li><strong>Raíces inconsistentes.</strong> Si el exchange no publica la raíz, le puede entregar a cada usuario una raíz distinta y maliciosa. Publicar las raíces abiertamente es obligatorio para que la prueba signifique algo.</li>
+</ul>
+<h2>Zero Knowledge: probar sin revelar</h2>
+<p>El objetivo del conocimiento cero es demostrar que una afirmación es verdadera sin revelar nada sobre ella. Los dos ejemplos clásicos que ilustran la idea:</p>
+<ul>
+<li><strong>Las pelotas y el daltónico.</strong> Dos pelotas idénticas salvo en el color; un amigo daltónico no le cree. Él las esconde detrás de la espalda y decide al azar si las intercambia; al mostrarlas, hay que decir si las cambió. Acertar consistentemente (por ejemplo, 20 veces seguidas) es estadísticamente imposible sin distinguir los colores — y en ningún momento se dijo de qué color son.</li>
+<li><strong>La cueva de Alibaba.</strong> Una cueva circular con una puerta que solo se abre con una palabra secreta. Alicia entra, elige un camino al azar, y Juan, desde la entrada, grita por dónde debe salir. Si Alicia conoce la palabra, siempre puede abrir la puerta y salir por cualquiera de los lados; si no, acierta el 50% de las veces. La repetición convierte la duda en certeza estadística.</li>
+</ul>
+<p>De ahí salen los términos técnicos: el <em>prover</em> (quien demuestra el conocimiento, el <em>witness</em>) y el <em>verifier</em>; pruebas <em>succinct</em> (compactas y rápidas de verificar); <em>no interactivas</em> (una sola demostración basta, a diferencia del juego repetido de las pelotas); y la distinción entre <em>argument of knowledge</em> (probabilístico: certeza muy alta pero no absoluta) y <em>proof of knowledge</em> (no hay posibilidad de engaño). Las implementaciones prácticas en pruebas de reservas usan argumentos de conocimiento no interactivos y succinctos: la matemática es la más compleja, pero es la única que escala a millones de usuarios sin filtrar privacidad.</p>
+<h2>Desafíos técnicos y regulatorios abiertos</h2>
+<ul>
+<li><strong>Activos no auditables.</strong> Cuentas bancarias fuera de la blockchain exigen cartas de abogados u otros documentos que reintroducen el factor humano y desmontan la garantía criptográfica. Lo ideal: que los propios bancos implementen pruebas de conocimiento cero sobre sus balances.</li>
+<li><strong>Privacidad versus transparencia.</strong> El exchange quiere ocultar tácticas de negocio y cantidad de usuarios; el usuario quiere saber si su plata está; el regulador quiere ver los planes de negocio. Son requisitos contradictorios por diseño.</li>
+<li><strong>Descentralización de las pruebas.</strong> Verificar la inclusión directamente on-chain mediante smart contracts sería lo ideal, pero con 55 millones de usuarios (el caso de Bybit) la escalabilidad on-chain es factible pero muy costosa.</li>
+<li><strong>Frecuencia de auditoría.</strong> Una herramienta "real time" choca con la imposibilidad de extraer balances de la base de datos del exchange cuando se quiere. Una solución parcial: auditorías a intervalos aleatorios, que mantienen la disuasión sin predecibilidad.</li>
+<li><strong>Requisitos de capital.</strong> Los bancos tradicionales operan con requisitos muy por debajo del 100% (y con un banco central que los rescata). Un exchange sin red de seguridad necesita 100%; definir qué porcentaje exigir —y qué pasa si se cae una moneda como Terra y todos retiran USDT a la vez— es una discusión regulatoria pendiente.</li>
+<li><strong>Clasificación de activos.</strong> ¿Un NFT comprado a 10 millones de dólares cuenta como reserva? ¿Un préstamo en cripto es ingreso? Sin estándares, cada auditor evalúa a su criterio y la comparabilidad desaparece.</li>
+<li><strong>Requisitos de privacidad frente al Estado.</strong> Los gobiernos ya piden información a los exchanges y la obtienen; el punto es si ese flujo puede compatibilizarse con la anonimidad que las criptomonedas prometen.</li>
+</ul>
+<h2>Casos reales: el lado incómodo de las auditorías</h2>
+<ul>
+<li><strong>Cliente A (solvencia automatizada):</strong> reservas siempre en blockchain, hot wallets que mantenían exactamente el monto de sus pasivos, reportes automatizados. El caso ideal: solvencia token por token.</li>
+<li><strong>Cliente B (millones de usuarios):</strong> la regulación del país donde está registrado le impedía entregar los datos completos a terceros sin permiso del regulador. Solución: muestreo estadístico con un nivel de confianza declarado.</li>
+<li><strong>Cliente C (proveedores de liquidez externos):</strong> cada proveedor es un punto extra de falla fuera del alcance criptográfico; solo se puede pedir acceso de solo lectura y esperar que el tercero no sea el eslabón roto.</li>
+<li><strong>Cliente D (paga y no completa):</strong> pagó la auditoría y dejó de responder. No se puede forzar la honestidad desde fuera; el usuario es quien puede presionar.</li>
+<li><strong>Cliente E (no muestra billeteras):</strong> una prueba de reservas que no publica las billeteras es la mitad del trabajo: se audita un momento en el tiempo y no se puede verificar nada después.</li>
+<li><strong>Cliente F (reservas insuficientes):</strong> el peor escenario. Con el resultado de 92% del balance total, el cliente se comprometió a remediar; el auditor publica igual si no hay respuesta dentro de los plazos. Detalle clave: siempre mirar el <strong>alcance</strong> de la auditoría — un exchange con 200 monedas puede auditar solo 10.</li>
+</ul>
+<p>En la distinción técnica que define la honestidad de un reporte: <strong>solvencia por token</strong> (suficiente de cada moneda para cubrir sus pasivos propios) es la prueba ideal; <strong>solvencia por balance total en dólares</strong> es frágil, porque varía con el precio (si Bitcoin cae, cientos de exchanges "solventes" dejan de serlo). Un reporte serio diferencia ambas y destaca los casos límite.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Las pruebas de reservas existen porque la confianza en exchanges centralizados falló repetidamente.</strong> Mt. Gox, FTX y compañía convirtieron una necesidad regulatoria clásica en un requisito de mercado cripto.</li>
+<li><strong>Sin el usuario que verifica, la prueba no sirve de nada.</strong> El mecanismo está diseñado para que cualquier persona baje su archivo, corra la herramienta del exchange o de un tercero y compruebe su inclusión. La publicidad de FTX por Cointelegraph bastó para el colapso en dos semanas: la prueba es el poder del usuario.</li>
+<li><strong>Los árboles de Merkle fueron un buen primer paso pero filtran información.</strong> Anonimidad, cantidad de usuarios, colisiones de hash: la industria aprendió que la criptografía básica no alcanza.</li>
+<li><strong>Zero Knowledge es el estándar emergente.</strong> Permite probar solvencia sin exponer balances individuales ni el tamaño de la base, aunque su complejidad matemática dificulta incluso las auditorías de los propios protocolos ZK.</li>
+<li><strong>Falta estandarización y regulación.</strong> Clasificación de activos, frecuencia de auditorías, requisitos de capital y privacidad frente a los gobiernos son decisiones abiertas que ningún estándar técnico puede resolver solo.</li>
+<li><strong>Elalcance de la auditoría importa tanto como el resultado.</strong> Un reporte "solvente" que cubre 10 de 200 monedas, o que solo mide balance total en dólares, puede esconder exactamente el problema que la prueba debía revelar.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/sjCPobEr3wM">«El Nuevo Estándar Cripto: Pruebas de Reservas - Bustos Pedro - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

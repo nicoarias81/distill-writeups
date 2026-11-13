@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cazando amenazas ocultas: anatomía de una intrusión con día cero — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cazando amenazas ocultas: anatomía de una intrusión con día cero</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vUmC6c8Qzog">«DEF CON SG1 - CSIT Village - James Tan - Uncovering Hidden Threats:  CSIT Qpproach»</a> · ver el <a class="nz-link" href="https://youtu.be/vUmC6c8Qzog">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El CSIT —el Centre for Strategic Infocomm Technologies de Singapur— integra la caza de amenazas en su trabajo diario. La exposición recorre primero qué hace un cazador de amenazas y quién ataca hoy, y después lo aterriza en un caso real ocurrido el año anterior: una intrusión que arrancó con la explotación de un <strong>día cero</strong> en una aplicación web y terminó revelando una operación de spam SEO dirigida por un sindicato criminal. El mensaje de fondo: los ataques no son hipotéticos, ocurren todo el tiempo y en todas partes, y la única defensa sostenible es seguir aprendiendo y asumir, de vez en cuando, el rol del atacante.</p>
+<h2>Las cuatro caras del trabajo de un cazador de amenazas</h2>
+<p>Aunque los detalles varían entre agencias y organizaciones, el trabajo se agrupa en cuatro áreas:</p>
+<ol>
+<li><strong>Investigación de riesgo</strong>: más preventiva que reactiva. Se miran las amenazas globales y las buenas prácticas (parcheo, endurecimiento) para frenar amenazas conocidas y mejorar la postura de seguridad.</li>
+<li><strong>Detección sobre telemetría</strong>: los sensores de los endpoints recopilan telemetría que se procesa con reglas y filtros para señalar dinámicamente actividad peligrosa —conexiones de red inusuales, cuentas de usuario creadas o modificadas sin explicación—. Sin una detección robusta, un atacante puede pasar desapercibido muchísimo tiempo.</li>
+<li><strong>Caza proactiva</strong>: ir a buscar amenazas que los sensores todavía no detectan. Por ejemplo, cuando se publica un exploit nuevo, se anticipa qué sistemas podrían ser alcanzables y se piensa como el atacante antes de que alguien más lo haga contra la propia organización.</li>
+<li><strong>Respuesta a incidentes</strong>: cuando la intrusión es real, toca responder las preguntas de fondo: cuál es el impacto, cuál es el objetivo del adversario, qué hizo exactamente y cómo defenderse mejor la próxima vez.</li>
+</ol>
+<p>El flujo típico de un caso: la detección inicial dispara una investigación rápida —el tiempo es crítico—, se emite un informe preliminar para las partes interesadas, luego viene el análisis técnico profundo (la parte más interesante del trabajo: capacidades, motivación y, si se puede, identidad del adversario) y se cierra con un informe técnico y recomendaciones de seguimiento.</p>
+<h2>Quién está detrás de cada amenaza</h2>
+<p>Detrás de toda amenaza cibernética hay siempre un humano frente a una computadora, y su motivación define sus tácticas:</p>
+<ul>
+<li><strong>Script kiddies</strong>: usan herramientas y exploits ajenos sin entenderlos del todo; los mueve la emoción, la curiosidad y el ego, y por eso cometen errores con frecuencia. Parecen inofensivos, pero igual hay que tener controles que los frenen.</li>
+<li><strong>Hacktivistas</strong>: atacan para promover una ideología o causa; piénsese en Anonymous tumbando sitios para dejar un mensaje. Rara vez buscan daño profundo: les basta con hacerse oír.</li>
+<li><strong>Organizaciones criminales</strong>: motivadas por dinero —estafas, minería de criptomonedas, apuestas, ransomware—. Sus capacidades ya son serias y operan con cuidado para no exponerse: las estafas crecen sin parar y sus entregas son cada vez más creativas, desde sitios de restaurantes falsos hasta números de teléfono propios para contactar a las víctimas.</li>
+<li><strong>Actores patrocinados por estados</strong>: con presupuesto y financiamiento gubernamental, herramientas sofisticadas y una necesidad extra de sigilo, porque sus operaciones afectan reputaciones y relaciones entre países. Es el terreno de los famosos APT —término que también se usa de forma vaga, como se vio con la cobertura de UNC3886—.</li>
+</ul>
+<p>Todos estos actores dependen de lo mismo: <strong>acceso</strong>. Algunos lo consiguen con phishing o códigos QR; otros fuerzan o compran credenciales. Y existe el método más potente de todos: el día cero, esa vulnerabilidad desconocida para el fabricante y sin parche disponible.</p>
+<h2>El caso: de un log sospechoso a un día cero</h2>
+<p>Todo empezó con una detección: los sensores captaron un proceso sospechoso. El primer hallazgo vino de los logs de la aplicación web, y un simple fragmento bastó para tres conclusiones:</p>
+<ul>
+<li>Cada llamada revelaba, letra a letra, el nombre de un usuario: enumeración de nombres de usuario por fuerza bruta.</li>
+<li>Los pedidos POST llegaban en ráfagas con tiempos casi idénticos: automatización, probablemente con una lista de palabras.</li>
+<li>El criterio de éxito estaba a la vista: respuestas 302 frente a 404, señal de que el nombre de usuario existe en el servidor.</li>
+</ul>
+<p>Siguiendo ese nombre de usuario en los logs apareció un segundo fragmento revelador: llamadas repetidas al mismo destino con respuestas distintas, pedidos POST alternando entre las funciones <code>search files</code> y <code>file upload</code>, y —el detalle que confirmó la intrusión— un <strong>user-agent de Python</strong>: nadie navegaba con Chrome o Firefox; era un script. Como el contenido de los pedidos no queda en los logs, se capturó la memoria del proceso web, y ahí apareció lo que el atacante enviaba: uso malicioso de la función de búsqueda de archivos para conseguir ejecución remota de código. Un chequeo final cerró el diagnóstico: no había ningún reporte público de ese vector; era la primera vez que se veía un ataque contra esa función. <strong>Día cero confirmado.</strong></p>
+<h2>Lo que hizo el atacante dentro del sistema</h2>
+<p>El historial de comandos del atacante contó el resto de la historia, y contó tres cosas a la vez: qué instaló, cómo se escondió y dónde se equivocó.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Fuerza bruta: enumeración de usuarios] --> B[Día cero en función search files: RCE]
+    B --> C[Web shell GUI desplegada como default.php en múltiples carpetas web]
+    B --> D[Módulo Apache malicioso mod_intercept]
+    D --> E[El servidor víctima actúa como proxy inverso]
+    E --> F[Sitio de apuestas del atacante hereda el SEO del sitio legítimo]
+
+</pre>
+
+<ul>
+<li><strong>Web shell con GUI</strong>: un script ofuscado —nombres de variables ilegibles, código con decodificación base64— se depositó en el directorio temporal del sistema como <code>auto-monitor</code> y se decodificaba en un archivo oculto (prefijo punto, otra muestra de sigilo). En lugar de desofuscarlo estáticamente, se montó un entorno virtual con un servidor PHP y se ejecutó: resultó ser una web shell con interfaz gráfica, con manipulación de archivos y carpetas, listado de directorios y ejecución remota de código. Y quedó claro por qué se copió como <code>default.php</code> en la carpeta web de cada usuario: sembrar accesos redundantes en todos los puntos alcanzables públicamente es una póliza de persistencia.</li>
+<li><strong>Módulo Apache malicioso</strong>: el atacante eliminó <code>mod_intercept</code> de la carpeta de módulos, subió su propio archivo disfrazado de fuente (extensión <code>.e0t</code>) con el mismo nombre, modificó la configuración de HTTPD con <code>sed</code> para cargar el módulo —insertándolo en la línea 113, entre las líneas de los otros módulos, en el único sitio no obvio— y reinició el servicio web.</li>
+<li><strong>El toque de sigilo... y el error</strong>: usó <code>touch -r</code> para darle al módulo malicioso la misma fecha que <code>mod_allowmethods</code>, camuflándolo en el listado de archivos. Después intentó lo mismo con la configuración de HTTPD, pero el archivo de referencia no existía: primero copió la configuración como respaldo, y ese movimiento <strong>cambió la fecha del archivo original</strong>. Ese descuido permitió fijar con precisión cuándo ocurrió la actividad y acotar toda la forense. También afina el perfil del adversario: se esfuerza por ocultarse, pero no con suficiente cuidado.</li>
+<li><strong>Para qué servía el módulo</strong>: convertía el servidor web de la víctima en un proxy inverso que redirigía todo el tráfico a un sitio de apuestas con la dirección codificada en el módulo.</li>
+</ul>
+<h2>La pregunta clave: ¿por qué un proxy y no un defacement?</h2>
+<p>Si sos el dueño de un sitio de apuestas, querés que todo el mundo lo visite; esconderlo detrás de un proxy reduce tus visitantes. ¿Por qué, entonces, redirigir en vez de reemplazar la página de la víctima? La respuesta está en cómo indexan los motores de búsqueda: cuando un sitio es conocido, el índice conserva su autoridad y sus enlaces entrantes, aunque su contenido haya sido comprometido. Una búsqueda con términos característicos del sitio de apuestas devolvía resultados legítimos cuyo contenido real era de juego. El atacante estaba explotando la reputación del sitio legítimo para escalar posiciones en los resultados de búsqueda: <strong>hijacking de SEO</strong>. Es especialmente rentable cuando la víctima es popular —y, claro, los sitios populares suelen tener mejores defensas, lo que sugiere un atacante de capacidades limitadas—.</p>
+<h2>El veredicto</h2>
+<p>Con todos los artefactos sobre la mesa, la cadena quedó reconstruida: fuerza bruta automatizada para encontrar un usuario válido → día cero en la función de búsqueda para lograr RCE → descarga de web shells y del módulo Apache desde su servidor → el servidor de la víctima convertido en proxy hacia su sitio de apuestas → web shells replicadas en múltiples carpetas web como red de seguridad. El perfil resultante apunta a un <strong>sindicato criminal con motivación financiera</strong>: cuanto más gente visite su sitio, más gana. Además, la operación fue ruidosa y los errores abundantes; el atacante parece no importarle ser detectado, lo que encaja con un modelo de volumen: siempre hay más víctimas.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La caza de amenazas es un ciclo completo</strong>: prevenir lo conocido, detectar sobre telemetría, buscar proactivamente lo desconocido y responder con análisis profundo cuando la intrusión es real.</li>
+<li><strong>Un log mínimo puede contar una historia entera</strong>: un fragmento con 302/404, timings regulares y un user-agent de Python bastó para identificar enumeración de usuarios, automatización y scripting; la memoria del proceso web confirmó el resto.</li>
+<li><strong>Los errores del atacante son evidencia forense</strong>: un <code>touch -r</code> fallido sobre un archivo de referencia inexistente fijó la línea de tiempo de todo el incidente.</li>
+<li><strong>El SEO hijacking convierte la reputación ajena en tráfico</strong>: heredar la autoridad de un sitio legítimo vía proxy inverso es más rentable que un defacement ruidoso, y apunta a criminales motivados por dinero.</li>
+<li><strong>Ningún adversario es pequeño</strong>: con la tecnología cada vez más integrada a la vida diaria, los atacantes tienen más alcance con menos esfuerzo, y la IA accesible les permite construir herramientas mejores y técnicas que a un humano le costarían mucho más. El lado defensivo puede usar la misma IA —y debe—, porque defender significa pelear siempre contra desconocidos, y la única salida es investigar sin descanso y asumir, de vez en cuando, el rol del atacante.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vUmC6c8Qzog">«DEF CON SG1 - CSIT Village - James Tan - Uncovering Hidden Threats:  CSIT Qpproach»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

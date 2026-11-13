@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un mini-SOC con inteligencia artificial: MCP como columna vertebral del blue team — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Un mini-SOC con inteligencia artificial: MCP como columna vertebral del blue team</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cv_ccAazquw">«&quot;Yo sé SOC-fu&quot;: si Neo fuera blue teamer, usaría esto. - Carlos Mendez»</a> · ver el <a class="nz-link" href="https://youtu.be/cv_ccAazquw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los equipos defensivos de ciberseguridad enfrentan una tensión permanente: la cantidad de alertas que produce un SIEM multiplica por mucho la capacidad de análisis de dos o tres personas, y automatizar respuestas con las plataformas tradicionales (SOAR comerciales, orquestadores de pago) queda fuera de alcance para las pymes. A ese problema se suma otro: integrar un LLM en operaciones defensivas implica entregarle datos confidenciales — direcciones IP internas, nombres de empleados, estructura de infraestructura — a proveedores externos, algo inviable bajo regulaciones estrictas como las de la Unión Europea.</p>
+<p>Sobre esa base, la propuesta es montar un mini-SOC funcional apoyado en el protocolo MCP (Model Context Protocol) de Anthropic, presentado en noviembre de 2024, combinado con un orquestador open source llamado Flujo, agentes sobre Wazuh, y fuentes de inteligencia de amenazas como VirusTotal, Shodan y una base de datos mapeada de MITRE ATT&amp;CK. El resultado: con una pregunta en lenguaje natural, el sistema correlaciona alertas de fuerza bruta, consulta reputaciones de indicadores, revisa Active Directory y devuelve un análisis con tácticas, técnicas y procedimientos, una línea de tiempo y recomendaciones de respuesta.</p>
+<p>El proyecto no inventa las piezas — es una implementación sobre herramientas existentes, originalmente pensadas para otros dominios — pero demuestra que un equipo chico puede replicar el flujo de trabajo de un SOC nivel 1 y nivel 2 con costos mínimos, y que además sirve como copiloto para analistas junior que no tienen a quién preguntar.</p>
+<h2>El problema: tokenización, ventanas de contexto y la pirámide del dolor</h2>
+<p>Un LLM convierte lenguaje natural en tokens y de ahí en una matriz de vectores — imagínese un cubo con alambres cruzándose — donde las relaciones entre tokens determinan la semántica de las respuestas. Tokenizadores como BPE (Byte Pair Encoding) aprenden a inferir el par siguiente y construyen así las frases que se leen como salida coherente.</p>
+<p>En ciberseguridad esa coherencia no es un lujo: un hash mal copiado, una dirección IP errada o un dominio equivocado arruinan toda la estrategia defensiva. Y hay un límite estructural: la ventana de contexto, la cantidad máxima de tokens que el modelo puede manipular en cada iteración. Un modelo con "100K" en el nombre maneja cien mil tokens de contexto, no cien mil parámetros. Esa ventana define cuánta información se le puede pasar y cuánta puede devolver — un cuello de botella real cuando la tarea es revisar logs por los miles.</p>
+<p>El marco de referencia para decidir qué automatizar es la Pyramid of Pain: bloquear un hash es trivialmente evitable para el atacante (cambia una coma, recompila); una IP se rota con otra VPN o VPS; un dominio se reemplaza por un DGA (domain generation algorithm) imposible de predecir. En la cima están los TTPs — tácticas, técnicas y procedimientos — que, una vez entendidos y detectados, hacen innecesario perseguir cada artefacto de la base. La automatización con IA apunta justo ahí: liberar a los analistas del bloqueo manual de listas de cien IPs, hashes o dominios para que se concentren en los TTPs, mejorar MTTD y MTTR, y estirar los recursos disponibles.</p>
+<h2>MCP: darle poderes al LLM (y sus riesgos)</h2>
+<p>El Model Context Protocol es una capa de abstracción que traduce peticiones en lenguaje natural a operaciones concretas sobre herramientas externas: conecta, por un lado, chats e IDEs con, por el otro, APIs y sistemas que necesitan esas aplicaciones. En la práctica funciona como darle poderes al modelo — deja de solo conversar y pasa a ejecutar.</p>
+<p>Sus ventajas: integraciones plug-and-play en mercados oficiales y alternativos, compatibilidad con cualquier modelo (local en un server casero o remoto vía API), SDKs en varios lenguajes y JSON-RPC como base, sencillo de implementar.</p>
+<p>El reverso es serio. El protocolo carece de mecanismos sólidos de autenticación — hay que montar una barrera propia entre el MCP y el resto de los recursos. Existen vulnerabilidades documentadas del protocolo en sí: envenenamiento del prompt, inyecciones de prompt, manipulación del contexto del modelo. Y hereda todo lo vulnerable del modelo subyacente: si el modelo tiene un problema, el MCP que lo expone lo tiene también.</p>
+<p>El riesgo no es teórico: ya se mostró un servidor de comando y control construido íntegramente sobre MCP, donde escribir "dame los nombres de usuario" en un chat generaba y ejecutaba código PowerShell en la víctima. Ese mismo patrón convierte tecnologías de RaaS (Ransomware as a Service) accesibles para atacantes con poca capacidad técnica. La lesson para el defensor: el mismo poder que habilita el copiloto defensivo habilita la ofensiva automatizada, y el MCP desplegado sin controles es una puerta abierta.</p>
+<h2>Flujo + Wazuh: la arquitectura del mini-SOC</h2>
+<p>Faltaba la pieza de orquestación — el equivalente de un SOAR para IA, que no existía como producto cerrado. Las opciones comerciales (Shuffle, n8n) exigían presupuesto de un proyecto de investigación sin financiamiento, hasta aparecer Flujo: una herramienta en TypeScript con interfaz web, liviana, que orquesta varios clientes MCP conectados en simultáneo a varios modelos de lenguaje. Permite mezclar, por ejemplo, un modelo local pequeño de dos gigas para resúmenes — sin gastar créditos ni topar los rate limits de la API — con modelos de pago para el trabajo pesado. Los servidores MCP se cargan localmente (Docker o Python/TypeScript), se prueban herramienta por herramienta desde la interfaz y se armán flujos gráficamente.</p>
+<p>Sobre esa base, la arquitectura replica un SOC real por agentes:</p>
+<pre class="mermaid">
+flowchart TD
+    CH[Chat / interfaz] --> L1["Agente SOC L1 (triage)"]
+    L1 -->|handoff| L2["Agente SOC L2 (SIEM)"]
+    L1 --> IAM["Agente IAM (Active Directory)"]
+    L1 --> CTI["Agente CTI"]
+    CTI --> MCP1["MCP VirusTotal"]
+    CTI --> MCP2["MCP Shodan"]
+    L2 --> MCP3["MCP Wazuh"]
+    IAM --> MCP4["MCP MITRE ATT&CK"]
+    KB[Base de conocimiento] --- L2
+
+</pre>
+
+<p>Los componentes concretos: Wazuh como SIEM/XDR open source — con hot reload para cambiar configuraciones en vivo — desplegado en un laboratorio de tres equipos (un Domain Controller Windows que también hace de DNS, y dos workstations autenticadas al dominio); servidores MCP que exponen VirusTotal y Shodan para enriquecer IOCs; un MCP que consulta una base de datos con todas las tácticas y técnicas de MITRE mapeadas, capaz de responder a "me escanearon la red, ¿qué es?" con "intento de reconocimiento"; y un MCP de Active Directory — el más sensible de todos, capaz de manipular usuarios, grupos, OUs, GPOs — desplegado con permisos de solo lectura. Una base de conocimiento guarda las interacciones y resultados para no volver a pagar inferencia por datos ya conocidos; documenta lo que circula por el chat, no los millones de eventos crudos que ya viven en el SIEM.</p>
+<p>Cada agente tiene instrucciones explícitas: el L1 hace triage y deriva (el mecanismo se llama handoff — "esto no me corresponde, hacelo vos"); el L2 accede al SIEM y recibe información de los demás; el IAM consulta Active Directory a pedido. Parámetros de guardia evitan que el modelo mande un "chorizo" de datos a la API y consuman los créditos.</p>
+<h2>El prompting importa más que el modelo</h2>
+<p>Dos decisiones de diseño marcan la diferencia entre un demo que funciona y uno que alucina:</p>
+<ul>
+<li><strong>Contexto temporal explícito.</strong> El modelo no sabe qué día ni qué hora es. Si se le dice "esto fue el 10 de marzo", para él es igual que ayer o mañana. Hay que darle los parámetros de tiempo en el prompt para que la correlación de eventos tenga sentido.</li>
+<li><strong>Reglas de consulta.</strong> Si la IP es privada, no va a VirusTotal ni a Shodan: primero consulta la base de conocimiento interna para ver si esa IP tiene historia dentro de la compañía, y recién después el SIEM. Encadenar así las fuentes evita búsquedas inútiles y fugas de datos internos hacia APIs externas.</li>
+</ul>
+<p>También fue necesario mapear y revisar dónde están guardados los índices y los orígenes de datos en Wazuh: si no se le indica al modelo dónde buscar, no lo encuentra por sí solo.</p>
+<h2>Lo que entrega el sistema en un incidente real</h2>
+<p>La demo reprodujo un ataque de fuerza bruta contra el laboratorio y resolvió el incidente con una pregunta en lenguaje natural. El flujo que siguió: el agente inicial evaluó la alerta, decidió que la investigación correspondía al L2 y ejecutó el handoff; el L2 construyó una query en formato Lucene (el que usan Elastic y Wazuh) con su herramienta de threat hunting y devolvió el panorama completo.</p>
+<p>El resultado incluyó: los horarios exactos de la actividad (4:38:32 a 6:14 UTC), los dos sistemas involucrados (Domain Controller y WSO2), múltiples intentos de acceso remoto, el usuario atacado, los puertos usados, las reglas que se activaron, los usuarios comprometidos — incluyendo intentos de impersonación de otro usuario vía servicio de red —, los accesos administrativos para descargar artefactos, el mapeo de tácticas y técnicas MITRE del incidente, una línea de tiempo y un set de indicadores con recomendaciones concretas (hasta sugerir verificar con el equipo de IAM la pertenencia a grupos y departamentos de los usuarios involucrados).</p>
+<p>El orden de revisión siguió el Security Framework para pequeñas empresas del NIST. Para un analista junior solo de guardia, ese acompañamiento — no una receta paso a paso, pero sí un guía — es el valor más inmediato. Y el sistema sabe decir "no toques eso" cuando una IP sin reputación maliciosa no merece un bloqueo que rompa algo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>MCP (Model Context Protocol)</strong> — protocolo de Anthropic (2024) que conecta LLMs con herramientas externas vía JSON-RPC; sin autenticación sólida propia.</li>
+<li><strong>Flujo</strong> — orquestador open source en TypeScript con interfaz web para conectar varios clientes MCP y varios modelos a la vez.</li>
+<li><strong>Wazuh</strong> — SIEM/XDR open source desplegado en Domain Controller y workstations; soporta hot reload de configuración.</li>
+<li><strong>VirusTotal / Shodan</strong> — fuentes de inteligencia de amenazas expuestas al modelo vía servidores MCP.</li>
+<li><strong>MITRE ATT&amp;CK</strong> — tácticas y técnicas mapeadas en una base de datos consultable por MCP.</li>
+<li><strong>Pyramid of Pain</strong> — modelo que jerarquiza indicadores por costo para el atacante; los TTPs en la cima.</li>
+<li><strong>MTTD / MTTR</strong> — métricas de tiempo medio de detección y respuesta que la automatización busca mejorar.</li>
+<li><strong>SOAR / handoff</strong> — orquestación automática de respuestas; el handoff transfiere tareas entre agentes.</li>
+<li><strong>BPE (Byte Pair Encoding)</strong> — tokenización usada por ChatGPT; base de la construcción de texto por inferencia.</li>
+<li><strong>DGA</strong> — domain generation algorithms, generación aleatoria de dominios para evadir bloqueos.</li>
+<li><strong>Query Lucene</strong> — formato de query usado por Elastic y Wazuh, construido por el agente de threat hunting.</li>
+<li><strong>NIST Small Business Security Framework</strong> — orden de revisión seguido por el sistema.</li>
+<li><strong>Claude API / ChatGPT API</strong> — modelos usados ante la imposibilidad de correr un LLM grande en hardware doméstico.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El MCP convierte un LLM en un operador: con orquestación open source y servidores MCP sobre herramientas ya presentes en un SOC pyme (Wazuh, VirusTotal, Shodan, MITRE), se replica el flujo L1→L2 con una pregunta en lenguaje natural.</li>
+<li>La automatización debe apuntar a los TTPs, no a bloquear indicadores: perseguir hashes, IPs y dominios es una batalla perdida según la Pyramid of Pain.</li>
+<li>El protocolo MCP aún no trae autenticación propia y hereda las vulnerabilidades del modelo; exponer recursos críticos (como Active Directory) exige barrera propia y permisos mínimos — lectura en este caso.</li>
+<li>El prompting es la mitad del trabajo: contexto temporal explícito y reglas de enrutado de consultas (IP privada → base interna antes que APIs externas) separan un análisis útil de una alucinación costosa.</li>
+<li>Para equipos pequeños y analistas junior, el valor no es reemplazar al analista sino darle un copiloto que correlaciona, mapea a MITRE y sugiere el próximo paso.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cv_ccAazquw">«&quot;Yo sé SOC-fu&quot;: si Neo fuera blue teamer, usaría esto. - Carlos Mendez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

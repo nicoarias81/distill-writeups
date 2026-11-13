@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hacking the high seas: ciberseguridad marítima para todos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hacking the high seas: ciberseguridad marítima para todos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/_WpAyD-PX7k">«DCSG1 - Hacking the High Seas  Making Maritime Cybersecurity Accessible to All - James Campbell»</a> · ver el <a class="nz-link" href="https://youtu.be/_WpAyD-PX7k">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La ciberseguridad marítima queda fuera del radar porque nadie piensa en los barcos que traen la ropa y la comida. Y sin embargo, incidentes puramente físicos — el colapso del puente de Baltimore, el Ever Given atravesado en el canal de Suez — tumbaron puertos enteros y la cadena de suministro global durante meses. Cuanto más se conectan a internet los sistemas de a bordo, más crece la superficie de ataque; este es el caso de un protocolo sin autenticación ni cifrado, y de Nemo, un dispositivo de ~40 dólares para que cualquiera pueda investigarlo.</p>
+<h2>NMEA 2000: la red de todo barco moderno</h2>
+<p>NMEA 2000 es el protocolo que conecta toda la electrónica del barco en un solo bus CAN: creado en 2001 para reemplazar los protocolos serie que exigían un servidor central con cada sensor cableado. La idea era un bus tipo "power over ethernet" naval — conectar un dispositivo y obtener alimentación y señal — de modo que un fabricante haga la pantalla y otro la sonda de profundidad y todos convivan.</p>
+<p>El problema: cuando se diseñó no había acceso inalámbrico ni consideración de seguridad. Sobre el bus:</p>
+<ul>
+<li>No hay autenticación de mensajes.</li>
+<li>No hay cifrado de ningún mensaje.</li>
+<li>Confianza implícita: todos los dispositivos pueden hablar y escuchar todo.</li>
+<li>Prioridades predefinidas (y subjetivas, decididas por los fabricantes).</li>
+</ul>
+<p>NMEA 2000 se apoya en CAN (Controller Area Network, de 1983), pensado para señales en entornos ruidosos — autos, maquinaria industrial. Toda la investigación de seguridad automotriz de hace 12-15 años es aplicable a los barcos hoy: las mismas vulnerabilidades de bus CAN, sin que el mundo marítimo las conozca. Y con particularidades propias: menor tasa de datos, identificadores más grandes, y research casi inexistente.</p>
+<h2>Los ataques</h2>
+<pre class="mermaid">
+flowchart LR
+    A["Escuchar el bus<br/>aprender IDs y patrones"] --> B["Suplantación<br/>reenviar mensajes modificados<br/>a mayor velocidad"]
+    A --> C["DoS<br/>reclamar las 252 direcciones<br/>con máxima prioridad"]
+    B --> D["La pantalla muestra<br/>los datos del atacante"]
+    C --> E["Los dispositivos entran<br/>en estado de error y<br/>dejan de transmitir"]
+
+</pre>
+
+<ul>
+<li><strong>Suplantación de dispositivos</strong>: cada dispositivo recibe todos los mensajes y no valida quién los envía (no hay checksum ni chequeo de validez); muchos solo escuchan por tipo de mensaje, no por dirección del emisor. El ataque escucha los mensajes legítimos, aprende IDs y patrones, y reenvía los mismos mensajes con los campos de datos modificados a una tasa mucho mayor — el sensor original sigue transmitiendo, pero las pantallas muestran los datos del atacante.</li>
+<li><strong>Denegación de servicio</strong>: solo hay 252 direcciones disponibles en el bus y cada dispositivo debe reclamar una; si no quedan libres, la especificación obliga a entrar en estado de error y dejar de transmitir. Nemo reclama todas las direcciones con la prioridad más alta; cuando los demás intentan reclamar una nueva, responde que ya está tomada, y el ciclo sigue hasta que cada dispositivo agota las 252 y deja de hablar — requiere reset físico para volver.</li>
+</ul>
+<h2>Nemo: 40 dólares para entrar al mar</h2>
+<p>Las barreras de entrada al campo son altas: montar un lab casero cuesta cientos a miles de dólares en equipos usados; el estándar NMEA 2000 es propietario (pagarle miles a NMEA y firmar un NDA); y muchos simplemente no tienen acceso a un barco. Nemo ataca las tres: un dispositivo de aproximadamente 40 USD con electrónica de consumo (Amazon) cuyo cerebro es un microcontrolador con dos interfaces CAN — transmite por una y escucha por la otra, simulando la separación real entre un dispositivo de a bordo y el módulo de escucha — y con un conector NMEA 2000 genuino: puede enchufarse a un barco real y ejecutar los mismos ataques.</p>
+<h2>Demostraciones</h2>
+<ul>
+<li><strong>En el lab</strong>: Nemo simula un sensor nuevo en la red (profundidad del agua) y el valor en la pantalla sigue las perillas del dispositivo; luego suplanta un sensor real conectado al bus — el legítimo sigue mandando sus lecturas correctas, pero la pantalla muestra el dato falso del atacante.</li>
+<li><strong>En un barco real</strong>: en el puente de mando, con la autorización del dueño, un terminal NMEA con huecos libres — "esperando que alguien enchufe algo" — permitió conectar Nemo y suplantar el sensor de rumbo: el rumbo mostrado giró 90 grados sin que el barco se moviera. Y al ejecutar el DoS, se dispararon alarmas y avisos por todas las pantallas del puente.</li>
+<li><strong>Acceso físico</strong>: recorriendo otras partes del barco había conectores NMEA abiertos y listos — junto a los baños. Desenroscar y enchufar bastaba para ejecutar el mismo ataque sin que el capitán se enterara. Hasta que se endurezca el bus, la seguridad física sigue importando: alguien puede dejar un dispositivo plantado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La misma investigación CAN de la industria automotriz se puede y se debe repetir sobre NMEA 2000 — con protocolo propietario y documentación bajo NDA como obstáculos añadidos.</li>
+<li>El impacto escala: un sensor falseado o un bus muerto en un canal angosto o un puerto congestionado tiene consecuencias de alcance global.</li>
+<li>Nemo es fully open source (PCB, código, guía de arranque en GitHub), y el Maritime Hacking Village permite ver los ataques en vivo para quien quiera empezar sin barco propio.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/_WpAyD-PX7k">«DCSG1 - Hacking the High Seas  Making Maritime Cybersecurity Accessible to All - James Campbell»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

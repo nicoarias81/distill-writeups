@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explotación de apps Xamarin: el paso extra que nadie te cuenta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Explotación de apps Xamarin: el paso extra que nadie te cuenta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XXySWBRC9wk">«Introduction to Xamarin Exploitation Apps -Juan Urbano Stordeur &amp; Juan Martinez Blanco»</a> · ver el <a class="nz-link" href="https://youtu.be/XXySWBRC9wk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El análisis de aplicaciones móviles suele asumir que el código interesante vive en Java o Kotlin y se recupera con las herramientas de siempre: APK Tool, Jadx y algo de paciencia. Esa suposición se rompe con Xamarin, el framework multiplataforma de Microsoft (hoy en transición hacia MAUI) que compila la lógica de la aplicación a assemblies .NET empaquetados dentro del APK. Quien intenta analizar una app Xamarin con el flujo convencional encuentra shells de Java casi vacías: la lógica real está en otro lugar, en un formato distinto, y exige un paso adicional de desempaquetado antes de poder tocar nada.</p>
+<p>Este artículo describe una metodología práctica para detectar y reversar aplicaciones Xamarin en Android, construida a partir de un research que descargó masivamente aplicaciones del Play Store para aislar un subconjunto Xamarin: de 259 aplicaciones analizadas, solo alrededor de 99 fueron desarrolladas con ese framework. Sobre ese corpus se identificó una aplicación con root detection y se documenta el bypass completo por modificación estática, con todos los tropiezos del camino: split APKs, re-firmado de bundles, manifiestos corruptos por la decompilación y reinstalación final.</p>
+<p>El valor de la metodología es doble: da un playbook reproducible para cuando un cliente entrega una app Xamarin, y deja una lección general válida para cualquier framework híbrido — cada stack de desarrollo (Flutter, React Native, Xamarin, Cordova, Expo) tiene sus particularidades, y capturar tráfico o bypassear protecciones en Flutter, por ejemplo, es completamente distinto al resto.</p>
+<h2>Un ecosistema híbrido con reglas propias</h2>
+<p>Las aplicaciones nativas se escriben en Java/Kotlin (Android) u Objective-C/Swift (iOS). Los frameworks híbridos como Xamarin prometen un solo código para ambas plataformas, y esa promesa tiene un costo para el analista: las herramientas de ingeniería inversa del ecosistema Android no saben nada de .NET.</p>
+<p>El punto de partida del research fue puramente estadístico. Se automatizó la descarga masiva de APKs y se escribió un script en Python que matchea los strings característicos del framework: <code>assemblies.blob</code>, <code>xamarin.dll</code>, <code>xamarin</code>. Como complemento se armó un template de Nuclei —la herramienta de análisis estático basada en templates— con un matcher y un extractor para los mismos artefactos. De 259 aplicaciones descargadas, el subconjunto Xamarin fue de unas 99: no es un framework común, pero aparece lo suficiente como para que cualquier consultor se lo cruce en algún assessment.</p>
+<p>La conclusión operativa es directa: con Jadx sobre un APK Xamarin no se encuentra prácticamente nada útil. El APK contiene DLLs y un blob file — <code>assemblies.blob</code>, un empaquetado con todas las DLLs que contienen la lógica de la aplicación — generalmente en una carpeta <code>unknown/assemblies</code>. Ahí vive todo.</p>
+<h2>El flujo de modificación estática en Xamarin</h2>
+<p>El flujo completo para parchear una app Xamarin añade pasos al pipeline clásico:</p>
+<pre class="mermaid">
+flowchart TD
+    A[APK instalada en el dispositivo] --> B[adb pull de todos los split APKs]
+    B --> C[APK Tool decompile]
+    C --> D[localizar assemblies.blob]
+    D --> E[Pixam Store: unpack del blob]
+    E --> F[dnSpy: cargar TODAS las DLLs y editar]
+    F --> G[reempaquetar blob con Pixam Store]
+    G --> H[APK Tool build]
+    H --> I[zipalign + firma con Uber APK Signer]
+    I --> J[adb install-multiple]
+
+</pre>
+
+<p>Sobre un APK nativo, el mismo objetivo se resuelve editando smali. En Xamarin hay una capa intermedia completa: el blob se desempaqueta, las DLLs se editan en un decompiler .NET y se reempaquetan. Herramientas clave:</p>
+<ul>
+<li><strong>dnSpy</strong>: decompiler .NET (requiere Windows). "Vieja y fiel": se cargan todas las DLLs sin saber de antemano dónde está la lógica buscada, se navega por namespaces hasta el método objetivo y se edita con clic derecho → editar método.</li>
+<li><strong>dotPick</strong>: alternativa más moderna para reversar DLLs .NET.</li>
+<li><strong>Pixam Store</strong>: el packing/unpacking del <code>assemblies.blob</code>. Al reempaquetar genera <code>AssembliesManifest.new</code> y <code>AssembliesBlob.new</code>, que hay que renombrar sobre los originales antes de recompilar.</li>
+<li><strong>APK Tool</strong>: decompile/build del APK y acceso al smali, como en cualquier flujo Android.</li>
+<li><strong>Zipalign</strong>: alinear los recursos del APK tras modificarlo.</li>
+<li><strong>Uber APK Signer</strong>: firmar un bundle de APKs completos con el mismo certificado de debug, crítico cuando la app viene en split config.</li>
+</ul>
+<p>La decisión de dónde parchear sigue un principio de economía: ir al lugar menos costoso. Si la validación de root está dispersa en muchas clases (como en RootBeer, con sus múltiples checks), conviene atacar el punto de entrada del check en lugar de cada validación individual.</p>
+<h2>Caso práctico: bypassear el root check</h2>
+<p>Tras descargar el corpus y encontrar una aplicación real con root detection, el procedimiento fue el siguiente. Primero, obtener la app: instalación desde el Play Store en un dispositivo emulado, identificación del package name con <code>adb shell</code> y listado de los paths de los APKs. La app resultó ser un <strong>split config</strong>: la APK principal venía acompañada de múltiples APKs (configuraciones de idioma, densidades HDPI, etc.) que deben descargarse todas y reinstalarse todas juntas más adelante.</p>
+<p>La decompilación con APK Tool de la APK principal confirmó el diagnóstico Xamarin: el smali contiene apenas llamadas al framework, y la carpeta <code>unknown/assemblies</code> guarda el <code>assemblies.blob</code>. Con Pixam Store sobre esa carpeta se extrajeron las DLLs.</p>
+<p>En dnSpy, cargando el set completo de DLLs, la búsqueda por el término "rooted" llevó al método <code>isDeviceRooted</code>, que construía un perfil del dispositivo que quedaba guardado dentro de la aplicación. Después de descartar intentos más finos — hacer que devuelva <code>false</code>, tampear strings que matchean apps de root — la opción más económica resultó ser la más simple: <strong>vaciar el método por completo</strong>. Sin perfil generado, no hay root check.</p>
+<p>El reempaquetado siguió el flujo descrito: guardar todas las DLLs editadas en dnSpy (File → Save All), reempaquetar el blob con Pixam Store, reemplazar los <code>.new</code> por los nombres originales, build con APK Tool (<code>apktool b</code>), zipalign de cada APK y firma de todo el bundle con Uber APK Signer usando el debug keystore.</p>
+<h2>Los tropiezos del camino: split APKs y XMLs corruptos</h2>
+<p>Dos problemas prácticos dominan el trabajo con modificaciones estáticas y valen tanto como la técnica central.</p>
+<p><strong>El firmado de bundles.</strong> Modificar una sola APK de un split config obliga a alinear y firmar todas, porque la reinstalación exige el conjunto completo con la misma firma. Uber APK Signer firma todo el bundle de una vez con el certificado de debug, y <code>adb install-multiple</code> reinstala todas las APKs en un solo comando. Mantener carpetas ordenadas por paso no es pedantería: con múltiples APKs circulando, la desorganización se paga en errores tontos.</p>
+<p><strong>Los recursos corruptos de APK Tool.</strong> La primera reinstalación falló con un error de manifiesto malformado en la línea 29: la decompilación había dejado un <code>@null</code> mágico en un atributo XML. La corrección fue la de siempre — consultar el valor por defecto razonable (en este caso, el dominio de la aplicación) y rehacer todo el ciclo de build, align y firma. Es la diferencia estructural entre modificación estática y dinámica: en estática, cada error obliga a repetir todo el pipeline.</p>
+<p>Con la reinstalación exitosa, la aplicación abrió sin activar la detección de root: bypass completo. El paso siguiente natural habría sido buscar SSL pinning u otras protecciones dentro de las DLLs, siempre ajustando el ataque a la implementación concreta.</p>
+<h2>Protectores comerciales: confiar en el blindaje es confiar en un WAF</h2>
+<p>Un mercado creciente de empresas blinda aplicaciones en runtime: AppDome, Build38, Promon, o vendors de anti-cheating enfocados en juegos. Descargando apps de forma automatizada empiezan a verse patrones — mensajes de error característicos, cierres al arrancar — que delatan qué protector hay detrás, y hay aplicaciones con hasta dos implementaciones superpuestas. APKID, que usa Yara rules, identifica el packer o protector de un binario y es el primer punto de partida para saber con qué se está lidiando.</p>
+<p>El argumento para los clientes es el mismo que aplica a un WAF frente a un SQL injection conocido: nadie confía al 100% en la capa de protección sin auditar qué hay detrás. Los protectores varían mucho en implementación — algunos cifran strings, otros dejan archivos en texto plano — y una verificación de integridad validada a nivel hardware (la evolución de SafetyNet vía Magisk) todavía no tiene bypass público, pero eso no significa que no lo tenga en el futuro. La recomendación práctica para un assessment con tiempo limitado: usar el tiempo para encontrar la mayor cantidad de vulnerabilidades de la aplicación, y dedicar una fracción acotada a evaluar cómo está implementado el protector.</p>
+<p>En iOS el flujo es análogo pero con un requisito adicional: modificar y reinstalar exige un Mobile Provisioning Profile de Apple Developer — el equivalente del debug keystore — para volver a firmar la app con su integridad alterada.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Xamarin / MAUI</strong>: framework multiplataforma .NET; la lógica viaja en DLLs dentro del APK, no en código Java/Kotlin.</li>
+<li><strong>assemblies.blob</strong>: empaquetado de DLLs de la app, típicamente en <code>unknown/assemblies</code>; el artefacto objetivo de todo el flujo.</li>
+<li><strong>dnSpy</strong>: decompiler/editor .NET para cargar y modificar las DLLs extraídas (requiere Windows).</li>
+<li><strong>dotPick</strong>: alternativa moderna a dnSpy para ingeniería inversa de DLLs.</li>
+<li><strong>Pixam Store</strong>: unpacker/repacker del <code>assemblies.blob</code> de Xamarin.</li>
+<li><strong>APK Tool</strong>: decompile/build de APKs y acceso al código smali.</li>
+<li><strong>Jadx</strong>: aquí como contraejemplo; sobre Xamarin no llega a la lógica real.</li>
+<li><strong>Nuclei</strong>: análisis estático por templates; matcher/extractor para detectar artefactos Xamarin.</li>
+<li><strong>APKID</strong>: identificación de packers/protectors vía Yara rules.</li>
+<li><strong>Zipalign</strong>: alineación de recursos del APK modificado.</li>
+<li><strong>Uber APK Signer</strong>: firma de bundles de APKs con un mismo certificado de debug.</li>
+<li><strong>adb install-multiple</strong>: reinstalación simultánea de todos los split APKs.</li>
+<li><strong>Split config</strong>: distribución del APK en múltiples archivos (idioma, densidad) que deben tratarse como conjunto.</li>
+<li><strong>Root detection / SSL pinning / anti-emulation</strong>: familia de protecciones runtime con implementaciones comparables entre frameworks.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Xamarin exige un paso extra estructural</strong>: Jadx y APK Tool solos no alcanzan; hay que desempaquetar el blob, editar DLLs .NET y reempaquetar antes de volver al pipeline clásico de build, align, firma e instalación.</li>
+<li><strong>El principio de economía aplica a los bypass</strong>: buscar el punto de intervención menos costoso (vaciar <code>isDeviceRooted</code> en lugar de neutralizar cada check) reduce esfuerzo y riesgo de romper la app.</li>
+<li><strong>La modificación estática es un ciclo con replay obligado</strong>: cualquier error — un XML corrupto, una firma fallida — obliga a repetir todo el pipeline, lo que convierte la organización en parte de la metodología.</li>
+<li><strong>La protección de terceros no reemplaza la auditoría</strong>: los protectores comerciales (AppDome, Build38, Promon, anti-cheating) tienen implementaciones desiguales, y el enfoque correcto frente a un cliente es el mismo que con un WAF: auditar qué hay detrás.</li>
+<li><strong>El enfoque general sobrevive al framework</strong>: MAUI u otros stacks futuros cambiarán el artefacto concreto, pero root check, certificate pinning y anti-emulation seguirán siendo validaciones reconocibles cuyo punto débil se encuentra analizando la implementación.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XXySWBRC9wk">«Introduction to Xamarin Exploitation Apps -Juan Urbano Stordeur &amp; Juan Martinez Blanco»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

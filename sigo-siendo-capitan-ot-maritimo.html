@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>«Sigo siendo el capitán»: radiografía de la superficie de ataque de un buque — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">«Sigo siendo el capitán»: radiografía de la superficie de ataque de un buque</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/j7twZA6SBz8">«DEF CON 32 - I am still the Captain now! - Paul Brownridge»</a> · ver el <a class="nz-link" href="https://youtu.be/j7twZA6SBz8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando un buque de carga encalla tras un apagón —como el MV Dali contra el puente Francis Scott Key—, internet se divide entre los que juran que lo hackearon y los que dicen que es imposible. La realidad, cuando uno entiende cómo se arquitecta un barco, está en el medio: los sistemas críticos a bordo son hackeables, pero exige tiempo, conocimiento de los sistemas, presencia física o ingeniería social intensiva. No hay un botón mágico desde la otra punta del mundo que tome el control del buque por el enlace VSAT.</p>
+<p>El recorrido desmonta el barco sistema por sistema: motores principales, gestión de energía, timón, piloto automático, cartografía, y las redes que los conectan. Cada uno tiene salvaguardas humanas —siempre hay alguien en el circuito, siempre hay un switch físico o un timón de emergencia— pero también puntos ciegos que las pruebas de penetración reales en buques destapan una y otra vez.</p>
+<p>El hallazgo central es desconcertante: desde una cabina de pasajeros, con acceso a la Wi-Fi del buque, se logró comprometer el sistema de propulsión (Azipod/thrusters). La vía no fue sofisticada: fue un PC olvidado con TeamViewer, cableado Modbus y el miedo ancestral de los ingenieros a apagar lo que no entienden.</p>
+<h2>Cómo se apaga y enciende un barco (y por qué no es un botón)</h2>
+<p>Un buque portacontenedores moderno lleva un único motor principal, sostenido por sistemas auxiliares: bombas de refrigeración e inyección de combustible, alimentadas por generadores en arreglos redundantes que también dan servicio al gobierno (el timón). Todo se coordina mediante el Power Management System (PMS), supervisado por el sistema integrado de alarma y monitorización, al que se conectan los demás sistemas por enlaces serie o IP-sobre-serie.</p>
+<p>Un apagón (<em>blackout</em>) se dispara por causas tan prosaicas como combustible barato comprado en puerto, el rolado del casco en mar gruesa, fallos eléctricos o mantenimiento deficiente — y empeora con la edad del buque. No es ciencia ficción: el Carnival Triumph quedó fuera de servicio varios días en 2013 por fallos de energía, y en 2019 el Viking Sky perdió generadores por mantenimiento. El reinicio no es un botón: es una secuencia — arrancar generadores localmente, esperar velocidad de régimen, cerrar interruptores, gestionar manualmente la carga mientras el barco la consume. La normativa exige que el generador de emergencia entre en 45 segundos; en el mundo real suele tardar minutos. A media hora del puente, esos minutos son la catástrofe.</p>
+<h2>Los sistemas que importan, desde el punto de vista del atacante</h2>
+<ul>
+<li><strong>ICMS (control y monitorización integrada)</strong>: el cerebro del buque; controla los PLCs de la sala de máquinas, el timón y la gestión de energía. Sin él el barco no opera: objetivo de máximo valor en cualquier pentest naval.</li>
+<li><strong>ECDIS (cartografía electrónica)</strong>: en arreglos redundantes; sin él la tripulación no sabe dónde está y el buque debe detenerse. En barcos viejos quedan los mapas de papel, que se entregan a mano.</li>
+<li><strong>Safety Management System</strong>: sala independiente cerca del puente que organiza emergencias y tiene tentáculos en todo el buque — del ICMS al ECDIS, puertas presurizadas, CCTV y alarmas de incendio; coordinar botes salvavidas desde allí lo convierte en pieza estratégica.</li>
+</ul>
+<p>La red idealizada separa el tráfico corporativo, de terceros y de tripulación (Wi-Fi y cableado) del puente y la sala de máquinas, con el enlace VSAT entrando a la red core. La red real es un desorden de troncales VLAN que bajan a switches de cabinas repartiendo TV, VoIP, Wi-Fi y CCTV. Lo decisivo: todo entra por una única conexión satelital, lo que para un atacante es siempre interesante. El hardware, por cierto, es genérico: Cisco de catálogo, nada específico del sector marítimo.</p>
+<h2>De un PC escondido a los propulsores</h2>
+<p>Una auditoría a bordo comienza pisando hierro: perseguir tubos y cables durante días, con el agravante de la rotación de ingenieros que hace que nadie sepa qué hace cada sistema. El hallazgo fue un PC rugado con Windows escondido en un panel, encargado de monitorizar el consumo de combustible, con un conversor IP-a-serie colgando de él. Analizando el cableado se descubrió que el enlace hacia el puente era transmit-only — nada inyectable hacia el ICMS, mala suerte para el atacante— pero la conexión hacia los PLCs del motor principal usaba Modbus, protocolo sin autenticación donde el valor lo reporta el equipo al que se consulta: writable, inyectable.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Cabina (Wi-Fi del buque)"] --> B["PC rugado olvidado<br/>TeamViewer sin pagar desde hace 4 años"]
+    B --> C["Conversor IP-a-serie"]
+    C --> D["Modbus → PLCs del<br/>motor / propulsión Azipod"]
+    D --> E["Inyección de valores<br/>en propulsores"]
+
+</pre>
+
+<p>La cereza: el equipo tenía TeamViewer instalado, y la empresa llevaba cuatro años sin pagar la suscripción — pero nadie lo desinstaló porque los ingenieros, con la rotación constante, preferían no apagar un sistema cuyo propósito desconocían. Resultado: máquina sin parchear, conectada a internet, con camino a los PLCs. Con ese camino, el compromiso del sistema de propulsores desde las cabinas quedó demostrado. Y aún hay más superficie: los Azipod modernos se controlan por Wi-Fi normal de 2,4 GHz, ni siquiera cable dedicado.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los buques son hackeables, pero el compromiso remoto total desde internet es muy improbable: exige tiempo, conocimiento de arquitectura, presencia física o ingeniería social masiva.</li>
+<li>Siempre hay un humano en el circuito: switches físicos, timón de emergencia y la capacidad del capitán de anular cualquier control automático son el diseño de defensa real de un barco.</li>
+<li>La convergencia IT/OT es la fuente principal de riesgo nuevo: enlaces IP-a-serie, troncales VLAN, RDP y TeamViewer conectan mundos que antes eran discretos, y en cada buque hay unos 6-7 puntos de acceso Wi-Fi no documentados.</li>
+<li>El riesgo operacional más perverso no es técnico sino cultural: sistemas abandonados que nadie apaga por miedo, como el TeamViewer moribundo que terminó siendo la puerta de entrada a la propulsión.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/j7twZA6SBz8">«DEF CON 32 - I am still the Captain now! - Paul Brownridge»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

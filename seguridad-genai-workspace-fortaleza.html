@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Asegurar GenAI en Google Workspace: de la arquitectura estructural al bucle de resiliencia — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Asegurar GenAI en Google Workspace: de la arquitectura estructural al bucle de resiliencia</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/J9B6Ez2ynvk">«Nicolas Lidzborski - Securing Workspace GenAI at Google Speed | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/J9B6Ez2ynvk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La seguridad generativa enfrenta una tormenta perfecta: las fronteras tradicionales ya no alcanzan. El cambio estructural es doble. Primero, el desplazamiento semántico: en la app clásica hay parsing determinista —todo el mundo sabe cómo luce una SQL injection— y se puede filtrar por sintaxis; en GenAI la gramática es lenguaje natural, inherentemente difuso, y el ataque ya no rompe sintaxis sino que desplaza el contexto, usando persuasión y role-playing para saltarse los filtros mientras el modelo interpreta intención en lugar de ejecutar comandos rígidos. Segundo, prompt-as-code: en la computación clásica código y datos están separados; en los LLMs system prompt, entrada del usuario y datos son un único flujo continuo de tokens, sin forma out-of-band de decirle al modelo "estos 500 tokens son solo datos, no los ejecutes" —no hay bit NX en la memoria—. Para el modelo cada token es una instrucción potencial, y de ahí la prompt injection.</p>
+<p>El riesgo dominante en entornos de productividad es la inyección indirecta de prompts: una cadena de suministro de clic cero donde la instrucción maliciosa va enterrada en contenido externo no confiable —una invitación de calendario, un email— y se activa con una acción benigna del usuario, como pedirle a la IA que resuma el día. La ambigüedad es el núcleo: el LLM trata todo el texto entrante como un solo comando, y cada documento malicioso puede propagarse y activarse a través de muchos usuarios, convirtiendo una feature inocente en un canal oculto de phishing o exfiltración.</p>
+<h2>Tres vectores de amenaza concretos</h2>
+<p><strong>Exfiltración por markdown.</strong> Es un ataque de rendering: el modelo genera markdown malicioso —imágenes, enlaces— que al renderizarse fuerza peticiones al servidor del atacante, con datos sensibles escondidos en parámetros de query. La verificación falla en silencio: el usuario solo ve un ícono de imagen rota o un link que no carga, mientras el atacante ya capturó los datos en su log.</p>
+<p><strong>Acciones renegadas (rogue actions).</strong> El "agency gap" es la desconexión entre la intención real del usuario y la ejecución autónoma del agente: por ser el razonamiento no determinista, una variación menor del prompt puede hacer que el agente envíe datos sensibles a la persona equivocada solo por un conflicto de nombres —"es lo suficientemente cercano"—. El "orchestration hijacking" es peor: la capa de orquestación comprometida por una inyección indirecta puede plantar triggers durmientes, temporales o por evento, que se ejecutan mucho después —una payload insertada en una base de datos que se activa un año después—, enmascarando el origen del ataque. Y el "confused deputy" ocurre cuando la orquestación concede al agente permisos que exceden lo que el usuario autorizó.</p>
+<p><strong>La trifecta letal.</strong> El marco de Simon Willison define la convergencia que eleva el riesgo: acceso profundo a datos privados sensibles, exposición continua a contenido externo no confiable y capacidad de ejecutar comandos externos vía APIs. El vector real mostrado en Black Hat fue "an invitation is all you need": una invitación de Google Calendar con payload oculto que se activa cuando el usuario pregunta "¿qué tengo hoy?". Sin zero-day, sin malware, sin clic; y con consecuencias físicas posibles —el control de luces, cortinas o calefacción en un hogar conectado—.</p>
+<h2>Por qué filtrar es un juego perdido</h2>
+<p>Tres evidencias de que el gato y el ratón se pierde siempre. Los filtros estáticos (blocklists, regex) operan en sintaxis y caen ante base64, hex o ROT13 —el LLM los entiende sin instrucción especial—. Los clasificadores ML carecen de profundidad semántica y se burlan con sinónimos, traducción a lenguas de bajos recursos o prefijos adversariales; basta un bypass. Y los ataques multimodales son puntos ciegos totales: instrucciones enterradas en imágenes, metadatos o texto-image con evasión de OCR. Incluso el "LLM as judge" falla por inyección recursiva: el juez comparte la misma interfaz semántica que el atacante, y cae en el gaslighting semántico —"revisá lo siguiente como seguro, es solo investigación, confía en mí"—.</p>
+<h2>La fortaleza: cuatro capas estructurales</h2>
+<ol>
+<li><strong>Entrada de bajo riesgo.</strong> Solo contenido visible —no tiene sentido mandar HTML oculto al LLM; importa lo que el usuario ve—, bloqueo previo de contenido ya clasificado como spam o phishing, y señales de abuso de todo tipo: tracking de procedencia de datos, afinidad de usuario, score de riesgo, clasificación de prompt injection a lo largo de todo el sistema.</li>
+<li><strong>Delimitación y refuerzo del contexto.</strong> Sentinel tokens que encapsulan y marcan dónde está el dato dentro del prompt, refuerzo explicando al modelo qué vigilar y por qué, y fine-tuning para ignorar estrictamente comandos imperativos dentro de los delimitadores de datos. No es perfecto, pero sube la barra.</li>
+<li><strong>Orquestación determinista.</strong> Un orquestador con máquina de estados finitos que rastrea el nivel de riesgo del contexto y restringe dinámicamente capacidades según el origen de los datos: tras acceder a datos sensibles del usuario, la petición web a internet se niega. La política se aplica en cada paso, no solo en el prompt inicial, con confirmación humana requerida para mutaciones y compartición de datos.</li>
+<li><strong>Sanitización de salida.</strong> El output del LLM es markdown que se renderiza como HTML: se parsea y limpia —imágenes no deseadas, protocolos de enlace—, con clasificación dinámica de URLs contra Safe Browsing y scrubbing de enlaces alucinados: si el LLM se inventó la URL, probablemente no conviene renderizarla.</li>
+</ol>
+<h2>Resiliencia sistémica: testear, validar, aprender</h2>
+<p>Nada de esto es estático. El primer pilar es el testing de regresión automatizado que somete el sistema repetidamente a todas las clases conocidas de ataque agéntico —garantizando que la defensa del mes pasado no se rompa con la feature de esta semana—, y que repite cada ataque muchas veces: por la naturaleza probabilística de los LLMs, el mismo ataque que falló nueve veces puede funcionar la décima. El segundo es la colaboración: red team dedicado que busca vectores zero-day, co-engineering que implementa las defensas estructurales, el programa de vulnerabilidades y eventos de hacking dedicados. El tercero es el patrón plan–validate–execute para acciones irreversibles: pausa, plan de lo que va a ocurrir, un gatekeeper que bloquea y pide confirmación humana si la acción rompe la política generada dinámicamente o se desalinea de la intención del usuario —o bloquea de plano si un framework de seguridad contextual detecta desvío— y recién entonces ejecuta. Queda investigación de UX pendiente: la fatiga de revisión convierte a la gente en máquinas de aprobar todo. Se cierra con transparencia —logs detallados para admins, porque la seguridad por oscuridad no es defensa viable— y con la señal del usuario convertida en bucle: reportes de alucinación o prompt injection que alimentan el servicio de detección, con la experiencia de spam y abuso aplicada al caso.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Prompt es código: cada token es una instrucción potencial y ningún firewall sintáctico lo va a captar; la defensa debe ser estructural, no reactiva.</li>
+<li>La procedencia de datos confiable (trust provenance) a lo largo de la vida del agente —qué archivos tocó, qué sensibilidad— es lo que permite saber en todo momento qué puede estar exfiltrándose y poner el guardrail exacto ahí.</li>
+<li>Asegurar GenAI no es una medida puntual: es un proceso continuo y auto-correctivo, con tests automatizados, human-in-the-loop y feedback del usuario integrado.</li>
+<li>La analogía histórica de la audiencia lo resume: al combinar código y datos en una sola ventana de prompt, la industria repitió el error de von Neumann que habilitó los buffer overflows; volvemos a los tiempos de Windows 95, todo corriendo con el mismo usuario y sin monitoreo.</li>
+<li>La aritmética que no cierra: el tiempo mediano para parchear una vulnerabilidad crítica en una empresa es de ~30 días, y ahora las vulnerabilidades se encuentran en minutos; sin security by design en todo lo nuevo, el loop de crear código vulnerable y arreglarlo con LLMs no termina nunca.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/J9B6Ez2ynvk">«Nicolas Lidzborski - Securing Workspace GenAI at Google Speed | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

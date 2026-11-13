@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bluetooth hacking desde cero: cómo encarar la investigación en seguridad IoT — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Bluetooth hacking desde cero: cómo encarar la investigación en seguridad IoT</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/konSFOTx4xg">«Bluetooth Hacking from Zero: Getting Started in IoT Security Research»</a> · ver el <a class="nz-link" href="https://youtu.be/konSFOTx4xg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Bluetooth está en todos lados: smartwatches, auriculares, parlantes, monitores de salud, cerraduras, terminales de cobro. Sin embargo, para quien quiere investigar su seguridad, el protocolo suele aparecer como una nube gris: demasiadas capas, demasiados modos, demasiadas siglas. La propuesta es ordenar ese mapa: entender cómo funciona el protocolo, cómo se emparejan los dispositivos, cómo extraer los datos que viajan por el aire y cómo todo eso se traduce en vulnerabilidades reales — incluidas varias encontradas por el propio investigador junto a Ileana en dispositivos de uso cotidiano.</p>
+<h2>Qué es Bluetooth y por qué importa para IoT</h2>
+<ul>
+<li>Opera en UHF, entre 2,402 y 2,48 GHz, con <strong>frequency hopping</strong>: al establecerse la comunicación, los dispositivos saltan entre canales siguiendo un patrón específico. Eso es lo que hace tan difícil el sniffing pasivo.</li>
+<li>Arquitectura master-slave: el teléfono o la computadora suelen ser el master que envía operaciones; los periféricos son slaves que las ejecutan.</li>
+<li>Bajo consumo y bajo costo: la razón por la que un smartwatch puede durar días — y la razón por la que cualquier periférico moderno lo incluye.</li>
+<li>Está en datos críticos: marcapasos, monitores de ritmo cardíaco, cerraduras, lectores de pago. Existen versiones de wearables que permitían a un atacante hacerle creer al teléfono que el ritmo cardíaco de la persona estaba peligrosamente alto, con consecuencias reales.</li>
+</ul>
+<h2>El stack: dónde mirar al investigar</h2>
+<p>El stack se divide en dos grandes mitades: hardware y aplicación. La capa de aplicación se conecta a través de SDP (service discovery), L2CAP y <strong>HCI (Host Controller Interface)</strong>, que es la frontera con el chip. Dentro del chip viven el host controller (autenticación, emparejamiento, cifrado), el baseband controller y la radio. La clave práctica: <strong>HCI es lo que el investigador puede observar y extraer</strong>, y de ahí nace la herramienta más importante del arsenal.</p>
+<h2>Dos Bluetooth, dos mundos</h2>
+<ul>
+<li><strong>Bluetooth EDR (clásico)</strong>: alta velocidad de transferencia, ideal para audio y video streaming. Implementa <strong>profiles</strong> predefinidos (HFP para manos libres, HID para teclados) que estandarizan comportamientos. Fuerte consumo, punto a punto.</li>
+<li><strong>Bluetooth Low Energy (BLE)</strong>: bajísimo consumo, pocos datos, pensado para monitoreo. Los desarrolladores tienen libertad para implementar la seguridad como quieran — y no la implementan. Esa es la gran puerta de entrada.</li>
+</ul>
+<p>Regla rápida de clasificación: si el dispositivo envía mucha data punto a punto, es EDR; si envía poco y la batería dura mucho, es BLE.</p>
+<h2>Emparejamiento: donde nace la mayoría de las vulnerabilidades</h2>
+<p>Los cuatro métodos de pairing son el primer thing que hay que identificar en cualquier dispositivo:</p>
+<ol>
+<li><strong>JustWorks</strong> — se conecta y empieza a intercambiar datos. Permite ataques man-in-the-middle: un atacante se mete en el medio haciéndose pasar por cada dispositivo ante el otro.</li>
+<li><strong>Numeric Comparation</strong> — se muestra un número en ambos lados y hay que confirmarlo.</li>
+<li><strong>Pass Key Entry</strong> — se ingresa el mismo número en ambos dispositivos.</li>
+<li><strong>Out of Band</strong> — la clave se establece por otro canal (por ejemplo NFC), el más seguro.</li>
+</ol>
+<p>BLE mantiene legacy pairing por compatibilidad hacia atrás, así que un Bluetooth nuevo puede seguir siendo vulnerable a JustWorks. Bluetooth 4.0 además generaba una temporal key (SLK) por conexión que permitía takeover de la conexión escuchando los canales. Los modos de seguridad van del 1 (intercambio en texto plano, sin cifrado) al 4 (Secure Simple Pairing): identificar el modo es identificar el punto de entrada.</p>
+<p>Si el pairing es fuerte, las claves generadas quedan guardadas en los chips y hoy no son craqueables; pero si un atacante accede a la memoria del chip, obtiene las claves y puede hijackear una conexión ya andando.</p>
+<h2>El ataque real: man-in-the-middle a un lector de pagos</h2>
+<p>El caso central es un lector de tarjetas de Mercado Pago que se comunica por Bluetooth con su aplicación. El dispositivo usa Numeric Comparation, pero <strong>no tiene pantalla</strong>: el operador debe aceptar un número que no puede comparar contra nada. Esa simple observación — "debería haber un número en ambos lados y solamente lo veo en uno" — es toda la tesis.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Aplicacion
+    participant R as Raspberry Pi (atacante)
+    participant L as Lector real
+    A->>R: Se conecta al "lector" emulado
+    R->>L: Se hace pasar por la aplicacion
+    L->>R: Datos de la transaccion en texto plano
+    R->>A: Reenvia y manipula los datos
+    Note over A,L: La transaccion pasa, el atacante ve y edita todo
+
+</pre>
+
+<p>El procedimiento: una Raspberry Pi emula el perfil del lector hacia la aplicación y emula la aplicación hacia el lector; ambos se creen conectados entre sí pero hablan con el atacante, que ve el cobro completo en texto plano y puede editarlo o suprimirlo. La forma más simple de ejecutarlo en el mundo real: sentarse en un local, esperar un cobro y capturar los datos de la tarjeta de cualquier cliente para después reutilizarlos en otro terminal. La vulnerabilidad se detectó simplemente analizando el tráfico Bluetooth y entendiendo cómo funciona el perfil del dispositivo.</p>
+<h2>Sniffing: cómo sacar los datos del aire</h2>
+<p>El frequency hopping convierte el sniffing directo en un problema: harían falta 49 sniffers simultáneos, uno por canal. Las alternativas prácticas:</p>
+<ul>
+<li><strong>El truco principal</strong>: extraer el HCI debug log de un teléfono Android (la data antes de salir por la antena, en texto plano) y analizarlo en Wireshark. Ahí se ven streams de audio, keystrokes de teclados, movimientos de joysticks, e incluso claves que una aplicación le pasa al dispositivo.</li>
+<li><strong>BLE desde el teléfono</strong>: con nRF Connect o BLEDOM se puede descubrir, leer y escribir características de cualquier dispositivo cercano — el experimento clásico es interactuar con las bandas de cualquier persona en un colectivo. Caso extremo: un dispositivo ajeno en un avión quiso emparejarse solo con el teléfono del investigador.</li>
+<li><strong>Ubertooth y sniffers baratos</strong>: los dispositivos "Bluetooth hacking" genéricos suelen snifear solo una porción del tráfico porque no siguen el channel hopping completo; sirven solo con objetivos muy específicos.</li>
+<li><strong>La recomendación</strong>: en vez de snifear en el aire, hacer man-in-the-middle con dos Raspberry Pi (BettyJuice) o con tres micro:bit (Beeblejack) que escuchan los tres canales de advertisement, toman ownership del handshake y loguean toda la comunicación.</li>
+</ul>
+<h2>BLE: características, servicios y la lluvia de hallazgos</h2>
+<p>En BLE todo gira alrededor de GATT (Generic Attribute): el dispositivo expone características — casillas de información que se pueden leer o escribir — y con solo leerlas y escribirles ya se puede hacer reversing de un protocolo complejo. Los tres canales de advertisement permiten descubrir servicios y negociar el channel hopping, lo que habilita sniffing del resto de la comunicación si se capturan durante el emparejamiento.</p>
+<p>Hallazgos reales que muestra el material:</p>
+<ul>
+<li>Un <strong>panel de Sony</strong> sin autenticación: conexión no autorizada, desconexión de usuarios, manipulación de volumen y reproducción.</li>
+<li>Un <strong>smart lock</strong> con JustWorks: una vez conocido el protocolo, "conectate y decile desbloqueate" — sin aplicación ni credenciales.</li>
+<li><strong>Xiaomi Mi Band y Fitbit</strong> sin cifrado: monitoreo completo de los datos de la persona que los usa.</li>
+<li>Ataques con BrakTooth, con los ESP32 entre los más afectados.</li>
+</ul>
+<h2>Metodología y privacidad</h2>
+<p>Para no perderse en un protocolo inmenso, la guía es el framework <strong>VASA</strong>, de researchers españoles: documenta todos los casos de uso posibles de Bluetooth y qué verificar en cada uno, incluido el escenario de man-in-the-middle del lector de pagos.</p>
+<p>Y una nota de privacidad que cierra el mapa: cada dispositivo tiene una MAC address y es traqueable — un sniffer estático permite saber quién pasó y a qué hora. Muchos dispositivos BLE implementan Resolvable Private Address, que rota la dirección y solo los pares pueden asociarla; si un dispositivo siempre muestra la misma MAC, es traqueable y eso es un problema de privacidad serio.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>HCI debug log de Android</strong> + Wireshark — la vía principal para ver la data en texto plano.</li>
+<li><strong>nRF Connect / BLEDOM</strong> — interacción completa con dispositivos BLE desde el teléfono.</li>
+<li><strong>GATT / características</strong> — lectura y escritura de casillas para hacer reversing del protocolo.</li>
+<li><strong>Sniffing de canales de advertisement</strong> — descubrir servicios y predecir el channel hopping.</li>
+<li><strong>BettyJuice (2 Raspberry Pi) / Beeblejack (3 micro:bit)</strong> — man-in-the-middle con logueo completo de la comunicación.</li>
+<li><strong>BrakTooth / ESP32</strong> — suite de ataques y los chips más afectados.</li>
+<li><strong>VASA framework</strong> — metodología de análisis de seguridad Bluetooth.</li>
+<li><strong>Resolvable Private Address</strong> — rotación de MAC como mitigación de tracking.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Antes de hackear un dispositivo Bluetooth hay que entender cómo funciona: el tipo de Bluetooth, el método de emparejamiento y el modo de seguridad ya delinean los ataques posibles.</li>
+<li>Los cuatro modos de pairing son el mapa de vulnerabilidades: JustWorks y legacy pairing habilitan man-in-the-middle; Numeric Comparation solo protege si ambos dispositivos pueden mostrar el número — y un lector de pagos sin pantalla lo demuestra con dinero real en juego.</li>
+<li>El dato es lo primero: si no se puede ver qué viaja por el aire (HCI log, MitM con Raspberry Pi o micro:bit), no hay investigación posible.</li>
+<li>BLE es el terreno más fértil: la seguridad queda librada al desarrollador, y los hallazgos — cerraduras que se abren con un "desbloqueate", bandas que filtraban la salud de sus dueños — están al alcance de un teléfono.</li>
+<li>Bluetooth es inmenso y poco explorado; con una metodología como VASA y herramientas baratas, empezar cuesta menos de lo que parece.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/konSFOTx4xg">«Bluetooth Hacking from Zero: Getting Started in IoT Security Research»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

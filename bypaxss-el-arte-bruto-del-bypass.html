@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BypaXSS: el arte bruto del bypass de filtros y WAF — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">BypaXSS: el arte bruto del bypass de filtros y WAF</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/GZMScTUBJpU">«BypaXSS - The Brute Art of Bypass - Rodolfo Assis aka &quot;Brute»</a> · ver el <a class="nz-link" href="https://youtu.be/GZMScTUBJpU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El cross-site scripting es una bestia distinta: montones de payloads y escenarios, pero reducibles a cuatro tipos —inyecciones HTML (full e inline) e inyecciones de JavaScript (de código y de URL)—. El recorrido es la recopilación de una década de evasión de WAF: los principios, la metodología y las técnicas concretas que convierten un payload bloqueado en uno que pasa. Es material del libro <em>The Brutal Art of Bypass</em> (disponible en línea), sin memes ni frivolidades: solo técnica. Todo cierra con BypaXSS, una herramienta gratuita que automatiza estas transformaciones, y con la referencia a XSHM, la herramienta de scripting de cross-site que lleva casi una década online ayudando a cazadores de bugs.</p>
+<p>Un dato de encuadre: el bypass no necesita una vulnerabilidad. Basta una página controlada o un endpoint de un vendor de WAF para entrenar: se lanza el payload, se observa la respuesta y se arma el mapa mental.</p>
+<h2>Principios y metodología</h2>
+<ul>
+<li><strong>KISS (keep it simple and short):</strong> nada de copiar y pegar payloads sin entender cada carácter; sin esa comprensión no se aprende y no se hackea de verdad. El caso mezclado (mixed case) se usa solo si hay una razón: que algún filtro naivo pierda la flag de case-insensitivity, no por estética.</li>
+<li><strong>Black list contra white list:</strong> los vendors de WAF no pueden mantener una whitelist por cada cliente y sitio; la lista negra (rechazar lo malo) es el default, y de ahí nace la mayoría de las oportunidades.</li>
+<li><strong>Conocer el filtro como se conoce a una persona:</strong> no se lucha contra un sistema abstracto sino contra la gente que lo construyó. Con el tiempo se entiende cómo evoluciona, qué decodifica antes de filtrar (el navegador decodifica antes de filtrar: toda transformación en ese punto es oportunidad) y qué no puede detectar.</li>
+<li><strong>Game over:</strong> cuando el payload llega a ejecutar JavaScript ("la zona de alerta"), el juego terminó, porque desde ahí hay infinitas sintaxis alternativas para hacerlo disparar. La parte difícil es el vector HTML; llegar al código JS es lo fácil.</li>
+<li><strong>Prueba y error paso a paso:</strong> colocar, probar, cambiar, repetir. Un carácter por vez si hace falta. Es la única forma de obtener feedback real del filtro.</li>
+</ul>
+<h2>La metodología del mapa hacia atrás</h2>
+<p>Con <code>svg onload=alert(1)</code> bloqueado, la secuencia clásica es: quitar el <code>alert</code>, sigue bloqueado; quitar el <code>onload</code>, sigue bloqueado; mutar el handler; probar <code>onXXX=1</code> (un event handler falso, que casi ningún filtro bloquea porque generaría miles de falsos positivos); si pasa, probar un handler real como <code>onload</code>; recién ahí sumar <code>alert</code> y el <code>1</code>. Si todo sigue bloqueado, hay que retroceder hasta el carácter que abre el tag (<code>&lt;x</code>), que siempre pasa, e ir construyendo desde ahí.</p>
+<p>La técnica complementaria: <strong>darle al filtro lo que quiere ver, pero no todo</strong>. El filtro busca el payload completo y el primer patrón malicioso; se lo alimenta con suficiente apariencia maliciosa para que no sospeche, y se le roba lo esencial:</p>
+<ul>
+<li>No cerrar el tag: <code>svg onload=alert(1)//</code> deja el comentario al final y el tag abierto.</li>
+<li>No dar el <code>//</code> después de <code>https:</code>: es sintaxis de URL válida, pero como los filtros son regex estéticas que buscan pares de slashes, perderlos hace que el patrón no matchee nada.</li>
+</ul>
+<p>El fundamento de todo: <strong>los filtros los hacen personas, y las personas asumen</strong>. Cada bypass es una expectativa rota —el atacante va a escribir <code>script</code>, va a usar <code>alert(1)</code>, va a cerrar el tag—. Romper la asunción correcta es el bypass.</p>
+<h2>Las técnicas de bypass</h2>
+<ol>
+<li><strong>Invisibles y separadores:</strong> bytes como <code>0A</code>, <code>0D</code>, <code>09</code> y <code>0C</code> entre el handler y el <code>=</code> son sintaxis HTML perfectamente válida. El clásico bypass de Imperva WAF es un solo <code>0C</code> antes del <code>onload</code>. Los separadores (<code>09</code>, <code>0C</code>, <code>0A</code>) se usan todo el tiempo, incluso en URL-encoding, para "arrastrar" al filtro.</li>
+<li><strong>Fallas de regex:</strong> falta la flag <code>g</code> (solo se reemplaza el primer match: duplicar la keyword lo doblega), falta la flag <code>i</code> (solo un carácter en mayúscula pasa), un <code>.*</code> sin flag <code>s</code> (las nuevas líneas se le escapan), y falta de anclaje (<code>^</code> y <code>$</code> ausentes: el patrón puede inyectarse en cualquier posición). El bypass clásico de Cloudflare combina esto: el filtro detiene el análisis en el primer <code>on...</code> real que encuentra, que no lo es —es un falso—, y el verdadero pasa después.</li>
+<li><strong>Universal bypass (hacer que la aplicación arme el payload):</strong> si la aplicación elimina algo del input (funciones de PHP que quitan espacios, páginas ASP viejas que quitan el <code>%</code>), un payload con ese carácter en el medio se auto-repara al filtrarlo. Variante: si la app reemplaza la keyword (por ejemplo borra <code>&lt;script&gt;</code>), insertar la keyword en el medio del payload hace que su remoción lo construya.</li>
+<li><strong>Que la aplicación transforme a tu favor:</strong> normalización, lowercase —un <code>SCRIPT</code> con acento en la <code>i</code> se normaliza a <code>script</code>—, reemplazos.</li>
+<li><strong>Método swapping:</strong> si GET y POST comparten funcionalidad, ir por POST: los filtros inspeccionan el cuerpo POST con reglas más relajadas. En PHP, además, POST gana sobre GET, lo que permite trucos en la URL y el payload real en el cuerpo.</li>
+<li><strong>Validación que miente:</strong> los campos validados (formato de email, formato de URL) exigen el payload en ese formato —<code>javascript:</code> con la sintaxis correcta en lugar de un vector HTML—. La validación de formato no es un filtro de seguridad.</li>
+<li><strong>Divisiones de keyword:</strong> <code>alert</code> no se puede dividir porque es función, pero <code>top["al"+"ert"](1)</code> sí: propiedades de ventana (<code>top</code>, <code>document.domain</code>), strings en índices (<code>document.URL[1]</code> es la <code>t</code> de <code>http</code>), template literals.</li>
+<li><strong>Trucos rápidos:</strong> ceros a la izquierda en entidades HTML (<code>&amp;#000040;</code>), omisión del punto y coma, tolerancia del navegador (atributos como <code>autofocus</code> sin valor, <code>onerror</code> de imagen sin <code>src</code>), dangled markup (dejar el tag abierto con comentarios para que el navegador cierre el marcado por su cuenta), <code>innerHTML</code>/<code>textContent</code> con el payload trozado y comentarios HTML falsos mezclados para confundir al regex del filtro.</li>
+<li><strong>Best-fit mapping y fallo de bytes:</strong> aplicaciones ASP/.NET y Java que convierten bytes inválidos de Unicode a alternativas visuales similares (o a cero): el carácter que el filtro ve no es el que recibe la aplicación.</li>
+<li><strong>Abusar de whitelists del propio sitio:</strong> en WordPress, construir la URL sobre el path whitelisteado (<code>wp-admin/admin-ajax.php</code>) hace que el WAF no bloquee el resto del request.</li>
+<li><strong>Partidos parciales:</strong> validaciones de substring (chequear que el dominio aparezca en el input) se bypassean con subdominios o prefijos; en <code>postMessage</code> XSS, Base64 y encodings no estándar suelen pasar sin decodificación.</li>
+<li><strong>Eventos nuevos y double encoding:</strong> los handlers más recientes (<code>oncontentvisibilityautostatechange</code> con el atributo <code>style</code>, por ejemplo) no están en las reglas; y el double encoding —no solo del <code>%</code>, sino de dígitos internos de los bytes ya codificados— sigue siendo uno de los bypasses más efectivos.</li>
+<li><strong>Tag blending:</strong> esconder el payload fuera del vector HTML (en texto de contenido, en fragmentos de URL después del <code>#</code>, que jamás llegan al servidor) mezclándolo con tags falsas.</li>
+<li><strong>Coment jump:</strong> comentar todo lo que viene después del punto de inyección y "saltar" el comentario con <code>0A</code>/<code>0D</code>. Es universal: funciona para cualquier tipo de inyección, incluidas bypasses reales contra Cloudflare y Akamai en SQLi.</li>
+<li><strong>Condiciones de carrera entre el punto de inyección y el filtro:</strong> si el control que bloquea ocurre después, comentar el resto del contenido lo neutraliza.</li>
+</ol>
+<h2>JavaScript playground</h2>
+<p>Una vez que el payload ejecuta JavaScript, hay infinita sintaxis: <code>top.alert(1)</code>, la versión con brackets y el string <code>"al"+"ert"</code>, el octal <code>e</code> para la <code>e</code>, entidades HTML (<code>&amp;#40;</code>) por los paréntesis. El payload de JavaScript acepta código y también string (<code>javascript:</code> + código entre comillas en un <code>onerror</code>). El espacio (<code>20</code>) se puede reemplazar por bytes nuevos (<code>0A</code>, <code>09</code>, <code>0D</code>) en cualquier posición. Y el double encode es la técnica estrella: codificar el <code>&lt;</code> y luego recodificar cualquiera de sus dígitos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Todo bypass se reduce a conocer el filtro mejor de lo que su autor se conoce a sí mismo: regex con flags faltantes, blacklists mantenibles, validaciones que no son seguridad y asunciones sobre cómo va a llegar el ataque.</li>
+<li>La metodología es reproducción por caracteres: mapas hacia atrás desde el bloqueo, handlers falsos para mapear tolerancia, y capas de técnicas combinadas (encoding + separadores + estructuras alternativas) cuando ninguna basta sola.</li>
+<li>El navegador siempre decodifica antes de que el filtro vea el input, y las aplicaciones transforman inputs (remociones, normalizaciones) que reparan payloads: ambas direcciones son territorio de bypass.</li>
+<li>La práctica se puede entrenar de forma segura: contra páginas de laboratorio propias o endpoints de vendors, sin vulnerabilidad real de por medio. BypaXSS automatiza las transformaciones y el libro y XSHM quedan como material de estudio.</li>
+</ul>
+<pre class="mermaid">
+flowchart TD
+    A[Payload bloqueado] --> B[Quitar partes: alert, onload]
+    B --> C[Handler falso onXXX=1]
+    C --> D[Handler real onload]
+    D --> E[Sumar alert 1]
+    E --> F{¿Pasa?}
+    F -- No --> G[Retroceder al tag abierto<br/>y reconstruir carácter a carácter]
+    G --> B
+    F -- Sí --> H[Game over: zona JavaScript]
+
+</pre>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/GZMScTUBJpU">«BypaXSS - The Brute Art of Bypass - Rodolfo Assis aka &quot;Brute»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

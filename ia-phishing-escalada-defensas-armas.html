@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hooks y Hooks: la IA que escala el phishing y la que sostiene la defensa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hooks y Hooks: la IA que escala el phishing y la que sostiene la defensa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/7IFsoRaYYgs">«DEF CON 33 - Hooks and Hooks: How AI is Revolutionizing Both Phishing Attacks and Our Defenses - Lavon Campbell»</a> · ver el <a class="nz-link" href="https://youtu.be/7IFsoRaYYgs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El phishing atraviesa su transformación más rápida en dos décadas: de <em>spray and pray</em> con gramática torpe a campañas automatizadas, adaptativas y construidas en tres minutos a partir del perfil público de la víctima. Los modelos de lenguaje eliminaron el indicador clásico de detección — los errores de idioma — y el polimorfismo generado por IA permite reescribir un correo cinco veces por minuto hasta que una variante pasa. En paralelo, deepfakes de voz y video ya generan llamadas de jefes que no existen y mensajes de familia que no piden comida sino dinero.</p>
+<p>Del otro lado del balancín, la defensa tiene sus propias herramientas: detección basada en anomalías, playbooks de respuesta automatizada, modelado predictivo de amenazas, y análisis de campañas — no de mensajes sueltos — que filtran miles al día. El resultado es una carrera en la que el atacante siempre llega primero, con dos implicaciones incómodas: discutir todavía si se permite IA en el entorno ya es perder la carrera, y el eslabón que define el resultado sigue siendo humano — con tasas de clic de 50-60% en campañas que no son nada sofisticadas.</p>
+<h2>De spray and pray a spear phishing con perfil completo</h2>
+<p>El cambio de era es de escala y de puntería. Antes: correos masivos con descuidos delator. Ahora: el atacante alimenta a un modelo con el perfil público del objetivo y recibe un correo a medida.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Perfiles públicos:<br>LinkedIn, Facebook, Instagram"] --> B["Modelo de lenguaje resume<br>educación, logros, artículos"]
+    B --> C["Prompt contextual:<br>'mail de vacante de CISO<br>que coincida con su perfil'"]
+    C --> D["Correo impecable + link<br>generado en ~3 minutos"]
+
+</pre>
+
+<ul>
+<li><strong>El combustible es el oversharing.</strong> LinkedIn es la mina principal: se habla demasiado de uno mismo. La moda de los <em>action figures</em> generados con IA — "amo el café, juego ajedrez, trabajo en X" — entrega gratis un perfil conductual que antes costaba semanas de recolección.</li>
+<li><strong>La automatización es adaptativa.</strong> Si la víctima contesta, el hilo continúa: el modelo mantiene conversaciones largas aplicando presión, sin humano al otro lado. Se han visto casos de personas que reportan el correo después de <em>responder varias veces</em>.</li>
+<li><strong>El idioma ya no delata.</strong> Los errores de gramática y las frases "de otro país" desaparecieron: los modelos escriben perfecto. El indicador clásico de detección quedó fuera de servicio.</li>
+<li><strong>La generación es barata.</strong> Buscar "AI phishing prompts" devuelve bibliotecas completas de plantillas. El "¿la IA quitará mi trabajo?" se respondió solo en el lado ofensivo: el operador de phishing de tres pantallas ya existe.</li>
+</ul>
+<h2>El dato de referencia: humanos contra IA</h2>
+<p>Un estudio citado pidió a humanos y a IA crear correos de estafa y midió la efectividad percibida: los humanos seguían un punto arriba (la IA rondó ~2,9 sobre 4). La lectura correcta no es tranquilidad: es la trayectoria. Con un año de diferencia entre versiones de modelos, la brecha se cierra sola; el adversario no necesita superar al escritor humano, solo alcanza el promedio — y ese promedio ya cae.</p>
+<h2>Deepfakes: la voz y la cara al servicio de la estafa</h2>
+<ul>
+<li><strong>Voz clonada de ejecutivos</strong>: mensajes de voz reales pidiendo compras de gift cards, reuniones "urgentísimas" en otro lugar, o transferencias. El ataque clásico de suplantación de CEO ahora suena exactamente como el CEO.</li>
+<li><strong>Video generado para hostigar</strong>: un video falso del CEO "anunciando" despidos y reenviado a toda la empresa como fuga — una forma de hostigamiento corporativo que cuesta credibilidad y dinero.</li>
+<li><strong>La prueba de la esposa</strong>: clonar la propia voz para pedirle por mensaje que compre cerditos y langostinos para la cena funcionó a la primera; la réplica fue "¿qué tanto se puede hacer esto?" — y esa es exactamente la pregunta que toda familia y toda empresa debería hacerse.</li>
+<li><strong>El contexto perdido</strong>: sin verificación de canal, un mensaje que dice venir del jefe es indistinguible del jefe. La verificación — llamar por otro medio, iniciar un hilo nuevo — es lo único que rompe la cadena.</li>
+</ul>
+<h2>El lado defensivo: qué aporta la IA</h2>
+<p>La defensa no está quieta. El repertorio actual:</p>
+<ul>
+<li><strong>Detección basada en anomalías</strong>: malware, phishing, patrones que se desvían del tráfico normal del entorno.</li>
+<li><strong>Respuesta automatizada</strong>: playbooks que hacen triage, análisis de causa raíz y atribución sin esperar al turno humano.</li>
+<li><strong>Modelado predictivo de amenazas</strong>: sobre colecciones de datos — historial de una IP, frecuencia con que aparece, origen — la IA enriquece la inteligencia y anticipa en lugar de reaccionar.</li>
+<li><strong>Análisis de campañas, no de mensajes</strong>: la diferencia entre ver 10 correos sueltos y ver que son 2.400 variaciones de la misma campaña.</li>
+<li><strong>Análisis de un correo individual con profundidad</strong>: desglose del ataque, tráfico del link tanto local como global, nivel de confianza del modelo de ML, investigación del remitente con su historial. Las herramientas comerciales ya incorporan todo esto.</li>
+</ul>
+<p>La advertencia importante: <strong>cuando una herramienta falla, a veces no es la herramienta — es cómo opera el entorno.</strong> Un análisis "genérico" que señala todo como sospechoso es inútil si no se conoce el propio entorno; la detección debe calibrarse contra lo que es normal <em>allí</em>.</p>
+<h2>Por qué fallan los métodos tradicionales</h2>
+<ul>
+<li>Se buscan payloads adjuntos... y cada vez más ataques no llevan payload.</li>
+<li>Se buscan palabras clave disparadoras... y la IA ya no las usa: redacta sin fórmulas.</li>
+<li><strong>Polimorfismo</strong>: el mismo correo reescrito constantemente — cambia el largo, cambia la redacción, evade firmas y reglas. Enviar cinco correos, cambiar el link, enviar cinco más, es trivial.</li>
+<li>La velocidad de cambio supera el ciclo de actualización de las herramientas estáticas.</li>
+</ul>
+<h2>La carrera: dónde está el balancín</h2>
+<pre class="mermaid">
+flowchart TD
+    A["Atacante: modelos de lenguaje,<br>polimorfismo, deepfakes"] -->|evoluciona más rápido| B["Defensor: detección por anomalías,<br>playbooks, inteligencia"]
+    B -->|"si se discute aún si se permite IA → ya se perdió"| A
+    C["El eslabón decisivo:<br>el humano entrenado"] -->|"rompe la cadena:<br>verificar por otro canal"| B
+
+</pre>
+
+<ul>
+<li>El atacante siempre evoluciona primero; lo que ayer era una amenaza, mañana es otra.</li>
+<li>Si una organización todavía debate si <em>permitir</em> IA en su entorno, la carrera está perdida: la discusión correcta es cómo usarla, no si usarla.</li>
+<li>La automatización total de la respuesta al correo aún no es prudente: cuarentena, bloqueo y decisiones de descarte requieren juicio humano; las decisiones automáticas de "esto va a la basura" están lejos de ser confiables.</li>
+<li>El costo crece por dos vías: herramientas y capacitación. Los presupuestos no van a bajar.</li>
+</ul>
+<h2>Números de una operación real de defensa en capas</h2>
+<p>El caso práctico compartido, sobre una organización con Exchange:</p>
+<ul>
+<li><strong>EOP</strong> (Exchange Online Protection) con defensas tradicionales elimina ~38% de los mensajes.</li>
+<li>Las capas siguientes, con capacidades de IA, filtran <strong>~2.400 campañas al día</strong> — campañas, no mensajes.</li>
+<li>Lo que sobrevive a ambas capas es, por definición, sofisticado — y ahí aparece el dilema de entrenamiento: <strong>¿cómo se entrena a la gente contra lo único que logra llegarle?</strong></li>
+</ul>
+<h2>La estrategia práctica de defensa</h2>
+<ol>
+<li><strong>Combinar herramientas de IA con entrenamiento humano</strong> — ninguna capa sola sostiene.</li>
+<li><strong>Invertir en conocimiento conductual</strong>: los datos muestran patrones propios del entorno; usarlos para calibrar la detección.</li>
+<li><strong>Cultura de seguridad primero</strong>: sin ella, los usuarios callan y el atacante avanza.</li>
+<li><strong>Capacitar y volver a capacitar</strong> — incluyendo el "no dejes código fuente por ahí en el chat".</li>
+<li><strong>Simulaciones y campañas regulares</strong> — con dos reglas:</li>
+<li><strong>Nada de videos genéricos de concientización</strong>: entran por un ojo y salen por el otro, y entrenan mal. Si eso es lo que se hace, mejor detenerlo.</li>
+<li><strong>Contenido propio y por segmento</strong>: crear material específico del entorno y por departamento — ventas recibe propuestas de terceros y su capacitación debe tratar exactamente eso; un mismo video para todos es ayunar al enemigo.</li>
+<li><strong>Entrenar a cuestionar todo</strong>: ante un correo del jefe pidiendo algo raro, levantar el teléfono o iniciar un hilo nuevo — <strong>nunca responder al mismo hilo</strong> (podría ser man-in-the-middle). Romper la línea de comunicación y verificar por otro canal es el hábito que detiene tanto al spear phishing como al deepfake de voz.</li>
+<li><strong>Desconfiar del contexto sospechoso</strong>: propuestas de un proveedor con el que no se trabajó hace un mes, recontactos de cuentas viejas, correos de "Tina de marketing" a quien nadie conoce. La verificación es contra la <em>identidad</em>, no contra el correo: llamar al número del directorio corporativo, no al que trae el mensaje.</li>
+</ol>
+<h3>El agujero que nadie cubre: la gente sin organización</h3>
+<p>Quien no tiene detección de correos, capacitación ni equipo de seguridad queda desprotegido — y los atacantes van exactamente ahí. La propuesta: campañas de concientización comunitarias financiadas por gobiernos o donadas por organizaciones; a nivel personal, el consejo más replicable es llevar la capacitación a la familia (trayendo los laptops y los hijos a las sesiones de awareness) y aplicar en casa la misma regla: verificar por otro canal antes de actuar.</p>
+<h3>Dato de campo desde el lado del testing</h3>
+<p>Un simulador de phishing en la audiencia aportó el contrapeso empírico: contra organizaciones bien protegidas, el equipo de testing debe pedir que <em>los dejen pasar</em>; una vez dentro del componente humano, los clics rondan <strong>50-60%</strong> — con correos nada complejos. Los ataques apilados (smishing + vishing + correo en una sola campaña) están en ascenso y multiplican las superficies a vigilar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Spear phishing con perfilado por LLM</strong>: LinkedIn/Instagram/Facebook → resumen del perfil → correo contextualizado en minutos.</li>
+<li><strong>Polimorfismo de correos</strong>: reescritura continua para evadir firmas, reglas y detección por palabras clave.</li>
+<li><strong>Clonación de voz y video</strong> para suplantación de ejecutivos (vishing) y hostigamiento corporativo.</li>
+<li><strong>Ataques apilados</strong>: smishing, vishing y phishing por correo combinados en una misma campaña.</li>
+<li><strong>BEC / compromiso de cuentas de proveedores SaaS</strong>: abusar de la confianza en correos legítimos de un cliente comprometido.</li>
+<li><strong>Defensa en capas</strong>: EOP (~38% de filtrado) + herramientas con IA (~2.400 campañas/día) + análisis de confianza de ML + investigación de remitente y de tráfico del link (local y global).</li>
+<li><strong>Concientización por segmentos</strong>: contenido propio por departamento, sin videos genéricos; verificación por canal independiente (directorio corporativo) e inicio de hilo nuevo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La IA amplifica los dos lados a la vez</strong>: correos perfectos, adaptativos y a escala para el atacante; detección por anomalías, respuesta automatizada e inteligencia predictiva para el defensor. El balancín no se equilibra solo: el atacante evoluciona más rápido.</li>
+<li><strong>El indicador clásico murió</strong>: la gramática imperfecta ya no delata. La verificación de identidad por canal independiente es el único detector que sigue funcionando cuando el correo es impecable y la voz es real.</li>
+<li><strong>La discusión "¿permitimos IA?" ya está perdida</strong>: la única pregunta válida es cómo integrarla en herramientas, entrenamiento y procesos antes de que el costo siga subiendo.</li>
+<li><strong>El humano sigue siendo la superficie decisiva</strong>: 50-60% de clics en correos simples contra organizaciones bien defendidas; la capacitación por segmentos, específica del trabajo de cada área, es lo que mueve ese número.</li>
+<li><strong>La concientización genérica entrena para perder</strong>: videos genéricos no preparan contra campañas sofisticadas; el contenido debe hablar del propio entorno y de las tareas reales de cada equipo.</li>
+<li><strong>Cuidar a los que no tienen capas</strong>: los hogares y los menos expertos son el blanco preferido; la respuesta colectiva — campañas comunitarias, llevar el entrenamiento a la familia — es el pendiente más grande de la industria.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/7IFsoRaYYgs">«DEF CON 33 - Hooks and Hooks: How AI is Revolutionizing Both Phishing Attacks and Our Defenses - Lavon Campbell»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

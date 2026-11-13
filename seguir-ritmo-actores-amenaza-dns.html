@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguir el ritmo de los actores de amenaza para darles más blues — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Seguir el ritmo de los actores de amenaza para darles más blues</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/F_BTn1FjbHU">«DEF CON 33 - BiC Village - Following Threat Actors Rhythm to Give Them More Blues - Malachi Walker»</a> · ver el <a class="nz-link" href="https://youtu.be/F_BTn1FjbHU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La infraestructura maliciosa deja rastros constantemente, y casi todos pasan primero por DNS: para montar una campaña, un actor de amenaza debe registrar un dominio (con una dirección de correo, a veces con su nombre real), asignarlo a un host e IP, y construir encima el resto del ataque. La propuesta de DomainTools (Malachi Walker, con el trabajo publicado del ingeniero Ian Campbell) es tratar DNS como punto de entrada de la investigación y del <em>threat hunting</em>: seguir los patrones que los actores dejan atrás para conectar lo que se ve con lo que aún no se ve, y responder a toda la infraestructura maliciosa de una vez en lugar de apagar incendios uno a uno. La tesis se demuestra con un formato inusual — una gincana DNS interactiva resuelta solo con terminal y decodificadores, cuyo recorrido reproduce exactamente el tipo de pistas que aparece en investigaciones reales — y se apoya en el informe de investigaciones 2024 del equipo, centrado en la convergencia de atributos de alto riesgo entre dominios, registradores, ISPs y servidores de nombres.</p>
+<h2>La gincana: DNS como campo de entrenamiento</h2>
+<p>El reto parte de un dominio semilla (<code>clue.mydailythreat.com</code>) y una regla: solo terminal, <code>dig</code>/<code>nslookup</code> y, cuando aparece una cadena opaca, un decodificador (CyberChef, IPVoid o un LLM). Los pasos reproducen el flujo real de pivoting por registros:</p>
+<ol>
+<li><strong>TXT del dominio semilla</strong> — un acertijo ("tienes email, ¿a dónde va? suma, no restes, y lo sabrás").</li>
+<li><strong>MX del dominio</strong> — revela una cadena hexadecimal con puntos intercalados (para dificultar el decodificado automático). Al descifrarla aparece la pista "para mi alter ego, añade una etiqueta a la izquierda": el MX revela que el verdadero dominio es un gemelo en <code>.net</code>, no el <code>.com</code> inicial — el patrón clásico de dominios gemelos.</li>
+<li><strong>CNAME del dominio alter ego</strong> — dirige al siguiente dominio de la cadena: un tercer dominio con nombre distinto, connected pero invisible hasta ese momento.</li>
+<li><strong>TXT del nuevo dominio</strong> — un acertijo largo cuyo resultado es un registro <strong>DKIM</strong> (<code>_domainkey</code>) con un mensaje incrustado en texto plano: la referencia a <code>target.assumed-breach.com/txt</code>.</li>
+<li><strong>TXT de ese dominio</strong> — apunta a un GitHub personal (el del CISO del equipo), que aloja un ZIP con una cadena final en Base64.</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+    A[TXT: clue.mydailythreat.com] -->|acertijo| B[MX: revela gemelo .net<br/>+ cadena hex]
+    B -->|decodificar| C[CNAME: tercer dominio<br/>con otro nombre]
+    C --> D[TXT: acertijo DEF CON]
+    D --> E[registro DKIM<br/>mensaje en claro]
+    E --> F[TXT: target.assumed-breach.com]
+    F --> G[GitHub con ZIP]
+    G -->|Base64| H[pista final]
+
+</pre>
+
+<p>La lección metodológica es deliberada: a partir del paso 5 no hay ningún paso nuevo — todo lo necesario ya se usó antes. Igual que en una investigación real, el valor no está en herramientas exóticas sino en saber qué registro pedir, qué patrones buscar (repeticiones que delatan la codificación, un <code>.com</code> que muta a <code>.net</code>, una etiqueta DKIM que no debería existir) y cómo encadenar los hallazgos.</p>
+<h2>Por qué DNS es la primera señal</h2>
+<ul>
+<li><strong>Todo ataque necesita infraestructura</strong>, y esa infraestructura vive en DNS. El vector aparece por todas partes en MITRE ATT&amp;CK: no solo reconocimiento y phishing (incluido el spear phishing interno), sino también C2 y otras etapas.</li>
+<li><strong>El registro de un dominio deja metadatos</strong>: el correo usado, a veces el nombre y la dirección reales de quien empieza y todavía no piensa en cubrir sus rastros. Es fruta al alcance de la mano.</li>
+<li><strong>Los sofisticados reutilizan infraestructura</strong>: mismos hosts, IPs, name servers; incluso la comparten entre grupos, con intercambio de credenciales incluido. Grupos patrocinados por Estados han resurgido bajo otro nombre tras conflictos internos — y de ese caos sale contexto aprovechable.</li>
+<li><strong>El volumen no perdona la pasividad</strong>: mientras se pronuncia una charla se registran ~4.000 dominios nuevos, de los cuales unos 425 resultan maliciosos. Detectar dominios en el momento del registro (etapa de weaponization) es mucho mejor que responder después del impacto.</li>
+<li><strong>Ventaja asimétrica invertible</strong>: se suele decir que el atacante solo necesita acertar una vez y el defensor todas. Pero el atacante también está a la defensiva: debe cubrir sus rastros en cada dominio, cada vez, sin saber qué migas conectan unos con otros.</li>
+</ul>
+<h2>De la señal al argumento organizativo</h2>
+<p>Un ejemplo concreto del valor de mirar los registros antes que las puntuaciones automáticas: un dominio tipo <code>micr0soft</code> en un TLD dudoso puede salir con puntuación limpia en herramientas de reputación, pero un <code>dig</code> al TXT y al MX muestra que está conectado a infraestructura de correo de phishing — la evidencia directa pesa más que el score de un agregador.</p>
+<p>Para sostener la inversión en este tipo de análisis dentro de una organización, el argumento que funciona es el económico: modelos como FAIR monetizan la postura de seguridad (cuánto cuesta no monitorizar dominios maliciosos, cuánto retorno da cada inversión) y sirven para hablar el idioma del decisivo. La seguridad no es un centro de costes: liberar tiempo del SOC para trabajo proactivo — cazar, publicar, construir marca técnica de la organización — es un motor de retorno.</p>
+<h2>Recursos</h2>
+<p>El equipo publica sus investigaciones y todos los IOCs que encuentra en <code>dti.domaintools.com</code> y en su GitHub (trabajo de Ian Campbell), sin material comercial — un llamado a construir encima de ello y a convertir cualquier gincana propia en ejercicio de entrenamiento (los propios LLMs pueden generar retos similares a partir del formato descrito).</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/F_BTn1FjbHU">«DEF CON 33 - BiC Village - Following Threat Actors Rhythm to Give Them More Blues - Malachi Walker»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Señales OSINT: un quiz de código abierto — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Señales OSINT: un quiz de código abierto</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/L-ZqeZbiWn8">«DEF CON 33 - Recon Village - OSINT Signals Pop Quiz - Master Shen»</a> · ver el <a class="nz-link" href="https://youtu.be/L-ZqeZbiWn8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La investigación OSINT suele detenerse en geolocalización de fotos, sombras, vegetación. Esta sesión propone mirar lo que casi nadie mira: la ropa, los gestos, los objetos y las costumbres como <strong>señales de código abierto</strong> que expresan intención, afiliación o deseo de comunicar. El formato es un quiz con premios —penguins de peluche— en el que cada señal debe clasificarse por su nivel (abierto, organizacional, secreto, encubierto) y su contexto cultural.</p>
+<p>El origen son dos casos reales: una prenda vista en un hackerspace que llevó a una investigación completa, y un objetivo esquivo localizado a partir de la foto del uniforme de karate de su hijo, cuyo cinturón amarillo e insignia del dojo permitieron revertir la búsqueda.</p>
+<h2>La taxonomía de señales</h2>
+<p>Cualquier señal en el open source que exprese intención, afiliación organizacional o deseo de comunicar se ordena en una pirámide de cuatro niveles, de lo más público a lo más nicho:</p>
+<pre class="mermaid">
+flowchart TD
+    A["Overt (abierto)<br/>para todo el mundo"] --> B["Organizacional / institucional<br/>colores, logos, marcas"]
+    B --> C["Secret<br/>handshakes, insignias y su colocacion"]
+    C --> D["Covert (encubierto)<br/>pactado de antemano, sin llamar la atencion"]
+
+</pre>
+
+<ul>
+<li><strong>Overt</strong>: camisetas, banderas, calcomanías. Todo el mundo lo hace, sepa o no: una camiseta vegana, la pegatina de "mi hijo es sobresaliente". Vestir de negro también es una señal.</li>
+<li><strong>Organizacional / institucional</strong>: colores, logos, marcas, gestos corporativos. La mercancía de una conferencia con su calavera sonriente identifica a la tribu al instante.</li>
+<li><strong>Secret</strong>: apretones de manos, insignias y —crucial— <em>la colocación</em> de las insignias. Las señas de pandilla entran aquí.</li>
+<li><strong>Covert</strong>: por diseño, no tiene ejemplos exhibibles. Es comunicación pactada de antemano y absolutamente discreta: llevar el reloj en la muñeca contraria como aviso de que se está listo para comunicar.</li>
+</ul>
+<h2>El quiz: señales y su lectura</h2>
+<p>Cada caso del quiz ilustra por qué el <strong>contexto cultural</strong> es tan decisivo como el nivel de la señal: lo mismo significa cosas opuestas según la cultura que lo lea.</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Señal</th>
+<th>Lectura</th>
+<th>Nivel / contexto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Anillo de matrimonio</td>
+<td>Casado/a</td>
+<td>Overt-institucional: el pacto del matrimonio</td>
+</tr>
+<tr>
+<td>Apretón de manos masónico</td>
+<td>Sociedades secretas</td>
+<td>Secret</td>
+</tr>
+<tr>
+<td>Flor en el pelo, lado izquierdo</td>
+<td>"Ocupada" (lado derecho: soltera)</td>
+<td>Cultural: convención de islas del Pacífico</td>
+</tr>
+<tr>
+<td>Bandera hawaiana al revés</td>
+<td>Bajo duress/distress; movimiento independentista que rechaza la estadidad</td>
+<td>Cultural-político: la ocupación estadounidense de Hawái</td>
+</tr>
+<tr>
+<td>Pañuelo negro en el bolsillo trasero (hanky code)</td>
+<td>Pandilla (Bloods) o subcultura LGBT, según el marco</td>
+<td>Doble lectura cultural del mismo objeto</td>
+</tr>
+<tr>
+<td>Pañuelo azul (hanky code)</td>
+<td>"Top" en el código, no afiliación Crip</td>
+<td>El contexto manda sobre la intuición</td>
+</tr>
+<tr>
+<td>Servir licor por el lado equivocado de la copa</td>
+<td>Aviso mafioso: callarse en presencia de esa persona</td>
+<td>Secret cultural (cine y realidad se mezclan)</td>
+</tr>
+<tr>
+<td>Toque de visera entre entrenador y jugador</td>
+<td>Señal secreta de béisbol; puede significar cualquier cosa</td>
+<td>Secret: ambigüedad por diseño</td>
+</tr>
+<tr>
+<td>Monedas sobre una lápida</td>
+<td>Visita (penny), instrucción común (nickel), servicio juntos (dime), presencia al morir (quarter)</td>
+<td>Tradición militar con escala de valor</td>
+</tr>
+<tr>
+<td>Cordones de color (lace code)</td>
+<td>Rojo: disposición o práctica de violencia; también lectura skinhead</td>
+<td>Subcultura específica, no Googleable al vuelo</td>
+</tr>
+</tbody>
+</table></div>
+<p>Dos lecciones transversales del quiz:</p>
+<ul>
+<li><strong>La misma señal cambia de significado según la cultura que la lee.</strong> Un pañuelo de bolsillo es afiliación de pandilla en un marco y código de subcultura sexual en otro; la flor en el pelo significa lo contrario según el oído en que va colocada.</li>
+<li><strong>Algunas señales son ambiguas por diseño.</strong> El toque de visera del béisbol puede convenir cualquier cosa entre entrenador y jugador; el covert exige que nadie más lo interprete.</li>
+</ul>
+<h2>Para el investigador OSINT</h2>
+<p>Las implicaciones prácticas para recon e inteligencia de fuentes abiertas:</p>
+<ul>
+<li>Al analizar una foto, mirar <strong>la ropa, los gestos y las costumbres</strong> antes que solo el fondo: la prenda de una pandilla, la insignia de un dojo o la colocación de un emblema aportan afiliación y geografía.</li>
+<li>La escala de las monedas en lápidas ejemplifica cómo una tradición codifica <strong>el grado de relación</strong> entre emisor y receptor — información explotable para mapear redes.</li>
+<li>Las señales culturales exigen investigación antes que intuición: el hanky code y el lace code tienen lecturas que solo la documentación específica (las referencias citadas sobre ambos códigos) desambigua.</li>
+<li>El rastro físico complementa al digital: el caso del uniforme de karate muestra cómo un objeto fotografiado y subido por un tercero (el hijo) revierte hacia el objetivo sin que este se exponga.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OSINT (open source intelligence)</strong>: investigación con fuentes públicas; el quiz entrena la lectura de señales no digitales.</li>
+<li><strong>Taxonomía de señales</strong>: overt / organizacional-institucional / secret / covert.</li>
+<li><strong>Hanky code y lace code</strong>: códigos de subcultura documentados en las referencias del trabajo.</li>
+<li><strong>Lectura contextual y cultural</strong>: la misma señal, significados distintos según el marco del observador.</li>
+<li><strong>Discord / IRC</strong>: canales de la comunidad para continuar la investigación.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La ropa, los gestos y los objetos cotidianos son señales OSINT tan explotables como una foto geolocalizable, y casi nadie las mira.</li>
+<li>Clasificar una señal exige dos preguntas: en qué nivel de la pirámide está (abierto → covert) y en qué marco cultural se lee.</li>
+<li>La ambigüedad puede ser deliberada (covert, señales de béisbol); reconocer cuándo una señal <em>no</em> quiere ser interpretada es parte del oficio.</li>
+<li>El OSINT físico conecta con el digital: objetos fotografiados por terceros (un uniforme con insignia) pueden revertir hacia objetivos que se cuidan de exponerse.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/L-ZqeZbiWn8">«DEF CON 33 - Recon Village - OSINT Signals Pop Quiz - Master Shen»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

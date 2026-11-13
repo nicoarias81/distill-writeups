@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAM y cero privilegios eternos: la defensa que arranca por las credenciales compartidas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">PAM y cero privilegios eternos: la defensa que arranca por las credenciales compartidas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/e9xzkBRgH-0">«Zero Trust Across IAM: Control de accesos, CIEM y auditoría continua con ManageEngine (Ekoparty 2024)»</a> · ver el <a class="nz-link" href="https://youtu.be/e9xzkBRgH-0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Una demo en vivo sobre un escenario cotidiano y letal: un usuario corre — sin querer o no — un ransomware dentro de un servidor crítico de la organización y cifra todo lo que encuentra, desde carpetas de finanzas hasta nóminas. El punto de partida no es una vulnerabilidad exótica sino un hábito laboral: las credenciales que se prestan entre colegas para acceder a servidores, sin ningún control ni auditoría sobre quién entró, cuándo y qué hizo.</p>
+<p>La propuesta de ManageEngine gira sobre PAM 360, gestion centralizada de credenciales y accesos, más Application Control para listas blancas de ejecución, y se extiende a una capa de CIEM para cuentas en la nube: confianzas calculadas por puntuación (score) de usuario y de dispositivo, acceso solo desde la herramienta, credenciales nunca visibles, horarios y redes acotadas, todo grabado para análisis forense posterior.</p>
+<h2>El problema: credenciales que circulan y recursos críticos sin auditoría</h2>
+<p>En la práctica, un servidor que maneja nóminas, datos de clientes y archivos financieros termina accesible por media organización porque el flujo habitual es "me prestás tu credencial y listo". Cada préstamo multiplica el número de personas que pueden operar sobre el recurso crítico, y ningún control registra la acción. Con esa pantalla como escenario, la demo muestra un ransomware cifrando la carpeta completa: el usuario pierde todo acceso y la organización pierde información.</p>
+<p>La pregunta central del esquema: si nadie sabe quién entró, cuándo y qué hizo, ¿cómo se previene, cómo se audita y cómo se responde?</p>
+<h2>De la credencial libre al acceso mediado</h2>
+<pre class="mermaid">
+flowchart LR
+    A[Credencial prestada entre usuarios - sin control] -->|PAM 360| B[Acceso solo desde la herramienta]
+    B --> C[Credencial nunca visible]
+    B --> D[Listas blancas de apps - Application Control]
+    B --> E[Score de confianza: usuario y dispositivo]
+    B --> F[Grabación y auditoría completa]
+    E -->|score bajo| G[Acceso denegado]
+    D -->|ransomware bloqueado| G
+
+</pre>
+
+<p><strong>Acesso solo desde la herramienta.</strong> El servidor se agrega a PAM 360 y la conexión solo se lanza desde ahí: el usuario ingresa pero nunca conoce la credencial, que queda almacenada y compartida con privilegios mínimos. Aunque la cuenta se comparte entre varias personas, nadie puede operar el servidor por fuera de la aplicación.</p>
+<p><strong>Listas blancas con Application Control.</strong> Un agente en el dispositivo impone qué aplicaciones puede ejecutar el usuario. Si el operador intenta correr el ransomware desde el servidor, la herramienta lo bloquea; si se le habilitó Chrome, el navegador abre sin problema. El pop-up es explícito: el usuario no tiene permitido acceder a ese tipo de archivos.</p>
+<p><strong>Horarios, redes y score.</strong> Fuera de horario laboral — la una, dos o tres de la mañana — el acceso deja de ser automático. La herramienta calcula un score por usuario: conexiones a horarios inusuales, desde redes o países no habituales, múltiples intentos fallidos de contraseña hacen bajar el puntaje hasta que el acceso al recurso crítico se niega de forma automática. El mismo score aplica al dispositivo: un agente recopila información de aplicaciones, servicios y puertos, y el equipo también debe mantenerse confiable para acceder.</p>
+<p><strong>Score del recurso de destino.</strong> Si el usuario se conectó, instaló aplicaciones, habilitó puertos o ejecutó acciones anómalas sobre el recurso, la herramienta también baja el score del propio servidor: deja de ser un destino confiable y bloquea nuevas conexiones.</p>
+<h2>Auditoría y grabación como mínimo indispensable</h2>
+<p>Todo lo que el usuario hace dentro de una sesión queda grabado: entró a una carpeta, descargó un juego, creó un usuario local, eliminó o modificó archivos. La grabación se consulta por conexión — con duración, hora y operación — y en una pestaña se navega cada acción, por ejemplo qué hizo dentro de un archivo, si lo abrió, si borró algo, si instaló algo. No es solo visibilidad: la grabación es la base para un análisis forense posterior si la organización necesita reconstruir qué pasó.</p>
+<p>Ese mismo registro aplica a las operaciones dentro de la herramienta: entró, se conectó a un servidor, eliminó una cuenta del administrador, creó un grupo. Cada acción se loguea con quién, a qué servidor, con qué cuenta, cuándo, dónde y qué tipo de operación.</p>
+<h2>Cobertura ampliada: Linux, redes, web, nube</h2>
+<p>La cobertura no se limita a servidores Windows. También contempla dispositivos Linux, equipos de red, routers, firewalls, bases de datos y páginas web. En conexiones SSH se puede filtrar qué comandos puede ejecutar el usuario, además de grabar la sesión. Para recursos Windows se puede restringir el acceso a una única aplicación, dejando el resto del sistema fuera del alcance del usuario.</p>
+<p>Para cuentas corporativas de redes sociales o marketing — donde la organización necesita controlar quién publica y qué se publica — las credenciales también quedan gestionadas dentro de la herramienta.</p>
+<h2>CIEM: la nube también audita y ajusta privilegios</h2>
+<p>Sobre recursos en la nube — AWS, Azure — la herramienta aplica la lógica de control: detecta cuentas con demasiados privilegios para tareas básicas (crear un usuario en AWS no debería requerir permisos amplios), cuentas inactivas que conservan acceso y ausencia de doble factor de autenticación.</p>
+<p>El mapa de accesos por usuario muestra cuántos servicios tiene asociados y a cuáles realmente entra: si de 481 servicios el usuario solo usa el de auditoría, la remediación sugiere quitar el resto. El criterio de decisión es un análisis histórico de aproximadamente tres meses: si nunca accedió, el servicio se retira. Con inteligencia artificial, la herramienta genera resúmenes granulares por usuario y recomendaciones concretas de conservar o revocar servicios, con opción de aplicar la remediación directamente desde la consola sin entrar a la consola del proveedor.</p>
+<h2>Reportería y cumplimiento</h2>
+<ul>
+<li>Reportes de credenciales totales: cuántos usuarios tienen privilegios y sobre qué recursos (en la demo: 29 Linux, 51 Windows).</li>
+<li>Informes por actividad de conexión: frecuencia, horarios y detalle de uso por usuario.</li>
+<li>Informes de cumplimiento normativo: ISO 27001, PCI DSS para bancos, protección de información personal, con dashboards que señalan dónde la organización no está cumpliendo.</li>
+<li>Exportación en PDF o Excel y presentación intuitiva para lectura rápida por parte de gestión.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ManageEngine PAM 360</strong> — gestor centralizado de credenciales y accesos: almacena credenciales con privilegios mínimos, comparte cuentas sin revelar contraseñas, limita horarios y redes, calcula scores de confianza por usuario, dispositivo y recurso de destino.</li>
+<li><strong>ManageEngine Application Control</strong> — agente de listas blancas y negras que bloquea ejecución de aplicaciones no autorizadas (por ejemplo ransomware) dentro del servidor.</li>
+<li><strong>Acceso mediado</strong> — conexión solo desde la herramienta; el usuario nunca ve la credencial aunque la cuenta se le comparta.</li>
+<li><strong>Auditoría y grabación de sesiones</strong> — registro completo de acciones por conexión y dentro de la herramienta, navegable por operación, para análisis forense.</li>
+<li><strong>CIEM (Cloud Infrastructure Entitlement Management)</strong> — detección de exceso de privilegios, cuentas inactivas y falta de MFA en AWS y Azure; mapa de accesos por usuario.</li>
+<li><strong>Remediación basada en uso histórico</strong> — revocar servicios que el usuario no accedió en ~3 meses, con opción automática o asistida por IA.</li>
+<li><strong>Informes de cumplimiento</strong> — ISO 27001, PCI DSS, protección de datos personales.</li>
+<li><strong>Doble factor de autenticación</strong> — requisito de score; su ausencia penaliza la confianza del usuario.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El punto de entrada más frecuente no es siempre un exploit: una credencial compartida por buena fe entre colegas es una puerta abierta a servidores críticos.</li>
+<li>"Una cuenta no tiene relevancia" es una trampa: cualquier cuenta con privilegios puede ser el inicio de un ataque, y de ahí la necesidad de control granular y score de confianza.</li>
+<li>El control de acceso debe ser continuo — horarios, redes, MFA, comportamiento — y no una decisión puntual al otorgar la credencial.</li>
+<li>La nube necesita el mismo rigor que el datacenter: cuentas con privilegios excesivos, servicios sin uso y falta de doble factor son brechas silenciosas de alto impacto.</li>
+<li>La auditoría con grabación cierra el ciclo: previene (por score y listas blancas), detecta (por anomalías) y permite responder (por forense) con el mismo conjunto de herramientas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/e9xzkBRgH-0">«Zero Trust Across IAM: Control de accesos, CIEM y auditoría continua con ManageEngine (Ekoparty 2024)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

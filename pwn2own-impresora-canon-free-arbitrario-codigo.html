@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pwn2Own en una impresora Canon: del free arbitrario al código ejecutado — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Pwn2Own en una impresora Canon: del free arbitrario al código ejecutado</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XyT00Hdld6c">«DCSG1 - Pwn2Own Level Break of a Printer - SungJun Park, WonBeen Im»</a> · ver el <a class="nz-link" href="https://youtu.be/XyT00Hdld6c">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La historia completa — con todo el sufrimiento incluido — de cómo un equipo de la startup surcoreana PetWorks rompió una impresora Canon imageCLASS MF654CDW en Pwn2Own Ireland 2025. El camino: recon del firmware (un shell por UART, comandos de depuración ocultos que Canon "eliminó" tras competiciones previas y una compra de firmware por el número de serie de una foto de eBay), descubrimiento por fuzzing sin cobertura de un <em>invalid free</em> en el protocolo propietario CPCA, y una explotación sobre DryOS (RTOS de Canon, sin ASLR real ni sandbox) que combina heap grooming, secuestro de una tabla de handlers, un gadget de cambio de contexto ARM y el bypass de la memoria no ejecutable mediante el registro DACR en modo manager. Resultado: cadena exitosa ~90% de las veces, 10.000 dólares, dos master points, CVE-2024-14233 con CVSS 9.3 (crítico) y un parche confirmado que corrige el free.</p>
+<h2>Recon: firmware, UART y un serial de eBay</h2>
+<p>Pwn2Own (organizado por la Zero Day Initiative de Trend AI, tres ediciones al año) entrega el dispositivo con el firmware más reciente y totalmente parcheado; cada participante tiene tres slots de 10 minutos en escena. El blanco elegido fue la Canon imageCLASS MF654CDW (bounty de 20.000 dólares en la categoría de impresoras), aunque el equipo solo tenía en Corea el modelo MF756CX: el firmware del objetivo se descargó del sitio de soporte de Canon USA usando el número de serie de un ejemplar usado que un vendedor de eBay había fotografiado en la caja. El firmware venía cifrado, pero SynactivE ya había publicado un loader para Canon que bastó con adaptar para cargarlo en IDA.</p>
+<p>Dos hallazgos de recon definieron el resto. Primero, el dispositivo expone por UART una shell real que se presenta sola (versión, comandos de ayuda). Segundo, tras apariciones anteriores de Canon en Pwn2Own, los comandos de depuración de memoria (dump y modify) desaparecieron del <code>help</code> — pero no del binario: buscar la cadena de <code>usage</code> en IDA reveló un mundo de comandos ocultos.</p>
+<h2>Superficie de ataque y descubrimiento</h2>
+<p>La impresora expone lo estándar (HTTP/HTTPS, LPD, IPP, NetBIOS, SNMP, SLP, mDNS y descubrimiento de web services) y lo interesante: protocolos propietarios de Canon sin RFC ni especificación pública. El equipo consideró tres frentes — re-implementaciones defectuosas de protocolos estándar (patrón que se rompe "cada año, como una ley de la naturaleza"), parsers de formatos complejos de impresión (fuentes, PDF, PostScript, PCL) y el protocolo custom — y eligió una estrategia híbrida: dos semanas de auditoría binaria (965 MB sin símbolos, más de 200.000 funciones, con tres meses hasta la competencia) y luego fuzzing estructurado, sin AFL ni cobertura: Python puro, generador consciente del formato y socket de red. Cada crash llegaba directo a la consola UART con dump de registros y nombre de la tarea.</p>
+<h2>El bug: un free que no entiende el heap</h2>
+<p>El protocolo CPCA (Common Peripheral Control Architecture) controla prácticamente todo en la multifunción — impresión, copia, escaneo, mailbox — y está expuesto en cinco puertos, uno de ellos sobre TLS. Su formato en cable es simple: cabecera de 20 bytes (magic <code>cdca</code>, versión, opcode, longitud de payload) más payload variable, con un dispatcher que resuelve cada opcode en una tabla de handlers con punteros a funciones de decode, encode y release.</p>
+<p>El handler de <em>delete file</em> aloca una estructura cuyo campo de IDs de archivo es <strong>un único buffer contiguo</strong> dimensionado para N archivos; el flujo de liberación, en cambio, itera como si fuera un arreglo de punteros e invoca <code>free</code> en cada elemento. Solo la dirección base es liberable: cada iteración posterior es un free de una dirección nunca alocada. Como el puntero pasado a <code>free</code> es un <code>void*</code> tipográficamente correcto, ni el compilador ni el análisis estático lo marcan — es un error de entendimiento, no de escritura. Si el atacante controla el contenido del buffer, controla las direcciones que se pasan a <code>free</code>: de crash a primitiva.</p>
+<h2>Explotación en DryOS</h2>
+<p>El heap de DryOS usa chunks alineados a 16 bytes con cuatro campos: tag (alocado/libre), size, next pointer y <em>reserved</em> (solo alineación). El free erróneo trata array+offset 0x10 como el inicio de otro chunk y libera en secuencia tag, size, next y reserved. Liberar basura provoca un fault inmediato; la observación clave es que el campo <em>reserved</em> nunca lo usa el heap manager, así que hay que poblarlo con valores controlados.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Echo de CADM: aloca chunk grande desde el top chunk<br/>y escribe los valores deseados] --> B[Libera el chunk grande]
+    B --> C[Realoca chunks más chicos en la misma región:<br/>chunk 2 y luego el chunk víctima 3]
+    C --> D[El reserved del chunk víctima hereda<br/>el valor sembrado: dirección objetivo]
+    D --> E[Trigger del invalid free:<br/>free arbitrario confiable]
+    E --> F[Se libera la PGCC handler table y se realoca<br/>con una tabla falsa de handlers]
+    F --> G[Nuevo paquete CPCA: salto a la dirección controlada]
+
+</pre>
+
+<p>El <em>grooming</em> explota un comportamiento predecible del alocador (recorre chunks hasta hallar uno libre del tamaño pedido; si no, usa el top chunk) y se apoya en la función <em>echo</em> de la administración de CPCA (CADM): es invocable por el usuario, el tamaño de alocación viene de dos bytes del cliente y el dato se copia directo al buffer — el mezclador perfecto para sembrar y rellenar.</p>
+<p>Con el free arbitrario, el objetivo elegido fue la tabla de handlers PGCC: liberarla, realocar esa misma región con datos propios y construir una tabla falsa. El siguiente paquete CPCA ya llama al handler que el atacante puso. Quedaban dos restricciones: control limitado de stack y solo R4 útil, y memoria no ejecutable en todas las regiones escribibles. El primer problema se resolvió con un gadget (aparentemente de guardado/restauración de contexto entre tareas) que suma 4 a R4, lo mueve a R0, copia R3 al stack pointer y repuebla registros desde ahí: basta colocar el stack y los valores deseados en un buffer y su dirección en R4. El segundo llegó gracias a la investigación previa del equipo de NetDIM sobre cámaras Canon: en ARM, el control de acceso de la MMU pasa por 16 dominios gobernados por el registro DACR; ponerlo en modo <em>manager</em> desactiva las verificaciones. Encadenar ese gadget antes del shellcode habilita la ejecución arbitraria.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant At as Atacante
+    participant P as Impresora (DryOS)
+    At->>P: CPCA delete-file con buffer controlado (heap groomed)
+    P->>P: Invalid free → región de la PGCC handler table en free list
+    At->>P: Alocación con tabla de handlers falsa
+    At->>P: CPCA con opcode de la tabla falsa
+    P->>P: Gadget de contexto (R4→stack/registros)
+    P->>P: Gadget DACR en modo manager (bypass NX)
+    P->>P: Shellcode: deface del framebuffer + beep
+
+</pre>
+
+<p>El shellcode de demostración modifica el framebuffer de la pantalla de 800×480 (recibe ~1 MB de imagen RGB por red) y fuerza el refresco, dejando la pantalla "defaceada" más un pitido. La cadena falló en competición: se ejecutó en el escenario de Pwn2Own Ireland (21–24 de octubre de 2025), con una tasa de éxito cercana al 90% — y cuando falla, el dispositivo se reinicia y se reintenta. Canon publicó el parche el 15 de enero de 2026: el flujo corregido libera el buffer completo una vez, en lugar de recorrer los elementos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un protocolo estandarizado no garantiza una implementación segura; y los protocolos propietarios — sin especificación pública — esconden superficies enteras que casi nadie audita.</li>
+<li>Los entornos RTOS como DryOS carecen de mitigaciones modernas: sin ASLR efectivo, sin sandbox y con límites de permisos dudosos, un solo bug de corrupción de memoria alcanza para ejecución arbitraria ("energía de explotación de los 2000").</li>
+<li>Las impresoras suelen estar dentro de la red interna, con muchos vectores pre-autenticación y una monitorización laxa comparada con servidores y estaciones: son puntos de entrada discretos y conviene tratarlas como frontera crítica de seguridad, no como periféricos.</li>
+<li>Tipos correctos no significan código correcto: el compilador y el análisis estático dejan pasar bugs semánticos como este invalid free; el fuzzing consciente del protocolo fue lo que lo encontró.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li>Recon de firmware: shell por UART, comandos de depuración ocultos y compra de firmware por número de serie (imagen de eBay)</li>
+<li>Fuzzing sin cobertura de código sobre el protocolo propietario CPCA</li>
+<li>Bug de invalid free en el heap (CVE-2024-14233, CVSS 9.3)</li>
+<li>Heap grooming sobre DryOS (RTOS de Canon, sin ASLR real ni sandbox)</li>
+<li>Secuestro de tabla de handlers y gadget de cambio de contexto ARM</li>
+<li>Bypass de memoria no ejecutable vía registro DACR en modo manager</li>
+<li>Pwn2Own Ireland 2025: 10.000 dólares y dos master points</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XyT00Hdld6c">«DCSG1 - Pwn2Own Level Break of a Printer - SungJun Park, WonBeen Im»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

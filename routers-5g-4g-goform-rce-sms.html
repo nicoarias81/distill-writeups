@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Routers 5G/4G baratos: RCE pre-autenticación y SMS arbitrarios vía GoForm — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Routers 5G/4G baratos: RCE pre-autenticación y SMS arbitrarios vía GoForm</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Rxx07Ubmcuc">«DEF CON 33 - Hacking Hotspots: Pre-Auth RCE, Arbitrary SMS, &amp; Adjacent Attacks in 5G &amp; LTE Routers - Everett»</a> · ver el <a class="nz-link" href="https://youtu.be/Rxx07Ubmcuc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Dos fabricantes que casi nadie conoce por nombre — Tuoshi y Koofy — llenan catálogos de AliExpress con routers 5G y 4G/LTE que terminan en vehículos, cámaras motorizadas y despliegues de red diversos. El inventario de fallas encontrado en ellos es casi una taxonomía: control de acceso roto donde <code>username=admin</code> en el POST basta para autenticar, inyección de comandos en parámetros de configuración, shell root restringida con contraseña hasheada en DES, SMS arbitrarios desde un endpoint sin autenticación, CSRF encadenado con inyección de comandos, y buffer overflows sin canary en el stack. El hilo que une todo es un componente de software: el SDK Realtek con sus endpoints GoForm, presente en más de 900 CVEs y creciendo — un problema sistemático de la industria, no de un aparato puntual.</p>
+<h2>GoForm: el IOC que delata al SDK</h2>
+<p>Cuando en la URL de un router aparece <code>goform</code>, casi siempre hay un SDK de Realtek o Rolink debajo, con su formulario web embebido. Buscar "GoForm" en la base de CVE devolvía 743 resultados al primer chequeo y 912 al repetirlo un tiempo después — con Tenda como mayor ofensor y D-Link de escolta. La implicación es directa: los fabricantes compran el SDK, lo empaquetan y no auditán nada, y un solo patrón de URL sirve como indicador de compromiso anticipado. Ver GoForm en un dispositivo es razón suficiente para mirarlo de cerca.</p>
+<h2>Tuoshi: <code>username=admin</code> y NTP con inyección</h2>
+<p>El dispositivo 5G de Tuoshi (~40 USD en eBay) expone un endpoint GoForm con dos anomalías visibles en la misma petición:</p>
+<ul>
+<li><code>username=admin</code> viaja en el cuerpo del POST y <strong>no hay token de sesión real</strong> — lo que parece un token en el parámetro <code>ace_settings</code> es solo un flag de colapso de menú de la UI. El control de acceso está completamente roto: ese parámetro es la autenticación entera.</li>
+<li>El parámetro <code>ntp_server0</code> (servidor de hora por NTP) se pasa <strong>directamente a un comando de shell</strong> dentro del binario del router — idéntico en las variantes 5G y 4G, casi el mismo binario — sin sanitización alguna.</li>
+</ul>
+<p>La combinación produce RCE pre-autenticación: un script Python mínimo (copiando la petición del navegador, con más headers de los necesarios) basta para obtener una shell root. Bonus del propio aparato: la contraseña de root está hasheada con <strong>DES</strong> (no AES ni bcrypt) y se craquea a una variante trivial de "admin!", sobre una cuenta de shell restringida que no se puede desactivar. Y aunque estos routers están pensados como respaldo 5G en LAN, configuraciones de APN exponen las interfaces de administración a internet: hay portales de login de terceros, aparentemente vulnerables y abiertos, accesibles desde la WAN.</p>
+<p>Los modelos 4G de Tuoshi comparten el código vulnerable; la única razón por la que el parámetro NTP no funciona ahí es que la web no expone el campo para inyectarlo. La inyección vía Wi-Fi name sí funciona en ambos: RCE pre-autenticación en toda la línea del fabricante.</p>
+<h2>Koofy: canaries, overflows y AT commands</h2>
+<p>Los dispositivos Koofy (tres 4G y un 5G) presentan un cuadro más variado:</p>
+<ul>
+<li><strong>GC111 (4G, común en vehículos):</strong> el nombre de Wi-Fi se inyecta directamente en un comando de shell y, como la autenticación sigue siendo <code>username=admin</code>, hay RCE pre-autenticación. Este modelo además traía <strong>Telnet con credenciales admin/root hardcodeadas</strong>, útil para verificar la inyección una vez dentro. El firmware incorpora canaries en el binario, lo que complica la explotación binaria clásica pero no evita la inyección por la vía web.</li>
+<li><strong>El modelo con Android embebido (CPF908):</strong> incluye un hotspot Android de fábrica. El parámetro de configuración de APN (código PIN) resultó vulnerable <strong>a la vez</strong> a inyección de comandos y a buffer overflow: el código copia al stack sin verificar la longitud (<code>call shell</code>, copia al stack, sin control). La inyección aquí exige autenticación, así que se encadena con <strong>CSRF</strong> para lograr RCE cuasi-pre-autenticación: el CSRF arranca el daemon de Telnet (deshabilitado por defecto) y desde ahí se entra con las credenciales del administrador expuestas. El overflow, sin canary, ofrece RCE teórico por explotación binaria — en la demo, el dispositivo se rompió de forma irreversible (se sobreescribió demasiada memoria y ni UART lo recuperó).</li>
+<li><strong>SMS arbitrarios:</strong> los AT commands — el lenguaje de módem que permite leer y enviar mensajes, configurar el dispositivo, etc. — son alcanzables desde un endpoint GoForm <strong>sin autenticación</strong>. El router puede forzarse a enviar SMS a números arbitrarios y a revelar información: la demo mostró un mensaje de texto llegando a un teléfono desde el router, usando SIMs prepagas que el proveedor vendió <strong>sin datos ni acceso a SMS</strong> — el acceso se logró igual.</li>
+<li><strong>El 5G (chipset Snapdragon X62, ~400 USD):</strong> sin shell root obtenida — un solo ejemplar comprado a 200 USD que ya no estaba disponible más barato, y sin presupuesto de laboratorio para sacrificar ejemplares — pero con control de acceso roto comprobado, divulgación de la contraseña de administrador y la misma capacidad de forzar SMS sin autenticación.</li>
+</ul>
+<h2>El diagnóstico: SDKs sin BOM y funcionalidad sin llaves</h2>
+<p>Las conclusiones cruzadas de todos los aparatos: control de acceso impropio, divulgación de información, falta de sanitización de entrada, y una funcionalidad (envío de SMS desde un router) que los propios productos ni siquiera publicitan pero que queda expuesta sin control de acceso equivalente. El dispositivo es post-2020 — "moderno" en términos de hardware — y aun así hereda la deuda completa del SDK.</p>
+<p>La propuesta concreta es regulatoria: exigir un software bill of materials (SBOM) sólido a los fabricantes. Si cada producto declarara qué SDK y qué binarios embarca, patrones sistemáticos como GoForm podrían rastrearse a través de decenas de marcas que reempaquetan el mismo código.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Ver <code>goform</code> en la URL de un router embebido es un IOC por sí mismo: casi seguro hay un SDK Realtek/Rolink debajo, con más de 900 CVEs acumuladas.</li>
+<li>En esta familia de dispositivos, la autenticación es cosmética: un <code>username=admin</code> en el cuerpo del POST la salta completa, convirtiendo cualquier inyección posterior en RCE pre-autenticación.</li>
+<li>Las vías de entrada más rentables en routers embebidos siguen siendo las clásicas — ping, traceroute y nombre de Wi-Fi canalizados a shell — más las sorpresas como el parámetro NTP.</li>
+<li>Los AT commands expuestos sin autenticación convierten un router celular en un canal de envío de SMS arbitrarios, incluso con SIMs sin servicio de mensajería contratado.</li>
+<li>El encadenamiento importa: CSRF + inyección autenticada = RCE cuasi-pre-autenticación; credenciales hardcodeadas por Telnet facilitan la verificación; y un buffer overflow sin canary puede inutilizar el aparato antes de dar la shell.</li>
+<li>Sin SBOM obligatorio, cada marca nueva de AliExpress repite el mismo código roto: la auditoría se hace dispositivo por dispositivo y el problema se mantiene sistemático.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Rxx07Ubmcuc">«DEF CON 33 - Hacking Hotspots: Pre-Auth RCE, Arbitrary SMS, &amp; Adjacent Attacks in 5G &amp; LTE Routers - Everett»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

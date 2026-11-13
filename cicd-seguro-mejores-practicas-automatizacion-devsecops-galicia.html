@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CI/CD Seguro: mejores prácticas y automatización para equipos DevSecOps — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">CI/CD Seguro: mejores prácticas y automatización para equipos DevSecOps</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/A1m4ry2nVLw">«Ekoparty Webinar: CI/CD Seguro: Mejores prácticas y automatización para Equipos DevSecOps I Galicia»</a> · ver el <a class="nz-link" href="https://youtu.be/A1m4ry2nVLw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Integrar seguridad en el ciclo de vida del desarrollo no es un producto que se compra: es una cultura que se siembra, y tarda. El equipo de DevSecOps de Banco Galicia —Damián, Jonathan y Sebastián— cuenta, desde su experiencia concreta, cómo se introdujo la práctica en una organización ya establecida, con cinco pilares (cultura, formación, herramientas, políticas y piloto), un argumento económico contundente para conseguir el apoyo del negocio y un montón de herramientas reales en producción: Veracode, Nexus con IQ Server, CyberArk, CloudBees, Cosign.</p>
+<p>La parte que casi nadie mira: la seguridad no solo va <em>en</em> el pipeline, también tiene que cubrir <em>el</em> pipeline. El caso SolarWinds y un detalle incómodo de Jenkins —los secretos se pueden blanquear en pantalla— muestran por qué la cadena de suministro es hoy uno de los frentes más calientes. Cierra con librerías trampa tipo PDF2, el bypass de SonarQube y la pregunta del momento: ¿cuántas vulnerabilidades está metiendo la inteligencia artificial en el código?</p>
+<h2>Los cinco pilares</h2>
+<p>La integración no se resuelve de un día para otro: lleva tiempo, formación y que la organización entera adopte la cultura. Sobre esa base, la experiencia del banco se ordena en cinco pilares:</p>
+<ol>
+<li><strong>Cultura.</strong> DevSecOps llega para romper la barrera del DevOps: el dev crea, el ops despliega, y la seguridad se mete en el medio de ese mundo. La seguridad deja de ser responsabilidad exclusiva del equipo y se amplía a toda la organización: los desarrolladores aprenden a escribir código seguro y los operadores a configurar despliegues seguros. El primer paso es acercarse a las áreas de desarrollo, conocer a los actores, cómo trabajan, y construir una comunicación fluida.</li>
+<li><strong>Formación.</strong> El equipo transmite lo que aprende: brinda herramientas y conocimiento para identificar y prevenir vulnerabilidades desde el principio. Recomendación concreta: conocer los riesgos del OWASP Top 10, y que el propio equipo de DevSecOps domine la seguridad de los pipelines CI/CD y la automatización.</li>
+<li><strong>Herramientas.</strong> Integrales: tienen que acoplarse al ciclo de vida y resolver los tres análisis fundamentales —SAST (estático, sobre el código fuente), DAST (dinámico, sobre la aplicación corriendo) y SCA (análisis de composición: librerías de terceros y sus dependencias).</li>
+<li><strong>Políticas.</strong> Con las herramientas elegidas se levanta la barrera de seguridad: políticas, roles, accesos, gestión de secretos, revisiones. Un arranque realista es bloquear solo por criticidad muy alta e ir ajustando a medida que los equipos se acostumbran. Y con matices: la política tiene que cumplirse, pero el equipo de seguridad está al lado del desarrollador para ayudarla a cumplir —por lo general son los expertos en la vulnerabilidad y saben resolverla rápido, ahorrándole investigación—.</li>
+<li><strong>Piloto.</strong> Salir a la cancha con un proyecto chico, no crítico, que no afecte al negocio, y sacar conclusiones tempranas para ajustar las políticas. Antes de empezar: entender cómo están hoy las aplicaciones y arquitecturas, qué herramientas ya están instaladas, qué framework usa la organización —porque la mejor herramienta de mercado puede no adaptarse al proceso, y lo que se busca es integrarse al proceso que ya existe y sumarle el valor de seguridad—.</li>
+</ol>
+<p>Un punto de partida estratégico que el equipo subraya: cuando seguridad se acerca a tecnología, la reacción esperada es que pone una barrera ("no podés avanzar hasta cumplir X"). La alternativa que funcionó fue presentarse como facilitadores: dar el valor de seguridad, pero también preguntar qué necesita la cadena de suministro y quitarle trabajo al otro lado. Sinergia en lugar de imposición —eso es lo que hace que el rol de seguridad se acepte dentro del ciclo de vida—.</p>
+<h2>El argumento que convence: el dinero</h2>
+<p>Los beneficios nombrados son cinco: reducción de riesgos (menos vulnerabilidades y menos brechas al integrar la seguridad desde el principio), entregas aceleradas (un pipeline seguro es un pipeline confiable; automatizar los controles evita que los equipos se frenen al final del ciclo con una montaña de vulnerabilidades), colaboración mejorada, cumplimiento de estándares y, al final del camino, confianza: un desarrollo seguro fortalece la reputación y hace que el negocio y el cliente confíen en el producto.</p>
+<p>Pero el que realmente abrió puertas fue el costo. Sacar al principio cómo están todas las aplicaciones, cuantificar cuánto cuesta arreglar cada vulnerabilidad y dónde conviene arreglarla —lo más temprano posible— fue el beneficio que más se pudo mostrar para justificar la integración. Detectar mientras el desarrollador está codeando no solo ahorra tiempo: evita el eterno "me estás metiendo tiempo y necesito salir rápido". El eslogan del equipo lo resume: la seguridad no viene a afectar el tiempo de entrega, viene a darle calidad al desarrollo —y de paso, hoy ser una empresa consciente en seguridad es parte de la marca, más allá del dinero y la credibilidad que hay detrás.</p>
+<p>Un matiz clave: si DevSecOps no se adopta como cultura, no impacta. Si en un sprint nadie destina ni un día a actualizar librerías o resolver tickets de seguridad, la práctica no despega. Todos tienen que estar alineados: desarrollo e infraestructura dándole bola a seguridad.</p>
+<h2>Seguridad en el pipeline... y del pipeline</h2>
+<p>Cuando se habla de "seguridad en el pipeline" lo primero que viene a la cabeza es el stage de seguridad dentro del flujo: el estático, el dinámico, las librerías de terceros, el análisis y firmado de imágenes. Falta la mitad: <strong>asegurar el pipe</strong>. Se puede tener el flujo hermoso, la política robusta y los desarrolladores impecables; si la plataforma que ejecuta todo no está asegurada, quien consiga acceso a esa cadena de suministro puede, al final del proceso, inyectar librerías, un bot o lo que le interese —y el resultado desplegado seguirá pasando por "aplicación segura".</p>
+<p>Un ejemplo del día a día: el <strong>replay</strong> del pipeline. Aunque el pipe esté definido en un repositorio git, al darle replay Jenkins o CloudBees abre el main de todo el pipeline que va a ejecutar, y eso se puede modificar. Si no está bien controlado, bastan dos líneas al final —o un <code>true</code> en la validación de la política— para desplegar una aplicación "segura" con cosas inyectadas adentro. De ahí las prácticas de autorización: distinguir el administrador del pipeline de quien simplemente lo ejecuta, y definir quién puede darle replay.</p>
+<p>El caso emblemático es <strong>SolarWinds</strong>. En septiembre de 2019 los atacantes accedieron a la red; al mes siguiente inyectaron código malicioso en la herramienta Orion; en marzo de 2020 la empresa distribuyó ese software comprometido a <strong>20.000 clientes</strong>. El ataque a la cadena de suministro —robó credenciales de alguien con acceso, se infiltró, esperó y espió a otras organizaciones— duró unos seis meses. La lección: no basta con cuidar las aplicaciones propias, hay que segurizar también las herramientas que se usan para construirlas.</p>
+<p>Y un detalle de Jenkins que vale el precio de la entrada: se pueden declarar secretos para usarlos en el pipeline sin que el usuario vea la clave. Pero existe un código que, ejecutado en el pipe, <strong>blanquea todas las claves a o vivo</strong>. Si el pipeline le pega a una base de datos, a un servicio o a una plataforma, el atacante también puede hacerse de esas credenciales.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Commit del desarrollador] --> B[IDE / pull request: SAST + SCA]
+    B --> C[Build: firewall de librerías]
+    C --> D[Pipeline: DAST + políticas]
+    D --> E[Firmado del artefacto]
+    E --> F[Despliegue: validar firma]
+    F --> G[Runtime: monitoreo + alertas]
+    H[Atacante con acceso a la plataforma] -.inyección vía replay .-> D
+
+</pre>
+
+<h2>Buenas prácticas de un pipeline seguro</h2>
+<ul>
+<li><strong>Autenticación y autorización, por roles.</strong> Definir quién puede autenticarse y qué puede hacer cada uno: qué vista accede, qué campo modifica, quién puede dar replay a un pipeline.</li>
+<li><strong>Gestión segura de secretos.</strong> Las primeras vulnerabilidades de la historia nacieron de contraseñas en texto plano. El banco usa CyberArk para los usuarios administradores de las plataformas —el "ensobrado": el usuario guardado en el sobre, con auditoría de quién lo solicita—, más Azure Key Vault y Secret Manager de AWS. HashiCorp Vault está en evaluación: ya trae una modalidad de proxy en runtime que inyecta el secret en el request, de lo más nuevo que hay. La recomendación: no comprar una herramienta porque sí, probar si se adapta al flujo propio.</li>
+<li><strong>Cuidado con la data "de desarrollo".</strong> Una empresa conocida de Argentina tuvo una brecha en su git por contraseñas de bases de datos expuestas en versiones anteriores. Y aunque sea una base de desarrollo: si la data que se copia para hacer troubleshooting no está ofuscada, son datos de producción, aunque sean viejos.</li>
+<li><strong>Zero trust, también adentro.</strong> No dejar el CORS abierto al mundo: que solo lo consuman los dominios que corresponde. Se puede argumentar "tengo WAF, tengo Kubernetes, corro solo en LAN", pero esos controles se pueden caer: pensar mal para equivocarse al menos, y usar todas las protecciones que el framework ofrece.</li>
+<li><strong>Escaneo automático de todo lo que se pueda leer.</strong> No solo código: una plantilla de rol, un YAML que tiene que tener una forma definida —si se va de lo definido, no debería ejecutarse—. Y el dinámico complementa al estático porque prueba flujos que a simple vista no se ven: bots que recorren los bordes de la aplicación, intentos de ataques de numeración, un campo del request que termina dando acceso a una carpeta del servidor. Todo eso, además, alimenta al Red Team.</li>
+<li><strong>RAST: el análisis en runtime.</strong> Embeber una librería en el código que permite monitorear en vivo el binario ejecutándose. El análisis es integral: el SAST no está viejo, suma; el DAST suma; el runtime cierra el ciclo con monitoreo continuo, alertas y un SOC con plan de acción.</li>
+<li><strong>Imágenes: la base y la aplicación.</strong> No alcanza con mirar las imágenes en runtime: hay que analizar las imágenes base del registry, de las que parten los desarrolladores. Si desplegás mil microservicios sobre una imagen base con vulnerabilidades, la vulnerabilidad se distribuye por todos lados. Mantenimiento y actualización de las bases es parte del proceso.</li>
+<li><strong>Firmar el producto del pipeline.</strong> Con Cosign: firmar lo que produce el flujo —sea lo que sea— dice "esto pasó por nuestro proceso controlado". Cuando alguien lo despliega, validar la firma garantiza que nadie de afuera agregó nada por el camino.</li>
+<li><strong>Controles en cada commit: matiz.</strong> Para equipos que commitean cambios muy chiquitos, un control por commit puede volverse eterno. Alternativas: en el pull request, o integrado al IDE, escaneando mientras se desarrolla o al darle scan. Depende de la cultura de cada equipo.</li>
+</ul>
+<h2>Herramientas: qué usa el banco y cómo elegirlas</h2>
+<p>El stack real del banco, por categoría:</p>
+<ul>
+<li><strong>SAST:</strong> Veracode (con IDE y Veracode Fix), Semgrep. SonarQube existe pero en el banco se usa solo para calidad de código, no como seguridad —con razón: trae un bypass al alcance del desarrollador, un comentario tipo <code>//NOSONAR</code> o <code>@SuppressWarnings</code> al final de la línea que hace que esa línea no se analice—.</li>
+<li><strong>SCA:</strong> dependency-check de OWASP (gratuito, de la comunidad), IQ Server de Sonatype como <strong>firewall de librerías</strong> integrado a Nexus Repository: el banco no descarga directo de Maven, NPM o Nuget, pasa por Nexus, y es IQ el que frena la compilación si las librerías tienen vulnerabilidades. El resultado: un repositorio sanitizado —no libre de vulnerabilidades, pero al mínimo posible— y de paso una redundancia: si alguien borra una librería open source del upstream, la compilación no se rompe. La política define qué criticidades se aceptan; lo más complicado de todo es justamente este frente, porque la solución de una librería no está al alcance del squad: hay que buscar alternativa o versión segura, y ahí entra el rol de DevSecOps.</li>
+<li><strong>DAST:</strong> Veracode, ZAP de OWASP, Checkmarx. Trivy y Semgrep como opciones con comunidad enorme, que documentan y tienen soporte.</li>
+<li><strong>Orquestadores de open source:</strong> Jit (empresa de Israel) viene a orquestar todas las herramientas open source en una plataforma: una inversión barata para arrancar. Open source no significa malo: significa mantenido por la comunidad.</li>
+<li><strong>CI/CD:</strong> CloudBees (Jenkins licenciado), GitHub Actions, GitLab (community y enterprise).</li>
+<li><strong>Contenedores y runtime:</strong> Prisma Cloud de Palo Alto, que se integra con Cortex para terminar en un XSDR de contenedores. Suite cara, pero completa e integrada.</li>
+<li><strong>SIEM:</strong> QRadar de IBM, o Elastic Stack como alternativa.</li>
+<li><strong>Gestión de riesgo:</strong> una tendencia nueva: herramientas que ingieren la metadata de todas las demás, cruzan resultados y entregan un top 10 de vulnerabilidades críticas con plan de acción. O lo armás vos ingiriendo todo, o el mercado ya se está poniendo de acuerdo en estándares para compartir data entre herramientas.</li>
+</ul>
+<p>Sobre open source versus pago, la experiencia: las gratuitas no son malas, pero pueden tener menos base de conocimiento (detectan menos) o depender de la comunidad para actualizarse. Sirven para arrancar —los pilares iniciales del equipo fueron herramientas open source para relevar el panorama— y también para <strong>challengearte</strong> la herramienta que ya tenés: correr varias, comparar qué detecta cada una, decidir si es falso positivo o un error de la herramienta. Y elegir según a qué te vas a dedicar: si la política se apoya en el OWASP Top 10, conviene una herramienta fuerte y actualizada sobre ese estándar.</p>
+<h2>Librerías trampa e IA que mete vulnerabilidades</h2>
+<p>Dos amenazas actuales que el equipo detectó en operaciones:</p>
+<ul>
+<li><strong>Librerías señuelo.</strong> Los atacantes generan una librería maliciosa con nombre casi idéntico a la legítima: buscás "PDF", aparece "PDF2", y uno asume que es la versión 2 de la librería de siempre. Es una librería maliciosa, y es facilísimo que un desarrollador la use por accidente. El firewall de librerías en el build es lo que permite darse cuenta al instante y avisar: "usá esta otra, esa no es confiable".</li>
+<li><strong>IA que introduce vulnerabilidades.</strong> Copilot, al nutrirse de todo el código que lee, también introducía vulnerabilidades; el equipo lo detectó muchas veces. Y hay un escenario más inquietante: las IA están en aprendizaje constante —¿por qué no pensar en gente metiendo vulnerabilidades al aprendizaje para que la IA te recomiende código inseguro?—. La defensa no es prohibir la IA: es tener los controles cerca del desarrollo y una política tal que, copie y pegue lo que copie el desarrollador, ese código se escanea igual. Hoy las herramientas de scan detectan la mayoría de las vulnerabilidades que produce la IA. La recomendación: usala, leé, buscá, pero entendé un poco de lo que estás haciendo, porque la IA también puede recomendarte cualquier cosa.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>DevSecOps como cultura:</strong> integración de seguridad en todo el ciclo de vida; seguridad como responsabilidad de desarrolladores, operadores y organización entera.</li>
+<li><strong>Cinco pilares:</strong> cultura, formación, herramientas, políticas y piloto.</li>
+<li><strong>SAST (Static Application Security Testing):</strong> análisis del código fuente.</li>
+<li><strong>DAST (Dynamic Application Security Testing):</strong> análisis de la aplicación en ejecución (bots de borde, ataques de numeración).</li>
+<li><strong>SCA (Software Composition Analysis):</strong> análisis de librerías de terceros y dependencias.</li>
+<li><strong>RAST (Runtime Application Security Testing):</strong> monitoreo en vivo del binario ejecutándose mediante librería embebida.</li>
+<li><strong>Cadena de suministro del pipeline:</strong> asegurar la plataforma (Jenkins/CloudBees), control del replay y autorización por roles; caso SolarWinds (Sunburst, herramienta Orion, 20.000 clientes, 2020).</li>
+<li><strong>Gestión de secretos:</strong> CyberArk (ensobrado de usuarios admin con auditoría), Azure Key Vault, AWS Secret Manager, HashiCorp Vault con proxy de inyección en runtime; demo de blanqueo de secretos en Jenkins.</li>
+<li><strong>Firewall de librerías:</strong> IQ Server (Sonatype) integrado a Nexus Repository; repositorio sanitizado; bloqueo por criticidad alta y muy alta.</li>
+<li><strong>Librerías señuelo (typosquatting):</strong> librería maliciosa "PDF2" suplantando a la legítima.</li>
+<li><strong>Firmado de artefactos:</strong> Cosign para firmar y validar lo que produce el pipeline.</li>
+<li><strong>Herramientas nombradas:</strong> Veracode (SAST/DAST, Veracode Fix), Semgrep, SonarQube (calidad; bypass con <code>//NOSONAR</code>/<code>@SuppressWarnings</code>), dependency-check de OWASP, ZAP de OWASP, Checkmarx, Trivy, Snyk, Jit (orquestador open source), CloudBees, GitLab, GitHub Actions, OpenShift, Prisma Cloud y Cortex (Palo Alto), QRadar (IBM), Elastic Stack, HashiCorp Vault, CyberArk, Azure Key Vault.</li>
+<li><strong>Modelado de amenazas:</strong> plantear el desarrollo ya pensando en vulnerabilidades, datos sensibles y comunicaciones entre sistemas.</li>
+<li><strong>Zero trust:</strong> CORS restringido, no regalar superficie, asumir que los controles perimetrales (WAF, LAN) pueden caerse.</li>
+<li><strong>Encriptación post-cuántica:</strong> el esnifado de hoy puede craquearse en 5-10 años con computación cuántica; conviene empezar a aplicar algoritmos resistentes ya.</li>
+<li><strong>Challenge de herramientas:</strong> comparar detecciones entre open source y pagas, identificar falsos positivos y errores de herramientas, apoyar la política en estándares como el OWASP Top 10.</li>
+<li><strong>Integración con Red Team:</strong> pasarles los reportes de scans estáticos y dinámicos para orientar las pruebas de penetración y validar falsos positivos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>DevSecOps no se instala: se cultiva. Los cinco pilares —cultura, formación, herramientas, políticas, piloto— funcionan porque atacan la parte humana primero; sin un sprint que reserve tiempo para seguridad, la mejor herramienta del mercado no hace nada.</li>
+<li>El facilitador gana, el stopper pierde. Presentarse ante desarrollo como quien quita trabajo y da calidad —no como quien frena el pipeline— es lo que permitió que la seguridad entrara de verdad al ciclo de vida, con el ahorro de costos como argumento que abrió la puerta del negocio.</li>
+<li>La seguridad tiene dos direcciones: en el pipeline (SAST, DAST, SCA en cada etapa) y del pipeline (asegurar Jenkins, controlar el replay, firmar con Cosign). SolarWinds demostró que la segunda dirección puede comprometer a 20.000 clientes a la vez.</li>
+<li>El build es el punto de control más rentable: el firewall de librerías frena tanto a las dependencias vulnerables como a las librerías señuelo tipo PDF2, y ataca el frente más difícil de remediar —el que no depende del squad— antes de que llegue a producción.</li>
+<li>La IA no es enemiga ni exención: puede meter vulnerabilidades en el código y hasta ser envenenada en su aprendizaje, pero con controles de escaneo cerca del desarrollo y política obligatoria, el código generado por IA pasa por el mismo filtro que el resto.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/A1m4ry2nVLw">«Ekoparty Webinar: CI/CD Seguro: Mejores prácticas y automatización para Equipos DevSecOps I Galicia»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

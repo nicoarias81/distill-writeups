@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sin especificación, no hay problema: ingeniería inversa de ISAs con un pipeline de agentes de IA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Sin especificación, no hay problema: ingeniería inversa de ISAs con un pipeline de agentes de IA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/c-Wfvo1kEuc">«No Spec, No Problem: Automated ISA reverse engineering with Multi-Agent AI I Borgogno - Aznarez»</a> · ver el <a class="nz-link" href="https://youtu.be/c-Wfvo1kEuc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El equipo de Faraday presenta un pipeline multi-agente que automatiza la ingeniería inversa de arquitecturas de conjunto de instrucciones (ISA) no documentadas. El caso disparador es un vape con un chip JL7012F6 y una CPU PI32v2 sin especificación pública.</p>
+<p>El pipeline combina clasificación de la ISA, desensamblado, extensión de la ISA en LLVM vía TableGen, levantamiento a IR con MCTOLL, verificación formal con un solver SMT y decompilación asistida por modelos de lenguaje locales — Qwen2.5-Coder 32B, con LLM4Decompile como referencia —. El resultado: código fuente recuperable y vulnerabilidades al descubierto donde antes solo había un binario opaco.</p>
+<h2>El problema: binarios sin especificación</h2>
+<p>Las herramientas clásicas de análisis — Ghidra, objdump — soportan decenas de arquitecturas, pero ninguna lista es infinita. Cuando un fabricante usa una ISA propietaria, no hay desensamblador que valga: el analista se queda con un flujo de bytes sin sentido y sin documentación que lo interprete. Ese escenario es más común de lo que parece, porque el mercado de microcontroladores de bajo costo está lleno de núcleos propios, clones no documentados y derivados que nunca llegan a los backends estándar de las herramientas de ingeniería inversa. Sin ISA, no hay desensamblado; sin desensamblado, no hay análisis; y sin análisis, no hay auditoría de seguridad posible.</p>
+<h2>El caso disparador: un vape con CPU propia</h2>
+<p>Para mostrar el problema en concreto, el punto de partida elegido es un dispositivo de consumo cualquiera: un vape. Su interior tiene un chip JL7012F6 con una CPU PI32v2, una arquitectura sin especificación pública disponible. El firmware extraído del dispositivo es un binario para una ISA que ninguna herramienta estándar conoce. Es el ejemplo perfecto de "no spec, no problem": la especificación no existe, pero el código hay que analizarlo igual — sobre todo si detrás de ese chip hay conectividad y lógica que puede ser vulnerable.</p>
+<h2>Clasificar antes de desensamblar</h2>
+<p>El primer paso del pipeline no es desensamblar: es clasificar. Antes de escribir un solo desensamblador hay que responder qué tipo de arquitectura es la CPU objetivo — si la ISA es propietaria o corresponde a una familia conocida, y qué modelo de máquina subyace: una arquitectura de acumulador, de registros, de pila. La clasificación orienta todo lo demás: condiciona cómo se interpretan los opcodes, qué formatos de instrucción esperar y qué supuestos puede hacer el resto del pipeline. Un agente especializado se encarga de esa determinación inicial, de modo que las etapas siguientes parten de hipótesis explícitas en lugar de conjeturas.</p>
+<h2>El pipeline multi-agente</h2>
+<ol>
+<li><strong>Clasificación</strong>: un agente determina si la ISA es conocida o propietaria y qué modelo de máquina subyace (acumulador, registros, pila).</li>
+<li><strong>Desensamblado</strong>: objdump y Ghidra, adaptados a la ISA recuperada.</li>
+<li><strong>Extensión de la ISA</strong>: la descripción se incorpora a LLVM mediante TableGen.</li>
+<li><strong>Levantamiento a IR</strong>: MCTOLL convierte el binario en la representación intermedia de LLVM.</li>
+<li><strong>Verificación formal</strong>: un solver SMT comprueba la equivalencia entre el IR levantado y la semántica del binario original.</li>
+<li><strong>Decompilación</strong>: un agente con Qwen2.5-Coder 32B local — con LLM4Decompile como referencia — produce pseudocódigo legible y deja al descubierto las vulnerabilidades.</li>
+</ol>
+<p>La idea central es dividir un problema enorme en pasos especializados, cada uno a cargo de un agente con herramientas específicas, y encadenarlos de forma que la salida de uno sea la entrada verificable del siguiente. En lugar de pedirle a un modelo de lenguaje que "revierta" el binario de una vez — enfoque que produce resultados plausibles pero falsos —, el pipeline construye el análisis por capas: clasificación, desensamblado, descripción formal de la ISA, levantamiento a representación intermedia, verificación y decompilación final.</p>
+<h2>Extender la ISA y levantar a IR</h2>
+<p>El paso clave de integración pasa por LLVM. La ISA recuperada durante el análisis se describe mediante TableGen, el mecanismo de descripción de arquitecturas del compilador, lo que permite incorporarla al ecosistema sin escribir un backend completo a mano. Con la ISA descrita, MCTOLL toma el binario y lo levanta a la representación intermedia de LLVM: a partir de ahí, todo el arsenal de análisis de IR queda disponible. Este diseño convierte un problema propietario en uno estándar: el binario opaco se transforma en IR analizable, y el resto del pipeline deja de depender de los caprichos de la ISA original.</p>
+<h2>Verificación formal: sin equivalencia no hay confianza</h2>
+<p>Los modelos de lenguaje inventan, y en ingeniería inversa un resultado plausible pero falso es peor que ningún resultado. Por eso el pipeline incorpora una etapa de verificación con un solver SMT: comprobar formalmente que el IR levantado es equivalente a la semántica del binario original. La verificación convierte la cadena de agentes en algo auditable — si el IR pasa la comprobación de equivalencia, todo lo que se deduzca después parte de una base sólida; si no la pasa, el error se detecta antes de que contamine el análisis.</p>
+<h2>Decompilar con modelos locales</h2>
+<p>La última etapa le entrega el IR a un modelo de lenguaje que produce pseudocódigo legible. La referencia en el área es LLM4Decompile, el trabajo que exploró la decompilación con LLMs, y la elección de modelo apunta a Qwen2.5-Coder 32B — ejecutado localmente. La decisión no es solo técnica: en ingeniería inversa de firmware, mandar los binarios a una API en la nube implica filtrar material que puede ser confidencial o sensible. Correr el modelo en local mantiene todo el análisis — y las vulnerabilidades que aparezcan — dentro de la propia infraestructura.</p>
+<h2>Resultados: código recuperado y vulnerabilidades al descubierto</h2>
+<p>El pipeline logró recuperar lógica analizable de firmas como la del vape JL7012F6, y sobre ese código recuperado aparecieron vulnerabilidades identificadas en el firmware: el objetivo final de toda la cadena. Lo notable es la economía del enfoque: en lugar de meses de análisis manual de una ISA desconocida, el pipeline automatiza la parte mecánica — clasificar, describir, levantar, verificar — y deja para el humano la parte que importa, interpretar el código y buscar las fallas.</p>
+<p>El mensaje para quien analiza dispositivos con CPUs oscuras: la ausencia de especificación ya no es el fin del análisis, es el punto de partida de un pipeline que la reconstruye por su cuenta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ISA (Instruction Set Architecture)</strong>: conjunto de instrucciones de una CPU; sin especificación pública, no hay desensamblador estándar que la interprete.</li>
+<li><strong>PI32v2 / JL7012F6</strong>: la CPU y el chip del vape usados como caso disparador, sin especificación pública.</li>
+<li><strong>Ghidra y objdump</strong>: herramientas clásicas de análisis y desensamblado, limitadas a las arquitecturas que soportan.</li>
+<li><strong>TableGen</strong>: mecanismo de descripción de arquitecturas de LLVM, usado para incorporar la ISA recuperada al compilador.</li>
+<li><strong>MCTOLL</strong>: herramienta de levantamiento de binarios a la representación intermedia (IR) de LLVM.</li>
+<li><strong>Solver SMT</strong>: verificación formal de la equivalencia semántica entre el IR levantado y el binario original.</li>
+<li><strong>LLM4Decompile</strong>: el trabajo de referencia en decompilación asistida por modelos de lenguaje.</li>
+<li><strong>Qwen2.5-Coder 32B</strong>: modelo de lenguaje ejecutado localmente para mantener el análisis dentro de la propia infraestructura.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La ausencia de especificación ya no bloquea el análisis: se reconstruye la ISA y se integra al ecosistema de LLVM.</li>
+<li>Un resultado plausible pero falso es peor que ninguno: la verificación formal con SMT convierte al pipeline en algo auditable.</li>
+<li>Los modelos locales eliminan el riesgo de filtrar firmware confidencial hacia APIs externas.</li>
+<li>Automatizar la parte mecánica deja al humano la parte que importa: interpretar el código y encontrar las fallas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/c-Wfvo1kEuc">«No Spec, No Problem: Automated ISA reverse engineering with Multi-Agent AI I Borgogno - Aznarez»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One Key, Two Key: secuestro de claves en radios mesh goTenna Pro — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">One Key, Two Key: secuestro de claves en radios mesh goTenna Pro</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/DvtFoREyB0A">«DEF CON 33 - One Key, Two Key, I Just Stole Your goTenna Key - Erwin, Woody»</a> · ver el <a class="nz-link" href="https://youtu.be/DvtFoREyB0A">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando un desastre natural —huracán, terremoto— derriba la infraestructura tradicional, los primeros respondientes pierden 5G y LTE. Ahí entran las radios mesh: dispositivos que forman su propia red dispositivo-a-dispositivo, sin infraestructura, donde cada nodo retransmite mensajes hasta su destino. Con esas radios se coordinaron las respuestas al huracán Katrina y al huracán Helene, y las usan médicos, policías, militares y equipos de búsqueda y rescate. Si un atacante compromete su cifrado, puede modificar mensajes, falsificarlos o apagar la comunicación por completo; en estos escenarios, la seguridad de la radio es la línea entre el éxito y el fracaso de la operación —y los primeros respondientes pueden ser blanco intencional, como ocurre con incendiarios y atentados.</p>
+<p>goTenna es un fabricante de estas radios: sus dispositivos se conectan a un teléfono y permiten mensajería de texto cifrada entre grupos. Usa Aspen Grove Mesh, una malla propietaria que combina paquetes de datos y control para ser más eficiente. Un equipo de Weathered Security y RF Village lleva años evaluando sus productos, con 29 vulnerabilidades acumuladas (seis en goTenna V1, cuatro en el Mesh, más las líneas goTenna ATAC y goTenna Pro). La vulnerabilidad central de este trabajo es distinta de todas las anteriores: severidad 9.6, compromete confidencialidad, integridad y disponibilidad con facilidad de acceso, y fue reportada al fabricante vía CISA a fines de 2024, con parches publicados en septiembre-octubre. La herramienta GOAT se libera en el GitHub de los autores.</p>
+<p>El hallazgo en una frase: <strong>la implementación del intercambio ECDH de goTenna Pro permitía a un atacante remoto y sin autenticación reemplazar las claves públicas de los dispositivos</strong>. La criptografía subyacente era correcta; falló la implementación —y esa es la moraleja generalizable a cualquier sistema RF propio.</p>
+<h2>Criptografía original: cómo cifra goTenna Pro</h2>
+<p>Los protagonistas del análisis, con la nomenclatura clásica de Rivest, Shamir y Adleman (1978): Alice y Bob son operadores de goTenna Pro; Mallory es el atacante. Los elementos del sistema:</p>
+<ul>
+<li><strong>goTenna identifier (GID):</strong> identifica de forma única el par teléfono-radio; comparable a una MAC address.</li>
+<li><strong>Par de claves pública/privada:</strong> la privada vive solo en el teléfono.</li>
+<li><strong>Clave compartida:</strong> derivada por ECDH a partir de la propia privada y la pública del par.</li>
+<li><strong>Cifrado:</strong> AES-GCM, con clave de cifrado derivada de la clave compartida junto con el GID vía HMAC-SHA-256.</li>
+<li><strong>Almacenamiento local:</strong> todo esto se refleja en el archivo <code>goTenna key encryption.xml</code> del teléfono.</li>
+</ul>
+<p>En el esquema punto a punto, Alice combina su clave privada con la pública de Bob, ejecuta ECDH y obtiene la clave compartida; esa clave más el GID pasa por HMAC-SHA-256 y produce la clave con la que cifra los mensajes. En una investigación previa, el equipo había implementado el algoritmo completo bajo el supuesto de un teléfono Android comprometido capaz de extraer las claves del XML, y había roto ese archivo explotando un IV que nunca rotaba. Pero el hallazgo nuevo fue peor: las claves públicas asociadas podían cambiarse <strong>sin ninguna autenticación</strong>.</p>
+<h2>La vulnerabilidad: actualización de claves sin autenticar</h2>
+<p>El descubrimiento fue casi accidental. Tras presentar en DEF CON 2024 los ataques previos, el equipo notó que los dispositivos dejaban de funcionar entre sí; un restablecimiento de fábrica los arreglaba, y los ataques volvían a romperlos. Monitoreando con un teléfono rooteado los cambios de claves, observaron que un único mensaje específico —una actualización de clave remota sin autenticación— reescribía las claves a distancia, sobre un medio cifrado con criptografía de clave pública. La descripción formal del CVE es seca: "permite a atacantes no autenticados actualizar remotamente claves públicas". El impacto real: man-in-the-middle completo e indetectable dentro de un grupo de usuarios.</p>
+<p>La mecánica del ataque, paso a paso:</p>
+<ol>
+<li><strong>Observación del espectro.</strong> Mallory localiza la señal con GQRX: identifica frecuencia, frequency hopping y demás.</li>
+<li><strong>Decodificación de metadatos.</strong> Con el software publicado el año anterior, extrae los metadatos: call signs, GID del emisor, indicador de cifrado. El tráfico está cifrado, pero los metadatos en claro revelan quién habla con quién —y los call signs, por sí solos, dicen mucho.</li>
+<li><strong>Captura del GID objetivo.</strong> Escuchando con un SDR (USRP), captura un mensaje real y guarda el GID de Alice.</li>
+<li><strong>Inyección de clave.</strong> Genera su propio par de claves, arma un paquete de <em>public key request</em> suplantando el GID de Bob —el campo viaja en claro— y adjunta su propia clave pública. El dispositivo receptor la acepta y actualiza su base de claves. No debería pasar, pero pasó.</li>
+<li><strong>Obtención de la clave del otro lado.</strong> Alterando el GID en los metadatos y enviando su propia petición de clave pública, recibe la clave de Alice. Intercambio completo.</li>
+</ol>
+<pre class="mermaid">
+flowchart TB
+    subgraph antes["Estado original"]
+        A1["Alice: clave pública de Bob"] <-->|"ECDH, AES-GCM"| B1["Bob: clave pública de Alice"]
+    end
+    subgraph despues["Tras la inyección"]
+        A2["Alice: clave pública de MALLORY"] <-->"|Mallory descifra, lee y reenvía|" B2["Bob: clave pública de MALLORY"]
+    end
+    antes -.->|"public key request suplantada,\nsin autenticación, OTA"| despues
+
+</pre>
+
+<p>Con ambas claves asociadas a su material y la de Alice capturada, Mallory posee interceptación total. La demostración en vivo lo confirmó: Bob envía "hi from Bob", Alice responde —ambos mensajes aparecen con marca de entrega en el teléfono emisor— pero Bob nunca los recibe. Los recibió el atacante, descifrados. Los teléfonos estaban uno al lado del otro.</p>
+<h2>Herramientas del ataque</h2>
+<p>El setup usa dos SDR: uno para recibir y otro para transmitir, integrados en GNU Radio con un bloque propio (GR10). Recibir y transmitir por separado convierte al atacante en un repetidor activo: ve cada mensaje, decide si lo deja pasar, lo altera o lo reemplaza antes de retransmitirlo. El flujo de explotación es scriptable: capturar GIDs, generar claves propias con un keygen, actualizar los GIDs objetivo en la configuración de la herramienta y ejecutar el "envenenamiento" de ambos lados con un contador que supere el último mensaje visto.</p>
+<p>Ese contador es el único control anti-replay del protocolo: un mensaje con un contador ya visto se rechaza, lo cual es un buen diseño —pero basta enviar un número mayor en cada envío, y el número viaja visible en los metadatos, para que todo paquete forjado parezca nuevo. En las demostraciones se incrementó de 8 en 8, o se envió directamente un número muy grande.</p>
+<h2>La reversión: borrar toda huella</h2>
+<p>La parte más peligrosa del ataque es su reversibilidad. Después de controlar la conversación —interceptar todo, inyectar lo que quiera en cada dirección—, el atacante puede restaurar las claves originales que guardó al inicio. Alice y Bob vuelven a comunicarse normalmente, y ningún análisis forense posterior muestra nada: las claves en los teléfonos son las de siempre, el intercambio funciona como si nada hubiera pasado. El único modo de detectar el episodio sería comparar los dos teléfonos lado a lado y notar que un mensaje que aparecía como entregado nunca llegó al destinatario —y eso solo funciona si el atacante alteró mensajes; si solo escuchó, no hay rastro alguno, y el espectro RF tampoco delata nada sin herramientas muy sofisticadas.</p>
+<h2>Escenarios operativos: por qué importa</h2>
+<p>Las consecuencias se ilustran con el escenario demostrado en vivo: Bob pide a Alice sus coordenadas GPS para un encuentro. Mallory intercepta el mensaje, cambia los dígitos de las coordenadas y reenvía el valor alterado. El destinatario acude a un punto equivocado: un lugar donde el atacante preparó una emboscada, o donde no habrá reabastecimiento ni refuerzos. Para búsqueda y rescate, médicos, evacuaciones médicas (medevac) u operaciones militares con puntos y horarios de encuentro fijos, esto es un cambio de juego letal.</p>
+<p>Otros patrones de abuso, todos elegidos por ser tácticas observadas en la realidad:</p>
+<ul>
+<li><strong>Passthrough con goteo:</strong> dejar pasar la mayoría de los mensajes para que la red parezca confiable, e inyectar ocasionalmente comentarios que minan la cohesión —que hacen dudar de la competencia de alguien o desvían decisiones—. La confianza en la red se mantiene mientras la integridad del equipo se degrada lentamente.</li>
+<li><strong>Forzar la migración:</strong> degradar deliberadamente un canal para que el grupo lo abandone y pase a otro que el atacante sabe más fácil de manipular o rastrear.</li>
+<li><strong>Apagón silencioso:</strong> reemplazar las claves públicas de los 15 integrantes de una red simultáneamente. Nadie puede comunicarse, todos deben migrar a una plataforma secundaria —que quizá no existe en esa zona—, con impacto directo en la capacidad de misión.</li>
+</ul>
+<h2>Detección y defensas</h2>
+<p>Detectar el ataque es difícil por diseño: si el atacante restaura las claves al final, todo parece normal; y un atacante meramente pasivo es indetectable para las víctimas. Las mitigaciones propuestas:</p>
+<ul>
+<li><strong>Playbook operativo de claves:</strong> registrar antes de la misión el estado de las claves y del dispositivo, y auditarlo después. Detecta la variante donde el atacante reemplaza claves para seguir escuchando, aunque no la variante "restaurar al final".</li>
+<li><strong>Autenticación de intercambio de claves:</strong> una clave nunca debería actualizarse sin notificación y confirmación del usuario. Es el fix estructural que aplicó el parche.</li>
+<li><strong>Versionado de claves:</strong> conservar historial ("esta clave ya fue usada dos veces antes, ¿por qué?") para detectar manipulaciones pasadas.</li>
+<li><strong>Telemetría de errores físicos:</strong> anomalías en la potencia de señal —fluctuaciones imposibles entre dos posiciones estáticas— pueden delatar un MITM en el canal.</li>
+<li><strong>Pro words / códigos ocultos:</strong> frases convenidas que permiten verificar en canal si hay manipulación.</li>
+<li><strong>Parche del fabricante:</strong> los dispositivos con la aplicación actualizada no son vulnerables; el ataque requiere versión sin parchear.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>goTenna Pro / ATAC / Mesh / V1:</strong> familia de radios mesh evaluada; 29 vulnerabilidades acumuladas por el equipo de investigación.</li>
+<li><strong>Aspen Grove Mesh:</strong> malla propietaria de goTenna que combina paquetes de datos y control.</li>
+<li><strong>ECDH + AES-GCM + HMAC-SHA-256:</strong> pila criptográfica del dispositivo; correcta en diseño, rota en implementación por la falta de autenticación en el intercambio de claves.</li>
+<li><strong>Public key request/response sin autenticación:</strong> la vulnerabilidad central; permite reemplazo remoto de claves públicas.</li>
+<li><strong>GQRX:</strong> software de observación de espectro para localizar la señal y su frequency hopping.</li>
+<li><strong>GNU Radio + bloque GR10:</strong> infraestructura de captura y generación de señales con dos SDR (recepción y transmisión separadas).</li>
+<li><strong>USRP:</strong> radio definida por software usada para escuchar el tráfico.</li>
+<li><strong>Contador anti-replay del protocolo:</strong> control de mensajes duplicados; evadible enviando siempre un número mayor.</li>
+<li><strong>GID spoofing:</strong> suplantación del identificador dispositivo-a-radio, que viaja en claro en los metadatos.</li>
+<li><strong><code>goTenna key encryption.xml</code>:</strong> archivo local del teléfono con las claves; roto previamente por IV estático.</li>
+<li><strong>GOAT (herramienta):</strong> suite del equipo — captura de GIDs, keygen, envenenamiento y restauración de claves, cifrado de mensajes — liberada en GitHub tras la divulgación.</li>
+<li><strong>CISA:</strong> agencia que medió la coordinación con el fabricante y los parches de septiembre-octubre.</li>
+<li><strong>Precedentes de reemplazo de claves:</strong> Z-Wave downgrade (2018) y Philips Hue (2020), ambos con claves por defecto hardcodeadas; dos ataques Bluetooth (2019-2020) de corto alcance. Ninguno con el alcance de 55 millas de este caso en VHF.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La vulnerabilidad es de implementación, no de criptografía: ECDH con AES-GCM es correcto, pero aceptar actualizaciones de clave pública sin autenticación lo vuelve inútil.</li>
+<li>El MITM resultante es completo e indetectable: interceptación, suplantación de ambos lados, inyección de mensajes falsos (incluidas coordenadas alteradas) y restauración final sin huella forense.</li>
+<li>El radio de impacto es el alcance RF: hasta 55 millas según la documentación del fabricante en VHF, a distancia, a través de obstáculos y sin interacción de la víctima.</li>
+<li>La lección es generalizable: quien diseñe un sistema RF propio debe probar explícitamente qué pasa ante peticiones de clave no autenticadas, porque "no va a aceptar claves ajenas" era exactamente el supuesto que aquí falló.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/DvtFoREyB0A">«DEF CON 33 - One Key, Two Key, I Just Stole Your goTenna Key - Erwin, Woody»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

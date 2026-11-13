@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OPC UA sin VPN: cuando la criptografía propia del protocolo OT se rompe en quince minutos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">OPC UA sin VPN: cuando la criptografía propia del protocolo OT se rompe en quince minutos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/dFYR2oOK8wg">«DEF CON 33 - No VPN Needed? Cryptographic Attacks Against the OPC UA Protocol  - Tom Tervoort»</a> · ver el <a class="nz-link" href="https://youtu.be/dFYR2oOK8wg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>OPC UA es el protocolo moderno de automatización industrial: estandarizado, interoperable entre fabricantes y, sobre todo, con características de seguridad propias —cifrado de transporte y autenticación de máquinas basada en certificados—. Esa promesa llevó a muchas organizaciones a cruzar trust boundaries con él: exponer servidores a internet para gestión remota de plantas, turbinas o parques solares, sin necesidad de tunelizarlo por una VPN, porque "ya lleva criptografía incorporada".</p>
+<p>Ese razonamiento se sostiene sobre un protocolo criptográfico diseñado a medida, no sobre TLS. La investigación de Tom Tervoort (Bureau Veritas Cybersecurity), especializado en explotar bugs criptográficos con resultados de pentesting real, demuestra que ese diseño propio tiene grietas serias: un ataque de signing oracle que permite a dos servidores autenticarse entre sí en nombre del atacante, y una variante del clásico ataque Bleichenbacher de 1998 convertida en práctica mediante una optimización de temporización que reduce el "million message attack" a minutos. Cinco de las siete implementaciones probadas eran vulnerables a al menos una de las variantes, con avisos posteriores de fabricantes como CodeSys y Siemens (línea WinCC).</p>
+<h2>Anatomía del protocolo: dos handshakes y mucho RSA redundante</h2>
+<p>OPC UA opera en dos capas de seguridad. La primera es el <strong>secure channel</strong>: un intercambio de mensajes Open Secure Channel donde ambas partes generan nonces, el cliente cifra y firma con las claves del certificado del servidor, y ambos derivan una clave simétrica de sesión mediante una KDF. La política de seguridad elegida —el equivalente a un cipher suite de TLS— decide qué criptografía se usa: desde "ninguna" hasta variantes RSA/AES prácticamente intercambiables.</p>
+<p>La segunda capa es el <strong>handshake de sesión</strong>, ya cifrado con la clave simétrica: un challenge-response clásico donde cada parte firma el reto de la otra con su clave privada para probar identidad. La firma cubre el reto concatenado con el certificado de la otra parte, y —detalle crucial— el formato es idéntico en ambas direcciones: no hay metadatos que distingan una firma de cliente a servidor de una de servidor a cliente.</p>
+<p>El diseño es, como mínimo, redundante: tres operaciones de clave privada RSA por lado cuando un key exchange autenticado bien diseñado necesita una sola decriptación. Esa redundancia, y sobre todo esa simetría de formato, es la puerta de entrada.</p>
+<h2>Ataque uno: signing oracle relay, o cómo hacer que un servidor firme su propia entrada</h2>
+<p>La ausencia de contexto en lo firmado invita a un <strong>signing oracle relay attack</strong>. El escenario: dos servidores, A y B. El atacante se presenta ante A como si fuera B (con el certificado de B); A exige firmar su reto. El atacante va entonces a B, se presenta como A, y consigue que B firme el reto original de A. Corta la conexión con B, reanuda la primera sesión y completa la autenticación con esa firma ajena: los dos servidores "inician sesión" entre sí, y el acceso queda para el atacante.</p>
+<p>Mejor todavía: en la práctica muchos despliegues confían por defecto en su propio certificado. Entonces basta con un solo servidor: iniciar sesión en A alegando ser A, abrir una segunda conexión para que A firme su propio reto, soltarla y reanudar la primera. Autenticación de máquina rota, y con el propio servidor contra sí mismo, normalmente con privilegios máximos.</p>
+<p>El problema es que este ataque necesita saltarse el handshake del secure channel, que también usa las claves privadas. La vía fácil existe: OPC UA tiene una variante sobre HTTPS donde TLS ya aporta cifrado, y el protocolo salta directamente al handshake de sesión vulnerable. Pero el HTTPS con autenticación de servidor no autentica al cliente —a diferencia del secure channel propio, que sí lo hacía implícitamente—. Conectarse por HTTPS sin probar identidad y ejecutar el relay funciona contra servidores que usan autenticación basada en certificados sin contraseñas, típicos de comunicaciones máquina a máquina. La salvedad: casi nadie usa la variante HTTPS, aunque algunas implementaciones abren ese puerto por defecto y siguen vulnerables aunque no lo exploten, si el firewall no lo bloquea.</p>
+<h2>Ataque dos: Bleichenbacher resucitado con un truco de temporización brutal</h2>
+<p>Para atacar la versión TCP estándar —la que realmente usa todo el mundo— hacía falta atravesar el secure channel. Ahí aparece una política de seguridad con RSA + relleno PKCS#1 v1.5, el esquema de cifrado RSA definitivamente roto por Daniel Bleichenbacher en 1998. OPC UA nació en 2006 y aun así lo mantuvo, luego deprecado con un aviso que los fabricantes no siempre aplican en sus configuraciones por defecto. Peor: varias implementaciones intentan decriptar mensajes cifrados con PKCS#1 incluso cuando la política débil está desactivada, y solo rechazan la conexión después de haber hecho la decriptación — que es exactamente lo que el ataque necesita.</p>
+<p>El ataque original: el relleno PKCS#1 exige que el entero decriptado empiece con 0x00 0x02. Si un atacante puede distinguir "relleno válido" de "relleno inválido", obtiene información sobre el texto plano y, multiplicando el ciphertext por valores elegidos y consultando repetidamente, reduce el espacio del secreto en torno a un millón de consultas — el "million message attack". Y como las firmas RSA son decriptaciones de hashes, el mismo ataque forja firmas válidas.</p>
+<p>El oráculo de relleno fue el reto. Pocas implementaciones distinguen por mensajes de error ("decrypt failed" frente a "signature validation failed"); la mayoría devuelve códigos idénticos. La solución habitual sería un side channel temporal, famosas por su complejidad estadística y su fragilidad frente al jitter de red. Pero OPC UA cifra sus mensajes por bloques RSA individuales — estilo ECB, con todos sus problemas de ciphertexts elegidos —, y eso permite una optimización insultantemente simple: repetir el ciphertext candidato 100 veces en un solo mensaje. Con relleno inválido, el servidor aborta en la primera decriptación; con relleno válido, hace 100 decriptaciones RSA caras antes de descubrir que el mensaje era basura. La diferencia de tiempo es enorme y trivial de medir con un script de Python: ~0,005 s frente a un décimo de segundo en la implementación más rápida probada.</p>
+<p>Con el oráculo resuelto, el ataque completo contra el servidor más rápido terminó en <strong>15 minutos</strong> para un bypass total de autenticación (8,5 minutos para falsificar la firma, el resto para recuperar el nonce y derivar las claves, manteniendo la sesión TCP viva y ejecutando el millón de mensajes por otra conexión). Contra implementaciones más lentas: 30 minutos, una hora, dos horas en el peor caso — la diferencia entre salir por un café y salir a comer. Y como ocurre en una fase temprana del protocolo donde los errores no se esperan, la mayoría de las implementaciones no registran nada: un administrador revisando logs no ve absolutamente nada.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant X as Atacante
+    participant A as Servidor OPC UA
+    X->>A: Secure Channel (ciphertext PKCS#1 x100)
+    A-->>X: Timing: 100 decriptaciones = relleno válido
+    Note over X: Bleichenbacher: ~1M mensajes → firma falsificada
+    X->>A: Handshake de sesión con firma falsa
+    Note over X: Segundo Bleichenbacher → nonce recuperado
+    X->>A: Claves de sesión derivadas: autenticación bypaseada
+
+</pre>
+
+<h2>Alcance real: cinco de siete, y probablemente muchos más</h2>
+<p>Las pruebas cubrieron siete implementaciones, elegidas por ser montables en laboratorio sin hardware caro ni licencias. Cinco resultaron vulnerables a al menos una variante; cuatro de ellas eran explotables en configuración por defecto, solo con activar la autenticación de certificados. Con la muestra tan pequeña, la extrapolación apunta a muchos más productos afectados — de hecho, tras la divulgación responsable llegaron confirmaciones de fabricantes con CodeSys y una larga lista de productos WinCC de Siemens.</p>
+<p>La divulgación misma fue un caso atípico: la OPC Foundation, que agrupa a prácticamente todos los vendedores de implementaciones, respondió al reporte en dos horas, organizó una reunión el mismo día y se hizo cargo de coordinar con todos los fabricantes. Se emitieron varios CVE — algunos propios por fabricante, otros compartidos para el defecto del protocolo, con la confusión añadida de puntuaciones CVSS distintas para el mismo CVE según la implementación.</p>
+<p>Las correcciones variaron: desactivar HTTPS donde nadie lo usaba, mitigaciones que invalidan el ataque de temporización, advertencias para apagar el cifrador legacy. Para quien opera OPC UA, los criterios prácticos: si se depende de autenticación basada en certificados sin autenticación de usuarios, es escenario afectado (la excepción de usuarios con certificado tiene algunos casos límite también burlables); hay una herramienta pública publicada para escanear entornos propios.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OPC UA</strong> — protocolo estándar de automatización industrial con capa de secure channel (intercambio de claves, autenticación de máquinas) y capa de sesión (challenge-response).</li>
+<li><strong>Security policies</strong> — el equivalente a cipher suites de TLS: incluyen variantes RSA/AES y una política legacy con PKCS#1 v1.5.</li>
+<li><strong>Signing oracle relay attack</strong> — reutilizar una firma capturada en un contexto distinto; con la confianza por defecto en el propio certificado, un solo servidor basta.</li>
+<li><strong>Variante HTTPS de OPC UA</strong> — salta el secure channel al apoyarse en TLS, pero TLS solo autentica al servidor: habilita el relay sin identidad previa.</li>
+<li><strong>Ataque Bleichenbacher (PKCS#1 v1.5)</strong> — oráculo de relleno que reconstruye el texto plano (o falsifica firmas) en torno a un millón de consultas.</li>
+<li><strong>Cifrado RSA por bloques estilo ECB</strong> — la manera "rara" en que OPC UA cifra mensajes largos; habilita ciphertexts elegidos y la ampliación del oráculo.</li>
+<li><strong>Optimización de temporización x100</strong> — repetir el ciphertext candidato 100 veces para amplificar la diferencia temporal entre relleno válido e inválido.</li>
+<li><strong>Control de jitter por repetición</strong> — reintentar los aciertos temporales en Python para descartar falsos positivos de red.</li>
+<li><strong>OPC Foundation</strong> — canal único de divulgación responsable para todos los fabricantes del ecosistema.</li>
+<li><strong>CodeSys y Siemens WinCC</strong> — fabricantes que confirmaron afectación tras la divulgación.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Diseñar protocolos criptográficos propios es difícil: AES, RSA y SHA-2 son bloques de bajo grado; ensamblarlos en un protocolo correcto exige experiencia criptográfica y, hoy, métodos formales. Para un protocolo cliente-servidor convencional, la respuesta correcta es usar TLS y no reinventar el intercambio de claves.</li>
+<li>PKCS#1 v1.5 sigue siendo una trampa mortal más de un cuarto de siglo después: roto en TLS durante años, roto otra vez en JSON Web Tokens, roto ahora en OPC UA. Hay que tratarlo como fundamentalmente roto y apagarlo siempre.</li>
+<li>Un bypass pre-autenticación basado en criptografía convierte la exposición a internet en un riesgo serio: si el servidor controla algo importante, segmentación de red e IP allow listing son defensas mínimas, y la segmentación sigue siendo imprescindible donde parchear a tiempo no es realista.</li>
+<li>Que los bugs concretos dependan de configuración e implementación no los convierte en menos graves: son defectos del protocolo, y el historial de vulnerabilidades de validación de certificados en este espacio sugiere que la superficie de ataque de OPC UA está lejos de agotarse.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/dFYR2oOK8wg">«DEF CON 33 - No VPN Needed? Cryptographic Attacks Against the OPC UA Protocol  - Tom Tervoort»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

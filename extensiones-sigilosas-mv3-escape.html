@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Extensiones sigilosas: los artistas del escape de Manifest V3 — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Extensiones sigilosas: los artistas del escape de Manifest V3</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AS_bSDxTU4w">«DEF CON 32 - Sneaky Extensions The MV3 Escape Artists - Vivek Ramachandran, Shourya Pratap Singh»</a> · ver el <a class="nz-link" href="https://youtu.be/AS_bSDxTU4w">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las extensiones de navegador son una superficie de ataque institucionalizada: casi todo el mundo las usa, y el catálogo oficial no hace más que comprobaciones básicas de sanidad. Forbes documentó más de <strong>280 millones de instalaciones</strong> de extensiones con malware en tres años, y solo 32 de esas extensiones sumaron más de 75 millones de descargas. La ola de IA agrava el problema: extensiones "gratis" que prometen acceso a ChatGPT premium y vienen con backdoor incorporada.</p>
+<p>El trabajo demuestra que Manifest V3 —la revisión del modelo de extensiones de Chrome diseñada justamente para cerrar las puertas peligrosas— sigue siendo eludible. Sin <code>eval</code>, sin permisos explícitos de cookies y con la CSP bloqueando código remoto clásico, una extensión puede igualmente sobrescribir páginas, descargar ejecutables aparentando ser el sitio legítimo, robar la transmisión en vivo de una videollamada de Google Meet, secuestrar cuentas de GitHub y suplantar la interfaz de un gestor de contraseñas para pescar credenciales.</p>
+<h2>Anatomía de una extensión y su modelo de permisos</h2>
+<p>Una extensión típica tiene cuatro piezas:</p>
+<ul>
+<li><strong>manifest.json</strong>: declara la versión del manifiesto y los permisos requeridos por adelantado.</li>
+<li><strong>Service worker</strong>: el código que corre en segundo plano.</li>
+<li><strong>Content script</strong>: código inyectado en las páginas web que visita el usuario; el manifiesto define en qué páginas puede inyectarse.</li>
+<li><strong>Páginas HTML</strong>: el popup al hacer clic en el icono y páginas accesibles vía <code>chrome-extension://&lt;id&gt;</code>.</li>
+</ul>
+<p>La migración de MV2 a MV3 reorganizó las claves de permisos para dar más claridad: antes se pedía acceso a URLs concretas; ahora los permisos se desglosan. Pero las estadísticas de permisos más solicitados muestran que <code>all_urls</code> —acceso para modificar cualquier página— ocupa el tercer puesto, y casi nadie lee el prompt de permisos al instalar.</p>
+<h2>La arquitectura Chromium y el hueco de los content scripts</h2>
+<p>Chromium usa una arquitectura multi-proceso: cada pestaña tiene su proceso renderer, las llamadas de red van por otro proceso, y los iframes se aíslan en procesos propios (site isolation o site fission). Todo aislado a nivel de sistema operativo, comunicándose solo por IPC. Es un hito de ingeniería: incluso un Ctrl+F busca texto a través de múltiples procesos.</p>
+<p>Los <strong>content scripts</strong> viven fuera de ese aislamiento de forma deliberada: se inyectan en la página. Y la clave es que inyectar contenido en una página <strong>no requiere ninguna clave de permisos</strong> — solo la declaración de en qué páginas se inyectan. Una extensión mínima, sin el permiso más básico, puede reemplazar el contenido de google.com completo. Revisar solo la clave <code>permissions</code> de una extensión no dice nada: hay que mirar en qué páginas se inyectan sus content scripts.</p>
+<h2>RCE remoto pese a MV3 y la CSP</h2>
+<p>MV3 prohibió <code>eval</code> y las descargas remotas de código directo, y la Content Security Policy bloquea la ejecución de strings como JavaScript. Pero JavaScript permite invocar métodos con notación de corchetes y strings: en lugar de <code>eval("payload")</code>, basta <code>window["write"]("...")</code>. Ambas partes —nombre de función y argumento— son strings simples, y la CSP no distingue.</p>
+<p>Eso convierte el patrón en un canal de CCE (control de código externo): la extensión consulta a un servidor del atacante (por ejemplo, un endpoint Flask trivial), recibe <code>{función, argumento}</code> y ejecuta <code>window[funcion](argumento)</code> en cualquier página donde esté inyectada. La carga útil no viaja compilada en la extensión: llega en tiempo de ejecución, saltándose cualquier análisis de la tienda. Esto es lo que las extensiones pueden hacer "de fábrica", sin el <code>download-and-execute</code> clásico de un binario: cargar inocentes y traerse código extranjero a demanda.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Extension instalada] --> B[Service worker consulta al servidor del atacante]
+    B --> C[Recibe funcion y argumento como strings]
+    C --> D["window[funcion](argumento) en la pagina"]
+    D --> E[Contenido sobrescrito / redirect / payload]
+
+</pre>
+
+<h2>Demostraciones de ataque</h2>
+<p><strong>Ingeniería social con descarga aparentemente legítima.</strong> La extensión inyecta un content script que añade un falso aviso de "actualización disponible" en la página real de zoom.us. Al hacer clic, se descarga un ejecutable mediante un <strong>blob-based download</strong>: en la carpeta de descargas, la URL del archivo aparece como proveniente de zoom.us, pero lo entregó la extensión. Todo lo que ocurre desde la perspectiva del navegador sucede "en el contexto de la página", así que el usuario no tiene manera de distinguir la fuente.</p>
+<p><strong>Robo de videollamadas en vivo.</strong> Una extensión creada para la demo intercepta en tiempo real la transmisión de una sesión de Google Meet y la reenvía a otra página, <strong>sin ningún indicio</strong> en la sesión de que hay una interceptación en curso. Bastó un host permission implícito —ni siquiera uno declarado explícitamente— para extraer el stream completo mientras la llamada transcurre. La analogía con endpoint security es directa: como un driver en modo kernel corre un nivel de privilegio por encima del user space, una extensión corre un nivel por encima de la propia página.</p>
+<p><strong>Secuestro silencioso de cuentas.</strong> Las extensiones tienen acceso a las cookies <strong>HTTP-only</strong> (incluidas las de sesión), y un service worker ni siquiera necesita pedir permiso explícito para cookies: basta un <code>fetch</code>. La demo abre GitHub, y en segundos una pestaña parpadea y se cierra sola: la extensión inició sesión con la cookie activa y añadió un colaborador nuevo a un repositorio privado. Es automatización de navegador tipo Selenium corriendo en tu propio navegador, ejecutando flujos complejos en tu nombre sin que lo veas.</p>
+<p><strong>Suplantación de gestores de contraseñas.</strong> Una extensión maliciosa intercepta el clic sobre el icono del gestor de contraseñas real y redirige a una página de login falsa con la URL ambigua. El usuario, creyendo que se cerró su sesión, vuelve a escribir las credenciales y cae en el phishing. El icono sigue siendo el del gestor legítimo.</p>
+<h2>El mercado secundario: compra de extensiones legítimas</h2>
+<p>El último eslabón no requiere técnica alguna: los atacantes compran extensiones establecidas. Si una extensión tiene 100.000 instalaciones, bastan 10.000 dólares al autor para transferir la propiedad. Una extensión en la que confiabas cambia de manos y de intención sin cambio de nombre ni de permisos — solo de dueño. Combinado con la revisión superficial de la Chrome Web Store y la falta de escrutinio en las versiones empresariales, el canal de distribución de extensiones funciona como un vector de supply chain attacks de libro.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Chrome Extension Manifest V3 (MV3)</strong> — modelo de extensiones y su esquema de permisos (manifiesto, service worker, content scripts, páginas HTML).</li>
+<li><strong>Notación de corchetes de JavaScript (<code>window[funcion](argumento)</code>)</strong> — evasión de la CSP y de la prohibición de <code>eval</code> para ejecutar payload remoto.</li>
+<li><strong>C2 de la extensión (endpoint Flask)</strong> — canal de control para recibir función y argumento en tiempo de ejecución.</li>
+<li><strong>Content scripts sin permisos explícitos</strong> — inyección de contenido y sobrescritura de páginas declarando solo las URLs objetivo.</li>
+<li><strong>Blob-based download</strong> — descarga de ejecutables que el navegador atribuye a la URL de la página legítima (zoom.us).</li>
+<li><strong><code>fetch</code> desde el service worker</strong> — acceso a cookies HTTP-only de sesión y secuestro de cuenta de GitHub sin permiso de cookies.</li>
+<li><strong>Captura de stream de Google Meet</strong> — robo de videollamada en vivo con host permission implícito.</li>
+<li><strong>Suplantación de icono de gestor de contraseñas</strong> — phishing sobre el popup interceptado.</li>
+<li><strong>Compra de extensiones legítimas</strong> — vector de supply chain: transferencia de propiedad de extensiones con base de usuarios instalada.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>MV3 cerró <code>eval</code> y el código remoto directo, pero la notación de corchetes con strings y el acceso a un servidor del atacante reabren la puerta a la ejecución de código en tiempo de ejecución, invisible para el análisis de la tienda.</li>
+<li>Los content scripts inyectan en páginas sin necesitar permisos explícitos; auditar una extensión exige mirar el manifiesto completo, no solo la lista de permisos.</li>
+<li>El nivel de privilegio de una extensión —cookies HTTP-only, automatización de flujos, inyección en cualquier página con host permission— la equipara a un agente de endpoint corriendo un nivel por encima del navegador.</li>
+<li>El riesgo de supply chain es estructural: extensiones conocidas se compran y se re-venden con malware; la confianza en la instalación inicial no sobrevive a un cambio de propiedad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AS_bSDxTU4w">«DEF CON 32 - Sneaky Extensions The MV3 Escape Artists - Vivek Ramachandran, Shourya Pratap Singh»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

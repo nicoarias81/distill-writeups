@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware hacking sobre un módem cablemódem DOCSIS — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hardware hacking sobre un módem cablemódem DOCSIS</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/I1_DydlhC6Y">«Pwning Low Level DOCSIS Cable Modems - Matias Nahuel Heredia (Fierro)»</a> · ver el <a class="nz-link" href="https://youtu.be/I1_DydlhC6Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<hr />
+<p>El objetivo del análisis fue el cablemódem <strong>Technicolor DPC3848E</strong>, un modelo reconocible por su pantalla de login, comprado de segunda mano y <strong>nunca conectado a la red del proveedor</strong> durante el estudio: toda la investigación se hizo de forma aislada para evitar problemas legales con el ISP.</p>
+<h2>Qué hay adentro</h2>
+<p>Al desarmar el equipo aparece una arquitectura de doble cerebro en un solo SoC: un <strong>Intel Atom</strong> y un núcleo <strong>ARM</strong>, cada uno con su propio sistema operativo. Alrededor, dos chips MaxLinear (uno para uplink, otro para downlink) que hacen de sintonizador del coaxil —funcionan como los decodificadores de los televisores analógicos, configurados por I²C—, 2 GB de RAM, memoria flash, USB, Ethernet y el módulo de radio.</p>
+<h2>Extracción de firmware</h2>
+<p>La vía más directa es física: la memoria flash se extrae con flux y estación de soldadura, se coloca en un lector de NAND y se vuelca el firmware completo, que contiene los dos sistemas operativos. Con ese volcado ya es posible hacer análisis estático del código.</p>
+<h2>Consolas serie y bypass del arranque</h2>
+<p>El módem expone <strong>dos interfaces UART</strong>, una por cada núcleo. Vienen deshabilitadas de fábrica, pero se identifican probando pines con continuidad contra el negativo para no quemar nada, y se conectan con un dongle USB-a-serie barato. Con <code>screen</code> a 115200 baudios se accede a la consola del ARM.</p>
+<p>Los escollos y cómo se rodearon:</p>
+<ol>
+<li>La consola del Atom pedía pulsar Enter "en 0 segundos": imposible por diseño, así bloquea el fabricante.</li>
+<li>La consola del ARM arranca como un menú tipo BIOS (se entra con la tecla Space) y expone variables de entorno. Seteando la imagen activa y los argumentos de consola se obtiene una shell serie, pero al poco tiempo se cuelga porque la consola está deshabilitada.</li>
+<li>El bypass definitivo: intervenir la secuencia de arranque a la mitad, sobrescribiendo el archivo de inicio con un <strong>watchdog</strong> que congela el boot en ese punto. Desde ahí, <code>help</code> lista los comandos, <code>printenv</code> las variables, y tras varios reintentos (el módem se reinicia en el intento) aparece una shell donde <code>echo $USER</code> responde <code>root</code>.</li>
+</ol>
+<pre class="mermaid">
+flowchart TD
+    A[Extraer flash con lector NAND] --> B[Volcado de firmware]
+    C[Dongle USB-serie a 115200] --> D[Consola ARM tipo BIOS]
+    D --> E[Shell serie se cuelga: consola deshabilitada]
+    E --> F[Congelar boot a la mitad con watchdog]
+    F --> G[Shell root en el ARM]
+    G --> H[Volcado por base64 de la particin]
+    H --> I[binwalk: anlisis esttico]
+
+</pre>
+
+<p>Una vez con shell, <code>df</code> muestra las particiones y <code>base64</code> sobre <code>/dev/mmcblk0p*</code> permite volcarlas: el texto en base64 se copia a un archivo, se vuelve a binario y <code>binwalk</code> extrae todo el sistema operativo. Para escribir en la partición del Intel Atom —que tiene restricciones propias— hace falta <code>dd</code> y recalcular el CRC.</p>
+<h2>Análisis estático y hallazgos</h2>
+<p>La interfaz web está hecha en PHP. Un <code>grep</code> buscando <code>eval</code> y funciones peligrosas revela, entre otros hallazgos, <strong>command injection</strong>: una función que ejecuta un comando de sistema concatenando el parámetro <code>sourceIP</code> sin sanitizar.</p>
+<p>La vulnerabilidad se confirma de forma dinámica: en la sección de diagnósticos, donde el módem hace ping a otra máquina, se intercepta la petición con Burp, se modifica la IP y se establece una shell con netcat.</p>
+<h2>Cross-compilación para ARM</h2>
+<p>Para subir binarios al módem no alcanza con compilar localmente: hay que hacerlo para la arquitectura del ARM del Puma. Buscando strings en los binarios aparece el toolchain del fabricante (<strong>DG WSDK</strong>), disponible en GitHub. El problema: exige Ubuntu 14.04 con dependencias obsolete (GCC 3.4.6, entre otras). La solución, publicada para la comunidad, es una <strong>imagen en Docker Hub</strong> con todo el toolchain listo: montando el directorio <code>/source</code> ya se puede compilar con el GCC de ARM sin pelear con versiones viejas.</p>
+<h2>Del shell al espectro: transmitir por DOCSIS</h2>
+<p>Explorando con <code>lsmod</code> los módulos del kernel apareció el <strong>SoC Interface Driver</strong>, encargado de la comunicación DOCSIS. Con Ghidra se analizó el módulo: registra un char device en <code>/dev/socif</code>. Abriendo ese dispositivo y escribiendo sobre él es posible transmitir sobre el módulo DOCSIS.</p>
+<p>La confirmación es espectacular: DOCSIS modula con <strong>QAM</strong> (modulación de amplitud en cuadratura), que codifica datos desfasando el ángulo de fase de la onda. Observando la señal, el corrimiento lateral del ángulo delató que el módulo estaba transmitiendo. El sueño de convertir el módem en un SDR quedó descartado —el hardware no lo permite— pero la transmisión por el driver quedó demostrada.</p>
+<h2>Más hallazgos</h2>
+<ul>
+<li><strong>Contraseñas por defecto</strong> embebidas en los archivos del módem, que permiten comunicarse por protocolos internos, junto con claves públicas y privadas de certificados usados en la encriptación del canal contra el ISP.</li>
+<li><strong>UPnP versión 1.0</strong>, con vulnerabilidades conocidas y públicamente documentadas. Esta parte (la IP 192.168.0.254, que dialoga con el ISP) admite binarios escritos en Go, mucho más simples de compilar y subir: con una línea se levanta una web API de control.</li>
+<li>Dos IPs: 192.168.0.1 (ARM, interfaz web) y 192.168.0.254 (comunicación con el ISP).</li>
+</ul>
+<h2>Impacto potencial de un módem comprometido</h2>
+<p>Un módem bajo control del atacante habilita un abanico preocupante:</p>
+<ul>
+<li><strong>Geolocalización sin GPS</strong>: el módem escanea las redes wifi cercanas (MAC y potencia de señal); enviando ese conjunto a la API de geolocalización de Google se obtienen latitud y longitud del dispositivo. Combinado con un botnet de módems y las peticiones de las víctimas, permite rastrear personas en un área determinada.</li>
+<li><strong>Sniffing</strong> del propio cablemódem y del coaxil, con binarios subidos a demanda.</li>
+<li><strong>Pivoting</strong> hacia las computadoras de la red del hogar (con socat o chisel), o usarlo como proxy o VPN.</li>
+<li>Ataques como <strong>Evil Twin</strong> para capturar credenciales de redes cercanas y seguir pivotando.</li>
+<li>Denegación de servicio sobre el propio DOCSIS.</li>
+</ul>
+<p>En Shodan no apareció nada con búsquedas directas, pero usando los primeros seis dígitos de la MAC en Wigle se visualiza la densidad de estos módems: pueblos del interior, el conurbano bonaerense y el mundo.</p>
+<h2>Recomendaciones para usuarios</h2>
+<ol>
+<li>Cambiar el login por defecto del módem.</li>
+<li>Asegurar bien la contraseña del wifi (los patrones tipo número de documento precedido de tres dígitos son adivinables).</li>
+<li>Usar red de invitados cuando sea posible.</li>
+<li>Deshabilitar el acceso remoto a la administración.</li>
+<li>Pedirle al ISP un reemplazo: el fabricante declara el modelo obsoleto y sin soporte, pero la cantidad de unidades desplegadas sigue siendo enorme.</li>
+</ol>
+<h2>Cierre</h2>
+<p>La ronda de preguntas recordó la vieja época en que se modificaban cablemódems para subir velocidades de descarga y subida —hoy parchada, porque las versiones modernas de DOCSIS incorporan certificados que impiden ese juego— y el detalle histórico de que el config file y el bootloader se actualizaban por TFTP. El trabajo completo queda como prueba de concepto de hasta dónde llega el hardware hacking cuando el firmware se analiza de punta a punta: de la soldadura al espectro de radio.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/I1_DydlhC6Y">«Pwning Low Level DOCSIS Cable Modems - Matias Nahuel Heredia (Fierro)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

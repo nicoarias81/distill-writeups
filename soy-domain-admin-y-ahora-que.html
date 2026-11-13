@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soy Domain Admin y ahora qué: cuando tomar el dominio no es el objetivo final — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Soy Domain Admin y ahora qué: cuando tomar el dominio no es el objetivo final</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/F_ettj95a6Y">«I&#x27;m DA and now what?: Internal facts and methodology - Cesar Soto»</a> · ver el <a class="nz-link" href="https://youtu.be/F_ettj95a6Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Llegar a Domain Admin en una prueba interna de seguridad es el clásico trofeo del consultor: un volcado de hashes, una credencial débil de servicio y, en una hora, las llaves del reino. La pregunta incómoda es la que da título al trabajo: ¿y ahora qué? Tomar el controlador de dominio es un objetivo de consultor, no un objetivo de negocio. Sin reconocimiento profundo ni impacto organizacional demostrable, ese privilegio es solo una línea más en el informe.</p>
+<p>El punto de partida es la matriz de madurez del ethical hacking: emulación de adversario arriba, red teaming más abajo y penetration testing como base donde se sitúa este análisis —pruebas 90% manuales y 10% automáticas—. Sobre esa base, siete años de datos internos (76 pruebas internas) muestran por qué las rutas rápidas hacia el dominio siguen abiertas, y luego por qué caminar solo hasta ahí es quedarse en la punta del iceberg.</p>
+<h2>Siete años de contexto, una estadística persistente</h2>
+<ul>
+<li><strong>2019:</strong> hallazgos orientados al compliance; herramienta automatizada, check, listo.</li>
+<li><strong>2020:</strong> pandemia y salto masivo al trabajo remoto; más personas conectadas por VPN con equipos mal preparados. Nace la necesidad de auditar accesos remotos y segmentación.</li>
+<li><strong>2021:</strong> explotación masiva de vulnerabilidades on-premise (ProxyShell, ProxyNotShell, Print Nightmare) y auge de EternalBlue y BlueKeep.</li>
+<li><strong>2022:</strong> las organizaciones revisan modelos de detección, alerta y bloqueo; la matriz de MITRE toma fuerza y surgen las pruebas purple team.</li>
+<li><strong>2023:</strong> consolidación del home office y proliferación de aplicaciones internas para usuarios remotos.</li>
+<li><strong>2024:</strong> impulso de la nube y plataformas híbridas; configuraciones deficientes hacen que comprometer el dominio exponga también recursos en la nube.</li>
+<li><strong>2025:</strong> inteligencia artificial y todo lo cloud en máxima potencia.</li>
+</ul>
+<p>La estadística de fondo: de 76 pruebas internas en siete años, el 64% (49) encontraron vulnerabilidades conocidas de este tipo. EternalBlue descendió con los años y reapareció porque nuevas organizaciones aún no corrieron sus primeras pruebas internas. BlueKeep se explotó con auge entre 2021 y 2022. Print Nightmare es quizá la más elegante del período: se engaña al equipo haciéndole creer que instala un driver de impresora, con credenciales válidas, y se ejecutan comandos que crean un usuario administrador local con evasión de UAC.</p>
+<h2>Las rutas rápidas: conocidas y emergentes</h2>
+<p><strong>Vulnerabilidades conocidas (system y credenciales de dominio):</strong></p>
+<ul>
+<li><em>EternalBlue (SMB):</em> con el auxiliar de Metasploit —útil para buscar y ordenar, no necesariamente para explotar— aparecen decenas de hosts candidatos en 64 bits (o DoublePulsar en 32), y con el volcado de hashes llega la credencial de Domain Admin.</li>
+<li><em>BlueKeep (RDP 3389):</em> mismo esquema: escaneo del puerto, auxiliar de verificación y exploit.</li>
+<li><em>Print Nightmare:</em> exploit con driver malicioso que crea un usuario local de administración; luego volcado de memoria (LSASS) hasta la credencial de dominio. El equipo liberó un fork del checker con segmentos completos y un binario que crea el usuario con evasión de UAC.</li>
+</ul>
+<p><strong>Hallazgos emergentes (relays y certificados):</strong></p>
+<ul>
+<li><em>DFSCoerce:</em> se fuerza al controlador de dominio a autenticarse contra el equipo del consultor con NTLMv1; el hash resultante craqueado da la toma de control. Un detalle crítico: el hash de máquina <strong>vence</strong>. Si la máquina se creó un 18 de agosto, el hash es válido hasta el 18 de septiembre; un craqueo que demande tres días de poder de cómputo deja margen, pero uno que llegue tarde obliga a repetir todo.</li>
+<li><em>ADCS (ESC1):</em> los ataques a certificados crecieron desde cero en 2021 hasta convertirse en hallazgo frecuente: con los argumentos adecuados se obtiene el certificado y la credencial del administrador.</li>
+</ul>
+<p><strong>Viejos conocidos que persisten:</strong> AS-REP Roasting, Kerberoasting y envenenamiento de red con Responder. En conjunto aparecieron en el 37% de las pruebas. Las organizaciones los mitigaron con contraseñas robustas o retirando servicios, pero sobreviven las cuentas históricas: tickets de Kerberos creados en 2008 con contraseñas del estilo <code>&lt;nombre&gt;.&lt;año&gt;</code> que nadie toca porque "si funciona, no lo toques". Y el envenenamiento no solo captura hashes: un usuario autenticándose contra un servicio web deja usuario, IP y contraseña en texto claro.</p>
+<h2>El punto de inflexión: objetivos de consultor contra objetivos de negocio</h2>
+<p>Obtener Domain Admin es un objetivo de consultor. El negocio mide en la tríada de la seguridad: confidencialidad, integridad y disponibilidad. Las diferencias prácticas:</p>
+<ul>
+<li>La falsa humildad ("me demoré 15 minutos, tranquilo") y la vanidad competitiva ("tomé el dominio más rápido que el consultor anterior") no generan impacto organizacional.</li>
+<li>Contar "tomamos control del dominio" en la reunión recibe un ¿y qué? Decir "con este permiso la organización puede perder dos millones de dólares diarios" o "puede indisponibilizarse la data más crítica" genera el impacto que justifica el trabajo.</li>
+<li>El micro pensamiento —clavarce en explotar una vulnerabilidad al máximo— pierde contra el macro: no se quiere controlar una máquina, se quiere entender el control de la organización completa.</li>
+</ul>
+<p>La metodología detrás: entorno de trabajo listo y documentado antes de arrancar; recolección de información previa (rubro, dolores, qué puede afectar a esa organización —ir a ciegas es ir a una entrevista sin saber el puesto—); reconocimiento, descubrimiento y acceso, explotación, análisis final; documentación exacta y retroalimentación de equipo para iterar el ciclo.</p>
+<h2>El ciclo de reconocimiento recursivo: usar Domain Admin para seguir descubriendo</h2>
+<p>El error típico es descansar al tomar el dominio. La propuesta es invertir ese privilegio en un reconocimiento mejor que el del primer día:</p>
+<ol>
+<li><strong>Reverse IP sobre segmentos:</strong> consultar el DNS por rangos completos para obtener nombres de equipos; los nombres delatan la segmentación lógica (laboratorio, recursos humanos, hipervisores, soporte) y las tecnologías presentes (SQL Server, máquinas de prueba).</li>
+<li><strong>Puertos conocidos primero:</strong> 22, 21, 445, 80, 8080, 443; versionamiento de SSH, FTP y aplicativos web antes de las búsquedas masivas de puertos.</li>
+<li><strong>Workspace de Metasploit:</strong> en organizaciones de 75.000 a 100.000 equipos, la base de datos ordena servicios por puerto y versión, y recuerda qué equipos ya se comprometieron.</li>
+<li><strong>Volver al paso 1:</strong> la salida de Nmap alimenta el workspace, el workspace alimenta el Reverse IP, y la bola de nieve sigue creciendo.</li>
+</ol>
+<p>En pruebas de dos semanas, tres o cuatro días se dedican solo a esto, aunque el dominio haya caído la primera hora. Las llaves del reino se usan en miles de equipos, no en uno. Y el ciclo tiene resultados recurrentes:</p>
+<ul>
+<li><strong>Credenciales de servicios web:</strong> el home office de 2023 multiplicó los <code>admin:admin</code>, <code>root:root</code>, <code>sa:sa</code>.</li>
+<li><strong>SMB sin credenciales:</strong> carpetas compartidas de soporte sin restricción por grupo.</li>
+<li><strong>Información de SWIFT</strong> en banca; <strong>acceso a dispositivos en segmentos fuera de IT</strong> supuestamente aislados; <strong>acceso a OT</strong> en redes industriales; <strong>datos de identificación de personas</strong> en telecomunicaciones.</li>
+<li><strong>Documentación crítica:</strong> un mapa o un PDF de una planta nuclear en una carpeta compartida alcanza para entender cómo apagarla.</li>
+<li><strong>Bases de datos:</strong> credenciales específicas de SQL, <code>sa</code> sin contraseña o con la contraseña predecible del nombre de la organización.</li>
+<li><strong>Relaciones de confianza entre dominios:</strong> con el primer dominio dominado, herramientas como BloodHound o ADRcon revelan qué cuentas del resto del forest son comprometibles; el primer dominio siempre es el más importante, y la segmentación de red pesa tanto como él.</li>
+<li><strong>Cadena de suministro:</strong> el reconocimiento recursivo descubre accesos que los proveedores dejaron abiertos y que exponen a la organización por más segura que ella sea.</li>
+</ul>
+<h2>Mitigación y respuestas a las preguntas frecuentes</h2>
+<ul>
+<li>¿El craqueo siempre tiene éxito? Con DFSCoerce y un hash NTLMv1 (o NTLMv1-SSP) es 100% probable: la potencia de la crackstation —tarjetas de video y presupuesto— solo define si tarda minutos o días. La mitigación es forzar Kerberos NTLMv2 en todas las subredes, sin modos híbridos que aplicativos de terceros exigen y que permiten downgrade.</li>
+<li>¿Qué herramienta detecta a un atacante que ya es superadministrador? No existe caja infalible: un Ferrari sin conductor no sirve. Lo decisivo es capacitar a las personas del equipo, permitirles aprender, compartir y generar comunidad.</li>
+<li>¿Prioridad con múltiples dominios? Reconocimiento recursivo completo del primero antes de moverse al forest, abarcando todas las rutas que la segmentación permita.</li>
+</ul>
+<p>Recursos recomendados para practicar: <em>Internal All The Things</em>, el blog de Backsector (creadores de Ludus), el laboratorio GOAD (Game of Active Directory), y repositorios de exploits —siempre en sandbox, sin conexión a la red de producción—.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Tomar el dominio en una hora es hoy estadísticamente probable (64% de pruebas internas con vulnerabilidades conocidas); por eso el valor de una prueba interna no está en el trofeo sino en el recorrido posterior.</li>
+<li>Domain Admin no es el fin, es el comienzo: el privilegio debe alimentar un ciclo de reconocimiento recursivo que revele credenciales, datos críticos, accesos a OT y cadena de suministro.</li>
+<li>El informe debe hablar el idioma del negocio —confidencialidad, integridad, disponibilidad, pérdidas cuantificables—, no el idioma del consultor.</li>
+<li>Las mitigaciones efectivas son concretas: NTLMv2 forzado sin híbridos, contraseñas robustas en cuentas de servicio, revisión de tickets históricos y segmentación verificada, no supuesta.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Cuenta con privilegios bajos] --> B[Request de tickets de Kerberos]
+    B --> C{Cuenta de servicio en Domain Admins?}
+    C -- Sí, contraseña débil --> D[Craqueo y Domain Admin]
+    D --> E[Reconocimiento recursivo<br/>Reverse IP + Nmap + Workspace]
+    E --> F[Credenciales, datos críticos,<br/>OT, cadena de suministro]
+    F --> E
+
+</pre>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/F_ettj95a6Y">«I&#x27;m DA and now what?: Internal facts and methodology - Cesar Soto»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

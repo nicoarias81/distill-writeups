@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Programas de referidos: la funcionalidad aburrida donde se esconde el fraude — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Programas de referidos: la funcionalidad aburrida donde se esconde el fraude</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/tQRE9U1q2mk">«DEF CON 33 - Referral Beware, Your Rewards Are Mine  - Whit @un1tycyb3r Taylor»</a> · ver el <a class="nz-link" href="https://youtu.be/tQRE9U1q2mk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Prácticamente toda aplicación web con usuarios tiene un programa de referidos: "comparte este enlace con un amigo, él se registra, ambos reciben una recompensa". Google, HelloFresh, Robinhood, Etsy — casi cualquier compañía la implementa de alguna forma, y las recompensas suelen tener valor monetario directo: efectivo o crédito en la plataforma. A pesar de ello, la seguridad de esta funcionalidad apenas ha sido estudiada: es el rincón "aburrido" de la aplicación que ni los equipos de seguridad ni los bug bounty hunters miran de costado.</p>
+<p>Una investigación sistemática sobre programas de referidos de aplicaciones reales —más de 25 envíos a programas de bug bounty— demuestra lo contrario: la superficie es fértil para gadget del cliente (inyección de cookies, path traversal del lado cliente), para errores de lógica de negocio con impacto financiero directo (crédito infinito, autorreferencia con descuento perpetuo), para condiciones de carrera sobre pagos y para el robo directo de referidos ajenos, tanto vía cookie fixation como mediante un ataque diseñado para móviles. La conclusión más incómoda es doble: las empresas dedican poca atención a este vector de fraude, y los programas de recompensas pagaron sorprendentemente mal por él.</p>
+<h2>Cuatro formas de implementar un referido</h2>
+<p>Todo lo que sigue depende de cómo la aplicación establece la relación entre quien refiere y quien es referido. Hay cuatro patrones dominantes:</p>
+<ol>
+<li><strong>URL a cookie</strong>: el enlace de referido se visita, el código de la página extrae el código y lo guarda como cookie; al registrarse y completar la acción requerida (normalmente gastar cierto importe), la cookie viaja con las peticiones y ambas partes cobran.</li>
+<li><strong>URL a peticiones del cliente</strong>: al visitar el enlace, el código del cliente dispara varias llamadas: una valida el código y, si pasa, otra lo aplica a la cuenta pendiente; el registro y la acción requerida disparan las recompensas.</li>
+<li><strong>Código promocional en el checkout</strong>: el código del amigo se introduce al pagar, se aplica como descuento y, al completar la compra, las recompensas llegan a ambas partes.</li>
+<li><strong>Intents de Android</strong>: casi toda app móvil comparte datos mediante intents; el usuario elige la app destino y el enlace con el código viaja dentro de ese contenido compartido.</li>
+</ol>
+<p>El impacto de abusar de cualquiera de estos patrones no es abstracto: las recompensas son dinero, de modo que cada error lógico es una vía directa de fraude contra los ingresos de la compañía o contra el propio usuario.</p>
+<h2>Gadgets del cliente: inyección de cookies y path traversal</h2>
+<p>La implementación "URL a cookie" abre una clase de bugs poco impactantes por sí solos pero devastadores en cadena. Si el valor del código de referido se concatena dentro de una cookie y es posible escaparse del contexto de valor, aparecen tres escenarios:</p>
+<ul>
+<li><strong>Cookie tossing</strong>: escapando del contexto por completo se pueden inyectar cabeceras <code>Set-Cookie</code> y fijar cookies arbitrarias en el sitio, un prerrequisito clásico de toma de cuentas.</li>
+<li><strong>Cookie bombing</strong>: saturar la cookie jar del usuario con tantos datos que las peticiones se rompen y el sitio deja de ser navegable —denial de servicio del lado cliente—.</li>
+<li><strong>Cookie fixation</strong>: si solo se puede escapar del valor, igual se pueden fijar atributos arbitrarios de la cookie, lo que se convierte en arma en el ataque de robo de referidos descrito más abajo.</li>
+</ul>
+<p>El segundo gadget es el <strong>client-side path traversal (CSPT)</strong>: un valor de la URL se concatena en una petición <code>fetch</code>/XHR para construir la llamada a la API. Insertando una secuencia de path traversal en el parámetro, la petición que debería ir a <code>/api/users/1</code> puede dirigirse a cualquier endpoint, lo que habilita XSS y bypasses de mitigaciones CSRF. Encadenado con otros gadgets, el impacto escala rápido; el blog de Doyensec es la referencia principal sobre esta clase de fallos.</p>
+<h2>Lógica de negocio: el crédito infinito</h2>
+<p>La veta más rica fueron los supuestos no verificados de los desarrolladores. El hallazgo favorito de la investigación, bautizado como el fallo de crédito infinito (o dinero infinito), requiere una combinación precisa:</p>
+<ol>
+<li>La aplicación acepta registros con emails alias (<code>usuario+1@gmail.com</code>, <code>usuario+2@gmail.com</code>, …).</li>
+<li>No se exige que un usuario nuevo haya hecho nada para poder referir a otros.</li>
+<li>La recompensa por referir supera el gasto mínimo exigido al referido.</li>
+</ol>
+<p>Con eso, el ataque es un bucle autosostenido entre dos cuentas: se refiere a la cuenta 1, que compra y dispara la recompensa; se refiere a la cuenta 2, que compra y dispara la otra recompensa. A partir de ahí nunca vuelve a gastarse dinero propio: la cuenta 3 es referida por la 1, la 4 por la 1, y así sucesivamente, con cada recompensa pagando la siguiente compra. Sobre una plataforma concreta, este ciclo generó miles de dólares en crédito de tienda; el programa pagó 150 dólares de bounty.</p>
+<p>Otro supuesto atacado: muchas plataformas exigen una compra antes de desbloquear el código de referido. Cuando los pedidos no se procesan automáticamente y las cancelaciones están permitidas, el truco es comprar con entrega programada (lo que desbloquea el código), usarlo desde la segunda cuenta para obtener el descuento y luego cancelar el pedido programado desde la primera cuenta. El requisito queda bypassed con la compra anulada después. Ese reporte no recibió bounty: el triager sostuvo que no había impacto financiero y el caso terminó en el "agujero negro" de la mediación.</p>
+<p>La autorreferencia también resultó posible en una aplicación que usaba el código de referido como implementación de código promocional sin validar que el código no perteneciera al propio usuario: tras registrarse, forzando la navegación de vuelta al directorio raíz se escapaba del flujo de suscripción, un request de la configuración de cuenta revelaba el propio código, y bastaba reanudar el flujo y aplicar el código propio como descuento. Detalle agravante: cancelando la facturación al final de cada ciclo y repitiendo el ataque, el descuento del 50% se volvía perpetuo.</p>
+<h2>Carrera y robo: quién se queda la recompensa</h2>
+<p>En una app financiera, el flujo de registro por referido encadenaba un <code>PUT</code> de alta, una "validación" que en realidad solo comprobaba si la cuenta ya existía o ya había sido referida, y una petición final que aplicaba el código —esta última vulnerable a race condition. Usando el single-packet attack de James Kettle (envío en paralelo desde el Repeater de Burp), una sola referida generó una avalancha de recompensas. La gestión del programa fue surrealista: exigieron verificación de identidad hasta el número de la Seguridad Social, se negaron a aprovisionar una segunda cuenta para confirmar el ataque, dejaron las recompensas pendientes y terminaron corrigiendo el fallo una semana después.</p>
+<p>El robo de referidos ajenos tiene dos vías. La realista es la <strong>cookie fixation</strong>: un enlace manipulado escapa del contexto de valor de la cookie y fija su atributo <code>path</code> apuntando exactamente al request que registra al usuario o aplica el código. Según la RFC de cookies, la cookie con el path más específico tiene prioridad sobre las demás; cuando la víctima visita después el enlace de referido legítimo de su amigo y completa el registro, es la cookie del atacante la que se aplica, y la recompensa cae en la cuenta equivocada.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante
+    participant V as Víctima
+    participant S as Aplicación
+    A->>V: Enlace manipulado (rompe la cookie, path = /signup)
+    V->>S: Visita el enlace; se guarda cookie del atacante en ese path
+    A->>V: Enlace de referido legítimo de un amigo
+    V->>S: Completa el registro
+    S->>A: Prioriza la cookie de path específico (RFC de cookies)
+    Note over A,S: La recompensa del referido paga al atacante
+
+</pre>
+
+<p>La segunda vía es puramente móvil: al compartir por correo, la app emite un intent de tipo <code>message/rfc822</code>, y el sistema operativo deja que cualquier app capaz de recibir "email" responda al diálogo de compartir. Un atacante publica una app maliciosa que imita a Gmail (nombre de paquete tipo <code>a.a.gmail</code>, icono idéntico) y espera a que la víctima la elija por error. El código intercepta el contenido compartido, sustituye el código de referido por el del atacante y lo reenvía a la app legítima, sin que la víctima note nada. La defensa es estructural: no tiene sentido que la aplicación deje en manos del usuario una selección que la propia app podría resolver.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Programas de referidos</strong>: mecánica de enlace/código + recompensa monetaria, presente en casi toda aplicación con usuarios.</li>
+<li><strong>Cookie injection / tossing / fixation / bombing</strong>: familia de ataques derivados de escapar del contexto de una cookie controlada con datos de la URL.</li>
+<li><strong>Client-side path traversal (CSPT)</strong>: manipulación de la ruta de peticiones construidas en el cliente; referencia principal: blog de Doyensec.</li>
+<li><strong>Errores de lógica de negocio</strong>: crédito infinito, bypass de compra previa, autorreferencia como código promocional.</li>
+<li><strong>Race condition</strong>: explotación de la validación no atómica del alta con referido.</li>
+<li><strong>Single-packet attack (James Kettle)</strong>: envío paralelo de peticiones desde Burp Repeater para ganar la carrera de forma fiable.</li>
+<li><strong>Intents de Android (<code>message/rfc822</code>)</strong>: mecanismo de compartición móvil explotado para el secuestro de referidos; curso de LiveOverflow en Hextree.io como material de estudio.</li>
+<li><strong>Bug bounty</strong>: HackerOne e Intigriti como canales dominantes de los reportes, más un caso en Bugcrowd.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La funcionalidad de referidos es un vector de fraude financiero directo y una zona infravalorada: casi ninguna compañía la somete a revisión de seguridad pese a mover dinero real.</li>
+<li>Los gadgets "sin impacto" del cliente (inyección de cookies, CSPT) son el material prima de ataques serios: encadenados, habilitan desde robo de recompensas hasta posibles tomas de cuenta.</li>
+<li>Los supuestos de negocio son el punto débil: emails alias aceptados, recompensas mayores que el gasto exigido, compras cancelables y validaciones no atómicas bastan para fabricar dinero o descuentos perpetuos.</li>
+<li>La economía del bug bounty falló aquí tanto como el software: menos de 1.000 dólares por más de 25 envíos, cierres como "informativo" sin escuchar el impacto, "comportamiento esperado" citado como excusa y fallos arreglados sin pagar. Investigar programas con tablas de bounty bajas tiene un coste.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/tQRE9U1q2mk">«DEF CON 33 - Referral Beware, Your Rewards Are Mine  - Whit @un1tycyb3r Taylor»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

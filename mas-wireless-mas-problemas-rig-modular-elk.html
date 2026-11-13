@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Más wireless, más problemas: un rig modular de recolección y su pipeline ELK — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Más wireless, más problemas: un rig modular de recolección y su pipeline ELK</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/jrlvMXfftec">«DEF CON 33 - More Wireless, More Problem - Jeff Horvath and Winston Tam»</a> · ver el <a class="nz-link" href="https://youtu.be/jrlvMXfftec">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La premisa es de coleccionista obsesivo de espectro: capturar todos los canales, todos los paquetes, todos los protocolos. El primer intento —meter todos los adaptadores en una sola computadora— chocó contra la realidad: form factor enorme, problemas de alimentación, un sistema operativo ahogado por periféricos y, encima, archivos de captura tan gigantes que Google Earth, QGIS y Wireshark simplemente se colgaban. La solución se dividió en dos piezas: un rig modular de recolección pasiva repartido en tres Raspberry Pi 5 y cuatro teléfonos Android, y una plataforma de analítica basada en ELK que convierte formatos dispares —Kismet, WiGLE, SQLite, PCAP, TSV, CSV— en puntos sobre un mapa.</p>
+<p>El trabajo cubre las dos mitades: el diseño del rig (por qué modular, por qué headless, por qué distribuir) y el pipeline de datos (preprocesamiento en Python, normalización de campos en Logstash, tipos geo en Elasticsearch y teselas de OpenStreetMap vía MapTiler en lugar del Elastic Maps Server de pago). Todo el trabajo es de recolección pasiva, y los dashboards resultantes muestran cuánto regala una red inalámbrica sin cifrar: nombres de dispositivos, SSIDs sondeados, agentes de usuario, subredes y servidores DNS.</p>
+<h2>El rig SPARKY: modular, headless y a prueba de un solo día malo</h2>
+<p>El diseño responde a cuatro problemas del enfoque «todo en uno»:</p>
+<ul>
+<li><strong>Memoria y periféricos</strong>: cada tarjeta inalámbrica es un periférico que el sistema operativo debe gestionar; distribuir las tarjetas entre varios equipos baja los requisitos de RAM. Una Raspberry Pi corre 13 tarjetas simultáneas desde la versión 2, así que la Pi 5 sobra.</li>
+<li><strong>Sin procesamiento en vivo</strong>: no hay alertas, ni GUI, ni necesidad de ver los datos entrar — es un sistema headless de «disparar y olvidar»; toda la analítica se hace después, con todo fusionado.</li>
+<li><strong>Robustez ante fallos</strong>: si un archivo o una base de datos se corrompe, en el diseño monolítico se pierde la jornada entera; repartido en tres equipos, se conserva la colección de los otros dos.</li>
+<li><strong>Archivos más chicos y escalabilidad</strong>: dividir la captura genera archivos manejables, y agregar una tecnología nueva solo requiere armar otra Pi y su ingestor.</li>
+</ul>
+<p>El equipamiento: 13 tarjetas Alfa Atheros y 13 MediaTek (una por banda), una sola Wi-Fi 6 —el estándar todavía tiene poco tráfico y el presupuesto era propio—, cinco SDRs NooElec RTL-SDR buscando dispositivos RTL-433 compatibles, y los Android corriendo WiGLE y GPS Track Pro para parámetros celulares: torre a la que se está conectado, frecuencias, calidad de señal y distancia a la torre. Todo empaquetado en cubos y contenedores de viaje de REI. La sincronización de tiempo entre las tres Pis viene de un servidor NTP al conectarlas más un RTC con batería: se pierden algunos segundos entre equipos, pero el análisis no busca correlación exacta uno a uno.</p>
+<h2>Lo que se ve (y lo que regala la red sin cifrar)</h2>
+<p>Dos dashboards muestran el producto final. Para <strong>dispositivos individuales</strong>: fabricantes por OUI, análisis de hora del día y día de semana de actividad, SSIDs sondeados por los clientes (a qué redes buscan conectarse), puntos de acceso vistos, protocolos coleccionados vía TShark/Wireshark, nombres de dispositivos mDNS, nombres y sistemas operativos de clientes DHCP, y user agents. Para <strong>puntos de acceso</strong>, de un drive por Washington DC: mapa de puntos, cifrado, canal, ancho de banda y capacidades; fabricante del chip por BSSID con lookup de OUI, lista de SSIDs, IP de gateway del router, máscara de subred, servidor DNS — información que el router entrega en red sin cifrar—, y soporte 802.11h con código de país y frecuencias, más la información de WPS (Wi-Fi Protected Setup): fabricante, tipo de dispositivo y clientes asociados.</p>
+<p>Todo se colecta pasivamente con Kismet, y la plataforma toma esos datos, los extrae y los contextualiza. La filosofía de análisis es inversa a la habitual: se recolecta todo, y después se buscan las anomalías — un protocolo llamativo, un dispositivo concreto — a partir de lo que ya está en el disco.</p>
+<h2>El pipeline: de archivos dispares a geopuntos en Elasticsearch</h2>
+<p>La segunda mitad del trabajo nació, como las mejores ideas, de una conversación de bar de dos horas y media que terminó en un «soltame la cerveza». El objetivo: poner puntos en mapas, con la capacidad de cambiar de mapa o de visualización sin reescribir nada. La plataforma elegida fue ELK — Elasticsearch, Logstash y Kibana — aunque «open source-ish» viene con asterisco: el componente de mapas de primera parte, Elastic Maps Server, cuesta dinero, y ahí entra MapTiler autoalojado con teselas de OpenStreetMap.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Carpeta ingest<br/>(Kismet · WiGLE · SQLite · PCAP · TSV)"] --> B["Python: conversión<br/>a JSON de una línea + filtro"]
+    B --> C["Logstash: file plugin +<br/>normalización de campos (lat/long)"]
+    C --> D["Elasticsearch: índices +<br/>tipo geopoint nativo"]
+    D --> E["Kibana + MapTiler /<br/>OpenStreetMap: puntos en el mapa"]
+    E -.->|PCAP| F["TShark → JSON,<br/>filtrado de tráfico irrelevante"]
+
+</pre>
+
+<p>Cinco pasos estructuraron el trabajo:</p>
+<ol>
+<li><strong>Parar ELK</strong>: Docker Compose lo deja funcionando en minutos — el proyecto ELK Ninja lo hace prácticamente fricción cero — pero de fábrica no sabe qué es un archivo de Kismet.</li>
+<li><strong>Convertir archivos</strong>: un script de Python fuera del stack vigila tres carpetas (ingest, index y archive). Detecta patrones conocidos —el <code>backup.sqlite</code> de WiGLE, los export de Kismet— y los convierte a JSON, con backup del original porque la conversión es algo destructiva. No todo necesita conversión: TSV y CSV pasan directos. Regla de Elasticsearch: un objeto JSON por línea, por eficiencia de ingestión.</li>
+<li><strong>Filtrar PCAPs</strong>: la primera pasada «guardemos todo» llenó un disco duro en una sola sesión; PacketBeat resultó pensado para streaming y monitoreo continuo, no para ingestión de archivos individuales. La solución fue TShark convirtiendo PCAP a JSON, con filtrado en el mismo paso para descartar tráfico irrelevante.</li>
+<li><strong>Normalizar y taguear en Logstash</strong>: cada software nombra los campos a su manera — Trilat en WiGLE, Latitude en Kismet—; los filtros de Logstash consolidan todo en un campo único que Elasticsearch entienda, y la salida va al índice correspondiente.</li>
+<li><strong>Definir tipos y mapa</strong>: dentro de Elasticsearch se declara el campo <code>location</code> como geopoint nativo; a partir de ahí Elasticsearch sabe dibujar el punto desde el array lat/long. El proceso se repite por cada fuente. El fondo del mapa es MapTiler con OpenStreetMap, configurado por settings o variable de entorno al levantar el stack.</li>
+</ol>
+<h2>Conclusiones</h2>
+<ul>
+<li>La modularidad vence al monolito en recolección inalámbrica: repartir tarjetas entre varios equipos chicos reduce RAM, crea redundancia ante archivos corruptos y escala agregando Pis nuevas en lugar de rediseñar todo.</li>
+<li>La recolección pasiva total es viable con presupuesto propio si se recorta donde no hay tráfico: una sola tarjeta Wi-Fi 6, bandas repetidas en cards baratas, y SDRs económicos para el espectro no Wi-Fi.</li>
+<li>El pipeline de analítica importa tanto como la captura: sin conversión, normalización de campos y tipos geográficos, los formatos de Kismet y WiGLE son islas inutilizables; ELK autoalojado con MapTiler resuelve todo sin licencias de pago.</li>
+<li>La conclusión implícita para cualquiera: las redes sin cifrar y los clientes que las buscan publican inventarios completos — dispositivos, nombres, sistemas operativos, subredes — a cualquiera que pase escuchando.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/jrlvMXfftec">«DEF CON 33 - More Wireless, More Problem - Jeff Horvath and Winston Tam»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

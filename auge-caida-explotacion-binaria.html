@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El auge y la caída de la explotación binaria — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El auge y la caída de la explotación binaria</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cHsRxkfxvq8">«DEF CON 32 - The Rise and Fall of Binary Exploitation - Stephen Sims»</a> · ver el <a class="nz-link" href="https://youtu.be/cHsRxkfxvq8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Durante casi dos décadas, la explotación binaria fue el corazón de la seguridad ofensiva: un desbordamiento de pila bien ejecutado bastaba para tomar el control de un sistema. Ese mundo ya no existe. Una sucesión de mitigaciones —canarizadores de pila, DEP, ASLR, Control Flow Guard, Arbitrary Code Guard— convirtió cada explotación en un proyecto de meses y disparó el precio de los bugs hasta niveles que solo actores estatales y corredores especializados pueden pagar.</p>
+<p>Este análisis recorre esa historia en tres planos: la carrera armamentística entre mitigaciones y técnicas de explotación, la economía que reorganizó la industria de los exploits (brokers, pagos de siete cifras y filtros geopolíticos) y el presente, donde los modelos de lenguaje empiezan a acelerar el análisis de CVEs y el diffing de parches. Cierra con un estudio de caso técnico: cómo Windows implementa la mitigación que prohíbe crear procesos hijos y qué rutas de bypass sobreviven.</p>
+<p>Quien desarrolla el argumento lleva veinte años en seguridad ofensiva, dirige el currículo de operaciones ofensivas de SANS, es coautor de la séptima edición de <em>Grey Hat Hacking</em> y ha vendido 29 exploits de navegador además de un RCE de kernel de Windows. También transmite en directo sobre explotación y desarrollo de exploits en su canal Off By One Security.</p>
+<h2>La carrera de mitigaciones: treinta años de gato y ratón</h2>
+<p>La edad de oro fue breve. Los desbordamientos de pila clásicos dejaron de ser triviales en cuanto las contramedidas empezaron a apilarse: los canarizadores de pila (stack canaries) se popularizaron tras la implementación de Openwall en 1997, y Windows XP Service Pack 2 introdujo DEP en 2004, eliminando la ejecución de código en la pila. ASLR llegó después a las plataformas principales —macOS lo adoptó en 2011— y reorganizó el mapa de memoria en cada arranque.</p>
+<p>Cada mitigación generó su contra-técnica, y cada contra-técnica su nueva mitigación. La explotación de fuentes en el kernel de Windows, popularizada por Stuxnet y Duqu, terminó con protecciones específicas sobre el subsistema de fuentes. Control Flow Guard restringió los objetivos de la corrupción de memoria hacia adelante; ACG (Arbitrary Code Guard) y EAF (Export Address Table Filtering) cerraron la asignación de memoria ejecutable y la resolución de APIs. El resultado neto es la escalada: donde antes bastaba un exploit de unas líneas, hoy un exploit de navegador encadenado con sandbox escape y escalada de privilegios es un proyecto de meses.</p>
+<p>Microsoft además cambió el terreno de juego en el manejo de memoria del navegador: alrededor de 2014, Internet Explorer incorporó la liberación diferida y heaps aislados bajo el paraguas de MemGC. La consecuencia indirecta es notable: la gestión de memoria moderna favorece las fugas de memoria sobre los use-after-free, y el navegador prefirió crecer en consumo de RAM antes que ofrecer bugs explotables.</p>
+<h2>La economía de los exploits: de cero a siete cifras</h2>
+<p>Los datos internos de Microsoft MSRC muestran la tendencia: la cantidad de bugs graves reportados cayó de forma sostenida durante los años 2010, justo cuando las mitigaciones endurecieron el terreno. Menos bugs explotables y más costo de desarrollo produjeron un mercado de precios verticales. La venta de exploits dejó de ser un negocio de cientos de miles y pasó a los corredores especializados: Zerodium llegó a pagar entre 2 y 2,5 millones de dólares por un exploit zero-click de iOS, Crowdfence anunció pagos de hasta 9 millones, y Operation Zero institucionalizó la geopolítica al pagar hasta 20 millones con la condición de que el comprador final sea un país alineado con la OTAN.</p>
+<p>La defensa respondió por el lado del canal de entrega. Apple creó Blast Door, un servicio aislado que procesa los mensajes entrantes: como todo exploit zero-click necesita un vector de entrega, aislar ese canal convierte cada intento en un evento observable. La combinación de mitigaciones en el dispositivo y monitoreo del canal de entrega es la razón estructural por la que el negocio subió de precio: no solo cuesta más escribir el exploit, también es más difícil usarlo sin ser detectado.</p>
+<h2>Machine learning entra al campo de batalla</h2>
+<p>El siguiente capítulo ya está en marcha. Los agentes de machine learning ofensivos —del estilo de Project Naptime— demuestran que los modelos de lenguaje pueden razonar sobre binarios, proponer entradas de fuzzing y encontrar vulnerabilidades reales. En paralelo, la reescritura de código inseguro en Rust apunta a eliminar de raíz las clases de bugs de memoria que alimentaron toda la industria. El precedente existe: Metasploit ya hizo una reescritura completa de Perl a Ruby cuando la base de código dejó de escalar.</p>
+<p>El uso también se ramifica hacia la inteligencia de amenazas: equipos de agentes de IA que procesan feeds, correlacionan indicadores y asisten tanto a equipos rojos como azules. Y hay un plano personal que muestra el potencial: un proyecto propio que combina análisis de CVEs con modelos de lenguaje, diffing de parches con herramientas como DIAFORA y BINDIF, y WinBindex para resolver símbolos de binarios de Windows, genera los corpus de entrenamiento y las tablas de referencia que el análisis manual no puede producir a escala. La ganancia reportada es de 10 a 20 veces en tiempo de investigación.</p>
+<h2>Estudio de caso: la mitigación de procesos hijos en Windows</h2>
+<p>Las mitigaciones de proceso de Windows ilustran el estado del arte ofensivo. La política "do not allow child processes" impide que un proceso comprometido lance procesos hijos, cerrando la vía clásica de ejecutar cmd.exe o PowerShell tras comprometer un proceso de rendering del navegador. La implementación interna se puede auditar con debugging de kernel en WinDbg: las estructuras del proceso (KPCR, KPRCB, KTHREAD) y la política asociada al token muestran cómo el sistema verifica, en la creación de procesos, que el proceso padre tenga permiso para crear hijos, con funciones como SeTokenIsNoChildProcessRestricted resolviendo la decisión en el kernel.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Política<br>no child processes] -->|bypass| B[Impersonación<br>de token anónimo]
+    A -->|bypass| C[WMI]
+    A -->|bypass| D[Reflexive DLL loading<br>y migración de proceso]
+
+</pre>
+
+<p>La política también se puede instrumentar por hooking de funciones críticas —el mecanismo detrás de payloadrestrictions.dll y del hotpatching—, validando por ejemplo que el puntero de pila apunte a los límites legítimos registrados en el TIB (Thread Information Block). Ese enfoque, presentado en la Blue Hat de 2012, es la base del anti-ROP de Windows 8: un stack pivoting hacia memoria dinámica deja el puntero fuera de los límites de pila legítimos y el exploit muere.</p>
+<p>La lección del estudio de caso es doble. Primero, las mitigaciones de proceso tienen rutas de bypass conocidas —impersonación de tokens anónimos, WMI, migración de proceso, reflexive DLL loading— que los equipos rojos deben verificar. Segundo, el valor de una mitigación no está en ser infranqueable sino en subir el costo: el gato y el ratón continúa, pero cada vuelta cuesta más.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Stack canaries</strong> — protección de pila popularizada por Openwall en 1997.</li>
+<li><strong>DEP</strong> — prevención de ejecución de datos, introducida en Windows XP SP2 (2004).</li>
+<li><strong>ASLR</strong> — aleatorización del layout de memoria; macOS la adoptó en 2011.</li>
+<li><strong>CFG / ACG / EAF</strong> — Control Flow Guard, Arbitrary Code Guard y Export Address Table Filtering en Windows.</li>
+<li><strong>MemGC</strong> — memoria gestionada con liberación diferida y heaps aislados en Internet Explorer.</li>
+<li><strong>Blast Door</strong> — servicio aislado de Apple para procesar mensajes y detectar exploits zero-click.</li>
+<li><strong>Zerodium, Crowdfence, Operation Zero</strong> — brokers de exploits; Operation Zero exige compradores alineados con la OTAN y paga hasta 20 millones de dólares.</li>
+<li><strong>Project Naptime</strong> — agentes de ML para descubrir vulnerabilidades.</li>
+<li><strong>Metasploit</strong> — framework ofensivo reescrito de Perl a Ruby.</li>
+<li><strong>Rust</strong> — reescritura de componentes para eliminar bugs de memoria.</li>
+<li><strong>DIAFORA / BINDIF</strong> — herramientas de diffing de parches binarios.</li>
+<li><strong>WinBindex</strong> — servicio para resolver binarios y símbolos de Windows.</li>
+<li><strong>payloadrestrictions.dll / hotpatching</strong> — mecanismo de mitigación por hooking de funciones críticas.</li>
+<li><strong>Anti-ROP (Windows 8)</strong> — validación de que el puntero de pila esté dentro de los límites del TIB; presentado en la Blue Hat de 2012.</li>
+<li><strong>WinDbg</strong> — debugger de kernel para auditar KPCR, KPRCB, KTHREAD y políticas de proceso.</li>
+<li><strong>SeTokenIsNoChildProcessRestricted</strong> — verificación en kernel de la política de procesos hijos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las mitigaciones no eliminaron la explotación binaria: la encarecieron y la desplazaron hacia el navegador, el móvil y el kernel, donde cada exploit encadena múltiples etapas.</li>
+<li>El mercado reorganizó la ofensiva: brokers con pagos de siete cifras y filtros geopolíticos convirtieron los bugs en activos estratégicos.</li>
+<li>Blast Door marca el cambio de foco de la defensa: endurecer el blanco y vigilizar el canal de entrega a la vez.</li>
+<li>Los modelos de lenguaje ya aceleran el análisis de CVEs, el diffing de parches y la generación de corpus (ganancias de 10-20x), y apuntan a cambiar de nuevo la economía del bug: la siguiente década reabre la pregunta de quién encuentra vulnerabilidades y a qué precio.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cHsRxkfxvq8">«DEF CON 32 - The Rise and Fall of Binary Exploitation - Stephen Sims»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

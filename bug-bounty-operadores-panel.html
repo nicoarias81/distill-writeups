@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug bounty desde el otro lado del mostrador: los operadores hablan — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Bug bounty desde el otro lado del mostrador: los operadores hablan</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YKHs2XJWmXU">«DEF CON 33 - Managing Bug Bounties @ Scale - Gabriel Nitu, Jay Dancer, PayPal, Ryan Nolette &amp; Goshak»</a> · ver el <a class="nz-link" href="https://youtu.be/YKHs2XJWmXU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Detrás de cada programa de bug bounty hay un equipo humano que recibe, interpreta, reenvía y —sí— paga. En esta mesa redonda, operadores de programas de empresas como PayPal, Splunk, AWS y Shopify conversan con el moderador sobre lo que significa gestionar un bounty a escala: cómo construir la relación con los investigadores, cómo diseñar un triage eficiente, qué hacer con la avalancha de reportes generados por IA, qué incentivos no monetarios funcionan y qué malentendidos les gustaría desterrar. La tesis que atraviesa toda la conversación: el bounty es una relación entre humanos, y las organizaciones que la tratan como una transacción pierden la señal que más les importa.</p>
+<h2>Triage a escala: quitar fricción, conservar juicio</h2>
+<p>La primera lección que todos citan es que los humanos no escalan, pero la mejor interacción entre humanos es entre humanos. La estrategia consiste en aplicar tecnología a las partes mecánicas del proceso para liberar el esfuerzo de las personas hacia lo que la tecnología no sabe hacer: razonamiento y juicio.</p>
+<p>Cada reporte que llega está escrito por una persona distinta, en un idioma distinto, con otra experiencia de fondo: hace falta alguien que lo lea y descifre qué dijo realmente. Para reducir la fricción de ese paso, una táctica concreta fue cambiar las preguntas del formulario de reporte: se exigen campos estandarizados como un rating TLP (que define de antemano qué comunicación puede haber sin confusión) y estructuras claras de resumen, impacto, descripción y pasos de proof of concept. La educación hacia el investigador —plantillas, expectativas, mentoría— es la palanca externa que hace escalable el triage interno: un reporte mal escrito cuesta horas; uno bien estructurado, minutos.</p>
+<p>Otro cambio cultural relevante: varias empresas decidieron aceptar hallazgos teóricos. Si el investigador argumenta con seriedad que algo podría ser explotable, el programa lo evalúa: se confirma o no, pero el trabajo de investigación se valora en lugar de descartarse.</p>
+<h2>La era del slop: IA, duplicados y deterioro de la señal</h2>
+<p>El fenómeno más citado de la mesa es el deterioro reciente de la calidad: la avalancha de reportes generados con IA, copiados de blogs o apuntados con herramientas automatizadas. Patrones observados:</p>
+<ul>
+<li>Tras cualquier publicación técnica que cruza el umbral de divulgación pública, el volumen de reportes casi idénticos se dispara: la comunidad deja de inventar y va por la fruta baja, saturando el triage de duplicados.</li>
+<li>Reportes redactados como ensayos impecables que, al leerlos, solo dicen "puedo iniciar sesión en mi perfil". A veces piden al propio programa que redacte el impacto.</li>
+<li>Herramientas automatizadas de ataque con IA que producen tanto el vector como el reporte; algunos hallazgos son reales y precisos, otros son ruido sin impacto.</li>
+</ul>
+<p>Consecuencia operativa: el tiempo de respuesta se alarga, no porque el equipo no lea los reportes serios, sino porque antes debe separar el ruido de superficie convincente. La recomendación unánime hacia los investigadores: usar IA para aprender y para pulir la redacción, no para fabricar reportes; el equipo de triage es la voz del investigador internamente, y para defender una recompensa necesita poder traducir el impacto al lenguaje del negocio —"muéstrenme por qué deberían pagarles esta cifra"—.</p>
+<h2>Incentivos más allá del dinero</h2>
+<p>La experiencia con recompensas no monetarias es mixta. Funcionan: challenge coins de tirada pequeña, badges personalizados por hallazgo válido, créditos de cuenta, vouchers de examen, merchandising con valor real (lucesabers, literalmente). No funcionan a medias: el programa que empezó sin recompensa monetaria descubrió que el investigador fiel acababa con diez remeras idénticas. Los invariantes que sí sostienen la relación a largo plazo:</p>
+<ul>
+<li>Invitación a programas privados cuando un hallazgo cae fuera de scope: se paga igualmente el reporte previo en señal de respeto por el tiempo invertido, sin incentivar cazar en activos excluidos.</li>
+<li>Triage pagado por el propio programa (y no por la plataforma) apenas se confirma el issue, sin esperar un mes o dos hasta el fix.</li>
+<li>Reuniones VIP para que los investigadores de mayor nivel ahonden en activos específicos del scope.</li>
+<li>Chat privado directo con el top 50 de investigadores: contacto personal, seguimiento, conversación real en conferencias.</li>
+<li>Pedir a la plataforma que no cierre los reportes: el programa maneja sus cierres, explica a cada investigador por qué se ajustó la severidad, y evita el envenenamiento de la relación vía intermediario.</li>
+</ul>
+<h2>Malentendidos que conviene derribar</h2>
+<ul>
+<li><strong>"Enviar es cobrar"</strong>: el programa no tiene toda la información requerida y no está siendo obtuso; existe la maldición del conocimiento, lo que es evidente para quien lo halló no lo es para quien lo lee. Datos sin contexto no son inteligencia accionable: "tu servicio está roto" sin detalle ni respuesta posterior no produce recompensa.</li>
+<li><strong>"Un bug bounty reemplaza a los equipos internos de seguridad"</strong>: no; funciona solo como suplemento de una base de seguridad interna sólida. Sin ella, se paga por la ilusión de seguridad.</li>
+<li><strong>"Con bug bounty somos compliantes, luego somos seguros"</strong>: no.</li>
+<li><strong>"Los programas públicos generan ruido sin valor"</strong>: generan señal distinta y perspectivas que un programa privado no produce.</li>
+<li><strong>"Esto es dinero rápido"</strong>: es una maratón, no un sprint; la carrera es construir un método de investigación propio —todos tienen puntos ciegos, nadie está exento— y aprender de quienes ya transitaron el camino del otro lado.</li>
+</ul>
+<h2>Futuro: colaboración e industrias</h2>
+<p>Las tendencias de cierre apuntan a dos direcciones. La primera, más coordinación: los investigadores entienden cada vez mejor el impacto de la divulgación coordinada con el vendor, porque publicar sin avisar deja expuestos a todos los usuarios del software. La segunda, especialización: la predicción es que emergen clusters de investigadores por industria —fintech, e-commerce, salud—, porque los sectores regulados (PCI DSS y demás marcos de compliance, citados explícitamente en el caso financiero) valoran a quien entiende qué regulación se está violando, no solo que hay una vulnerabilidad. Los programas, por su parte, prometen lo que está en su mano: scope claro, políticas claras, tablas de recompensas claras, para que nadie invierta tiempo a ciegas.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El cuello de botella del bounty a escala es humano: la tecnología sirve para eliminar fricción, no para reemplazar el juicio del triage.</li>
+<li>La IA transformó el paisaje de reportes; la respuesta no es tecnológica sino contractual y educativa: plantillas, requisitos de impacto, consecuencias para quien spamea.</li>
+<li>La confianza se construye con detalles operativos: pago rápido del triage, cierres explicados, contacto directo, feedback pedido aunque duela —"si tu relación con los investigadores es la misma que hace ocho años, algo estás haciendo mal"—.</li>
+<li>Para investigadores: impacto, contexto y proof of concept son la diferencia entre cobrar y hacer de voluntario; para programas: el bounty es suplemento de una seguridad interna sólida, nunca su sustituto.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YKHs2XJWmXU">«DEF CON 33 - Managing Bug Bounties @ Scale - Gabriel Nitu, Jay Dancer, PayPal, Ryan Nolette &amp; Goshak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

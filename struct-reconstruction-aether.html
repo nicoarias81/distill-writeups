@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Struct Reconstruction in Aether: el copiloto de IA para ingeniería inversa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Struct Reconstruction in Aether: el copiloto de IA para ingeniería inversa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/tH4AzyxPz-Q">«DEF CON SG 1 - CSIT Village -  Kan Onn Kit - Struct Reconstruction In Aether»</a> · ver el <a class="nz-link" href="https://youtu.be/tH4AzyxPz-Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Aether (AI Engine to Help Engineers Reverse) es un copiloto de ingeniería inversa potenciado por IA, desarrollado en CSIT, que asiste a los analistas de malware en tareas tediosas del día a día. Su función más reciente es la <strong>reconstrucción de structs</strong>: usar un flujo agéntico para deducir, aplicar y validar definiciones de estructuras en IDA, resolviendo el problema clásico de las variables de puntero opaco (<code>v12</code>, <code>v4</code>...) que hacen ilegible el pseudocódigo descompilado.</p>
+<h2>Contexto: por qué un copiloto de análisis de malware</h2>
+<p>Los incidentes de ciberseguridad suelen involucrar malware, y el equipo de investigación realiza un análisis en profundidad de las familias avanzadas para alimentar la respuesta a incidentes y el threat hunting. La plataforma automatizada interna, <strong>AQube</strong> (basada en la sandbox CAPE v2), triifica bien el malware conocido, pero no el malware especializado que aparece en incidentes reales: para eso sigue haciendo falta ingeniería inversa manual. Aether actúa como multiplicador de fuerza para descubrir qué hacen esas amenazas.</p>
+<p>Un ejemplo ilustra el valor: ante un fragmento de pseudocódigo con una cadena "mágica", un analista experimentado intuye que son magic bytes de comunicación de red, pero deducir su significado exige profundizar en otras funciones, algo muy costoso. Tras pasar por Aether, el mismo fragmento tiene funciones y variables renombradas con sentido, comentarios legibles, y de un vistazo se infieren el algoritmo de descifrado, la clave y la firma de paquetes; además, la lógica de funciones anidadas queda elevada al fragmento para su análisis.</p>
+<h2>Las tres familias de funciones de Aether</h2>
+<ol>
+<li><strong>Anotaciones con IA</strong>: renombra funciones y variables, añade comentarios significativos y resume funciones para mejorar la legibilidad del pseudocódigo.</li>
+<li><strong>Reconstrucción de structs</strong>: un paso más allá, porque una variable tipo struct es ilegible sin definir sus campos correctamente; el sistema la convierte en una estructura con campos renombrados.</li>
+<li><strong>Chatbot</strong>: análisis cruzando funciones distintas y respuestas a consultas del analista, apoyado en el motor de contexto y en las anotaciones previas de Aether para dar resultados más precisos y completos.</li>
+</ol>
+<h2>Qué es un struct y por qué importa</h2>
+<p>Un struct (estructura) es un tipo definido por el usuario que agrupa variables de distintos tipos bajo un nombre. En pseudocódigo con múltiples referencias y punteros desconocidos, definir el struct adecuado —un <code>student</code> con nombre y fecha de nacimiento, por ejemplo— revela el propósito del código. En análisis de malware, definir con precisión el struct del fragmento actual permite entender el resto del pseudocódigo y cómo su salida se usa en otras funciones.</p>
+<h2>El estado del arte: LLMs + IDA Pro MCP</h2>
+<p>Antes de construir un sistema propio midieron las soluciones abiertas existentes con un programa C++ de prueba (<code>studentinfo.c</code>, con un struct <code>student</code> cuyo campo <code>courses</code> no se usa, para no exigir inferencias imposibles). El flujo habitual hoy: un LLM de vanguardia como GPT-5 junto a un MCP como <strong>IDA Pro MCP</strong> para interactuar con el descompilador. Los problemas detectados, en tres categorías:</p>
+<ul>
+<li><strong>Precisión</strong>: IDA gestiona el padding entre campos cuando se declaran por la interfaz o con IDA Python, pero <strong>no lo añade</strong> al fijar el struct mediante IDA Pro MCP; los campos desalineados se propagan al pseudocódigo y arruinan el análisis.</li>
+<li><strong>Usabilidad</strong>: hace falta muchísima supervisión y una ingeniería de prompts considerable para que el modelo formule una estrategia decente de recolección antes de reconstruir.</li>
+<li><strong>Velocidad</strong>: GPT-5 tardaba entre 8 y 19 minutos por resultado, y más con structs complejos o correcciones importantes.</li>
+</ul>
+<p>La reconstrucción manual, además, es agotadora: hay que intuir qué variables son structs, encontrar todos los usos de esa variable en todas las funciones, adivinar los campos y —el mayor desafío— mantener <strong>coherencia</strong> entre todas las funciones que usan el struct, verificando que los nombres de campos concuerden con lo que el código hace. Esas dos tareas (explorar usos y validar coherencia) son justamente las que un flujo agéntico puede automatizar.</p>
+<h2>Arquitectura en tres fases</h2>
+<pre class="mermaid">
+flowchart LR
+    G[Gathering<br/>recolecta el pseudocódigo<br/>relevante para el struct] --> A[Applying<br/>define y fija el struct<br/>en Local Types de IDA]
+    A --> S[Assessing<br/>el agente reflexiona:<br/>¿el struct encaja con el contexto?]
+    S -->|bucle externo:<br/>problemas de coherencia| G
+    A -->|bucle interno:<br/>padding y sintaxis| A
+
+</pre>
+
+<p>La fase de <strong>gathering</strong> reúne el pseudocódigo de funciones relevantes para el contexto del struct (distinto del contexto del anotador). La de <strong>applying</strong> usa las herramientas del IDA Pro MCP para definir y fijar el struct en los local types de IDA. La de <strong>assessing</strong> comprueba, haciéndolo reflexionar sobre sus acciones, si el struct fijado encaja con el contexto: ¿se accede a campos reservados?, ¿se mantiene la coherencia entre funciones?</p>
+<h2>Razonamiento dirigido: chain-of-thought en lugar de reasoning nativo</h2>
+<p>Las pruebas mostraron que la capacidad de razonar es crítica: las alucinaciones minarían la confianza del analista, así que el modelo debía evaluar sus propias acciones sobre la marcha. Los LLMs de razonamiento parecían la respuesta, pero los modelos abiertos producían razonamientos verbosos e irrelevantes, repetitivos o en bucles de miles de tokens, hasta "despeñarse" (crashing out).</p>
+<p>Faltaba además inculcar la mentalidad del ingeniero inverso, ausente en los LLMs de la época. La solución combinó ambas carencias con <strong>chain-of-thought prompting</strong> (Wei et al., 2022): sustituir la fase de razonamiento nativa por pasos de razonamiento dirigidos. El prompt del "setter" —cuya única tarea es añadir padding a un struct en C legible— pide identificar solo campos y offsets, sin evaluar si los nombres tienen sentido; un ejemplo de razonamiento apropiado acompaña la instrucción. El resultado: pensamientos más escuetos, menos tokens, menos tiempo de análisis y razonamiento focalizado en lo que se necesita.</p>
+<h2>De cinco nodos a un monstruo de dos bucles</h2>
+<p>La arquitectura idealizada de cinco nodos creció, tras meses de I+D, en un sistema mucho más complejo que también atiende el control que el analista ejerce sobre el sistema y las idiosincrasias de la API de IDA. Curiosamente, el sistema terminó usando un LLM <strong>sin razonamiento nativo</strong> (Qwen3-Coder 30B-A3B), una consecuencia del cambio a chain-of-thought.</p>
+<p>En la fase de applying surgieron dos bucles de propósito distinto: el <strong>bucle interno</strong> corrige problemas a nivel de struct —padding incorrecto, errores de sintaxis— sin desperdiciar una vuelta completa al flujo; el <strong>bucle externo</strong> (assessing↔gathering) atiende problemas de contexto: ¿el struct encaja con el código?, ¿se accede a campos reservados?, ¿se conserva la coherencia entre todas las funciones?</p>
+<h2>Validación: muestra de prueba y malware real</h2>
+<p>En el programa de prueba, el sistema produjo offsets correctos con padding apropiado, y nombres y tipos precisos <strong>aun usando un modelo mucho menos potente que GPT-5</strong>. Frente a GPT-5 + IDA Pro MCP, Aether fue más preciso (menos problemas de padding y offsets), más rápido (una fracción del tiempo) y requiere un solo clic, sin hand-holding ni prompt engineering. Una advertencia honesta: el rendimiento depende críticamente de la calidad de las anotaciones previas de Aether.</p>
+<p>La prueba de fuego fue <strong>WhiteFly</strong>, el malware APT descubierto en 2018, en concreto su segunda etapa, responsable de la comunicación con el servidor C2. Preparación: parcheo manual de la IAT (import address table) en el proyecto de IDA y generación previa de anotaciones de funciones —sin ellas el creador de structs no funciona bien—. Resultados contrastados con el reporte interno de los analistas:</p>
+<ul>
+<li>En la función de inicio de comunicación C2 (<code>0x4012E1</code>), <code>v4</code> resultó ser un struct "hook": el generado por Aether coincidió con los hallazgos internos.</li>
+<li><code>v14</code>, un struct de comunicación de red, generó un resultado aparentemente pobre ("bastante pelado") que, sorprendentemente, también coincidió con el reporte; completarlo requiere intervención manual, porque Aether no puede sumergirse en la memoria del binario para poblar un campo vtable con los punteros a funciones.</li>
+<li>En la función <code>perform injection</code> (<code>0x4029C7</code>), <code>v12</code> (payload con descifrado dependiente de la arquitectura) dio un primer intento con campos genéricos —"técnicamente no incorrecto", con humor—; los siguientes intentos inferieron campos que en general coincidían con el binario. Errores residuales: un campo que era en realidad una clave de descifrado de 32 bits quedó como "command base address", y un acceso a <code>reserved6</code> mal interpretado (era la comprobación de sistema de 64 bits). El problema mayor: asignar al struct el tipo <strong>puntero a struct</strong> en lugar del tipo struct, lo que degrada el pseudocódigo y la capacidad del evaluador de validar el resultado.</li>
+</ul>
+<h2>Rediseño: de adivinar offsets a señalarlos</h2>
+<p>El gran talón de Aquiles era identificar con exactitud los offsets de cada campo —"los LLMs son inherentemente malos con los números"—, y el enfoque tampoco funcionaba bien con structs anidados. La revisión invirtió la responsabilidad: en lugar de pedirle al modelo que creara el struct en C y añadiera padding, se le pide que <strong>identifique las partes del pseudocódigo que indican los offsets de los campos</strong>, y IDA Python resuelve el padding automáticamente dentro de IDA. El nodo "guesser" se dividió en dos: un <strong>identifier</strong> que detecta posibles structs anidados dentro del struct principal y un <strong>field guesser</strong> que deduce offsets y tipos de campos de cada uno.</p>
+<p>El resultado es una arquitectura más simple, con <strong>un solo bucle</strong>, que en la variable <code>v12</code> corrigió los errores de la versión anterior: <code>reserved6</code> pasó a ser la comprobación de 64 bits y "command base address" pasó a ser la clave de descifrado para arquitecturas de 32 bits.</p>
+<h2>Técnicas y conceptos mencionados</h2>
+<ul>
+<li><strong>Aether / AQube</strong>: copiloto de IA para ingeniería inversa y plataforma de triage automatizado (CAPE v2) del mismo equipo.</li>
+<li><strong>Structs en IDA (Local Types)</strong> y su impacto en la legibilidad del pseudocódigo descompilado.</li>
+<li><strong>IDA Pro MCP</strong>: protocolo de contexto de modelo para que los LLMs manipulen el descompilador; su manejo inconsistente del padding.</li>
+<li><strong>Flujo agéntico gathering → applying → assessing</strong> con bucle interno (problemas de struct) y externo (problemas de contexto).</li>
+<li><strong>Chain-of-thought prompting (Wei et al., 2022)</strong> sustituyendo el razonamiento nativo de los LLMs de razonamiento.</li>
+<li><strong>Caso real: malware WhiteFly (APT, 2018)</strong>, segunda etapa con comunicación C2, parcheo de IAT y validación contra reporte interno.</li>
+<li><strong>Rediseño offset-driven</strong>: el LLM señala indicios de offsets; IDA Python calcula el padding.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La reconstrucción de structs es el cuello de botella de legibilidad del pseudocódigo: definirla bien transforma variables opacas en campos con significado.</li>
+<li>Los LLMs solos (incluso SOTA) fallan en precisión de padding, usabilidad y velocidad; el flujo agéntico con validación por reflexión corrige gran parte.</li>
+<li>Dirigir el razonamiento con chain-of-thought rinde más que confiar en el razonamiento nativo: menos tokens, menos bucles, más foco — y permite usar un modelo más pequeño y rápido.</li>
+<li>El sistema funciona en malware real pero depende de anotaciones previas de calidad y todavía necesita intervención manual (vtables, tipos struct vs. puntero a struct).</li>
+<li>El rediseño que separa "adivinar" de "medir" —el LLM señala offsets, IDA Python aplica padding— es la lección arquitectónica: dar a cada componente lo que mejor sabe hacer. El proyecto es de código abierto y desarrollo activo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/tH4AzyxPz-Q">«DEF CON SG 1 - CSIT Village -  Kan Onn Kit - Struct Reconstruction In Aether»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

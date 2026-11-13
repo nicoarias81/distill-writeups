@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jammer hunting: detectar la inhibición de llaves de autos con un dispositivo IoT — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Jammer hunting: detectar la inhibición de llaves de autos con un dispositivo IoT</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vtqjb3YEk5M">«Jammer hunting: detectando ataques de inhibición de llaves de autos con dispositivos IoT»</a> · ver el <a class="nz-link" href="https://youtu.be/vtqjb3YEk5M">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La inhibición de llaves de autos — el clásico robo silencioso: uno cierra el auto creyendo que quedó cerrado y vuelve a encontrarlo vacío — tiene una particularidad que la vuelve detectable: para inhibir, el atacante tiene que transmitir una señal potente, sostenida en el tiempo y en una frecuencia muy específica. Ese patrón es el corazón de este proyecto: un dispositivo IoT de desarrollo local (del equipo Calpa) que monitorea la banda de 433 MHz, reconoce el patrón de una inhibición en tiempo real y reporta el evento por LoRa a una red de nodos que permite ubicar dónde está actuando el atacante. El trabajo recorre los fundamentos de radiofrecuencia necesarios para entender la detección, el diseño del dispositivo, los datos reales del problema en Buenos Aires y una demo en vivo.</p>
+<h2>El problema: una denegación de servicio contra el auto</h2>
+<p>El modus operandi es simple. La víctima llega al auto y aprieta la llave; un atacante cercano transmite con un <em>handy</em> (radio de uso común, accesible en cualquier marketplace y teóricamente sujeto a licencia) en la misma frecuencia que la llave, y la potencia de su transmisión enmascara el mensaje legítimo: el auto nunca recibe la orden de cerrar. La víctima se va; el auto queda abierto, con la documentación que indica la dirección de su casa. No es robo con violencia: es una denegación de servicio contra el sistema de comunicaciones del vehículo. Y las variantes crecen: hay inhibidores de grado militar para drones y señales satelitales, y el mismo esquema aplica a porteros automáticos y portones ("las famosas entraderas": no abrís el portón, te bajás, perdés).</p>
+<p>La escala del problema, contada por Sebastián Seconi (consultor de riesgo tecnológico, ex fuerzas de seguridad y presidente de la Fundación Ciencia y Justicia):</p>
+<ul>
+<li>En CABA, más del <strong>80% de los robos son sin uso de la fuerza</strong> (en provincia de Buenos Aires la relación es 50/50), y la cifra negra se estima en otro 50% — mucha gente ni siquiera denuncia porque cree que "perdió" la billetera o el notebook.</li>
+<li>Los inhibidores se compran abiertamente: un pack de 4 equipos Bofeng por unos 40.000 pesos, entregado a domicilio. Un Flipper Zero también sirve.</li>
+<li>Los dispositivos se <strong>secuestran a razón de 2 o 3 por mes</strong> en la Ciudad, y el fenómeno crece un <strong>28-30% anual</strong>, con bandas cada vez más organizadas: te inhiben en el shopping, se comunican entre ellos y van a la casa — muchos de estos ataques terminan en robo a propiedad.</li>
+<li>Las zonas de riesgo son las esperables: shoppings, estacionamientos, escuelas, eventos — cualquier lugar con autos y gente distraída.</li>
+</ul>
+<h2>Fundamentos mínimos para entender la detección</h2>
+<p><strong>El espectro y las bandas.</strong> Las llaves de autos transmiten en la banda <strong>UHF</strong> (300 MHz a 3 GHz); en Argentina la frecuencia más común es <strong>433 MHz</strong> (algunos autos nuevos/importados usan la banda de 915). Un handy transmite en <strong>FM</strong>, cuya modulación genera un espectro continuo, casi gaussiano — tantas frecuencias contiguas que los transmisores necesitan un filtro de salida para no saturar los amplificadores. Las llaves usan <strong>FSK</strong>, una modulación digital: un uno es cierta frecuencia, un cero es otra.</p>
+<p><strong>Portadora, mensaje y potencia.</strong> Toda señal tiene una portadora (cuya potencia se mide como <strong>RSSI</strong>) y un mensaje en banda base. La señal de una llave es de muy baja potencia — un par de milivatios — y el 90% de su energía queda en las tres primeras armónicas; el resto se disuelve. Por eso, cuando el handy transmite simultáneamente, el espectro de la llave <strong>desaparece bajo la gaussiana del handy</strong>: no hay forma de que el receptor recupere el mensaje. No hay defensa del lado de la llave salvo transmitir con 10 o 20 vatios — algo que ningún sistema de auto hace.</p>
+<p><strong>Dominio del tiempo y de la frecuencia.</strong> Dos gráficos complementarios: el espectro (qué frecuencias componen la señal, sin dimensión temporal) y la señal en el tiempo. Un mismo experimento lo muestra: apretar la llave una vez produce un pico en el espectro, pero apretarla tres veces muestra tres líneas en el dominio temporal. Entender ambos dominios es lo que después evita los falsos positivos: la frecuencia sola no alcanza.</p>
+<h2>El dispositivo: qué lleva adentro</h2>
+<pre class="mermaid">
+flowchart LR
+    ANT["Antena 433 MHz<br/>+ frontend RF"] --> MCU["ESP32:<br/>medición de RSSI,<br/>umbral + filtro temporal<br/>(mediana / Kalman)"]
+    MCU -->|"evento de<br/>inhibición"| ALM["Buzzer + pantalla<br/>de alerta local"]
+    MCU -->|"915 MHz:<br/>no se pisa con 433"| LORA["Red LoRa mesh<br/>(estilo Meshtastic)"]
+    LORA --> GW["Gateway → Internet"]
+    GW --> DASH["Dashboard: mapa de calor,<br/>RSSI máximo, duración,<br/>estimación de distancia"]
+
+</pre>
+
+<p>Las decisiones de diseño:</p>
+<ul>
+<li><strong>ESP32</strong> como microcontrolador: procesa el patrón de detección en el propio nodo. Incluye Wi-Fi y Bluetooth con posibilidad de antena externa, pero el diseño deliberadamente <strong>no depende del Wi-Fi</strong> — porque el Wi-Fi también se puede inhibir, y un sensor de inhibición que muere con una inhibición no sirve.</li>
+<li><strong>Canal de reporte en 915 MHz por LoRa</strong>: una red de nodos que se transmiten información entre sí hasta llegar a Internet. Al estar en otra banda, el canal de reporte no sufre la misma inhibición que detecta. La referencia natural del mundo LoRa es Meshtastic, y el protocolo se usa masivamente en agro por alcance y velocidad adecuados.</li>
+<li><strong>Periféricos de campo</strong>: pantalla, buzzer para alerta sonora en el momento, alimentación y reporte por USB.</li>
+<li><strong>Firmware cargable</strong>: el hardware admite distintos firmwares para otros experimentos — mezclar LoRa con transmisión/recepción en 433 — con un framework en camino.</li>
+</ul>
+<h2>El patrón de detección: tres condiciones</h2>
+<p>El núcleo del sistema es distinguir una inhibición real de las innumerables señales que ocupan la banda. Un evento se clasifica como inhibición cuando concurren:</p>
+<ol>
+<li><strong>Potencia sobre un umbral</strong> (calibrado con pruebas para separar señal de ruido).</li>
+<li><strong>Duración significativa en el tiempo</strong> — si dura un milisegundo, no inhibió nada.</li>
+<li><strong>Frecuencia muy específica</strong>: el monitoreo está centrado en 433 MHz, no en todo el espectro UHF.</li>
+</ol>
+<p>A eso se suma filtrado clásico de señales (mediana, media, o algo más complejo como Kalman) para desviar promedios y mediciones corruptas por ruido. Cuando el patrón aparece — señal prolongada, específica y potente — la conclusión es casi automática: en un centro urbano, un shopping o una avenida, es muy poco probable que sea otra cosa.</p>
+<h2>De un nodo a una zona: triángulo y mapa de calor</h2>
+<p>Detectar es la primera mitad; localizar, la segunda. Con el RSSI y una calibración previa del entorno se puede estimar la distancia del atacante — la teoría dice que la señal cae con el cuadrado de la distancia — y con varios nodos reportando, el resultado es un <strong>mapa de calor de las inhibiciones</strong>. La recepción de estos equipos es tan potente que se detecta a cientos de metros, "a varias cuadras". En un estacionamiento grande y abierto, donde la intensidad es más proporcional a la distancia, el cálculo funciona aún mejor.</p>
+<p>La vía avanzada (mencionada, aún no aplicada) es el <strong>TDOA — Time Difference of Arrival</strong>: nodos muy cercanos y sincronizados en tiempo, que miden la diferencia de llegada de la señal (que viaja cerca de la velocidad de luz) y, con ecuaciones no lineales nada triviales, obtienen no solo la distancia sino también el <strong>ángulo de entrada</strong> — muchos menos nodos para ubicar con precisión. El cuello de botella es el hardware: requiere clocks sincronizados entre dispositivos. La técnica ya se explora con Wi-Fi (incluso con IA para detectar presencia de personas), y vale la pena seguirle el rastro.</p>
+<h2>La demo en vivo</h2>
+<p>El cierre: con una SDR (software defined radio) corriendo una interfaz propia hecha con plugins de SDR, el equipo mostró en pantalla el espectro de la llave, aplicó la inhibición con el handy y la llave desapareció del espectro — la mascarada completa que vimos en teoría. Al mismo tiempo, el dispositivo detectó el evento, lo notificó por buzzer y lo transmitió por LoRa a un gateway que mostró la intensidad de la señal. Como recordatorio final para interpretar las pantallas: la escala es <strong>logarítmica</strong> — aumentar 3 dB duplica la potencia, así que un pequeño salto visual es un salto enorme de energía.</p>
+<p>El equipo anunció que van a publicar el repositorio, el firmware, un framework para experimentos y un visor de espectro (implementación propia para SDRs chinas baratas) — todavía en camino al momento del análisis.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Inhibición (jamming)</strong> — denegación de servicio sobre las comunicaciones del auto: la señal del atacante enmascara el mensaje de la llave.</li>
+<li><strong>Handy / Bofeng / Flipper Zero</strong> — equipos de transmisión accesibles comercialmente, base del modus operandi de las bandas.</li>
+<li><strong>Banda UHF / 433 MHz</strong> — frecuencia de las llaves de autos en Argentina (915 MHz en modelos nuevos); 915 es también el canal LoRa de reporte.</li>
+<li><strong>FSK / FM</strong> — modulaciones digital (llaves) y de voz (handys) que definen las formas del espectro.</li>
+<li><strong>RSSI</strong> — potencia de la portadora; base para el umbral de detección y la estimación de distancia.</li>
+<li><strong>ESP32</strong> — microcontrolador que ejecuta el patrón de detección en el nodo.</li>
+<li><strong>LoRa / Meshtastic</strong> — red de nodos que reporta eventos a un gateway; el canal de reporte no se pisa con la banda inhibida.</li>
+<li><strong>Filtros de señal (mediana, media, Kalman)</strong> — limpieza de ruido antes de clasificar el evento.</li>
+<li><strong>SDR + plugins</strong> — analizador de espectro usado en la demo y para calibrar frecuencias.</li>
+<li><strong>TDOA (Time Difference of Arrival)</strong> — triangulación avanzada por diferencia de llegada con clocks sincronizados; devuelve distancia y ángulo.</li>
+<li><strong>Datos CABA / Fundación Ciencia y Justicia</strong> — observabilidad del fenómeno: cifra negra ~50%, crecimiento 28-30% anual, 2-3 dispositivos secuestrados por mes.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La inhibición es detectable por definición: para bloquear una llave hay que transmitir fuerte, largo y en una frecuencia exacta — un patrón que no aparece en la banda por accidente.</li>
+<li>El diseño defensivo importa tanto como la detección: un sensor que reporta por Wi-Fi muere con el ataque que mide; el canal LoRa en 915 MHz evita ese punto ciego.</li>
+<li>La detección distribuida convierte un problema invisible en observable: nodos que reportan RSSI permiten mapas de calor, estimación de distancia y, en el futuro, triangulación con ángulo de llegada.</li>
+<li>La mayor línea de defensa sigue siendo la conciencia: verificar que el auto cerró, no dejar documentación ni objetos de valor visibles — porque la tecnología detecta, pero el hábito previene.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vtqjb3YEk5M">«Jammer hunting: detectando ataques de inhibición de llaves de autos con dispositivos IoT»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

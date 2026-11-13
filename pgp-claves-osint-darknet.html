@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PGP como sistema OSINT: cómo las claves públicas exponen a los vendedores de darknet — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">PGP como sistema OSINT: cómo las claves públicas exponen a los vendedores de darknet</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/6mykx1zS1yo">«DEF CON 33 - Pretty Good Pivot: Examining PGP Key Pair Creation Habits of Darknet Vendors - Eric Rao»</a> · ver el <a class="nz-link" href="https://youtu.be/6mykx1zS1yo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>OpenPGP permite cifrar, descifrar, firmar y autenticar — y su ciclo de vida es sincrónico: se crea una clave, se genera un <em>revocation certificate</em>, se cifra con la clave privada, se transmite el mensaje cifrado, y el destinatario lo descifra. En teoría, una clave PGP bien gestionada nunca caduca. En la práctica, los vendedores de darknet regeneran claves todo el tiempo — pivotean — porque son extremadamente desconfiados: no confían en su laptop, no confían en el mercado, no confían en la policía, no confían ni en sí mismos.</p>
+<p>Esa desconfianza es una superficie de análisis: este trabajo construyó un corpus de más de 600.000 claves PGP scrapeadas de darknet markets, foros y software de captcha asociado a algunos de los casos de fraude más grandes de la historia, y desarrolló heurísticas que distinguen a los vendedores de darknet del público general de PGP con más del 90% de precisión. El hallazgo central: los vendedores rotan claves con mucha más frecuencia que el resto del mundo, y esa rotación revela tanto el ecosistema PGP (foros, mercados, captcha) como atributos del propio vendor — con casos documentados de identificación de vendedores a partir de sus claves.</p>
+<h2>El ciclo de vida PGP y sus indicadores</h2>
+<pre class="mermaid">
+flowchart LR
+    A["1. Crear clave"] --> B["2. Revocation certificate<br>(cifrado con la privada)"]
+    B --> C["3. Cifrar mensaje<br>(una parte pública,<br>otra privada)"]
+    C --> D["4. Descifrar (destinatario)"]
+    D --> E["5. Expirar / revocar"]
+
+</pre>
+
+<p>Cada etapa deja rastros analizables: los campos de la clave (nombre de usuario, email, creación, expiración), el tipo de algoritmo, y — lo más potente — el <strong>revocation certificate</strong>: qué tan pronto después de crear la clave la persona revoca (la mitad de las claves generadas nunca se revocan; los vendedores revocan muy temprano, a veces en el primer día).</p>
+<h2>El corpus: más de 600.000 claves de darknet</h2>
+<p>Fuentes: scraping de foros y de <strong>darknet markets</strong> (hasta su caída, Tor Bazaar y otros), y de <strong>software de captcha</strong> usado en el ecosistema — lo que llevó a dos de los casos de fraude más grandes de la historia. Total: más de 600.000 claves analizadas, filtradas para eliminar duplicados y spam.</p>
+<p>Es un corpus difícil de conseguir: la mayoría de los datos de darknet desaparecen cuando los markets caen, y no hay censos públicos ni APIs. La alternativa fue construir el propio scraper y descargar keyblocks de foros y mercados (con algunos mercados: <strong>Torzon</strong>, Tor Carding Forum, etc.), filtrando por dominio del email y configuración de servidor.</p>
+<h2>Heurísticas para distinguir vendors del público general</h2>
+<p>Una clave PGP es siempre "mala" en OSINT — hasta que se sabe mirar. Las heurísticas para clasificar si un par de claves pertenece a un vendedor de darknet:</p>
+<ul>
+<li><strong>Firma con herramientas de anonimato</strong>: uso de Tor como proxy, Whonix, Tails, etc., declarado en los campos de la clave.</li>
+<li><strong>Expiración temprana y rotación</strong>: los vendors generan claves con expiración corta y crean nuevas constantemente; el público general casi nunca rota.</li>
+<li><strong>Revocación temprana</strong>: los vendors revocan en días; la mayoría del mundo jamás revoca.</li>
+<li><strong>Emails con dominios leak / clearnet</strong>: comparar el email de la clave contra bases de filtraciones y dominios públicos para correlacionar identidades.</li>
+<li><strong>Fingerprints compartidos entre markets</strong>: el mismo par de claves usado en varios mercados delata actividad multi-market y vincula identidades entre plataformas.</li>
+<li><strong>Fuentes de "rama muerta"</strong>: algunos emails aparecen en leaks pero la clave nunca se publica en un keyserver — la fuente puede ser el captcha del market o el foro.</li>
+</ul>
+<p>Estas reglas, aplicadas al corpus, alcanzan <strong>más del 90% de precisión</strong> separando vendors del resto, con los falsos positivos principales siendo gente que usa claves PGP para spam.</p>
+<h2>Lo que revelan las claves: tres casos</h2>
+<h3>Caso 1: vendor identificado por su clave</h3>
+<p>Un vendor del market usa el mismo fingerprint en dos mercados y un foro. La clave contiene un email de Google. Un <em>reverse lookup</em> del email en redes sociales da un perfil con la misma foto que el avatar del market. Se extrae el username de la cuenta de Google, se contrasta contra un dump de filtraciones, y aparece la contraseña reutilizada. La huella de la clave + el email + la contraseña del leak permiten <strong>identificar a la persona</strong> detrás del vendor.</p>
+<h3>Caso 2: atribución de un cartel de ransomware</h3>
+<p>Claves PGP asociadas a un cartel de ransomware, recopiladas por servicios de inteligencia (p. ej. los archivos de ransomware "helpers" que exponen los correos de soporte), se cruzan con el corpus: el mismo email y el mismo estilo de clave aparece en un foro de darknet, y en los dumps de filtraciones de terceros se correlacionan identidad real y actividad criminal.</p>
+<h3>Caso 3: geo-segmentación por patrón de claves</h3>
+<p>Los vendedores que usan el mismo mercado en distintos períodos muestran <strong>patrones temporales</strong> en la creación de claves. El análisis por año/fecha permite segmentar el corpus por región y por era de mercado — el tipo de análisis que alimenta modelado de actividad criminal y perfiles de persistencia.</p>
+<h2>El estado del ecosistema PGP</h2>
+<ul>
+<li><strong>La fuerza de PGP es también su debilidad</strong>: el modelo descentralizado de confianza (la red de confianzas, la firma cruzada, el modelo de <em>web of trust</em>) es muy seguro criptográficamente, pero la <em>operación</em> — generar, revocar, expirar — depende de la disciplina de cada usuario.</li>
+<li><strong>Los vendors usan PGP de forma defensiva</strong> — cifrar mensajes con el cliente del market, verificar el vendedor con la clave firmada del market — y esa dependencia estructural en herramientas client-side los expone en el análisis forense.</li>
+<li><strong>Los mercados están muertos, las claves quedan</strong>: cuando un market cae, sus dumps de claves PGP circulan por foros y repos de GitHub — una mina de OSINT que sobrevive a la plataforma que las originó.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La desconfianza extrema de los vendors es explotable</strong>: la rotación y revocación temprana de claves, el uso de herramientas de anonimato declarado y los fingerprints repetidos entre mercados crean un patrón estadístico distinguible con &gt;90% de precisión del resto del ecosistema PGP.</li>
+<li><strong>La clave PGP es un sistema OSINT completo</strong>: campos, email, algoritmo, fingerprint, fechas de creación/revocación, y su cruce con filtraciones y redes sociales convierten un "recurso de seguridad" en un rastro de identidad.</li>
+<li><strong>El corpus sobrevive a la plataforma</strong>: más de 600.000 claves de markets y foros caídos siguen permitiendo atribuciones nuevas; el dato histórico de darknet es un activo forense de largo plazo.</li>
+<li><strong>Los tres casos lo prueban</strong>: identificación de un vendor por email + leak + redes sociales; atribución de un cartel de ransomware por claves PGP de soporte; y segmentación temporal/geográfica del ecosistema por patrones de creación de claves.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/6mykx1zS1yo">«DEF CON 33 - Pretty Good Pivot: Examining PGP Key Pair Creation Habits of Darknet Vendors - Eric Rao»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

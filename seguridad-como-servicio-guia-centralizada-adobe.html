@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguridad como servicio: una sola fuente de verdad para guiar a todos los desarrolladores — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Seguridad como servicio: una sola fuente de verdad para guiar a todos los desarrolladores</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SMEZowlcyyo">«Shruti Datta Gupta &amp; Chandrani Mukherjee - Security Guidance as a Service | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/SMEZowlcyyo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Dos ingenieras de seguridad de producto de Adobe —una con una década en el espacio, otra con más de cinco años— presentan Security Guidance as a Service: la democratización de la guía de seguridad en todas las plataformas donde un desarrollador pueda necesitarla. El punto de partida es un problema de escala que toda organización conoce: la ratio de seguridad a desarrolladores es bajísima, y dar guía uno a uno o responder consultas específicas es un problema de ancho de banda imposible.</p>
+<p>El panorama previo era el de siempre: procesos de seguridad establecidos —design reviews, threat modeling temprano, múltiples scanners de código, vulnerability scanning—, más security researchers y partners aportando información similar pero dispersa en distintas plataformas, y documentación fragmentada creada por security champions y SMEs. El resultado: la política de secretos o el estándar de autenticación existen, pero no llegan a la persona correcta en el momento correcto —y la información que no llega se pudre—.</p>
+<h2>Por qué la IA y por qué no bastó el prompt</h2>
+<p>La IA entendió el lenguaje natural y eliminó la barrera de las queries complejas, pero trajo tres problemas:</p>
+<ul>
+<li><strong>Respuestas genéricas</strong>: preguntar "¿qué autenticación debo seguir?" devuelve la solución genérica del problema, no los estándares ni los métodos de la organización.</li>
+<li><strong>Guía alucinada</strong>: cuanta más información se le da al modelo, más riesgo de que la guía inventada suene plausible y esté mal.</li>
+<li><strong>Dispersión de canales</strong>: la misma pregunta llega por Slack, por tickets de Jira, por el IDE; atender cada canal por separado multiplica el trabajo.</li>
+</ul>
+<p>La solución es un servicio agnóstico de plataforma: Slack, tickets de Jira, guía automatizada de threat modeling y un chatbot de seguridad tiran todos del mismo <strong>store central de guía</strong>, con información vetada, y devuelven la misma respuesta ante la misma consulta, sea cual sea el origen.</p>
+<h2>El recorrido: de RAG puntual a plataforma</h2>
+<p>El proyecto arrancó hace aproximadamente año y medio y no nació con su forma actual:</p>
+<ol>
+<li><strong>RAG inicial con docs curadas</strong> en un vector store, integrado primero al flujo de tickets de Jira —las vulnerabilidades de Adobe tienen SLAs que cumplir— y casi simultáneamente al workflow de Slack.</li>
+<li><strong>Convergencia de consumidores</strong>: pronto llegó la demanda del threat modeling automatizado, de la guía en el IDE, del chatbot; construir un RAG por sistema era inviable. La respuesta fue un vector store común que alimenta a todos los procesos.</li>
+<li><strong>Pipeline de inyección automatizado</strong>: al principio, con pocos documentos, la preparación era manual —extraer el contenido de PDFs, scripts one-off para embeddings—. El paso a escala exigió un pipeline que acepta una URL, ingiere el contenido al vector store, re-chequea periódicamente los cambios y actualiza solo.</li>
+</ol>
+<h2>Arquitectura en dos mitades</h2>
+<p><strong>Ingesta de documentos</strong>: los security champions y SMEs crean un archivo de metadatos en un repo de Git que es la fuente de verdad. Un PR con validación de metadatos dispara un servicio upstream con modelo pub/sub que escucha los cambios de Git; un cron job vigila actualizaciones de contenido en las URLs ya ingestadas; un ingester genera los embeddings y los escribe en el vector store. Cada documento ingestado anuncia su llegada en un canal de Slack y dispara un <strong>workflow de evaluación</strong>: los dueños del documento aportan un dataset de referencia —tres o cuatro preguntas y respuestas ideales— contra el que se mide corrección y relevancia de las respuestas.</p>
+<p><strong>Servicio de guía</strong>: el input puede venir de un ticket de Jira (guía para una vulnerabilidad), de la plataforma de threat modeling (recomendaciones para las amenazas identificadas) o de un chatbot (preguntas de seguridad en general). Todo pasa por un orquestador de IA que ajusta el system prompt según el tipo de input, consulta el vector store, pasa el resultado al LLM para formatearlo como JSON curado según la configuración de cada tipo, y registra todo en LangSmith para trazabilidad —con evals online integrados en algunos workflows—.</p>
+<h2>La misma guía en todo el SDLC</h2>
+<ul>
+<li><strong>Chatbot de soporte de seguridad</strong>: "¿cómo hago X en Adobe?", "¿quién es el security champion del producto Y?" — respuestas siempre desde el mismo store.</li>
+<li><strong>Shift left, threat modeling</strong>: el motor de threat modeling con IA identifica amenazas y llama al servicio para obtener las recomendaciones específicas de la organización para mitigarlas.</li>
+<li><strong>Shift right, vulnerabilidades</strong>: el workflow de ticketing y triage pasa los detalles del exploit al servicio, que devuelve tanto el fix puntual como la recomendación organizativa; para vulnerabilidades recurrentes de una misma clase, entrega también fixes de largo plazo que guían cambios secure by default.</li>
+<li><strong>Más a la izquierda todavía, el IDE</strong>: con el vibe coding, la guía tenía que llegar al flujo de escritura de código. Se construyó un servidor MCP —Adobe Security Guidance— que cualquier agente de código puede consumir: el agente reconoce la tool, consulta la guía relevante y la muestra en el chat del IDE. La demo en vivo sufrió problemas de red, pero la mecánica quedó clara, incluida la equivalencia con el mismo query hecho por Slack: misma pregunta, misma respuesta, desde cualquier punto del SDLC.</li>
+</ul>
+<h2>Desafíos y lecciones</h2>
+<ul>
+<li><strong>Evals</strong>: consumen tiempo y son manuales, pero son lo que permite tener el sistema en producción con calidad alta; el dataset dorado fue uno de los factores más habilitantes del proyecto.</li>
+<li><strong>Frescura documental</strong>: modelo de responsabilidad compartida —los workflows y evals detectan docs desactualizadas y avisan a los dueños; los dueños avisan cuando hay cambios—.</li>
+<li><strong>Peer review como cuello de botella</strong>: frenar la ingesta a escala es un trade-off deliberado: es lo que sostiene la calidad de lo que entra al vector store.</li>
+<li><strong>Tecnología en ebullición</strong>: la v1 hacía chunking y vectorización a mano, cuando los LLMs ni aceptaban input multimodal; hoy existen vendors de vector store que resuelven todo con subir archivos. Mantenerse al día es parte del trabajo.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>RAG con vector store central</strong> y vetting de documentos vía PR en Git (fuente de verdad).</li>
+<li><strong>Pipeline de ingesta automatizada</strong>: pub/sub sobre eventos de Git, cron de refresco, generación de embeddings.</li>
+<li><strong>Orquestador de IA</strong> con system prompts por tipo de input y salida JSON curada por consumidor.</li>
+<li><strong>LangSmith</strong> para logging y trazabilidad; <strong>evals offline</strong> con datasets de referencia y <strong>evals online</strong> en producción.</li>
+<li><strong>Servidor MCP</strong> para guía de seguridad dentro de agentes de código (Cursor y otros).</li>
+<li><strong>Extensión de Cursor</strong> que distribuye configuración MCP y rules por defecto al iniciar sesión.</li>
+<li><strong>Rules .md y skills</strong>: pruebas preliminares mostraron una reducción de vulnerabilidades en el código de alrededor del 70%, incluso con reglas básicas.</li>
+<li><strong>Roadshows internos</strong>: cuando la seguridad es zero calorie y seamless, los equipos de ingeniería piden adoptarla.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La IA es útil y multiplica la productividad, pero el rey es el contexto: cuanta más especificidad organizativa se inyecta, más útil es el sistema.</li>
+<li>Una guía centralizada y vetada democratiza la seguridad: misma respuesta consistente, cuando y donde el desarrollador la necesite.</li>
+<li>Los evals son lo que convierte experimentos de IA en sistemas de producción; sin dataset dorado no hay escala confiable.</li>
+<li>Este no fue un proyecto de dos personas: el crédito es para todo el equipo que lo construye y lo sigue ampliando.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SMEZowlcyyo">«Shruti Datta Gupta &amp; Chandrani Mukherjee - Security Guidance as a Service | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

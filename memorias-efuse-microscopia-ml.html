@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leer las memorias eFuse con ácido, una piedra de amolar y machine learning — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Leer las memorias eFuse con ácido, una piedra de amolar y machine learning</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/z33TSv9EXBQ">«DEF CON 33 - Nano Enigma: Uncovering the Secrets Within eFuses Memories - Martin, Michal Grigarik &amp; Hayan Ali»</a> · ver el <a class="nz-link" href="https://youtu.be/z33TSv9EXBQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los eFuses son componentes electrónicos de dos puntos que se queman cuando la corriente supera un umbral, y por eso sirven como memoria one-time programmable: un bit que pasa de 0 a 1 no puede volver a 0. Esa propiedad se aprovecha para deshabilitar interfaces de depuración, activar Secure Boot y guardar sus llaves públicas. Pero algunos fabricantes dan un paso más y guardan ahí información que requiere confidencialidad: llaves de cifrado de memoria flash y contraseñas de depuración. La defensa habitual es el apilamiento (layering) de capas del chip: si la memoria eFuse vive en la capa más profunda, no es observable directamente, apoyándose en el supuesto de que retirar capas es un proceso complejo y caro.</p>
+<p>El equipo de testing de seguridad de sistemas embebidos de Accenture en Praga —Martin (reverse engineering), Michal Grigarik y Hayan Ali (este último por video pregrabado, con el chip a 3 a.m. de Praga)— demostró lo contrario sobre un ESP32 de Espressif, con técnicas aplicables a cualquier chip con memoria eFuse: decapsulado químico, delayering con piedra de amolar y láminas de diamante, microscopio electrónico y un modelo de detección de objetos que automatiza la lectura de los 4.096 bits. Resultado: la llave de cifrado del flash extraída y el firmware cifrado descifrado en vivo.</p>
+<h2>Del encapsulado epoxi a la oblea desnuda</h2>
+<p>La decapsulación extrae la placa de silicio del encapsulado epoxi; las cuatro vías básicas son térmica (soplete o pistola de calor), química (ácido concentrado), láser (riesgoso: fácil de quemar la placa por deposición de calor) y plasma (gas ionizado con grabado selectivo). Eligieron la química: ácido concentrado al 96% calentado a unos 120 °C, combinable con ablación láser para acortar la exposición del chip al ácido — el láser retira la mayor parte del encapsulado y el ácido disuelve el resto.</p>
+<p>Con la oblea expuesta queda el delayering, porque las capas superiores llevan metalización que tapa las estructuras internas. Las opciones van de mecánica (desde ~100 dólares) a nanomaquinado con haz de iones (máxima precisión, precio máximo), pasando por ablación láser de femtosegundos (desde 50.000 dólares). Su elección: pulido mecánico con piedra húmeda de 8.000 grit — deslizar el silicio con el dedo, con la paciencia de dominar la presión justa (Michal la dominó al décimo sample) — seguida de láminas de pulido de diamante de grano menor a 0,5 micrones. Moraleja de costos: una máquina industrial de ~65.000 dólares produce resultados casi idénticos a una piedra y láminas compradas en AliExpress por 100 dólares.</p>
+<h2>Localizar y leer los eFuses</h2>
+<p>En el die, los circuitos lógicos ocupan la mayor parte y se descartan a simple vista; lo mismo la parte de RF. Lo que queda son rectángulos violáceos: memorias (RAM, flash y eFuses). Cada celda eFuse es un puente conductor con un punto débil — una especie de banderita triangular — menor a un micrón, un centésimo del grosor de un cabello humano.</p>
+<p>La lectura escala en dos etapas:</p>
+<ul>
+<li><strong>Microscopía óptica</strong> (~400 nm de resolución, 2.000x): suficiente para localizar el banco de eFuses — ubicado con éxito en las versiones S2, S3 y C6 — y en muestras bien preparadas, incluso distinguir a simple vista un fuse quemado de uno intacto.</li>
+<li><strong>Microscopía electrónica de barrido</strong> (~5 nm, 100.000x, en su caso un Hitachi Flex-M): aquí se distingue con claridad el estado 3D de cada fuse — se ve como un PCB en nanoescala — y se lee el bit real.</li>
+</ul>
+<p>La primera lectura fue manual, bit por bit, transcribiendo a una planilla: 10 horas por bloque de 4.096 bits y unos 20 KB acumulados antes de tener material suficiente — "una investigación forense" de verdad.</p>
+<h2>Del montón de bits a la llave</h2>
+<p>Con la imagen y los bits, faltaba el mapa entre dirección lógica y posición física. La documentación ayuda: 11 bloques de eFuse, con los bloques 0-2 reservados para uso de sistema (MAC, chip ID, configuración) y el resto programables, destinados en la práctica a las llaves de Secure Boot y de cifrado del flash. Físicamente, el bloque 0 tiene cuatro copias de respaldo (quemar un eFuse lógico quema cuatro físicos) y los bloques 1-10 usan corrección de errores Reed-Solomon (12 bytes extra por bloque) — útil cuando el pulido daña celdas, como les pasó con escombros de la piedra que abrieron "cañones gigantes" en una muestra.</p>
+<p>Los experimentos de calibración fueron progresivos: quemar 0xFF en el primer bloque localiza el bloque pero no revela asignación de bits ni orden de bytes; quemar patrones únicos con MSBs altos en cada byte permitió deducir que los bits se organizan en columnas con los bits más significativos en la porción superior, más el orden de bytes dentro de los bloques. Con eso, extraer cualquier bloque —incluida la llave del flash en el bloque violáceo que los tutoriales recomiendan— se reduce a leer coordenadas.</p>
+<h2>Automatización con machine learning</h2>
+<pre class="mermaid">
+flowchart LR
+    A[Microscopio: 200 imágenes<br/>por banco, modo zigzag] --> B[Stitching propio<br/>franja de comparación +-200 px]
+    B --> C[Imagen 34.000x12.000<br/>por banco]
+    C --> D[Tiling con overlap<br/>y resize a 300x300]
+    D --> E[MobileNet SSD en<br/>Jetson AGX Orin]
+    E --> F[Coordenadas + clase<br/>on/off + confidence]
+    F --> G[Dedup por confidence,<br/>chequeo visual <95%, DBSCAN]
+    G --> H[Arreglo 64x64 de<br/>unos y ceros]
+    H --> I[Clave de flash -><br/>firmware descifrado]
+
+</pre>
+
+<p>Como la lectura manual ya no era sostenible, Hayan Ali automatizó el pipeline. El microscopio escanea cada banco en zigzag generando ~200 imágenes de 2560x1920 con un margen teórico del 35% que en la práctica es aleatorio; la herramienta de stitching embebida produce desalineaciones, así que implementaron un método propio: definir una franja de comparación en la primera imagen y buscar la franja más similar en un área de búsqueda de ±200 píxeles en la segunda, lo que fija el margen y el desplazamiento vertical con exactitud (a costo de ~5 horas de cómputo por banco). El modelo — MobileNet SSD sobre un Jetson AGX Orin de NVIDIA, entrenado con 3.500 tiles anotados en CVAT con balance de fuses encendidos y apagados — alcanzó 99% de accuracy de detección y 97% de clasificación. La inferencia recorre 2.500 tiles por banco, agrega resultados, elimina duplicados quedándose con el mayor confidence score, marca para chequeo visual todo lo que baje del 95% y usa clustering DBSCAN para descartar outliers fuera de las columnas antes de exportar el arreglo 64x64 de unos y ceros.</p>
+<p>El demo cerró el círculo: un firmware cifrado (que imprime "Hello Las Vegas" y no contiene ningún "hello" legible) se descifró con la llave extraída de las imágenes del banco inferior y superior del chip.</p>
+<h2>Conclusiones y recomendaciones</h2>
+<ul>
+<li>Si una información necesita confidencialidad y hay elección de dónde guardarla, <strong>no va en memoria eFuse</strong>: su protección es física y por lo tanto legible. Mejor un HSM, memoria protegida por physical unclonable function o antifuses.</li>
+<li>El layering aumenta el esfuerzo —pone obstáculos entre el atacante y el dato— pero no previene la lectura. El supuesto de que el delayering es complejo y caro quedó destruido: "con una piedra, una oblea y al menos dos dedos" se hace en casa, y alquilar un microscopio electrónico unas horas en la universidad completa el kit.</li>
+<li>Contramedidas concretas si no hay alternativa: llave única por chip en lugar de una llave compartida para todos los dispositivos, y cifrar el flash siempre.</li>
+<li>Destruir el chip en el proceso no es un obstáculo si el objetivo es leer el firmware, no ejecutarlo.</li>
+<li>Nota final con guiño: la afirmación inicial de que un eFuse quemado es irreversible era "una mentira" — revertirlo es posible, pero los procesos son tan complejos y caros que quedan para otra charla. Regalaron 20 chips ESP32 decapsulados en viales para que la audiencia pruebe el delayering en casa.</li>
+</ul>
+<pre class="mermaid">
+flowchart TD
+    V[Secreto en eFuse:<br/>clave de cifrado / password debug] --> P[Protección por layering:<br/>capa inferior del die]
+    P --> A[Decapsulado químico + láser]
+    A --> B[Delayering: piedra 8.000 grit<br/>+ láminas de diamante]
+    B --> C[SEM 100.000x]
+    C --> D[ML: MobileNet SSD + DBSCAN]
+    D --> E[Secreto recuperado]
+    P -.->|"aumenta esfuerzo,<br/>no previene"| E
+
+</pre>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/z33TSv9EXBQ">«DEF CON 33 - Nano Enigma: Uncovering the Secrets Within eFuses Memories - Martin, Michal Grigarik &amp; Hayan Ali»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

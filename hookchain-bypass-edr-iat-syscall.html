@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HookChain: rodear la vigilancia del EDR sin tocar NTDLL — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">HookChain: rodear la vigilancia del EDR sin tocar NTDLL</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/0L6TlFYwy2U">«DEF CON 32 - HookChain A new perspective for Bypassing EDR Solutions - Helvio Carvalho Junior»</a> · ver el <a class="nz-link" href="https://youtu.be/0L6TlFYwy2U">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Helvio Carvalho Junior (Maverick), piloto de aviones y primer latinoamericano en obtener la OSCE³, presentó <strong>HookChain</strong>: una técnica — no una herramienta — 100% en espacio de usuario que desvía el flujo de llamadas del sistema <em>antes</em> de que llegue a NTDLL, justo donde casi ningún EDR está mirando. El insight nació jugando con sus hijos: la mayoría de los EDRs hookean NTDLL y vigilan que nadie la modifique; la respuesta no es pelear por NTDLL, sino colocarse un escalón más arriba, hookeando la tabla de importaciones (IAT) de las DLL intermedias. Probada contra el 66% de los productos del cuadrante de Gartner más otros cuatro, y con parche efectivo solo de SentinelOne hasta la fecha.</p>
+<h2>Cómo funciona la vigilancia que se quiere esquivar</h2>
+<ul>
+<li>Toda transición de usuario a kernel pasa por una sola puerta: la instrucción <code>syscall</code>, preparada por NTDLL. La aplicación llama a kernel32 → kernel32 llama a NTDLL → NTDLL coloca el <em>system service number</em> en RAX y ejecuta <code>syscall</code>; el kernel resuelve ese número en la SSDT (tabla con más de 400 entradas) y ejecuta la función real.</li>
+<li>El EDR inyecta su DLL en cada proceso y <strong>parcha en memoria las funciones de NTDLL</strong> (salto <code>jmp</code> al código del EDR): un man-in-the-middle que examina parámetros y decide si permitir la llamada, bloquearla o disparar la alerta al SOC. Un API sin hookear tiene la firma típica <code>mov r10, rcx; mov eax, &lt;SSN&gt;; syscall</code>; una hookeada, no.</li>
+<li>Los bypasses clásicos delatan por dónde vienen: <strong>remapping de NTDLL</strong> (leer la DLL del disco = sospechoso), <strong>direct syscall</strong> (llamar <code>syscall</code> desde el propio binario = sospechoso), <strong>indirect syscall</strong> (saltar a la instrucción <code>syscall</code> dentro de NTDLL, menos ruidoso pero rompe el stack trace, porque una aplicación normal nunca salta ahí directamente).</li>
+</ul>
+<h2>La idea: hookear por encima del hookeador</h2>
+<p>HookChain se apoya en <strong>HellsGate/HalosGate</strong> (que el autor usa para resolver dinámicamente los <em>system service numbers</em> incluso de funciones hookeadas, infiriendo el SSN por los vecinos no hookeados) pero da un giro: en vez de pelear contra los hooks de NTDLL, <strong>instala los suyos en la IAT</strong> de kernel32, kernelbase, user32 y compañía, escalones antes de que la llamada llegue a NTDLL.</p>
+<p>El flujo de implantación:</p>
+<ol>
+<li><strong>Mapeo de funciones críticas</strong>: se resuelven estáticamente las funciones necesarias para operar antes de haber burlado nada (leer/escribir memoria, etc.), eligiendo las que el EDR no monitorea.</li>
+<li><strong>Tabla de syscalls</strong>: 472 funciones de NTDLL mapeadas con su SSN, la dirección real de la función, la dirección de la instrucción <code>syscall</code> más cercana y la dirección del stub propio, identificadas por hash (no por nombre) para esquivar análisis estático.</li>
+<li><strong>Precarga de DLLs</strong>: un payload como Meterpreter o Havoc necesita DLLs (crypto, WinHTTP) que un ejecutable simple no carga por defecto; hay que precargarlas para poder hookear su IAT. Lección dolorosa del autor: hookear la IAT de <em>todas</em> las DLL cargadas rompe el proceso — se necesita una lista negra.</li>
+<li><strong>IAT hooking selectivo</strong>: las entradas de la tabla de importaciones se redirigen al stub de HookChain. Cuando la aplicación llama a <code>VirtualAlloc</code> vía kernel32, el flujo pasa por el stub, que arma el stack frame, coloca los parámetros en registros y ejecuta un <code>syscall</code> indirecto hacia el kernel — <strong>sin tocar un solo byte de NTDLL</strong> y sin modificar el código de la aplicación atacante: Mimikatz se ejecuta intacto.</li>
+</ol>
+<h2>Por qué evade la detección</h2>
+<ul>
+<li><strong>Telemetría de tiempos normal</strong>: el flujo completo pasa por las mismas capas que una ejecución legítima (kernel32 → kernelbase → ... → syscall), así que la duración y la secuencia no disparan heurísticas.</li>
+<li><strong>Stack frame íntegro</strong>: no se salta ningún eslabón de la pila de llamadas; no hay <code>syscall</code> desde memoria del atacante ni saltos anómalos a NTDLL.</li>
+<li><strong>NTDLL inalterada</strong>: el chequeo favorito del EDR ("¿alguien modificó NTDLL?") nunca se activa, porque HookChain opera en la IAT, un escalón antes.</li>
+<li>El propio autor midió la superficie: cerca del 90% de los EDRs hookean únicamente en NTDLL, lo que valida la ventana de la técnica.</li>
+</ul>
+<h2>Demos y resultados</h2>
+<ul>
+<li><strong>Havoc C2</strong> contra Bitdefender con Advanced Threat Protection al máximo: implantación de HookChain, descarga del payload por HTTP y obtención del beacon sin detección.</li>
+<li><strong>Mimikatz sin modificar</strong> en entorno protegido: volcado de credenciales y acceso a LSASS (con RunAsPPL y Credential Guard desactivados deliberadamente, porque el objetivo del estudio era el EDR, no Windows), incluido un dumper de LSASS escrito 100% en assembly por el autor.</li>
+<li><strong>Tabla de resultados</strong>: pruebas contra el 66% de los productos de Gartner más otros cuatro, con inyección remota de procesos, Meterpreter y Havoc como usuario sin privilegios. <strong>SentinelOne fue el único capaz de frenar HookChain</strong> tras un parche (el autor lo verificó); Trend Micro trabajaba aún en su detección tres semanas antes de la divulgación; el resto no respondió ni parchó. Detalle revelador: el autor ofreció acceso anticipado a todos los vendors por carta y nadie contestó hasta que la técnica se hizo pública en LinkedIn.</li>
+<li>Los entornos de prueba se armaron gracias a la comunidad brasileña de seguridad, que prestó licencias y ambientes reales cuando los fabricantes se negaron.</li>
+</ul>
+<h2>Ideas clave</h2>
+<ul>
+<li><strong>El EDR vigila donde él mismo hookea</strong>: si el 90% de los productos instala sus interceptores en NTDLL, un escalón más arriba (IAT de las DLL intermedias) queda fuera de su modelo de amenaza.</li>
+<li><strong>La evasión de calidad imita la normalidad</strong>: no se trata de esconderse del <code>syscall</code> sino de recorrer el mismo camino que cualquier proceso legítimo, con stack y tiempos intactos.</li>
+<li><strong>Reutilizar lo que funciona</strong>: HellsGate/HalosGate resuelve los SSN dinámicamente; HookChain los consume en un punto distinto del pipeline.</li>
+<li><strong>Hookear con criterio</strong>: la IAT de todas las DLL cargadas destruye el proceso; la selección con lista negra es parte del diseño.</li>
+<li><strong>El whitepaper, el código fuente y los contactos están públicos</strong>: la investigación se publicó completa para que los defensores la estudien, y al menos un vendor (SentinelOne) ya cerró la brecha — la ventana del resto sigue abierta.</li>
+<li><strong>No hay bala de plata en ningún sentido</strong>: ni el EDR más caro del cuadrante garantiza protección, ni HookChain es invencible — es una técnica concreta con limitaciones explícitas (x64, hooks de NTDLL en userland) y un contramedida conocida.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/0L6TlFYwy2U">«DEF CON 32 - HookChain A new perspective for Bypassing EDR Solutions - Helvio Carvalho Junior»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

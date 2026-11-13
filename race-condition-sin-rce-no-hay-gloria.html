@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Condition: sin RCE no hay gloria — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Race Condition: sin RCE no hay gloria</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AEkq4ARmsyI">«Race Condition, sin RCE no hay gloria. - Matias Ramirez - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/AEkq4ARmsyI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La historia de un bug bounty que empieza con una decepción y termina en un P1 con RCE. Un consultor de seguridad de Versprite —con pocas horas libres, scans automatizados que solo daban duplicados y más de una semana abandonada— encontró en una aplicación SaaS una condición de carrera en el sistema de gestión de usuarios que permitía elevar privilegios hasta System Administrator. Y como todo lo que se eleva puede llegar más lejos: comparando la versión SaaS con la on-premise del mismo producto, usó la escalada para modificar el tipo de licencia de la instancia en la nube y ejecutar comandos dentro de un contenedor de Kubernetes.</p>
+<p>El relato incluye un manual tácito de cómo elegir un programa para poder mantener la constancia, la anatomía exacta de la falla (validaciones que se aplican una a una pero se evaden cuando los requests viajan juntos), y una moraleja para cazar bugs: el conocimiento de una semana abandonada vale dos horas de una noche aburrida.</p>
+<h2>El camino hasta el programa</h2>
+<p>Pocos bugs, con giros. El primero de la historia: un duplicado, como tiene que ser. En una aplicación SaaS se podía crear múltiples deploys saltándose la restricción de uno solo por cuenta free —la validación existía solo del lado del cliente—. Ya lo habían reportado en 2017 y todavía no lo arreglaban: primera experiencia en bug bounty, decepción pura. La segunda, en 2022, tras visitar el espacio de bug bounty de la conferencia: el domingo siguiente a la vuelta a casa, un primer bounty válido —un bypass de captcha tan simple como remover el parámetro y poder crear muchas cuentas—. En 2023, cambio de trabajo y poco tiempo. Y siempre el mismo desafío: uno ve los magníficos críticos que otros sacan y dice "yo también quiero un P1".</p>
+<p>Ese objetivo exigió resolver primero la constancia, el problema de fondo: dedicarle una semana, dos, un mes a un programa hasta que empiezan a salir los bugs. Las herramientas automatizadas y los scans no servían: mucha gente haciendo lo mismo, duplicados garantizados. La solución fue definir qué sí funcionaba para esta persona y buscar un programa acorde:</p>
+<ul>
+<li><strong>No blackbox.</strong> La actividad cotidiana ya era pentesting blackbox; de nada servía repetirla. Hacía falta una modalidad donde se supiera si lo que se busca tiene sentido o no.</li>
+<li><strong>Un producto que interese.</strong> Muchas plataformas no generan interés y la constancia se derrumba.</li>
+<li><strong>Muchas funcionalidades</strong>, y sobre todo <strong>gestión de múltiples usuarios y permisos</strong>: donde históricamente funcionaba bien la caza de broken access control.</li>
+</ul>
+<p>El programa apareció el 6 de junio de 2023: un producto SaaS <strong>y</strong> on-premise, desarrollado en C#. No era open source, pero la versión on-premise daba acceso a los binarios y a los logs —y con DNSpy el reversing del código C# es bastante legible, nada que ver con desensamblar—. Los high se pagaban de 2.000 a 3.000 dólares y los critical, 6.000. Una semana completa mirando cómo funciona la aplicación... y se abandonó. Pero se aprendió y se divirtió.</p>
+<h2>Qué es una condición de carrera</h2>
+<p>Definición de diccionario: ocurre cuando dos o más procesos o hilos acceden o modifican un recurso de manera simultánea. El ejemplo clásico de PortSwigger: una aplicación entrega crédito mediante un código de uso único. Se usa el código y ya no puede volver a usarse. Pero si se envían múltiples solicitudes al mismo tiempo, la base de datos no alcanza a invalidar el código entre consulta y consulta: de cinco requests simultáneos, tres devuelven "código válido". En vez de una gift card de 10 dólares, 30.</p>
+<p>Hay varios ejemplos en HackerOne. Uno de Hacker 101 permitía enviar el flag de un CTF más de una vez y reclamar la resolución del reto repetidamente. Lo calificaron de low —la flag estaba asociada a un hash y no daba más puntos—, pero lo arreglaron igual y recompensaron igual. El detalle distintivo de lo que viene ahora: la condición de carrera afectaba al manejo de usuarios, y permitía elevar privilegios.</p>
+<h2>La vulnerabilidad: validaciones que viajan juntas</h2>
+<p>La aplicación afectada permite administrar roles, equipos y usuarios. El máximo nivel de privilegio es <strong>System Administrator</strong> —puede cambiar configuraciones específicas de la aplicación—, por debajo está el <strong>System Manager</strong> —un admin de bajos privilegios—, y debajo, el resto de los usuarios. La jerarquía de asignación es: se crean roles, se asignan roles a equipos y usuarios a esos equipos.</p>
+<p>El camino feliz, hecho a mano, mostraba una cadena con un único eslabón bloqueado:</p>
+<ol>
+<li>Crear un rol y asignarle el permiso de System Administrator → <strong>permitido</strong>.</li>
+<li>Asignar ese rol a un nuevo equipo → <strong>permitido</strong>.</li>
+<li>Asignar un usuario a ese equipo con el rol de máximos privilegios → <strong>error</strong> (el propio usuario no tenía privilegios para hacerlo).</li>
+</ol>
+<p>Todo lo anterior capturado con Burp. Y acá entra la jugada: enviar al Repeater los tres requests —agregar el usuario al equipo, agregar el rol al equipo, dar el privilegio de System Administrator al rol— y dispararlos <strong>en paralelo</strong>, con la funcionalidad de envío grupal simultáneo de Burp Suite. Como todas las solicitudes llegaron juntas, el servidor no alcanzaba a validar que el equipo tenía el permiso de System Administrator: todo respondió OK y el usuario terminó dentro del equipo con máximos privilegios.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante (Repeater en paralelo)
+    participant S as Servidor
+    A->>S: Agregar usuario al equipo nuevo
+    A->>S: Asignar rol al equipo nuevo
+    A->>S: Dar permiso System Administrator al rol
+    Note over S: Ninguna validación alcanza a ver el estado final
+    S-->>A: OK · OK · OK
+    Note over A: Usuario dentro de un equipo con máximos privilegios
+
+</pre>
+
+<p>Reporte a las cuatro de la mañana. Cuatro días después, el primer triager pide más información para reproducir. Ocho días después del primer envío, otro triager confirma: reproducible, válido, <strong>P2, high</strong>. Ya había motivo para estar contento. Pero como la respuesta se demoraba, siguió indagando.</p>
+<h2>De P2 a P1: del privilegio elevado al RCE</h2>
+<p>La aplicación corre de dos maneras: como servicio SaaS en infraestructura del desarrollador, o on-premise en la del cliente. Y las versiones difieren en una funcionalidad: en la on-premise, con los máximos privilegios, se puede <strong>ejecutar comandos en el host</strong> —intencional, pensado para clientes que quieran hacerlo—. En la SaaS está bloqueado, por algo: todo corre en un entorno compartido y no quieren que nadie ejecute comandos en esas instancias.</p>
+<p>La pregunta fue qué validación hacía el bloqueo. El programa decía que SaaS y on-premise comparten el mismo código. Entonces la validación tenía que estar en el software on-premise, que se podía descargar y analizar con DNSpy: buscar el string del mensaje de error que mostraba la aplicación y llegar a la lógica. La validación: si el tipo de licencia que ejecuta el software es de tipo <strong>cloud</strong>, aparece el mensaje de que no se puede.</p>
+<p>Y la escalada de privilegios ya obtenida era exactamente el permiso faltante: un usuario menos privilegiado no puede editar la configuración de la licencia, pero un System Administrator sí. Se tomó la licencia on-premise de la instancia local, se cargó en la instancia SaaS, se ajustaron configuraciones —y comandos ejecutándose en la aplicación. Corría Kubernetes, en un contenedor, con usuario root, y a la vista quedaba la API key de admin que originalmente no era visible. Ahí hay que parar: si esto hubiera sido un pentest, seguiría la exploración lateral, otros contenedores, otras bases de datos. No lo era: corte, reporte.</p>
+<p>Reporte el 18 de febrero con la nota "esto escala, esto es más grave". Cambiaron la severidad: <strong>P1, 40 puntos</strong> y un jugoso bounty. Entre el primer reporte y el triage con pago, casi un mes.</p>
+<h2>Lecciones del relato</h2>
+<ul>
+<li><strong>La falla era doble:</strong> una condición de carrera explotada sobre una mala lógica de negocio. La aplicación permitía crear un rol con System Administrator y asignarlo a un equipo, pero frenaba al agregar el usuario. Esa inconsistencia fue la que hizo clic con la idea de la carrera.</li>
+<li><strong>El paralelismo es una herramienta, no un truco:</strong> las validaciones individuales existían y funcionaban; simplemente no estaban diseñadas para requests simultáneos. Burp y su envío grupal en paralelo —aprendido, según cuenta, en una de las pocas exposiciones sobre race condition vistas en el espacio de bug bounty— hicieron el resto.</li>
+<li><strong>La constancia se diseña:</strong> elegir el programa según lo que uno hace bien (acceso a código, gestión de usuarios y permisos, un producto que interese) y no según el monto del bounty. La semana abandonada de 2023 no fue tiempo perdido: fue la base de las dos horas de febrero de 2024 en que apareció el bug.</li>
+<li><strong>Compartir código entre SaaS y on-premise es una pista:</strong> si ambas versiones corren el mismo software, toda validación de la versión local es analizable, y toda funcionalidad bloqueada en la nube tiene su llave en algún lugar del binario. La escalada de privilegios abrió la puerta; la licencia on-premise abrió la siguiente.</li>
+<li><strong>El RCE es la gloria:</strong> elevar privilegios ya pagaba un high, pero escalar a ejecución de comandos —en un contenedor, como root, dentro del entorno compartido de la víctima— es lo que convierte un P2 en un P1.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Race condition (condición de carrera):</strong> múltiples hilos o procesos accediendo simultáneamente a un recurso; explotación de la ventana entre consulta y actualización de la base de datos.</li>
+<li><strong>Envío de requests en paralelo con Burp Suite (Repeater):</strong> grupo de solicitudes disparadas simultáneamente para ganar la carrera contra la validación del servidor.</li>
+<li><strong>Broken access control:</strong> manejo indebido de roles, equipos y permisos en la gestión de usuarios.</li>
+<li><strong>Escalada de privilegios:</strong> obtención del rol de System Administrator mediante la condición de carrera.</li>
+<li><strong>Reversing con DNSpy:</strong> análisis del código C# de la versión on-premise (binarios accesibles, código legible) para localizar la validación por tipo de licencia.</li>
+<li><strong>Comparación SaaS vs on-premise:</strong> detección de funcionalidades asimétricas entre modalidades del mismo producto; licencia on-premise aplicada a la instancia cloud para habilitar la ejecución de comandos.</li>
+<li><strong>RCE (Remote Code Execution):</strong> ejecución de comandos en el host; en la instancia SaaS, sobre un contenedor de Kubernetes con usuario root y visibilidad de la API key de admin.</li>
+<li><strong>Bug bounty workflow:</strong> elección de programa (no blackbox, producto de interés, gestión multiusuario), constancia, reporte temprano y escala de severidad (P2 high → P1 critical, 40 puntos).</li>
+<li><strong>Herramientas y referencias:</strong> Burp Suite, DNSpy, PortSwigger (ejemplo de gift card), HackerOne, Hacker 101.</li>
+<li><strong>Entorno:</strong> aplicación SaaS y on-premise sobre Kubernetes (contenedor, entorno compartido multi-tenant).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las validaciones de negocio que funcionan una a una pueden evitarse en bloque: si la cadena rol → equipo → usuario se controla paso a paso pero no de forma atómica, enviar los tres requests juntos convierte tres "no" en tres "OK".</li>
+<li>El privilegio elevado rara vez es el techo. En productos que comparten código entre SaaS y on-premise, cada bloqueo de la nube tiene su llave analizable en el binario local; aquí, el permiso de editar la licencia fue el paso intermedio hasta la ejecución de comandos.</li>
+<li>El impacto manda en la clasificación: una condición de carrera en la gestión de usuarios valía un high; combinada con el RCE en un entorno compartido, escaló a crítico con 40 puntos.</li>
+<li>Para sostener el bug bounty conviene jugar con ventaja: elegir programas donde el acceso a binarios y logs reemplace a la caza a ciegas, y donde las funcionalidades de usuarios y permisos —territorio del broken access control— sean abundantes.</li>
+<li>El tiempo invertido nunca se pierde del todo: una semana de exploración abandonada en 2023 fue el mapa mental que permitió encontrar el bug en dos horas, una noche de febrero de 2024, desde el sofá de la casa de un papá.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AEkq4ARmsyI">«Race Condition, sin RCE no hay gloria. - Matias Ramirez - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

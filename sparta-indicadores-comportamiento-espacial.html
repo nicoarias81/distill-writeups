@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SPARTA e indicadores de comportamiento: cómo detectar intrusiones a bordo de una nave espacial — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">SPARTA e indicadores de comportamiento: cómo detectar intrusiones a bordo de una nave espacial</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/UL_c4K5dTuc">«DEF CON 33 - Hacking Space to Defend It: Generating IoBs with SPARTA - Brandon Bailey»</a> · ver el <a class="nz-link" href="https://youtu.be/UL_c4K5dTuc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Defender un vehículo espacial a nivel cibernético tiene un problema de raíz: casi no existen naves con capacidades de detección de intrusiones, y el historial de ataques reales es tan pequeño —poco más de una docena de casos— que no alcanza para construir defensas basadas solo en lo que ya pasó. SPARTA, publicado en octubre de 2022 por Aerospace Corporation siguiendo el molde de MITRE ATT&amp;CK, ataca ese vacío: es un modelo de amenazas "de punta a punta" para sistemas espaciales que cubre desde guerra electrónica y ASATs hasta ciberataques, con foco fuerte en lo cyber. A diferencia de ATT&amp;CK, que documenta retroactivamente lo que hicieron atacantes reales, SPARTA también proyecta y teoriza lo que un atacante podría hacer, porque el dataset de ataques espaciales no existe todavía.</p>
+<p>El aporte más reciente es la adopción de los <em>Indicators of Behavior</em> (IOBs), un concepto relativamente nuevo del estándar STIX de OASIS. Mientras los IOC clásicos (hashes de archivos, dominios, IPs) capturan los "conocidos conocidos" de un malware, los IOBs operan a un nivel de abstracción más alto y probabilístico: describen patrones de comportamiento. Ese nivel de abstracción es justo lo que necesita un operador de naves que sabe que debería buscar intrusiones pero no sabe qué mirar.</p>
+<p>Con financiación de la Dirección de Ciencia y Tecnología del Department of Homeland Security, en abril se publicaron unos 200 IOBs derivados de las técnicas SPARTA más peligrosas, impactantes y probables, todos validados experimentalmente contra gemelos digitales, flat-sats y más de una década de pruebas de penetración sobre sistemas espaciales reales.</p>
+<h2>De la inteligencia de amenazas a la ingeniería de detección</h2>
+<p>SPARTA existe para empujar el lado azul: tomar inteligencia de amenazas, descomponerla en técnicas, y de ahí bajar hasta contramedidas y hasta requisitos con formato "shall" para ingeniería de sistemas de naves. El sitio (sparta.aerospace.org) incluye hoy una sección de indicadores de comportamiento bajo "related work"; al hacer clic en cualquier técnica individual aparece una pestaña de IOBs junto a contramedidas y requisitos, con la promesa concreta: si una nave implementa esa técnica como vector de ataque, la expresión STIX asociada debería permitir detectarlo.</p>
+<pre class="mermaid">
+flowchart LR
+    TI[Inteligencia de amenazas] --> T[Tecnicas SPARTA ~215]
+    T --> IOB[~200 IOBs en STIX]
+    IOB --> D[Detecciones / IDS]
+    T --> C[Contramedidas]
+    T --> R[Requisitos shall]
+    C --> R
+
+</pre>
+
+<p>La derivación no fue teórica: el equipo atacó sistemas en varios niveles de realismo (gemelos digitales como NOS3, flat-sats) y se apoyó en años de pen-testing espacial y evaluación de sistemas en NASA. De las ~215 técnicas del catálogo, la primera hornada de indicadores salió de las más críticas, no de la totalidad.</p>
+<h2>Diez categorías de comportamiento sospechoso</h2>
+<p>Los 200 indicadores se organizaron en diez categorías que van de lo más simple de detectar a lo más difícil:</p>
+<ol>
+<li><strong>Comando no autorizado y anómalo</strong> — instrucciones que la nave nunca debería recibir.</li>
+<li><strong>Uso criptográfico</strong> — manipulación de claves, uso de crypto anómalo, bypasseo de cifrado.</li>
+<li><strong>Explotación de red y seguridad de comunicaciones</strong>.</li>
+<li><strong>Integridad y autenticación de señales RF</strong>.</li>
+<li><strong>Tiempo y GNSS/GPS</strong> — spoofing de tiempo, la misma materia prima de la que vive la navegación terrestre.</li>
+<li><strong>Memoria y utilización de recursos</strong> a bordo.</li>
+<li><strong>Watchdogs y registros</strong> — estados del procesador que nunca deberían verse.</li>
+<li><strong>Integridad de software</strong> — parches no autorizados e implants.</li>
+<li><strong>Manipulación de sensores y agotamiento de recursos</strong>.</li>
+<li><strong>Integridad de datos</strong>.</li>
+</ol>
+<p>La lógica del orden: los ataques que se manifiestan en comandos y señales son más fáciles de detectar; los que alteran software y datos son los más difíciles.</p>
+<p>Cada indicador se comunica en STIX, el estándar de threat intelligence de OASIS. Un hallazgo del proceso: STIX es muy estricto con sus observables y gran parte de lo que pasa dentro de una nave (telemetría, tráfico de bus, comportamiento de subsistemas) no tiene representación en el estándar. Por eso existe hoy un esfuerzo conjunto con OASIS y Space ISAC para extender STIX con observables espaciales. Los IOBs se escriben deliberadamente genéricos: dan la información suficiente para que cada fabricante los derive según su implementación, porque las detecciones en una nave no salen solo de logs de seguridad sino de telemetría, tráfico de bus y comportamiento de subsistemas.</p>
+<h2>Validación: NOS3, Space Cop y un implant con ransomware</h2>
+<p>Para probar que la teoría escala, primero hubo que construir un IDS. El resultado se llamó <em>Space Cop</em> (el primer nombre candidato, "Star Shield", lo apropió SpaceX para un contrato del DoD), y implementa unas 30 de los 200 indicadores. Sobre NOS3 —el gemelo digital open source de NASA, construido en la misma instalación donde trabajaban los autores— el equipo atacó el sistema y verificó que las detecciones disparan.</p>
+<p>Un experimento básico ilustra el modelo: un comando enviado desde la estación terrena salta el reloj de la nave por encima de un delta permitido, simulando lo que en RF sería un spoofing de señal de tiempo. En telemetría aparece el indicador y la detección se activa. El detalle incómodo: en un escenario real, el ataque podría haberse ejecutado quince minutos antes — solo cuando la telemetría baja en el downlink aparece la evidencia.</p>
+<p>La pregunta siguiente era de escala: los indicadores son genéricos y una nave real tiene decenas de miles de mnemónicos de telemetría. Mapear 200 indicadores a mano sería eterno. Una misión real resolvió el problema automatizando la traducción con técnicas de IA/ML: los 200 IOBs quedaron mapeados a unos 90.000 mnemónicos. La validación se hizo con DARS, un IDS de Aerospace desarrollado en tierra que monitorizaba interferencia de señales y GPS y ahora incorpora detección de intrusión cibernética.</p>
+<p>La prueba más dura fue un ataque avanzado: <em>Blackout</em>, una aplicación CFS (Core Flight System de NASA) maliciosa escrita como implant, subida a la nave simulando un update malicioso o una inyección de supply chain — embebida en una app existente o como app propia. La herramienta de explotación <em>Space Invader</em> (SPARTA Cyber Exploiter Invader), que actúa como estación terrena pícara y man-in-the-middle capaz de interceptar, modificar, suplantar datos y jamming, se comunicó con el implant. El resultado: al tocar disco en una zona donde nunca debería aparecer un archivo, la detección disparó por determinismo puro; al ejecutar el ransomware que cifraba archivos, cada comando anómalo que ejecutaba quedaba marcado.</p>
+<h2>Detectar no es mitigar</h2>
+<p>Ahí aparece la advertencia central. El control loop de una nave es tan lento que para cuando la telemetría baja, se analiza y se decide un comando de respuesta, el daño ya está hecho. En muchos de los ataques ensayados, el vehículo quedó irrecuperable. La conclusión operativa: ante los indicadores más peligrosos, hay que responder en el mismo momento de la detección, sin ciclo humano de por medio.</p>
+<p>La propuesta es integrar la respuesta autónoma con el fault management: una intrusión se comporta como un fallo más, solo que invocado por un actor. Las naves ya gestionan fallos ambientales de forma autónoma; la seguridad debería entrar por la misma puerta. Esa tesis —con paper propio de 2019 de por medio— lleva años sobre la mesa de Aerospace Corp y empieza a calar en la industria.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SPARTA</strong> — modelo de amenazas para sistemas espaciales basado en MITRE ATT&amp;CK, con técnicas, contramedidas y requisitos.</li>
+<li><strong>Indicators of Behavior (IOBs)</strong> — indicadores probabilísticos de comportamiento del estándar STIX (OASIS), a diferencia de los IOC basados en artefactos.</li>
+<li><strong>STIX / OASIS / Space ISAC</strong> — estándar de threat intelligence en proceso de extensión con observables espaciales.</li>
+<li><strong>NOS3 (NASA Open Source Software cubic goods / digital twin)</strong> — simulador ground-to-space open source de NASA usado como banco de pruebas.</li>
+<li><strong>Space Cop</strong> — IDS para naves que implementa 30 de los 200 IOBs.</li>
+<li><strong>Space Invader (SPARTA Cyber Exploiter Invader)</strong> — herramienta de pen-testing: estación terrena pícara y man-in-the-middle (intercepta, modifica, suplanta, jamma).</li>
+<li><strong>Blackout</strong> — aplicación CFS maliciosa tipo implant usada para validar detecciones de malware a bordo.</li>
+<li><strong>DARS</strong> — IDS de Aerospace en tierra, extendido con detección de intrusión cibernética; mapeó los 200 IOBs a ~90.000 mnemónicos.</li>
+<li><strong>CFS (Core Flight System)</strong> — arquitectura de software de vuelo de NASA, base del experimento de aplicación pícara.</li>
+<li><strong>Fault management (FMS)</strong> — gestión de fallos de la nave, modelo propuesto para integrar respuesta cibernética autónoma.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los IOBs cierran el eslabón que faltaba entre el modelo de amenazas SPARTA y la construcción real de detección: 200 indicadores en STIX, derivados de las técnicas más críticas y validados contra gemelos digitales y flat-sats.</li>
+<li>El mapeo a misiones reales es viable y automatizable: IA/ML bastó para traducir 200 indicadores genéricos a ~90.000 mnemónicos de una misión concreta.</li>
+<li>La detección de malware avanzado a bordo (implants, updates maliciosos, ransomware) funciona, pero la ventana de reacción es casi nula: detección no es mitigación.</li>
+<li>El futuro de la ciberdefensa espacial pasa por respuesta autónoma integrada con fault management, no por forense y comando diferido desde tierra.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/UL_c4K5dTuc">«DEF CON 33 - Hacking Space to Defend It: Generating IoBs with SPARTA - Brandon Bailey»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

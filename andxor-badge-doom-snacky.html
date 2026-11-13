@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo fabricar un badge que ejecuta Doom y una máquina de snacks hackeable — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cómo fabricar un badge que ejecuta Doom y una máquina de snacks hackeable</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/OkVNbL7gysI">«DEF CON 32 -  How we built our REDACTED THING this year, 5n4ck3y, &amp;&amp; AMA Badge Panel -  AND!XOR»</a> · ver el <a class="nz-link" href="https://youtu.be/OkVNbL7gysI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El equipo AND!XOR, con nueve años de experiencia fabricando badges, abre el formato como panel comunitario —un town hall con interrupciones bienvenidas, no una charla— para contar cómo se construyó el badge del año: una réplica de consola portátil nostálgica que ejecuta Doom sobre un Raspberry Pi Pico (RP2040) con doble overclock a 192 MHz, y cómo se puso en marcha "Snacky", una máquina expendedora de snacks de 800 libras reconvertida en el corazón del CTF del equipo.</p>
+<p>La crónica alterna el placer del resultado (un badge con LEDs que reaccionan al juego, un WAD libre y recortado para sistemas embebidos, una máquina vending con GPIO, PoE y pantalla marquee) con la realidad del proceso: 14.000 LEDs resoldados a mano durante semanas, piezas equivocadas atrapadas en la tormenta perfecta de logística global, y una máquina con ASICs propietarios que solo se entiende invirtiendo el flujo de corriente de sus motores.</p>
+<h2>Hardware: Game Boy sobre RP2040</h2>
+<p>La decisión de encapsular el badge en el case de una consola retro fue en parte accidental —una compra equivocada de cases "Color" que el equipo decidió aceptar—, y su balance final es ambiguo: la carcasa es ergonómica y sus muesras evitan montajes al revés, pero el ensamblaje exige 19 piezas y pasos en secuencia exacta, un proceso que no escala y que incluso al equipo le pesó.</p>
+<p>Los detalles de ingeniería que resolvieron el camino:</p>
+<ul>
+<li><strong>Sin tarjetas SD</strong>: tras malas experiencias previas, el almacenamiento es Winbond flash soldada.</li>
+<li><strong>Baterías Li-ion en formato AA</strong>: el factor de forma limita a dos celdas, y el RP2040 con doble overclock consume tanto que las pilas alcalinas no alcanzan a alimentarlo. Un aviso en la carcasa previene insertar pilas comunes; el circuito de carga requirió las revisiones 2 y 3 para estabilizarse.</li>
+<li><strong>A/B invertidos</strong>: el bug más risueño —los botones A y B quedaron intercambiados porque las vistas de la herramienta de diseño (EDA) invierten la orientación— no se detectó hasta que el firmware estaba avanzado y parecía que el motor del juego estaba roto.</li>
+<li><strong>Bootselect accesible</strong>: los botones de modo boot quedaron ocultos bajo el case, inalcanzables para quien flashea firmware cien veces al día. La solución elegante: programar una "magic baud rate" —conectar a 1337 baudios por serial reinicia la placa en modo bootselect—, un truco aplicable a toda la línea RP2040 y Pico que agiliza cualquier toolchain de desarrollo.</li>
+</ul>
+<h2>Doom embebido: chocolate, WADs y pollos de goma</h2>
+<p>Elegir Chocolate Doom como base no es capricho: los motores "limit-removing" y los WADs modernos asumen recursos que un microcontrolador no tiene. Sobre una variante de Chocolate Doom portada a hardware embebido, el equipo acumuló técnicas de ahorro: asignación estática de variables (menos RAM, más CPU), renderizado por scanlines —solo hay memoria para pintar el 70-80% del frame—, un HUD estático que evita redibujar, y una API de control reescrita que conecta el estado del juego con los LEDs: se encienden en rojo al recibir daño, en blanco al disparar, y muestran munición y salud en un anillo lateral.</p>
+<p>El contenido del juego es un trabajo propio sobre Freedoom, el reemplazo libre de los assets de Doom. El original es propietario —el motor se liberó, pero no los gráficos ni los niveles—, y Freedoom tal cual depende de features de motores modernos y empaqueta Doom, Doom 2 y Hexen: demasiado para una flash de 8 MB. La solución es un WAD (de "Where's All the Data", el formato con "lumps" que Doom usa para empaquetar assets) recortado, sin contenido de Doom 2 ni Hexen, y una promesa concreta: publicar ese fork de Freedoom como proyecto libre optimizado para embebidos.</p>
+<p>Herramientas del pipeline: Slade para editar WADs (con la advertencia de que sus direcciones de memoria son fragiles —un simple orden de entradas puede romper el juego—, propiedad que además vuelve al WAD un contenedor ideal para esconder retos), Ultimate Doom Builder para mapas, Krita/Inkscape para sprites, y conversiones MIDI→MUS que terminaron dentro de Slade después de armar sin necesidad un toolchain con DOSBox. Y para animar el arma de pollo de goma, la técnica casera que el equipo recomienda: grabarse golpeando objetos contra la pared y extraer fotogramas —stop-motion inverso—. Los WADs propios son técnicamente PWADs (parches que sobreescriben assets en memoria), y en un sistema sin filesystem solo cabe uno: tocar el WAD base es herejía en la comunidad de Doom, pero aquí la memoria era el límite duro.</p>
+<h2>La tormenta logística de los LEDs</h2>
+<p>La lección de gestión del año: el feature creep se come el slack. El calendario habitual dejaba margen desde mayo, pero huracanes, tornados y un tifón devoraron cada reserva. El golpe llegó con la confirmación de la fábrica: los LEDs especificados tenían 8 pads y los recibidos 6 —piezas incompatibles, sin reemplazo inmediato—, el mismo día del desastre global de CrowdStrike.</p>
+<p>El periplo de las unidades de reemplazo es cómico si no fuera real: cinco viajes internacionales (Taiwán → San Dimas → Houston → Dallas y de vuelta), DHL detenido por un tifón, USPS desviado a una ciudad a tres horas del destino, y el hub de Louisville cerrado por tornados. Unas 30.000 millas de vuelo por unos LEDs. El equipo terminó refloweando y soldando a mano —20 horas al día, turnos nocturnos, garajes y cuartos de hotel— 14.000 LEDs. Los últimos ~100 badges vendidos llevan puntos amarillos y algún LED muerto: "corre Doom, parpadea un poco, la gente igual los quiere". El remedio colectivo: un taller improvisado con las placas falladas para que cualquiera aprenda a soldar y se lleve su badge reparado.</p>
+<h2>Snacky: ingeniería inversa de una máquina expendedora</h2>
+<p>El CTF gira alrededor de Snacky, una máquina de redención (FSI, modelo de la serie 3159) comprada a una tienda que cerraba en Houston y transportada a 6 mph en un trailer de 4x8. La primera decisión de diseño correcta: casters estándar —la máquina es de las pocas piezas de mobiliario que los acepta de fábrica— para mover 800 libras con dos personas.</p>
+<p>La máquina es un blank criptográfico: el mundo de las máquinas de redención no publica documentación, y el firmware original corre sobre ASICs custom y lógica glue imposible de auditar. El enfoque fue evitar la placa original por completo y recrear sus señales:</p>
+<ul>
+<li><strong>Motores de dispensado</strong>: un motor DC con matriz de alta y baja corriente y un switch que no cuenta rotaciones, como se asumiría, sino que dispara un pico de corriente al activarse. La placa original no lee el switch: detecta los pulsos de corriente. El reemplazo (dos Arduino Mega —todo lo que había en el cajón durante la crisis de suministro—) replica esa señal para que la mecánica original siga funcionando.</li>
+<li><strong>Periféricos</strong>: teclado, display y impresora térmica invertidos y reconstruidos con una placa propia; la impresora fue subastada en eBay por $69 de un listado de $200.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A["Máquina FSI original\nASICs + lógica glue"] --> B["Ingeniería inversa\nseñales de motor/periféricos"]
+    B --> C["Placa propia\n2x Arduino Mega"]
+    C --> D["CTF Snacky\nhardware + retos RF/Morse"]
+
+</pre>
+
+<p>En su segundo año, Snacky creció con base en lo aprendido: hardwire en vez de Wi-Fi, un PC x86 en lugar del Raspberry Pi original, teclado KVM, pantalla marquee superior para GIFs y videos, impresora térmica mejorada, altavoz, PoE switch para expansión futura y arquitectura USB modular que permite sumar periféricos sin rediseñar. La deuda técnica reconocida: un único script Python monolítico que pide refactor.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La comunidad es el producto</strong>: el badge existe para dar algo que jugar, el CTF para generar conversación, y hasta los paneles fallidos (micrófonos muertos, energía intermitente) se integran al formato de town hall.</li>
+<li><strong>El diseño embebido obliga a elegir con culpa</strong>: overclock como trade de CPU por RAM, HUD estático, render parcial por scanlines, un solo WAD en flash —cada decisión sacrifica algo para que Doom quepa.</li>
+<li><strong>Los detalles de la herramienta de diseño pueden esconder bugs de fabricación</strong> (vistas de EDA invertidas) y los bootstraps de hardware merecen planificación desde el día uno, no cables soldados a último momento.</li>
+<li><strong>La logística global es un enemigo peor que el código</strong>: proveedores equivocados, desastres naturales y compañías de envío en cascada pueden arruinar un proyecto mejor gestionado.</li>
+<li><strong>La ingeniería inversa de hardware propietario se logra a veces observando física, no firmware</strong>: los pulsos de corriente de un motor bastan para replicar el comportamiento de una máquina sin entender su ASIC.</li>
+<li><strong>Perseverar es comunitario</strong>: enseñar a soldar a quienes nunca tocaron un cautín y regalar las placas rotas para que alguien las repare es parte del diseño.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/OkVNbL7gysI">«DEF CON 32 -  How we built our REDACTED THING this year, 5n4ck3y, &amp;&amp; AMA Badge Panel -  AND!XOR»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

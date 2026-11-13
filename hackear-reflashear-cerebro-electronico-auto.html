@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hackear y reflashear el cerebro electrónico del auto: reversing de ECUs desde el hobby hasta el banco dinamométrico — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hackear y reflashear el cerebro electrónico del auto: reversing de ECUs desde el hobby hasta el banco dinamométrico</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/yKLZhlKBNXM">«How to hack &amp; reflash a car electronic brain - Alejo Krismancic - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/yKLZhlKBNXM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Alejo Krismancic, responsable del Car Hacking Village de la conferencia y profesional de ciberseguridad con más de veinte años de trayectoria, presentó junto a Nacho una introducción al reversing e investigación sobre el software de las computadoras automotrices. Lo que empezó como hobby de un estudiante de ingeniería electrónica terminó en un taller mecánico propio y un laboratorio con una unidad desarmada, programadores de memorias y bancos de prueba.</p>
+<p>El recorrido va de lo conceptual a lo práctico: qué es una ECU y cómo funciona como máquina de estados, cómo se estructura la red CAN del vehículo, qué protecciones implementa el inmovilizador, y cómo se extrae, interpreta y modifica la cartografía del motor. La parte central fue la demostración en vivo: comparación de un mapa original contra uno modificado, interpretación de mapas mediante la hoja de funciones de fabricación, y resultados medidos en banco inercial dinamométrico.</p>
+<h2>Qué es una ECU y cómo se comunica</h2>
+<p>Una ECU (Electronic Control Unit) es el cerebro electrónico del auto: contiene los controladores, sensores y canales de comunicación que componen su red. Los módulos y actuadores están todos interconectados y necesitan hablar con la computadora para enviar y recibir señales; esas señales son cuadradas y pueden interpretarse con un osciloscopio. El tráfico viaja a aproximadamente un megabit por segundo: no es una red de alto tráfico sino de tráfico plano, que permite capturar paquetes sin grandes dificultades.</p>
+<p>En cuanto al funcionamiento, nada más simple que una máquina de estados: recibe una orden a través de un actuador —por ejemplo, el acelerador, un potenciómetro que oscila entre 0,5 y 9 volts— y según lo que la ECU interprete, ordena la siguiente acción del diagrama de flujo.</p>
+<h2>La red CAN y el inmovilizador</h2>
+<p>La red CAN (Controller Area Network) conecta los módulos del vehículo con dos cables: masa, CAN High y CAN Low. Por ahí viajan los paquetes que comunican a los actuadores. Sobre esa red actúan los sistemas de protección, y el principal es el inmovilizador: un sistema atado a la llave, al tablero y a otros componentes, pensado como especie de firewall para que un ladrón no pueda hacerse con el vehículo ni extraer componentes como la computadora principal, el módulo de ABS o el módulo de arranque.</p>
+<p>El mecanismo es una cadena de verificación:</p>
+<pre class="mermaid">
+flowchart LR
+    A[LLave con transponder] -->|RF| B[Tablero]
+    B -->|código válido| C[ECU]
+    C --> D[Bomba de nafta y relay de inyección]
+    C -.->|anula todo| E[El auto no arranca]
+
+</pre>
+
+<p>La EEPROM de 8 bits almacena el sistema de seguridad: la llave gira, el transponder dialoga por radiofrecuencia con el tablero, y si el código coincide, el tablero ordena a la ECU prender la bomba de nafta y el relay de inyección. Si no, anula todo el sistema.</p>
+<h2>Programadores y acceso a las memorias</h2>
+<p>La ECU tiene distintos componentes: un procesador (Infineon Tricore, Renesas y otros sabores) y las memorias donde el fabricante graba el software, principalmente la memoria flash de 16 o 32 bits, que en general contiene un único binario interpretable con distintas herramientas para ubicar qué función ocupa qué posición de memoria.</p>
+<p>Para acceder hay dos caminos. Los programadores genéricos permiten insertar la memoria extraída —flash externa, flash interna o EEPROM— y extraer el binario con software genérico. Los programadores de aplicación específica son programas licenciados de alto costo, con interfaces pass-through como J2534 o JTAG, o acceso directo a la arquitectura electrónica boteándola con 12 volts. Botear la computadora permite bajar toda la información: la flash, la EEPROM y la memoria del microprocesador. También es posible leer la cartografía y las memorias por la red CAN, interconectada a la computadora de motor.</p>
+<p>Con acceso al binario, las modificaciones posibles incluyen anular o manipular la tabla de DTC (los códigos de error que la ECU guarda en memoria), corregir el checksum del binario y regrabarlo, falsificar la cantidad de kilómetros, o desinmovilizar la ECU para arrancar el auto con cualquier llave.</p>
+<h2>De la extracción al mapa: hoja de funciones y tuning</h2>
+<p>Una cartografía de motor contiene N mapas: inyección, avance de encendido, presión de turbo, presión de gases de admisión y escape. El software de ingeniería usado en fábricas como Bosch, Siemens y Continental detecta posibles mapas dentro del binario, pero sin información adicional solo muestra curvas sin nombre. La clave es la hoja de funciones de fabricación —documentación que no se consigue ni se compra en el mercado— donde está cada dispositivo y componente electrónico de la ECU, qué mapa hace qué, dónde están los limitadores y qué se puede tocar.</p>
+<p>El método: contrastar cada sigla (por ejemplo KFZW, que la hoja de funciones traduce como Ignition Angle Map, el mapa de ángulo de encendido), definir los offsets, y reinterpretar el binario completo. Con conocimientos de mecánica se sabe que un motor turboalimentado tolera cierto avance de encendido según su compresión —no pasar de ciertos grados o se expulsa un pistón— y se modifica solo la zona útil del mapa: no tiene sentido dar avance con el pedal en cero y el motor a 6.500 vueltas. Toda limitación de flota (que el chofer no supere 60 km/h o 5.000 vueltas) es electrónica y puede ajustarse igual.</p>
+<h2>Del laboratorio al banco dinamométrico</h2>
+<p>El ensayo es la validación: apagar y prender posiciones de memoria, probar en un banco dinamométrico si el auto funciona o se queda tirado. El resultado presentado: un mapa ajustado con esa "liñita roja" de diferencia arroja entre 180 y 250 caballos, medidos en banco inercial con el auto en cuarta marcha —donde está el torque máximo— a 6.000 vueltas, girando a 230 km/h atado al banco. Llevarlo a la práctica requiere herramientas de medición, mecánica, termodinámica, control de materiales y tolerancias acumuladas años de estudio.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La ECU es una máquina de estados con software grabado en memorias accesibles por hardware (boteo con 12V, programadores genéricos o de aplicación específica) o por la red CAN.</li>
+<li>El inmovilizador es una cadena de verificación llave-transponder-tablero-ECU que puede desinmovilizarse manipulando el binario; la misma manipulación permite anular códigos de error, falsificar kilómetros o corregir checksums.</li>
+<li>La hoja de funciones de fabricación es la pieza decisiva del reversing automotriz: sin ella, los mapas detectados son curvas sin nombre.</li>
+<li>Toda modificación debe validarse en banco: la diferencia entre una mejora y una "bestialidad fuera de parámetro" se mide con ensayos dinamométricos.</li>
+<li>El trabajo se comparte con la comunidad: el laboratorio de la Village incluía prácticas de sniffing CAN, replay attack y clonado de señales de llave en 433 MHz con HackRF, clonadores y Flipper Zero.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Boteo de ECU:</strong> levantar la computadora con 12 volts mediante un pin de boteo para acceder a flash, EEPROM y memoria del procesador.</li>
+<li><strong>Programadores genéricos y de aplicación específica:</strong> extracción de binarios desde memorias extraídas o acceso directo por interfaces J2534/JTAG.</li>
+<li><strong>Hoja de funciones:</strong> documentación de fabricación que identifica qué hace cada mapa dentro de la cartografía.</li>
+<li><strong>Análisis de histéresis:</strong> interpretación de mapas a partir de la forma de las curvas.</li>
+<li><strong>Corrección de checksum:</strong> requisito para grabar un binario modificado en una memoria.</li>
+<li><strong>Banco inercial dinamométrico:</strong> validación de mapas modificados con mediciones reales de potencia.</li>
+<li><strong>HackRF, clonadores y Flipper Zero:</strong> equipos para replay attack y clonado de señales de radiofrecuencia de llaves en 433 MHz.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/yKLZhlKBNXM">«How to hack &amp; reflash a car electronic brain - Alejo Krismancic - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

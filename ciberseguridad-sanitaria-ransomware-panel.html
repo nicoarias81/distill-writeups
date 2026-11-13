@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El sector de la salud bajo ataque: ransomware, dispositivos heredados y el costo humano de cada apagón — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El sector de la salud bajo ataque: ransomware, dispositivos heredados y el costo humano de cada apagón</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/fs0QR7fPnJg">«DEF CON 32 - D0N0H4RM  Cyber STEM Storytime - Panel»</a> · ver el <a class="nz-link" href="https://youtu.be/fs0QR7fPnJg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La ciberseguridad sanitaria dejó de ser un problema de privacidad de datos para convertirse en un problema de seguridad de pacientes. Los ataques de ransomware contra hospitales —cada vez más frecuentes, voluminosos y complejos— interrumpen cirugías, retrasan tratamientos y obligan a médicos y enfermeras a improvisar con papel y memoria cuando los sistemas electrónicos caen. Este artículo recoge una conversación entre reguladores, investigadores y funcionarios federales sobre el estado real del sector: qué lo hace tan atractivo para los atacantes, por qué los dispositivos médicos heredados siguen siendo el talón de Aquiles, y qué lecciones de otros sectores críticos —aviación, finanzas, agua— pueden aplicarse antes de la próxima catástrofe.</p>
+<p>La magnitud del problema es estructural. Los hospitales operan con márgenes de ganancia de entre 1% y 4%, se consolidan en conglomerados cada vez más grandes que unifican su pila tecnológica, y dependen de una cadena de proveedores —fabricantes, distribuidores, laboratorios, farmacéuticas, aseguradoras— cuyo mapa de interdependencias nadie conoce en profundidad. Cuando un proveedor central cae, no es un hospital: son cientos de instalaciones en varios estados a la vez.</p>
+<p>Las conclusiones apuntan a tres frentes: mapear las dependencias críticas del sector como se hizo con el sistema financiero tras la crisis de 2008, involucrar a la comunidad hacker en la investigación de dispositivos médicos con acceso real al hardware, y generar mecanismos de transparencia post-incidente al estilo de la aviación civil, para que los errores de un hospital se conviertan en lecciones para todos.</p>
+<h2>Un blanco de "tienda única"</h2>
+<p>Durante siglos de guerra convencional, los hospitales estuvieron fuera de límite: se protegían las carpas con la cruz roja. Hoy los atacantes —no solo estados nación como China, Rusia, Irán o Corea, sino también organizaciones criminales y ciberterroristas— apuntan al sector sanitario con preferencia. La razón es económica: un hospital es una "tienda única" donde conviven información de identificación personal, datos de facturación, historiales clínicos y todo aquello que nadie quiere ver publicado. La salud aparece sistemáticamente en los top 3 y top 5 de cualquier lista de sectores más golpeados por ransomware.</p>
+<p>El impacto no se limita a las grandes urbes. Las zonas rurales, donde el acceso a atención y a servicios de respaldo está mucho más lejos, sufren consecuencias mayores para la seguridad del paciente. Y el daño ya se siente en la práctica clínica: foros de médicos y enfermeras documentan hospitales enteros en papel, personal medicando de memoria, equipos de trauma que no reciben las alertas y consultas resueltas por teléfono personal. En un incidente real citado, un paciente esperó dos horas por un paracetamol.</p>
+<p>El fallo de CrowdStrike en 2024 —que no fue un ataque— demostró la fragilidad adicional del ecosistema: hospitales enteros perdieron monitores telemétricos de UCI, uploads de laboratorio y registros electrónicos, y tuvieron que inventariar pacientes en pizarras. El cibercrimen ya no amenaza solo la privacidad o las finanzas: degrada, retrasa y disrumpir los sistemas digitales que sostienen la atención médica oportuna, con impacto directo en la vida humana.</p>
+<h2>El mapa que nadie tiene: interdependencias y riesgo sistémico</h2>
+<p>Tras la crisis financiera de 2008, Estados Unidos emprendió un proceso minucioso para mapear las dependencias del sector financiero. La pregunta incómoda que plantea este análisis: ¿por qué no se ha hecho lo mismo con la salud? Nadie sabe con precisión qué pasa si cae un proveedor crítico de historiales electrónicos —un mercado donde apenas tres o cuatro vendedores dominan el país— ni dónde están los "linchpins de los linchpins".</p>
+<p>Los obstáculos son conocidos:</p>
+<ul>
+<li><strong>Visibilidad insuficiente.</strong> Existen esfuerzos como el análisis de consecuencias en cascada de CISA y herramientas macro como STAR, pero la comprensión de interdependencias dentro del sector —y mucho menos entre sectores— sigue lejos de lo necesario.</li>
+<li><strong>Información propietaria.</strong> Gran parte del mapa vive en manos privadas que no siempre tienen incentivos para compartirlo.</li>
+<li><strong>Retorno de inversión.</strong> Cualquier pedido de información al gobierno debe garantizar valor de vuelta a quienes la aportan; pedir datos sin devolver nada erosiona la colaboración.</li>
+</ul>
+<p>El ámbito de dispositivos médicos complica aún más el mapeo: el paisaje va desde implantes hasta equipos de cabecera, capital equipment y funciones de software en móvil o nube. Y la respuesta táctica clásica ante un ransomware —desconectar la red— puede interrumpir cirugías en curso que dependen de conexiones en vivo. Sin saber qué se apaga y qué depende de qué, defenderse puede hacer tanto daño como el ataque.</p>
+<h2>Protecciones al denunciante: el problema del que ve y no puede actuar</h2>
+<p>Investigadores de seguridad, profesionales de ciberseguridad empleados en sistemas de salud y fabricantes de dispositivos a menudo se encuentran viendo problemas graves sin vías claras para resolverlos. Cuando el problema cruza la línea de lo criminal —por ejemplo, una empresa que omite la divulgación de un ataque ante la SEC— existen protecciones federales de whistleblower, además de marcos estatales. Pero la mayoría de los casos no llega ahí: son fallas de seguridad que nadie corrige.</p>
+<p>La infraestructura interna es la primera línea: liderazgo y directorios que se tomen en serio las preocupaciones de ciberseguridad, canales para actuar sin exponerse. La pregunta que atormenta a quienes reportan es siempre la misma: ¿puedo mantener el anonimato?, ¿conservaré mi trabajo?, ¿habrá represalias, litigios, blacklisteo?</p>
+<p>La experiencia acumulada sobre whistleblowing es contundente: es un último recurso, no una estrategia. El proceso afecta profundamente la salud mental, las familias y las carreras de todos los que lo atraviesan. El consejo práctico: construir infraestructura interna para resolver las preocupaciones temprano, y si hay que llegar al extremo de denunciar, conseguir un abogado propio que trabaje a contingency —no el que provee la empresa— y apoyarse en organizaciones como Whistleblowers of America o The Signals Network, que ofrecen asesoría legal, vivienda segura y recolocación.</p>
+<h2>Dispositivos heredados: el problema de hace 20 años que sigue vivo</h2>
+<p>Los dispositivos médicos heredados —sistemas operativos antiguos, vulnerabilidades remotas sin parche, despliegues en redes planas— son un riesgo citado desde hace dos décadas, y no solo en hospitales rurales o con pocos recursos: grandes sistemas muestran implementaciones igual de preocupantes. El ciclo de vida del equipamiento médico agrava todo: los clínicos usan un dispositivo hasta que deja de funcionar físicamente, y eso es terreno imposible de asegurar.</p>
+<p>La autoridad estatutaria de la FDA sobre ciberseguridad de dispositivos recién entró en vigencia el año pasado, así que los dispositivos "mejores" tardarán en desplazar al parque heredado. Las mitigaciones clásicas tienen costos ocultos: desconectar un equipo de la red reduce riesgo, pero las funciones añadidas con los años pueden formar parte del uso previsto del dispositivo; apagar la conectividad puede degradar la atención que presta. Además, parchar un dispositivo médico ocurre en un entorno regulado: cada actualización debe verificar que no impacte la funcionalidad clínica.</p>
+<p>El problema no es exclusivo del sector —aparece en alimentos, agua y agricultura con la misma cara: Windows 95 por doquier— pero su raíz es cultural. Mientras la ciberseguridad se perciba como una molestia y no como una necesidad para la entrega segura y puntual de la atención, la inversión llegará tarde. La señal positiva: cada vez más CEOs de hospitales preguntan por su attack surface y conocen a sus CISOs, algo impensable hace pocos años.</p>
+<p>Desde ARPA-H se trabaja en la próxima generación de herramientas para que hospitales con uno o dos personas de IT puedan gestionar cientos de dispositivos de decenas de vendedores: no se puede defender lo que no se ve. La idea de que "más capacitación para clínicos" resuelva la ciberseguridad hospitalaria es un callejón sin salida —el objetivo es justo el contrario: que el personal clínico no tenga que pensar en seguridad para atender pacientes.</p>
+<h2>Los hackers y el acceso a dispositivos: el cuello de botella de la investigación</h2>
+<p>Quince años de investigación en seguridad de dispositivos médicos —marcapasos, bombas de insulina— cambiaron la conversación nacional: los trabajos de Barnaby Jack, Jay Radcliffe, Billy Rios y otros empujaron avances regulatorios concretos en la FDA. Pero los grandes escenarios ya no ven esa producción, y la razón número uno es el acceso: sin disponer del dispositivo o su firmware, no se puede evaluar su seguridad. Los investigadores terminan comprando equipos de hace una década en eBay, donde es trivial encontrar vulnerabilidades —precisamente porque no se puede tener el hardware actual.</p>
+<p>El modelo del Biohacking Village, que facilita dispositivos a los investigadores, es escalable y de bajo costo relativo. Otro vector subaprovechado: estudiantes de posgrado financiados por NSF y NIH, capaces de producir trabajo de alta calidad por poco dinero, como ya ocurre en otros sectores de infraestructura crítica. Del lado regulatorio, los nuevos requisitos estatutarios obligan a los fabricantes de dispositivos conectados a mantener un proceso de coordinated vulnerability disclosure, lo que facilita contactar a la empresa. La advertencia es la seguridad del paciente: los parches para dispositivos antiguos pueden tardar más de lo esperable, pero reportar, engancharse al proceso y recibir el crédito sigue siendo el camino correcto. Y una regla de oro: nadie se lleva a casa una bomba de fentanyl.</p>
+<h2>Consolidación hospitalaria: el riesgo de los conglomerados</h2>
+<p>Los márgenes hospitalarios rondan el 1%: cualquier tropiezo financiero empuja al rojo, y un hospital en rojo se vende. La consolidación resultante unifica pilas tecnológicas entre sistemas compradores y comprados, de modo que un ransomware exitoso ya no derriba uno o dos hospitales, sino cientos de instalaciones en varios estados. El riesgo de falla catastrófica se concentra en vez de distribuirse.</p>
+<p>Los caminos propuestos apuntan en dos direcciones:</p>
+<ol>
+<li><strong>Factorizar la deuda técnica en las fusiones.</strong> Ya hay operaciones de M&amp;A donde se presupuesta el costo de elevar el IT del hospital adquirido al estándar del comprador —aún una fracción minoritaria de las transacciones, pero una práctica que debe generalizarse.</li>
+<li><strong>Identificar concentraciones de mercado.</strong> Saber qué entidades tienen cuota de mercado tal que su caída sea inaceptable para el sector, y comprar ese riesgo colectivamente o mitigarlo antes del incidente.</li>
+</ol>
+<p>Como referencia internacional, los sistemas de pago único con grandes redes de facilidades ofrecen lecciones sobre aislamiento entre instalaciones: detección y respuesta automatizada capaz de segregar una red comprometida para que la caída de un nodo central no apague una región entera.</p>
+<h2>Transparencia post-incidente: aprender como la aviación</h2>
+<p>Cuando un hospital sufre ransomware, el público recibe un comunicado escaso, actualizaciones interminables y algún anónimo. La excepción —la transparencia ejemplar de la University of Vermont— demuestra lo que falta: sin relatos exhaustivos de incidentes, no hay lecciones aprendidas. Nadie documenta cómo se manejaron los pacientes diabéticos, los infartos o los ACV durante el apagón.</p>
+<p>El obstáculo es más humano que técnico: la transparencia vale reputación ante pares de seguridad, pero puede leerse públicamente como negligencia y activar percibidos riesgos de responsabilidad legal. Un incidente de ciberseguridad nunca es una o dos decisiones fallidas: es una lista de treinta, y reconstruirla con granularidad —quién decidió qué, quién no estaba informado— es lo que convierte un desastre en caso de estudio.</p>
+<p>Los modelos existen. La aviación civil construyó un régimen de cooperación industria-gobierno, capacidad forense institucionalizada (NTSB) y transparencia porque el colapso de la confianza en volar habría hundido al sector entero. La salud es igual de necesaria y todavía más compleja, pero la lógica aplica: incentivos de leniencia regulatoria para quien divulgue fallas con detalle, y liderazgo que asuma que en ingeniería se falla, se corrige y se comparte cómo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ransomware en salud</strong> — vector de ataque dominante contra hospitales; el sector aparece en los top rankings de impacto por sector.</li>
+<li><strong>Cascading consequence analysis (CISA)</strong> — esfuerzo para entender cómo la falla de un nodo se propaga por el sector y entre sectores.</li>
+<li><strong>STAR</strong> — herramienta para mapear dependencias del sector a nivel macro, aún en etapa temprana.</li>
+<li><strong>FDA premarket cybersecurity guidance</strong> — guía regulatoria y autoridad estatutaria (vigente desde el año anterior al panel) que exige seguridad en dispositivos conectados nuevos.</li>
+<li><strong>Coordinated vulnerability disclosure</strong> — requisito para fabricantes de dispositivos médicos conectados; canal formal para reportar vulnerabilidades.</li>
+<li><strong>ARPA-H / AI Cyber Challenge (DARPA)</strong> — inversión pública en la próxima generación de herramientas de ciberseguridad sanitaria y de análisis de código.</li>
+<li><strong>Biohacking Village</strong> — espacio comunitario que provee dispositivos médicos a investigadores para evaluar su seguridad.</li>
+<li><strong>ISACs</strong> — mecanismos de intercambio de información sectorial, considerados insuficientes frente al vacío de datos post-incidente.</li>
+<li><strong>Whistleblowers of America / The Signals Network</strong> — organizaciones de soporte legal, psicológico y de recolocación para denunciantes.</li>
+<li><strong>M&amp;A con evaluación de cyber risk / tech debt</strong> — práctica emergente de presupuestar la modernización de IT en adquisiciones hospitalarias.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La seguridad del paciente es la nueva métrica.</strong> El daño de un ciberataque sanitario se mide en atención retrasada y vidas, no solo en registros filtrados: degradar los sistemas digitales es degradar la medicina.</li>
+<li><strong>Sin mapa no hay defensa.</strong> El sector no conoce sus propias interdependencias —proveedores de EHR, cadenas de suministro, conglomerados hospitalarios— y repetir el mapeo financiero post-2008 es el prerrequisito para cualquier gestión seria del riesgo sistémico.</li>
+<li><strong>El acceso define la investigación.</strong> La comunidad hacker puede repetir el impacto de Barnaby Jack o Jay Radcliffe si fabricantes y reguladores facilitan dispositivos reales; el modelo del Biohacking Village es escalable y barato.</li>
+<li><strong>Transparencia o repetición.</strong> Sin incentivos de leniencia y una cultura de análisis post-mortem al estilo de la aviación, cada hospital repetirá los errores del anterior y las lecciones se perderán con cada incidente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/fs0QR7fPnJg">«DEF CON 32 - D0N0H4RM  Cyber STEM Storytime - Panel»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

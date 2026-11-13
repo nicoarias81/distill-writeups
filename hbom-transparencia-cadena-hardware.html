@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HBOM: saber qué hay dentro del hardware antes de que lo decida la regulación — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">HBOM: saber qué hay dentro del hardware antes de que lo decida la regulación</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/QARwgoJ-IbA">«DEF CON 33 - What&#x27;s Really in the Box? The Case for Hardware Provenance and HBOMs - Allan Friedman»</a> · ver el <a class="nz-link" href="https://youtu.be/QARwgoJ-IbA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Diez años liderando seguridad de cadena de suministro para el gobierno de EE. UU. dejaron una convicción: el siguiente problema colectivo es la procedencia del hardware. La industria de semiconductores mueve tres billones de dólares; los OEM que ponen su nombre en la caja rara vez fabrican lo que venden; y nadie —ni fabricante, ni comprador, ni regulador— puede hoy responder con evidencia de dónde salió cada chip de un dispositivo. La propuesta es el HBOM (Hardware Bill of Materials): una capa de datos de transparencia, separada de la gestión de riesgos, sobre componentes activos que procesan datos.</p>
+<p>El análisis recorre por qué importa (falsificaciones documentadas hasta por el Comité de Servicios Armados del Senado, vulnerabilidades con nombre propio, interceptación de envíos y el precedente del pallet de pagers), qué regula ya de facto este espacio, en qué se diferencia del SBOM, y qué agujeros quedan por cerrar: vincular hardware con software, verificación física, y un hogar institucional para el esfuerzo.</p>
+<h2>Los riesgos que ya existen</h2>
+<ul>
+<li><strong>Falsificación</strong>: el Senate Armed Services Committee dedicó un año a rastrear contrabandos en la cadena de defensa nacional. En una conferencia de hackers descargar música ilegalmente es casi tradición; un condensador falso en un sistema de defensa, no.</li>
+<li><strong>Vulnerabilidades software-hardware</strong>: los vectores más peligrosos explotan la interacción entre capas, habilitando que software sin privilegios corra donde no debería.</li>
+<li><strong>Tampering en tránsito</strong>: interceptaciones donde lo que se despacha no es lo que llega al destino final.</li>
+<li><strong>El momento existencial</strong>: una paleta de pagers que explota antes de llegar al Líbano Sur demostró que el ataque de cadena de suministro físico no es teoría. También hay sobrerreacciones mediáticas —historias de implantes en inversores solares que eran solo componentes no documentados—, pero el paso uno es el mismo: empezar a prestar atención.</li>
+</ul>
+<h2>Por qué el país de origen no basta</h2>
+<p>Los gobiernos van a "gubernar": la regulación ya llegó y, en parte, ya está mal hecha. Reglas telecom que prohíben ciertos componentes, la sección 5949, control outbound sobre chips avanzados, aranceles que exigen rastrear origen, y la Oficina de Industria y Seguridad —esa parte del gobierno estadounidense que casi nadie conoce— prohibiendo por regla que a partir de 2029 se venda un auto con componentes chinos: algo imposible de construir. Frente a eso, la premisa del enfoque: el país es un mal predictor de riesgo (y rozar el racismo casual en el análisis). Lo que importa es el control efectivo: quién tocó, quién pudo tocar, y qué propiedad extranjera controla el diseño o la fabricación.</p>
+<h2>El modelo BOM: datos separados del riesgo</h2>
+<p>La filosofía del movimiento SBOM, que el HBOM hereda: existe un conjunto de "maldad conocida" que no se predefine, y lo que se necesita es mapear cualquier riesgo futuro contra lo que efectivamente hay. El vino sirve de analogía: decir "mi vino tiene uvas" es logística; demostrar que son Chardonnay y no un espumante falso es procedencia.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Capa de datos: HBOM<br/>¿qué hay adentro? ¿quién lo tocó?] --> B[Capa de gestión de riesgos<br/>CVEs, counterfeit, tampering, disponibilidad]
+    B --> C[Usuarios: defensa, infra crítica,<br/>telecom, auto, médicos, IoT]
+    D[Interoperabilidad y<br/>enfoques comunes de tracking] --> A
+    E[Atestaciones auditables<br/>sin exponer datos comerciales] --> D
+
+</pre>
+
+<p>Diseñar la capa de datos antes que el estándar técnico evita el destino clásico: construir primero, olvidar casos de uso, descubrir que nadie paga por eso, o pasar 23 años en un comité. Lo que la capa necesita es interoperabilidad y un enfoque común de tracking. Y hay un dato duro del hardware que rompe las herramientas habituales: no se puede hashear un DIMM. Sin hashing, la integridad tradicional no prueba que nadie tocó el componente, así que la atención se desplaza al control físico del proceso —quién tuvo la cosa en cada punto del movimiento de mercancía—.</p>
+<h2>Diferencias con el SBOM</h2>
+<ul>
+<li><strong>El compliance manda</strong>: en software el driver fue el mercado; acá, la apuesta explícita es que en seis años habrá ley de country of origin para cadena física —y la comunidad debería adelantarse para que la implemente bien.</li>
+<li><strong>Cadenas más largas y caóticas</strong>: con escasez, intermediarios que acaparan inventario y decisiones entre rediseñar la placa o pagar el sobreprecio.</li>
+<li><strong>La verificación cuesta (y es un negocio)</strong>: el pronóstico es un mercado de verificación de hardware con márgenes altos, robotics y aprendizaje automático para escalar. Recomendación directa a emprendedores: ese es el negocio a fundar ahora.</li>
+<li><strong>Niveles de aseguramiento</strong>: el SBOM deliberadamente evitó grados ("an SBOM is an SBOM is an SBOM"); el HBOM los necesita. IoT de consumo exige un ratchet bajo, dispositivos médicos otro, infraestructura de telecom otro más, y aeroespacial y defensa el máximo.</li>
+<li><strong>El problema del intermediario</strong>: nadie quiere revelar proveedores a un cliente que después los contacta directo; el margen vive en el medio. La respuesta es atestación auditable: probar propiedades sin publicar la cadena, ni siquiera compartirla hasta que haya que demostrar algo.</li>
+<li><strong>Sectorial y transversal</strong>: cinco sectores en el foco —defensa, infraestructura crítica, telecom, automotriz, dispositivos médicos— más todo lo que toca infraestructura crítica.</li>
+</ul>
+<h2>El punto de partida y los agujeros</h2>
+<p>CISA publicó en 2023, con la industria de telecom e IT, un marco basado en el trabajo de software build materials: roles, taxonomía y casos de uso declarados —compliance primero, seguridad (vulnerabilidades, ataques activos y pérdida de control por jurisdicción), y disponibilidad, con la lección de 2020 fresca. Sin obligación de construir nada, es el terreno de arranque. Los agujeros reconocidos: cómo vincular hardware y software (problema duro y no resuelto tampoco en SBOM), qué significa provenance y auditoría de terceros, y la integración de estándares existentes —ninguno, por sí solo, alcanza hoy y difícilmente alcance. Como apuesta tecnológica para unir universo de datos y universo de componentes sin humano en el medio: modelos de lenguaje, que para eso de enlazar datos heterogéneos andan bien.</p>
+<p>Los pasos siguientes no son técnicos: encontrar hogar institucional, financiamiento (no viene del gobierno actual), internacionalización —no puede ser un asunto estadounidense—. Ya hay menciones en el Cyber Resilience Act, en la estrategia nacional coreana y pokes del METI japonés. El punto de encuentro: hbom.tech.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SBOM (Software Bill of Materials)</strong>: el precedente directo; mismo patrón de separar datos de riesgos, aplicado a componentes activos de hardware.</li>
+<li><strong>HBOM framework de CISA (2023)</strong>: taxonomía, roles y casos de uso, heredado del trabajo de software build materials.</li>
+<li><strong>FOCI (Foreign Ownership, Control or Influence)</strong>: criterio regulatorio existente sobre control efectivo, mejor predictor que el país de origen.</li>
+<li><strong>Attestation auditable</strong>: prueba de propiedades de la cadena sin exponer datos competitivos del intermediario.</li>
+<li><strong>Verificación asistida por robotics y ML</strong>: el camino propuesto para escalar verificación física de componentes.</li>
+<li><strong>LLMs para enlace de datos</strong>: unir el universo de datos con el universo de componentes sin mapeo manual.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El hardware va por el mismo camino que el software: primero se ignoró la cadena, después llegaron las regulaciones, y la transparencia estructurada (BOM) es la única vía escalable de responder a ambas.</li>
+<li>El país de origen no predice riesgo; el control efectivo sobre el componente sí. Las políticas construidas sobre banderas ya están produciendo requisitos imposibles.</li>
+<li>Sin hashes posibles sobre hardware, la verificación de integridad se reemplaza por control físico y atestación del proceso —un mercado nuevo, caro y con margen.</li>
+<li>El HBOM debe ser transversal, con niveles de aseguramiento por criticidad, y no puede consolidarse como requisito de un solo país.</li>
+<li>La comunidad de seguridad tiene ventana para influir en cómo se implementará la regulación: participar ahora es más barato que cumplir después.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/QARwgoJ-IbA">«DEF CON 33 - What&#x27;s Really in the Box? The Case for Hardware Provenance and HBOMs - Allan Friedman»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

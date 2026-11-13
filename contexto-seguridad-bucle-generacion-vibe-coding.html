@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contexto de seguridad en el bucle de generación: vibe coding sin fallas de diseño — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Contexto de seguridad en el bucle de generación: vibe coding sin fallas de diseño</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/DmO3cVOijNY">«Srajan Gupta - Injecting Security Context During Vibe Coding | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/DmO3cVOijNY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El caso fundacional es conocido: en marzo de 2025 alguien vibe-codeó una app, la compartió, recibió ataques una semana después y terminó cerrándola sin saber qué hacer. Un año después, el problema sigue igual de vigente, y el flujo dominante no ayudó: pensar algo, escribir un prompt, aceptar todo, correr. El foco se desplazó de "¿mi código es seguro?" a "¿mi código funciona?", y el miedo concreto de un ingeniero de seguridad de una fintech es que la abuela lo llame para anunciar su nueva app de paseo de perros.</p>
+<p>El diagnóstico de fondo: con la relación de 100 desarrolladores por cada profesional de seguridad, y miles de hallazgos ya en la cola, el aumento del volumen de código deja los flujos tradicionales capturando apenas el 40% de los bugs; el 60% restante se escapa cuando nadie entiende a fondo los requisitos de seguridad. El "aceptar todo" produce bugs ocultos y desorden estructural, la IA replica patrones inseguros de repositorios públicos, y el código generado parece plausible pero no lo es. La propuesta: inyectar el contexto de seguridad —requisitos, políticas, guías internas— antes de que el código se genere, verificarlo inmediatamente después y parchearlo en línea, mientras la intención sigue fresca. Menos hallazgos, fixes más rápidos, sin retrabajo, dentro del flujo del desarrollador.</p>
+<h2>Qué es un "security context pack"</h2>
+<p>Todo lo que rodea una tarea de desarrollo es contexto de seguridad: el ticket de Jira, el PRD del cambio, cualquier detalle específico de la feature, y encima las buenas prácticas relevantes, las políticas internas, los estándares y los requisitos de compliance. Todo eso, empaquetado, es lo que el autor llama <em>security context pack</em>: el paquete que constriñe la generación de código. El ejemplo típico: un desarrollador trabaja en una aplicación PCI que maneja identificadores de tarjeta; la política interna dice que esos identificadores no se loguean nunca en mensajes de error. La IA no lo sabe por sí sola, pero esa política —escrita en documentos internos— entra al pack y termina dentro del prompt de generación.</p>
+<p>El vehículo de implementación es MCP (Model Context Protocol), elegido por cuatro razones: es un protocolo estándar que ya usan múltiples agentes de código; permite permisos y deja la interacción auditable; es composable, con plug-and-play hacia Jira, Confluence, políticas internas o escáneres; y vive dentro del IDE, es decir, dentro del flujo del desarrollador —la restricción sagrada de AppSec: el desarrollador no debe salir de su entorno—. Y el beneficio decisivo es el contexto a demanda: bien escrito, no genera prompts monolíticos.</p>
+<h2>El flujo: revisión antes, código con guías, verificación después</h2>
+<p>El ciclo completo funciona así: el desarrollador entrega los requisitos de la tarea al agente; el agente entiende el alcance, los flujos de datos y llama al MCP para una revisión de seguridad previa al código; esa fase pre-código identifica riesgos y guías, extrae los requisitos de seguridad y los inyecta en el prompt; el agente genera el código ya constreñido por ese contexto; se corre un escaneo de seguridad; los hallazgos se corrigen en línea y se aplican al momento; se reverifica, y el código queda listo para PR —de modo que cuando el escaneo de CI/CD se dispara después, no encuentra nada—.</p>
+<p>La demo lo muestra sobre un caso real: un endpoint receptor de webhooks para un observabilidad open source (OBOT), que acepta webhooks externos de GitHub o Slack y dispara ejecuciones de workflows agénticos. En dos corridas:</p>
+<ul>
+<li><strong>Sin las herramientas, revisión a posteriori:</strong> el código se genera primero y la revisión encuentra dos issues después —el reenvío de headers filtra datos sensibles, y tokens de autorización pasando por todo el workflow—.</li>
+<li><strong>Con las herramientas, revisión previa:</strong> la herramienta identifica la tarea y sus tecnologías (Go, Kubernetes, APIs REST), tira guías relevantes por categoría —seguridad de APIs, validación de datos, requisitos de seguridad web— y las clasifica como requisito de alto riesgo, inyectándolas en el prompt. Los takeaways que llegan desde el diseño: validar todas las entradas, filtrar los headers sensibles —justamente el hallazgo de la corrida anterior—, límites de tamaño del body y mínimo privilegio.</li>
+</ul>
+<p>El resultado: el código se genera con el blocklist de headers horneado desde la primera línea. La verificación posterior recibe el código, la ruta del archivo y el contexto de seguridad de la fase 1, y comprueba ítem por ítem: sin contraseñas hardcodeadas, sin consultas SQL, sin issues críticos ni de severidad alta o media, y alineación con las guías. La ventaja estructural es que el feedback es inmediato: el requisito sigue fresco en la ventana de chat, no enterrado en un pipeline de CI.</p>
+<h2>Las trampas de implementación</h2>
+<p>Lo que parece fácil no lo es: las guías de seguridad escritas para humanos no funcionan bien con la IA. Dos decisiones hacen que el sistema funcione:</p>
+<ul>
+<li><strong>Las guías deben existir dentro del contexto en el momento de la generación.</strong> La herramienta incluye cheat sheets de OWASP y buenas prácticas; también se pueden aportar las propias o tirar directo desde Confluence u otros documentos internos.</li>
+<li><strong>Filtrado inteligente por etiquetas para evitar el bloat de contexto.</strong> Cada guía lleva categorías, de modo que el agente extraiga solo la relevante —si el trabajo toca autenticación, tira esa guía—. Quien quiera usar sus estándares internos necesita añadir tres tags para que el filtrado funcione.</li>
+</ul>
+<p>Al pack se le puede inyectar cualquier cosa propia: modelos de amenaza internos, guías de secure coding, golden paths, librerías aprobadas (la selección de dependencias es un gran tema en vibe coding) y hasta la definición de "listo". Dónde ayuda: en trabajo repetitivo y patrones conocidos, detectando vulnerabilidades comunes temprano sin esperar al CI. Dónde no reemplaza nada: el threat modeling de sistemas nuevos hay que hacerlo igual, y en sistemas o cambios grandes, la revisión humana es innegociable.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El vibe coding falla cuando falta contexto: si no se inyectan los requisitos de seguridad antes de generar, siempre habrá fallas; el 60% de los bugs que escapan a los flujos tradicionales son, en esencia, requisitos de seguridad mal entendidos.</li>
+<li>El patrón de tres pasos —revisión de seguridad ligera antes del código, generación con las guías dentro del prompt, verificación inmediata contra ese mismo contexto— produce código que llega limpio al escaneo de CI/CD.</li>
+<li>MCP es el vehículo preferible sobre hooks (más deterministas pero soportados solo por Claude Code y Cursor): es estándar, auditable, composable y vive dentro del IDE.</li>
+<li>Las guías necesitan metadatos (categorías/tags) para filtrarse sin inflar el contexto, y el pack admite threat models, golden paths, librerías aprobadas y definiciones de "listo" propias.</li>
+<li>La tesis final: esta es una vía realista para que la seguridad iguale la velocidad de los desarrolladores — no reemplazando threat modeling ni revisión humana en cambios grandes, sino eliminando la clase entera de fallas que nacen de la ignorancia de contexto.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/DmO3cVOijNY">«Srajan Gupta - Injecting Security Context During Vibe Coding | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

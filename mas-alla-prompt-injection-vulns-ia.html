@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Más allá del prompt injection: el verdadero mapa de vulnerabilidades de IA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Más allá del prompt injection: el verdadero mapa de vulnerabilidades de IA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TjdATgKxqiU">«DEF CON 32 - Got 99 problems but prompt injection ain&#x27;t pineapple - Chloé Messdaghi, Kasimir Schulz»</a> · ver el <a class="nz-link" href="https://youtu.be/TjdATgKxqiU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando se habla de seguridad en IA, casi todo el debate gira alrededor de una sola técnica: el prompt injection. La realidad es mucho más amplia. Las vulnerabilidades del ecosistema de aprendizaje automático incluyen envenenamiento de datos, ataques de evasión contra modelos, robo de propiedad intelectual y una cadena de suministro de modelos preentrenados que nadie está auditando con seriedad. Sobre esa superficie de ataque casi intacta hay oportunidad tanto para atacantes como para investigadores de bug bounty.</p>
+<p>La tesis central es sencilla: los formatos de archivos de modelos, la infraestructura de MLOps y los frameworks de desarrollo de IA acumulan vulnerabilidades conocidas —serialización insegura, path traversal, inyección SQL, claves hardcodeadas— que la seguridad tradicional cree erradicadas. Formatos que la industria asume seguros, como JSON, resultan explotables según cómo el backend los interprete. Y a diferencia de un binario compilado, un modelo es un blob gigante de datos no confiables donde se puede esconder casi cualquier cosa.</p>
+<p>Este artículo recorre el panorama completo: las familias de ataques contra algoritmos y generadores, la superficie de los formatos de modelos, los hallazgos en infraestructura de IA desplegada en producción, y los retos de divulgación y recompensas que todavía enfrenta la comunidad, con datos recogidos directamente de plataformas como Bugcrowd, HackerOne e Intigriti.</p>
+<h2>Las cuatro familias de ataques contra modelos</h2>
+<p><strong>Data poisoning.</strong> El entrenamiento es la fase más frágil del ciclo de vida de un modelo: basta con inyectar datos manipulados para sesgar su comportamiento. Los sistemas de aprendizaje continuo que reentrenan con datos aportados por usuarios sin validar son el caso más expuesto. Incluso pequeñas cantidades de datos envenenados bastan, y la manipulación puede amplificarse con bots o presión pública. El antecedente clásico es Microsoft Tay, el chatbot de Twitter que en marzo de 2016 pasó de saludos amistosos a generar contenido racista y sexista en apenas 16 horas.</p>
+<p><strong>Model evasion.</strong> Cambios casi imperceptibles en la entrada bastan para que un modelo clasifique mal: ruido invisible sobre una imagen, o pegatinas sobre una señal de stop que hacen que un vehículo autónomo la ignore y siga avanzando. Estas técnicas se usan de facto para evadir spam filters, detección de malware y autenticación biométrica.</p>
+<p><strong>Model theft.</strong> Los modelos son propiedad intelectual valiosa, y hay tres grupos interesados en replicarlos: estados nación, competidores y criminales. NIST describe los oracle attacks en tres variantes: los extraction attacks roban la estructura del modelo, los inversion attacks extraen los datos de entrenamiento, y los membership inference attacks identifican si un dato concreto estuvo en el conjunto de entrenamiento. No hace falta acceso privilegiado: una API de inferencia pública puede bastar. El caso ilustrativo: ByteDance fue sorprendida usando ChatGPT para replicar su modelo, lo que le costó la prohibición de la plataforma.</p>
+<p><strong>Backdoors en la cadena de suministro.</strong> Un adversario con acceso a un modelo preentrenado puede inyectar un "neural payload" que activa salidas definidas por el atacante ante entradas manipuladas: el modelo se comporta normalmente con datos regulares, pero desvía resultados hacia préstamos aprobados o pólizas favorables. Con más de 500.000 modelos gratuitos alojados en Hugging Face y alrededor del 75% de los líderes de TI viendo las integraciones de terceros como su eslabón más débil, reemplazar un modelo popular por una versión backdooreada tiene consecuencias en cascada.</p>
+<h2>Formatos de modelos: blobs gigantes de datos no confiables</h2>
+<p>La serialización es el corazón del problema. Python pickle permite serializar casi cualquier objeto y ejecuta código arbitrario al cargarlo, y buena parte de los formatos de ML en Python se apoya en él. Un fichero de modelo no se revisa como código: es un binario de potencialmente varios gigabytes donde el atacante controla absolutamente todo lo que el parser lee, algo que no ocurre con ningún otro tipo de entrada.</p>
+<p>Ni siquiera los formatos percibidos como seguros están a salvo. scikit-learn adoptó JSON precisamente para evitar pickle, y la carga en sí solo procesa strings y números. Pero el backend reconstruía un árbol y lo recorría para generar objetos: construyendo un nodo de operador, una tupla con <code>eval</code> y la cadena adecuada, el JSON "seguro" terminaba ejecutando código. La lección es transversal: cualquier formato cuya interpretación en el backend no esté acotada es superficie de ataque, y son esquinas que los demás investigadores pasan por alto.</p>
+<p>El código nativo añade desbordamientos clásicos. En parsers de arrays, un campo <code>n_dimensions</code> sin validar frente a un buffer dimensionado para dos valores basta para corromper memoria. GGUF —el formato heredado de GGML, escrito en C y C++— acumuló varias vulnerabilidades de parsing ya parcheadas, incluida una documentada por Cisco Talos donde un entero en el tamaño máximo provocaba una asignación de cero bytes seguida de lectura fuera de límites. Sin ASLR, esos bugs suelen quedar en denegación de servicio, pero demuestran el patrón.</p>
+<p>Y hay vulnerabilidades que se creían extintas. ONNX, formato independiente del lenguaje basado en Protobuf, permite cargar pesos externos para reutilizar el computational graph. No valida la ruta de esos datos: un path traversal permite que el modelo lea <code>/etc/passwd</code>, y si el modelo está servido en un servidor consultable, el contenido del fichero puede salir en la propia salida del modelo.</p>
+<h2>Infraestructura de IA: la superficie que nadie mira</h2>
+<pre class="mermaid">
+flowchart LR
+    A[Investigador sube\nmodelo PyTorch] --> B[Servicio de conversión\na SafeTensors]
+    B -- carga el modelo\ncon pickle --> C[RCE en el servidor]
+    C --> D[Persistencia entre\nespacios de usuarios]
+    D --> E[Backdoor en modelos\nde terceros / robo de\nmodelos privados]
+
+</pre>
+
+<p>Más allá de los modelos, todo el ecosistema de soporte está sin auditar. Los componentes de MLOps, despliegue y serving de modelos a menudo carecen de autenticación porque están pensados para redes internas; búsquedas en Shodan muestran cientos de servicios expuestos externamente con datos propietarios e información HIPAA. Casos concretos hallados en investigaciones: un endpoint de model serving que ejecutaba cualquier pickle enviado, y una vector database cuyo filtro ejecutaba <code>eval</code> sobre la entrada del usuario en lugar de un lenguaje de filtrado real.</p>
+<p>El episodio de SafeTensors de Hugging Face lo resume. Hugging Face creó este formato "dumb" que solo almacena pesos y biases, y un servicio de conversión que cargaba el modelo PyTorch del usuario, lo convertía y abría un pull request. Cargar un PyTorch era ejecución arbitraria de código en el servidor de conversión. Peor: los espacios de conversión compartían persistencia entre usuarios, así que el código de un atacante afectaba a los modelos de cualquiera y permitía modificar modelos ajenos —inyectando backdoors en los SafeTensors resultantes— o robar modelos privados, algunos con millones de dólares de coste de entrenamiento. Uno de los modelos públicos de Google observados durante la investigación acumulaba 3,8 millones de descargas.</p>
+<p>En los frameworks agénticos —un LLM conectado a un backend que ejecuta funciones y llamadas a API— el patrón se repite: el backend confía ciegamente en lo que el LLM ordena, y pedir "escribe" en lugar de "lee" equivale a lo que sería una nueva inyección SQL, solo que trivial de encontrar. Con RAG ocurre lo mismo: el control de acceso se delega al LLM en vez de aplicarse sobre los datos, y una instrucción inyectada basta para que entregue lo que no debería. En GitHub, 87.000 ficheros usan <code>numpy.load</code> con <code>allow_pickle=True</code> —un modo que hay que activar deliberadamente— y 573.000 usan <code>torch.load</code>, que no es seguro por defecto, en proyectos desplegados en infraestructura corporativa.</p>
+<h2>Divulgación, recompensas y el dilema seguridad vs. safety</h2>
+<p>El ecosistema de divulgación en IA está jugando a ponerse al día, en una situación comparable a la de la seguridad tradicional hacia 2012-2014. Faltan frameworks establecidos, protocolos definidos y criterios de severidad; los pagos son arbitrarios; y persiste la confusión entre safety y security. A los retos clásicos del open source —calidad de código inconsistente, licencias complejas, sesgos en modelos preentrenados, documentación pobre— se suman contribuciones masivas, evolución rápida y la falta de conocimiento de seguridad entre mantenedores: quien reporta RCE a un proyecto de GitHub se lleva respuestas del tipo "así fue construido". En casos graves ha sido necesario recurrir a CISA para lograr la corrección.</p>
+<p>Las plataformas de bug bounty confirman el diagnóstico. Bugcrowd lidia con cazadores que envían hallazgos que son alucinaciones del propio modelo, con sesgos que las empresas niegan ("eso no es racista") y con pagos difíciles sin un scoring de severidad maduro, aunque reconoce que la culpa de las malas sumisiones es suya por falta de guías, contenido educativo y CTFs exigentes. HackerOne prioriza la claridad con el cliente —scope, expectativas de pago— y advierte que si no se paga lo justo por vulnerabilidades serias, los investigadores no vuelven. Intigriti insiste en estructura de recompensas y alineación entre clientes y cazadores sobre qué es safety y qué es security. Todos coinciden: falta estandarización y esto es un trabajo en progreso.</p>
+<p>En cuanto a los parches, los proyectos reaccionan de tres maneras: algunos hacen la función segura por defecto; otros añaden una opción segura opcional que nadie lee en la documentación —las advertencias quedan enterradas páginas más abajo—; y otros directamente declaran la vulnerabilidad como feature y no la parchean.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El prompt injection es solo la punta del iceberg: data poisoning, evasión, robo de modelos y backdoors en la cadena de suministro forman un panorama mucho más amplio y con menos atención.</li>
+<li>Los formatos de modelos son datos no confiables de gigabytes: pickle, JSON re-interpretado, parsers en C y path traversals en ONNX convierten la carga de cualquier modelo en superficie de ejecución.</li>
+<li>La infraestructura de IA —MLOps, serving, vector databases, conversores de formatos— repite vulnerabilidades "extintas" y a menudo carece de autenticación; cientos de servicios con datos sensibles están expuestos en internet.</li>
+<li>Para la comunidad de bug bounty, este es un terreno virgen con pagos reales; para la industria, la salida pasa por estandarización de severidad, divulgación colaborativa (con CISA como aliado) y presión por opciones seguras por defecto, no opcionales.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TjdATgKxqiU">«DEF CON 32 - Got 99 problems but prompt injection ain&#x27;t pineapple - Chloé Messdaghi, Kasimir Schulz»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

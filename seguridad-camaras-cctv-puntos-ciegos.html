@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Los puntos ciegos de las cámaras CCTV frente a los detectores de personas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Los puntos ciegos de las cámaras CCTV frente a los detectores de personas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/hB6rtwoyyrg">«DEF CON 32 - Securing CCTV Cameras Against Blind Spots - Jacob Shams»</a> · ver el <a class="nz-link" href="https://youtu.be/hB6rtwoyyrg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las cámaras de seguridad alimentan cada vez más detectores de objetos basados en IA, y se asume que si una persona aparece en el cuadro, el sistema la ve. El análisis presentado demuestra que esa suposición es falsa de manera sistemática: la confianza del detector varía drásticamente según dónde esté parada la persona — distancia, ángulo y altura dentro del cuadro — con cambios de hasta 0,7 en el valor de confianza para la misma persona filmada por la misma cámara.</p>
+<p>El trabajo avanza en tres pasos: primero caracteriza el comportamiento en un laboratorio con condiciones controladas; después lo confirma en espacios públicos reales de tres ciudades del mundo, construyendo mapas de calor de confianza por píxel; y por último lo convierte en un ataque práctico, Tiptoe, que calcula el camino de mínima detección a través de una escena vigilada. El resultado más grave: el fenómeno es independiente de la calidad de la cámara, del modelo de detección y de la iluminación — bajar la resolución de 1080p a 480p no lo elimina.</p>
+<h2>Experimento 1: la posición manda</h2>
+<p>Se filmó a una persona a distintas distancias, alturas y ángulos respecto de la cámara, bajo distintas condiciones de iluminación, y se procesaron los videos con YOLOv3. En los gráficos polares, cada anillo representa una distancia, cada sector un ángulo: verde para confianza promedio mayor a 0,8, amarillo entre 0,6 y 0,8, rojo por debajo de 0,6.</p>
+<p>Los hallazgos:</p>
+<ul>
+<li>La variación de confianza según la posición alcanza hasta 0,7 — la diferencia entre detectar la persona con seguridad y pasarla por alto.</li>
+<li>El mismo comportamiento aparece en Faster R-CNN, con rangos de 0,35 a 0,45 según iluminación.</li>
+<li>Al degradar el material de 1080p a 720p y 480p, el patrón persiste (rango de 0,7 en 720p y 0,6 en 480p): la calidad de la cámara no es la causa.</li>
+<li>Como todo detector tiene un umbral mínimo de confianza, una posición con confianza por debajo del umbral permite, en teoría, no ser detectado.</li>
+</ul>
+<h2>Experimento 2: mapas de calor en el mundo real</h2>
+<p>Para verificar que el fenómeno no es un artefacto de laboratorio, se analizaron tomas públicas de tres ubicaciones con alto tránsito peatonal: el cruce de Shibuya en Tokio, Broadway y Castro Street en San Francisco. De cada ubicación se tomaron 24 horas de grabación, divididas en seis videos de cuatro horas para cubrir distintos horarios y condiciones de luz.</p>
+<p>El método: un fotograma cada dos segundos alimentó a cinco detectores de objetos distintos, y para cada píxel del cuadro se calculó la confianza promedio de las cajas de detección de personas que cayeron sobre él. Los resultados:</p>
+<ul>
+<li>La confianza promedio varía entre 0,25 y 0,92 según la zona del cuadro y la hora del día.</li>
+<li>El comportamiento persiste en todas las condiciones de iluminación y en los tres lugares.</li>
+<li>Un caso ilustrativo: en la toma de Shibuya hay un poste cerca de la cámara, en el tercio izquierdo de la mitad inferior del cuadro. Las personas paradas detrás del poste quedan parcialmente ocultas, y esa zona aparece con confianza visiblemente menor — el poste es localizable con solo mirar el mapa de calor.</li>
+<li>Los mapas de calor revelan zonas de detección fuerte y débil estables: una firma de rendimiento del detector sobre esa escena concreta.</li>
+</ul>
+<h2>Tiptoe: el ataque de evasión por camino</h2>
+<p>La idea del ataque es directa: si hay zonas de baja confianza, un atacante puede cruzar la escena pasando solo por ellas, sin perturbaciones adversariales ni equipo especial.</p>
+<p>El modelo de amenaza es deliberadamente realista: el atacante conoce los mapas de confianza y de detección de la escena, no tiene acceso a métodos de perturbación adversarial que le permitan imprimir un patrón evasivo, ni a máquinas como láseres o luz infrarroja que influyan directamente sobre el detector. Su único control es el trayecto que recorre la persona.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Mapas de calor de confianza y detección] --> B[Reducción a grafo: píxel = nodo]
+    B --> C[Tiptoe: Dijkstra modificado]
+    C --> D[Camino con mínimo máximo de confianza]
+    D --> E[Cruce de la escena con detección mínima]
+
+</pre>
+
+<p>La construcción técnica: el mapa de calor se convierte en un grafo donde cada píxel es un nodo conectado con sus vecinos cardinales, y el peso de cada nodo es su confianza promedio. El objetivo no es minimizar el costo total del camino — eso haría Dijkstra clásico — sino minimizar el nodo de máxima confianza que el camino cruza. Tiptoe es una versión modificada de Dijkstra que, en lugar de acumular el costo total, registra para cada punto el mínimo máximo de confianza necesario para llegar hasta él; el camino óptimo se reconstruye hacia atrás desde el destino. Garantía formal: cualquier otro camino por la escena cruza un nodo con confianza igual o mayor.</p>
+<p>La distinción importa con un ejemplo: un camino directo puede tener costo total bajo pero máximo alto (20); el camino Tiptoe puede ser más "caro" en total (50) pero con máximo y promedio de 10 — exactamente lo que interesa a quien necesita mantenerse por debajo de un umbral de detección.</p>
+<h2>Resultados de la evaluación</h2>
+<p>Para cada mapa de calor se eligieron 10 puntos de inicio y 10 de destino al azar — 100 combinaciones por escena — y se compararon los caminos de Tiptoe contra caminos directos en distancia Manhattan y caminos aleatorios, repitiendo la prueba con los cinco modelos y las tres ubicaciones:</p>
+<ul>
+<li>En Shibuya con YOLOv3, Tiptoe reduce la confianza máxima de los caminos hasta en 0,1 y la confianza promedio hasta en 0,16, con rendimiento similar en las demás ubicaciones y detectores.</li>
+<li>En porcentaje: reducción de hasta 16% en la confianza máxima y 27% en la promedio respecto de caminos directos y aleatorios.</li>
+</ul>
+<p>Es decir: sin parches adversariales, sin hardware, sin tocar la cámara, eligiendo solo por dónde caminar, un atacante baja significativamente la probabilidad de ser detectado por un sistema de videovigilancia con IA.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La confianza de un detector de personas depende de la distancia, el ángulo y la altura de la persona en el cuadro, con variaciones de hasta 0,7 — y el fenómeno es independiente de la arquitectura del modelo, de la calidad de la cámara y de la iluminación.</li>
+<li>En espacios públicos reales existen zonas de detección débil estables y visualizables como mapas de calor, causadas por oclusiones parciales (un poste) y por la geometría de la escena.</li>
+<li>El ataque Tiptoe convierte esos hallazgos en un método determinista: un Dijkstra modificado que encuentra el camino de mínima detección, reduciendo hasta 16% la confianza máxima y 27% la promedio del recorrido.</li>
+<li>Para defender las instalaciones hace falta auditar los propios detectores: generar mapas de calor de confianza por píxel con footage real de la escena, identificar las zonas débiles, y reubicar cámaras o ajustar umbrales hasta eliminarlas — porque el atacante ya sabe cómo encontrarlas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/hB6rtwoyyrg">«DEF CON 32 - Securing CCTV Cameras Against Blind Spots - Jacob Shams»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

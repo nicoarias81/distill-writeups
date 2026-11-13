@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ASR rules para OT generadas por IA: detección de malware con NLP sobre relaciones de procesos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">ASR rules para OT generadas por IA: detección de malware con NLP sobre relaciones de procesos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/MJV5FQztfi4">«DEF CON 33 - Let AI Auto-Gen Neural ASR Rules for OT-Specific Attack via NLP Approach»</a> · ver el <a class="nz-link" href="https://youtu.be/MJV5FQztfi4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La detección de malware en entornos OT es fundamentalmente distinta a la de IT: los sistemas no se parchean con facilidad, las actualizaciones frecuentes de firmas son impracticables y las bases de firmas gigantes degradan el rendimiento hasta causar interrupciones operativas. La propuesta: un modelo de machine learning ligero, basado en NLP, que aprende de reglas expertas de comportamiento sospechoso y genera automáticamente reglas ASR (Attack Surface Reduction) específicas para ataques OT. Entrenado con telemetría real de fábrica —más de 50.000 binarios, 550+ reglas expertas— el modelo identificó 12 familias de malware distintas, clasificó variantes desconocidas y entregó explicabilidad accionable para respuesta a incidentes.</p>
+<h2>Por qué la detección OT no puede copiar el modelo IT</h2>
+<p>Los entornos OT no admiten la rutina de firmas antivirus: las actualizaciones son impracticables, los artefactos viejos acumulan bases de firmas enormes con costo de rendimiento, y las amenazas persistentes exigen otro enfoque. La pregunta de partida es doble: ¿existe un mecanismo que se adapte a la diversidad de entornos OT con mínimos falsos positivos, y pueden explotarse atributos específicos de OT que los métodos IT pasan por alto?</p>
+<p>La revisión de trabajos previos de detección con IA acota el diseño:</p>
+<ul>
+<li><strong>2020, deep graph + TF-IDF:</strong> detección dinámica transformando el uso de APIs sensibles en vectores numéricos, con 96% de detección sobre binarios nunca vistos. Inadecuado para OT porque exige expertos definiendo manualmente qué APIs son "sensibles" en cada entorno.</li>
+<li><strong>2024, Doc2Vec + transformer con self-attention:</strong> trata el comportamiento como oraciones/documentos para aprendizaje NLP, usando logs de EDR comercial como baseline; demuestra la robustez del NLP para aprender de reglas expertas, con precisión comparable entre embeddings y transformer. No aborda el caso OT.</li>
+<li><strong>2021, grafos cíclicos de comportamiento de procesos</strong> sobre cinco dimensiones (registro, red, proceso, DNS, archivos), 94% de precisión, pero sin relación padre-hijo de procesos y con limitaciones de rendimiento.</li>
+</ul>
+<pre class="mermaid">
+timeline
+    title Investigación previa que moldea el diseño
+    2020 : Deep graph + TF-IDF : 96% sobre binarios nuevos, pero requiere APIs "sensibles" definidas a mano
+    2021 : Grafos de procesos (5 dimensiones) : 94% de precisión, sin relación padre-hijo
+    2024 : Doc2Vec + transformer : NLP aprende de reglas expertas de EDR
+
+</pre>
+
+<h2>La relación padre-hijo como señal semántica</h2>
+<p>El hilo conductor de los casos de ataque es la cadena de procesos. En el ataque a la red eléctrica ucraniana atribuido a grupos estatales rusos, el binario "living-off-the-land" no dispara ningún EDR de IT, pero la relación padre-hijo sí delata el patrón. Tres ejemplos concretos:</p>
+<ul>
+<li><code>svchost.exe</code> legítimo es benigno; <code>svch0st.exe</code> (con cero) es una inmediata señal de suplantación que requiere confirmación contextual.</li>
+<li><code>explorer.exe</code> → <code>wscript</code> → <code>leand.vbs</code> → <code>cilc.exe</code> es el patrón característico de un binario living-off-the-land: solo la secuencia completa revela la malicia.</li>
+<li>Adobe Reader o Microsoft Office lanzando PowerShell es un indicador fuerte de comportamiento malicioso.</li>
+</ul>
+<p>En OT, además, el solapamiento entre actividad benigna y real es frecuente: muchas conductas benignas disparan alertas de EDR de IT continuamente, y pocas soluciones multicaspa separan bien el ruido. La consecuencia de diseño es importante: aun encadenando toda la capa de comportamiento, la intención maliciosa suele confirmarse al final de la cadena. Alertar antes —con eventos de advertencia temprana— permite prevenir más eficazmente, porque en OT no se sabe a priori quién es benigno: hay que identificarlo uno por uno.</p>
+<h2>La arquitectura: filtrar sospechoso primero, clasificar malicioso después</h2>
+<p>La solución propuesta ajusta el modelo AST2Vec (IEEE S&amp;P 2019), que representa árbol de riesgo de comandos y predice comandos centrales a partir del contexto, modelando tanto secuencia temporal como actividad inmediatamente sospechosa. El pipeline:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Telemetría OT
+comportamental] --> B[Reglas expertas
+550+ para filtrar]
+    B --> C[Cadena de secuencias
+sospechosas]
+    C --> D[AST2Vec ajustado
+Sospechoso2Vector]
+    D --> E[Clasificación
+malicioso / familia / variante]
+    E --> F[Explicabilidad
+regla + MITRE ATT&CK]
+
+</pre>
+
+<p>El principio rector: en OT no se puede marcar malicioso directamente por la diversidad del entorno; primero se filtra lo sospechoso con reglas expertas, y sobre esas cadenas se entrena el modelo. Los requisitos: modelo ligero y robusto, aprendizaje de comportamiento a partir de datasets reales de OT, y conversión de conductas a representaciones vectoriales discretas semánticamente robustas.</p>
+<p>El dataset: más de 550 reglas definidas por humanos para comportamiento sospechoso, telemetría benigna/sospechosa/maliciosa de más de 50.000 binarios reales de entornos OT de fábricas distintas, e índices de comportamiento de malware. El flujo: análisis dinámico de comportamiento del binario → secuencias de comportamiento → vectorización → juicio de malware → clasificación por índices semánticos.</p>
+<h2>Resultados y casos</h2>
+<p>El modelo identificó <strong>12 amenazas de malware distintas</strong> entre los más de 50.000 samples reales de OT. Dos casos ilustran el valor añadido:</p>
+<p><strong>Caso 1 — gusano y variantes.</strong> Cuatro reglas expertas se dispararon y el comportamiento concatenado conformó el vector que clasificó la muestra como familia de gusano, aunque sus variantes no figuraran en ninguna base de patrones estáticos. El modelo no solo dice "malicioso": identifica qué reglas se dispararon —persistencia como servicio, establecimiento como proxy de red por defecto para capturar tráfico local, limpieza de la caché de proxy de Internet Explorer para mantener monitorización— mapeadas a MITRE ATT&amp;CK, dando al equipo de respuesta el checklist exacto de qué contener.</p>
+<p><strong>Caso 2 — secuencia de cinco comportamientos.</strong> El vector agrupó cinco conductas sospechosas en secuencia (ocultarse como archivo de sistema, persistencia como servicio, limpieza de caché de proxy) y clasificó la muestra como familia tipo 1 gamma, con cada comportamiento explicable y trazable.</p>
+<p>La generalización clave: el agrupamiento por capas de comportamiento compartidas permite identificar el tipo (virus, gusano, troyano, backdoor) y las variantes dentro de cada tipo. Aunque el binario cambie y aparezca como nuevo, las características de comportamiento permanecen — exactamente lo que las firmas estáticas no capturan.</p>
+<h2>Despliegue y alcance</h2>
+<p>El modelo sigue siendo experimental pero demuestra viabilidad de detección ligera y sostenible: se pre-entrena periódicamente (cada 3 meses por ciclo planteado) y se despliega al entorno OT ya entrenado, manteniendo tasa de detección alta en producción. El enfoque es segmentable por vertical —financiero, manufactura, automotriz, semiconductores— con modelos distintos por dominio, cubriendo vectores y componentes de ataque específicos de cada industria, conocidos o desconocidos.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Reglas ASR (Attack Surface Reduction):</strong> objetivo del auto-generado; análogo a las reglas de Microsoft Defender pero específicas de OT y producidas por el modelo en lugar de por expertos.</li>
+<li><strong>AST2Vec (IEEE S&amp;P 2019):</strong> base del modelo ajustado; representación de árboles de riesgo de comandos y predicción de comandos centrales por contexto.</li>
+<li><strong>Doc2Vec / transformers con self-attention:</strong> antecedentes NLP que tratan comportamiento como texto y aprenden de reglas de EDR comercial.</li>
+<li><strong>Procesos padre-hijo (parent-child process chains):</strong> señal semántica central para detección de living-off-the-land y SUP-CARE (suplantaciones tipo <code>svch0st.exe</code>).</li>
+<li><strong>MITRE ATT&amp;CK:</strong> marco de mapeo de las reglas disparadas para explicabilidad.</li>
+<li><strong>Dataset de telemetría OT:</strong> 50.000+ binarios reales, 550+ reglas expertas de comportamiento sospechoso, telemetría benigna/sospechosa/maliciosa.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La detección OT requiere separar "sospechoso" de "malicioso" en dos etapas: no se puede clasificar malicioso directo por la diversidad del entorno, y las reglas expertas hacen el primer filtro.</li>
+<li>La relación padre-hijo entre procesos es la señal que permite detectar living-off-the-land y suplantaciones antes del final de la cadena de ataque, habilitando alertas tempranas.</li>
+<li>Un modelo NLP entrenado sobre reglas expertas y telemetría real de fábrica clasifica malware desconocido por familias y variantes con explicabilidad accionable, donde las firmas estáticas fallan.</li>
+<li>La ligereza del modelo pre-entrenado (reentrenamiento trimestral) y la segmentación por vertical hacen viable el despliegue en entornos OT donde las firmas y las actualizaciones continuas no lo son.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/MJV5FQztfi4">«DEF CON 33 - Let AI Auto-Gen Neural ASR Rules for OT-Specific Attack via NLP Approach»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

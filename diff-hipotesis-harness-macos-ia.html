@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff a hipótesis a harness: agentes de IA para investigar vulnerabilidades en macOS — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Diff a hipótesis a harness: agentes de IA para investigar vulnerabilidades en macOS</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/_f30RyXc_8Q">«Olivia Gallucci - macOS Vulnerability Research | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/_f30RyXc_8Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Investigar vulnerabilidades en macOS choca con una paradoja: Apple publica más código abierto del que la gente cree, pero de forma incompleta, con más de 400 repositorios públicos que es imposible seguir manualmente. La propuesta es tratar ese código parcial como un "sensor" —una fuente de señales de cambio sin interpretación propia— y usar agentes de IA para convertirlo en una cola de investigación priorizada: qué cambió, qué parece relevante para la seguridad, qué hacer reversing y qué fuzzear.</p>
+<p>La herramienta concreta es OSS Sensor, publicada como software libre, que genera esa cola priorizada con evidencia a partir de diffs del OSS de Apple, características básicas de binarios y plantillas de logs, aplicando scoring basado en reglas. Existen dos versiones: una sin IA integrada —más simple y recomendada para quien quiera conectar su propio flujo de trabajo— y otra con capacidades de IA. El diseño es deliberadamente liviano y sin verificación automática de vulnerabilidades: es una ayuda para triage y generación de hipótesis, no un descubridor automático.</p>
+<p>El flujo completo se resume en tres pasos: diff a hipótesis a harness. Empezar con un diff (de fuente o binario), preguntarse qué cambió de forma significativa y dónde están los trust boundaries, convertirlo en una hipótesis testeable sobre una clase de bug, y construir un driver de prueba mínimo que haga el camino alcanzable y reproducible para fuzzing y validación.</p>
+<h2>El código abierto parcial de Apple como sensor</h2>
+<p>Apple open-sourcea mucho más de lo esperado: el kernel XNU, librerías core como LibSystem, LibC y LibDispatch, y daemons históricos como LaunchD. Pero no todo: faltan o están parciales componentes como Core Foundation y CFNetwork, drivers específicos de iOS, y Core Crypto, que viene con restricciones adicionales de redistribución. Los drops de código pueden estar incompletos u obsoletos, con headers que referencian archivos inexistentes o instrucciones faltantes —confuso tanto para un humano como para un agente de IA.</p>
+<p>Esa carencia no invalida el enfoque: el código parcial funciona como un mapa. Los landmarks son reales aunque no se tenga todo el territorio, y la práctica estándar es usar el OSS como referencia mientras se trabaja con los binarios propietarios: tomar un binario como LaunchD, SyslogD o un driver, y usar logs y fuentes disponibles para matchear funciones conocidas, anotar patrones de llamada y hacer reversing de lógica desconocida. Incluso con símbolos stripped, la estructura del binario más las constantes de string y el uso de syscalls permiten mapear de vuelta al código fuente.</p>
+<p>Las herramientas repetitivas de ese mapeo son las que se delegan a agentes: <code>strings</code> da mensajes de debug, format strings y paths de archivos; <code>otool</code> extrae info de versión y proyecto; <code>nm</code> lista nombres de símbolos en binarios no stripped y frameworks; <code>class-dump</code> da interfaces y superficies de métodos Objective-C de frameworks privados. Los distribution manifests de Apple permiten cross-referencear componentes por release. El agente llama a las herramientas, parsea la salida, recupera los fragmentos de fuente correspondientes y produce conclusiones acotadas con citas a la evidencia —el objetivo es que el modelo no invente hechos.</p>
+<h2>Binarios, logs y el caso del heap overflow en syslogd</h2>
+<p>Los binarios reflejan lo que realmente se distribuye, y el binario diffing —comparar versiones antes y después de un parche— es la técnica central. El ejemplo clásico: en 2016 un reverser usó Diaphora para diffear syslogd entre macOS 10.11.2 y 10.11.3, encontrando que una sola función cambió, y el cambio fue una corrección de matemática de asignación: de <code>value + 4</code> a <code>value * 4 + 4</code>. Desde una mentalidad de explotación eso es sospechoso: parece una mitigación de heap overflow. Un string cercano —"add lockdown session, realloc failed"— daba la pista de vuelta al código fuente.</p>
+<p>Ese tipo de diff quirúrgico es como se reversan vulnerabilidades después del parche, y tiene una implicancia operativa importante: las correcciones suelen necesitar aplicarse en múltiples ubicaciones. Si código idéntico se parchea en unos archivos pero no en otros, los no parcheados siguen siendo vulnerables. Cuanto más grande y burocrática es la organización, más errores repetidos habrá en archivos vecinos del producto. El flujo idealizado con IA ingestiona en continuo los tags y tarballs de cada release de Apple con sus distribution manifests, computa diffs a nivel de función y semántico, puntúa los cambios por relevancia de seguridad según patrones —matemática de asignación, bounds checks, entitlement gating, parsing de XPC, cambios en tablas de external methods de IOKit—, correlaciona binarios y strings, y emite una cola rankeada con el porqué del riesgo y punteros para validación humana.</p>
+<h2>El tercer sensor: Unified Logging</h2>
+<p>La gran adición al clásico "usar el OSS de Apple para reversar" son los logs del sistema. Unified Logging da etiquetas de subsystem y category que mapean de vuelta a componentes, mensajes estables entre releases que sirven para cazar en binarios y fuente, y pistas de ejecución que permiten reconstruir diagramas de flujo de datos sin el código completo. Los logs se tratan como un pivote hacia la superficie de ataque, no como doctrina: son ruidosos y voluminosos, pero muy buenos para responder qué componentes manejan realmente un input o output (subsystem, category, sender image) y qué caminos de error se dispararon, lo que revela supuestos de parsing, expectativas de tipos y contratos IPC. Buen ROI para selección de objetivos, diseño de harness y decisión de qué fuzzear.</p>
+<p>Con logs, un agente puede ejecutar tres tareas acotadas y útiles: localizar dónde vive el string de una línea de log dentro de un binario y hallar su basic block y callers; recuperar el código OSS adyacente a esos callers y producir un resumen estructurado (inputs, trust boundaries, parsing); y alimentar ese resumen al plan de fuzzing o al threat detection engineering —qué vigilar, qué parámetros controla el atacante, cómo lucen los modos de fallo. Cuando el pipeline detecta una nueva frontera de input no confiable o un nuevo punto de entrada XPC privilegiado, se traduce en requisitos de telemetría y reglas de correlación: convertir investigación de vulnerabilidades en cobertura de detección.</p>
+<h2>Arquitectura de agentes y el planificador de fuzzing</h2>
+<p>La arquitectura con mejores resultados es un pipeline de agentes coordinados que convierte inputs crudos (diffs, binarios, logs) en outputs con evidencia: colas de triage rankeadas, hipótesis y planes de fuzzing/telemetría. Sus capas:</p>
+<ol>
+<li><strong>Retriever</strong>: indexación de código OSS, símbolos, notas y plantillas de logs, para devolver el contexto más relevante.</li>
+<li><strong>Toolbox</strong>: conjunto curado de analizadores deterministas y comandos del sistema (<code>strings</code>, <code>otool</code>, <code>class-dump</code>, queries de logs) que los agentes llaman para generar hechos y no conjeturas.</li>
+<li><strong>Agentes especializados</strong>: uno por tarea —triage de diffs, contexto de RE, hipótesis, planificación, análisis—.</li>
+</ol>
+<p>La filosofía de fondo: el modelo no es un oráculo, es un analista general con herramientas que lee rápido, sigue procedimientos y genera hipótesis estructuradas que los humanos validan con reversing, tracing y fuzzing. Cada paso puede romperse y dependen entre sí, algo que importa especialmente con planes de pago personales de recursos limitados.</p>
+<p>El planificador de fuzzing ilustra el carácter acotado del sistema: no produce un exploit, produce un plan. Enumera superficies candidatas (handlers de syscalls, user clients de IOKit, servicios XPC, parsers) priorizando puntos donde inputs controlados por el atacante cruzan trust boundaries; produce un harness mínimo con el camino de invocación, los entitlements requeridos y la forma esperada del input, para que el objetivo sea alcanzable y reproducible a escala; recomienda una estrategia de seeds extrayendo diccionarios de strings, minando parámetros de logs o bootstrappeando de tráfico observado, para que la cobertura crezca rápido en vez de mutar desde cero; y define métricas de éxito —crash bucketing, señales de sanitizers, stack traces únicos—.</p>
+<h2>Límites, costos y verificación humana</h2>
+<p>Donde el flujo se rompe hoy es pidiendo exploits de cadena completa: los modelos inventan pasos, especialmente si se conecta un chatbot de IA. Las restricciones prácticas son el tamaño de los subsistemas y el costo de procesarlos —meter subsistemas enteros del sistema operativo llega rápido a cifras de cuatro dígitos en tokens. Las salidas de alto valor se restringen a predicción de clases de bugs y diseño de harness, y la explotabilidad queda en manos humanas. Esa acotación además mantiene contentos a los grandes modelos, que suelen intentar bloquear usos ofensivos.</p>
+<p>La verificación cruzada es parte del método: contrastar hipótesis propias contra trabajos públicos de alta calidad, como el corpus de escritos de Patrick Wardle, usando herramientas de IA para chequear si las ideas se alinean con técnicas establecidas. Por coherencia con ese aprendizaje, OSS Sensor se licenció intencionalmente bajo GPLv3, para que el código siga compartible. Y el mismo pipeline sirve más allá del research ofensivo: acorta el loop de threat detection engineering, porque saber qué cambió y qué interfaces se movieron permite actualizar monitoreo, priorización y triage más rápido, convirtiendo el churn de plataforma en cobertura de detección.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OSS Sensor</strong>: herramienta publicada que genera colas de investigación priorizadas con evidencia desde diffs de OSS de Apple, features de binarios y plantillas de logs; licencia GPLv3.</li>
+<li><strong>Binario diffing</strong>: comparación de binarios entre versiones (ej. Diaphora sobre syslogd) para detectar mitigaciones de heap overflow y parches incompletos.</li>
+<li><strong>Unified Logging</strong>: etiquetas de subsystem/category y mensajes estables como pivote hacia superficies de ataque y contratos IPC.</li>
+<li><strong>Toolbox determinista</strong>: <code>strings</code>, <code>otool</code>, <code>nm</code>, <code>class-dump</code>, distribution manifests de Apple.</li>
+<li><strong>Pipeline de agentes</strong>: retriever (indexación), toolbox de analizadores, agentes especializados en triage, RE, hipótesis, planificación y análisis.</li>
+<li><strong>Planificador de fuzzing</strong>: enumeración de superficies, harness mínimo, estrategia de seeds y métricas de éxito (crash bucketing, sanitizers).</li>
+<li><strong>IOKit / XPC / entitlements</strong>: superficies de entrada privilegiadas donde inputs del atacante cruzan trust boundaries.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El código abierto parcial de Apple, combinado con análisis de binarios y logs del sistema, permite reversar subsistemas con precisión sorprendente —tratándolo como un sensor de cambios, no como el territorio completo.</li>
+<li>Los agentes de IA rinden cuando se les dan tareas acotadas y repetitivas: el trabajo pesado ocurre en tooling determinista y el modelo cosecha evidencia y produce salidas estructuradas.</li>
+<li>El flujo diff → hipótesis → harness mantiene la explotabilidad en manos humanas y evita los dos grandes modos de fallo: modelos que inventan pasos y costos de tokens que se disparan con subsistemas enteros.</li>
+<li>El mismo pipeline convierte el churn de plataforma en cobertura de detección, así que no es solo un atajo ofensivo: es infraestructura compartida entre vulnerability research y threat detection.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/_f30RyXc_8Q">«Olivia Gallucci - macOS Vulnerability Research | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

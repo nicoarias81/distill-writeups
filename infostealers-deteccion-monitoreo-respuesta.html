@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>InfoStealers: detección, monitoreo y respuesta ante el malware que roba datos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">InfoStealers: detección, monitoreo y respuesta ante el malware que roba datos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ZluFoeJrBcQ">«InfoStealers: Detección, Monitoreo y Respuestata - Ale Houspanossian»</a> · ver el <a class="nz-link" href="https://youtu.be/ZluFoeJrBcQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un infostealer es simplemente malware que roba datos: contraseñas y cookies guardadas en los navegadores, archivos de billeteras virtuales, documentos de usuario. La pregunta que importa no es qué es, sino para qué lo roban, quién y cómo — porque entender el objetivo del atacante cambia por completo la respuesta: borrar el malware está bien, pero si hubo exfiltración de credenciales, la respuesta queda corta sin revocar accesos y regenerar credenciales.</p>
+<p>Desde la defensa participan cuatro equipos que deben compartir conocimiento: threat intelligence (captura y comparte indicadores), research (entiende cada ataque), ingeniería de detección (convierte ese aprendizaje en reglas de negocio que van a producción en el EDR) y el SOC con sus analistas, que reciben las alertas y, cuando corresponde, derivan a respuesta a incidentes. El mensaje central: incrementar el conocimiento colectivo sobre estos ataques, porque ninguna solución de "protección total" alcanza por sí sola y el código malicioso casi siempre viaja dentro de binarios legítimos.</p>
+<h2>Las cuatro etapas de un infostealer</h2>
+<p>Todo infostealer pasa por cuatro etapas:</p>
+<ol>
+<li><strong>Ingreso</strong>: en la mayoría de los casos en Latinoamérica, "el usuario hace algo" — recibe un mail o mensaje en redes sociales con una URL o adjunto y termina descargando y ejecutando algo. También existen servicios expuestos explotados por vulnerabilidad o software actualizado ya comprometido, pero son la minoría.</li>
+<li><strong>Ejecución</strong>: la víctima vuelve a intervenir — descomprime un archivo protegido con contraseña que venía en el cuerpo del mail, extrae el ejecutable, lo corre.</li>
+<li><strong>Robo de datos</strong>: información sensible de los navegadores (contraseñas guardadas, cookies, sesiones), archivos de aplicaciones de billeteras virtuales, escaneo masivo de documentos Word, Excel, PowerPoint.</li>
+<li><strong>Exfiltración</strong>: robar sin poder sacar no es robar; los datos se coleccionan, se preparan y se envían.</li>
+</ol>
+<p>Un recordatorio del impacto real: el ransomware de Colonial Pipeline (Estados Unidos, 2021) comenzó con credenciales válidas — un usuario y contraseña que el atacante consiguió y usó para entrar. El robo de credenciales alimentó un ataque que bloqueó miles de servidores, paralizó la distribución de combustible y llegó a la televisión.</p>
+<h2>La pirámide del dolor y por qué el hash no alcanza</h2>
+<p>La pirámide del dolor ordena las defensas según cuánto le cuesta al atacante evolucionar. Bloquear por hash de archivo es la base: cambiar el hash de un archivo es trivial, así que contra un adversario creativo esa estrategia pierde. En la cima están los TTPs (tácticas, técnicas y procedimientos): si la defensa impacta ahí — por ejemplo, bloqueando o alertando bien sobre la ejecución de PowerShell — el atacante tiene que evolucionar de verdad o irse a buscar una víctima más fácil.</p>
+<p>El matiz para infostealers: los intérpretes (CMD, PowerShell, el intérprete de JavaScript, MSHTA, AutoIT 3) son legítimos y sus hashes no interesan; lo que cambia de hash en cada campaña son los scripts intermedios, que además a veces se generan dinámicamente en la máquina víctima. Detectar el entrelazado de tecnologías — cómo anidan PowerShell con HTA, con VBScript, con JavaScript — es lo que produce detecciones efectivas.</p>
+<p>Del lado de las herramientas: las soluciones de protección bloquean y no toleran falsos positivos (bloquear algo crítico en un hospital es un problemón), así que si se bloquea todo, la organización deja de funcionar y el atacante busca los grises. Las soluciones de detección y respuesta (EDR sobre endpoints, XDR sobre todo) toleran mejor los falsos positivos y entregan alertas con nivel de confianza. Pero asisten al analista, no lo reemplazan: comprar el EDR y suponer protección automática es un error; las alertas sirven si hay alguien que tome acciones efectivas con ellas.</p>
+<h2>Tres campañas reales y sus patrones</h2>
+<p><strong>Campaña 1 — genealogía con persistencia e inyección .NET.</strong> Un VBScript (<code>xlsxword.vbs</code>) en <code>Users\Public</code> se ejecuta con WScript como tarea programada — el script primero se asegura persistencia creando la tarea — y lanza CMD, que ejecuta <code>blackjackk.bat</code>, que ejecuta un comando de PowerShell muy ofuscado. Ese PowerShell lanza un binario legítimo de .NET (<code>aspnet_compiler.exe</code>) y le inyecta código malicioso; el proceso infectado captura pulsaciones de teclado a un archivo de log mientras se comunica con servidores externos. Buscando el nombre del archivo en VirusTotal apareció el contenido del .bat (variables ofuscadas que resuelven <code>powershell.exe -nop</code>) y, en comentarios, un enlace a un sandbox (any.run) con la misma cadena: ahí el binario inyectado era otro de .NET del mismo folder. Conclusión defensiva: la detección debe abstraerse del binario concreto — el patrón es "inyecta en un proceso de .NET".</p>
+<p><strong>Campaña 2 — señuelo local.</strong> Un comando de PowerShell descarga y ejecuta en un solo paso un archivo HTA desde <code>portalafip.web.app</code>, un dominio ilegítimo que imita al portal de la agencia de impuestos argentina. MSHTA (intérprete por defecto de HTA, presente en todo Windows, capaz de descargar y ejecutar) corre JavaScript remoto, lanza CMD, que genera un VBScript en el directorio público y lo ejecuta; de ahí nace un intérprete de AutoIT 3 que inyecta código malicioso en <code>attrib.exe</code> (binario legítimo del sistema), que abre comando y control con un servidor externo y empieza a leer y exfiltrar archivos de usuario. El uso del dominio señala que el ataque apunta a Argentina.</p>
+<p><strong>Campaña 3 — DLL sideloading y criptominero.</strong> El usuario descarga un archivo comprimido con WinRAR cuyo nombre incluye el passcode (<code>passcode_&lt;número&gt;</code>); al descomprimirlo y ejecutarlo arranca un instalador legítimo de WebEx vulnerable a DLL sideloading: el ejecutable legítimo carga la DLL maliciosa puesta a su lado. La cadena larga termina en un infostealer y en la instalación de un criptominero ejecutado a través de MSBuild, otro binario legítimo de Windows inyectado y puesto a trabajar para el adversario.</p>
+<pre class="mermaid">
+flowchart TD
+    U[Usuario descarga / ejecuta] --> S[Script de entrada<br/>VBS / HTA / BAT]
+    S --> P[PowerShell ofuscado]
+    P --> I[Binario legítimo de .NET<br/>con código inyectado]
+    I --> C[Robo: keylogging, archivos, credenciales]
+    C --> X[Exfiltración a servidor externo]
+
+</pre>
+
+<h2>Detección, monitoreo y respuesta</h2>
+<p>Qué conviene detectar: genealogías de procesos sospechosas (VBScript → CMD → PowerShell, MSHTA con padre PowerShell), atributos de la línea de comandos, paths y nombres de archivos raros, scripts o ejecutables creados en contextos inesperados, ofuscación y entrelazado de tecnologías, y comunicación de red desde procesos que normalmente no se comunican. La misión de la ingeniería de detección es generar contenido que detecte la actividad maliciosa lo antes posible — no frenar, sino dar tiempo a los defensores. Como resume Florian Roth en el tuit citado: en detección no se busca la detección perfecta, se busca ser rápido y ágil mandando lógica a producción.</p>
+<p>En monitoreo y triage, las alertas típicas de un EDR frente a estas campañas: conexiones de red por intérpretes como PowerShell, ejecución de MSHTA con padre inusual, conexiones por procesos que generalmente no las hacen, y creación de binarios de AutoIT 3.</p>
+<p>En respuesta, la pregunta guía es: ¿cómo está implementada la prevención y detección en mi organización, qué alertas se generan y quién las mira? Eliminar el malware y reconstruir la máquina está bien, pero si el ataque fue de robo de datos hay que hacer análisis extra: revocar accesos, regenerar credenciales y — como aportaron desde el público — revocar sesiones, porque las cookies de sesión robadas no se regeneran solas y el doble factor por sí solo no salva una sesión ya robada.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Infostealer</strong>: malware de robo de datos en cuatro etapas (ingreso, ejecución, robo, exfiltración).</li>
+<li><strong>Pirámide del dolor</strong>: priorizar defensas por TTPs antes que por hashes triviales de cambiar.</li>
+<li><strong>Cadenas de intérpretes</strong>: VBScript/WScript, CMD, PowerShell, MSHTA (HTA), JavaScript, AutoIT 3; combinaciones que delatan actividad maliciosa.</li>
+<li><strong>Inyección en binarios legítimos de .NET</strong>: <code>aspnet_compiler.exe</code>, MSBuild y similares usados como caballo de Troya del código malicioso.</li>
+<li><strong>DLL sideloading</strong>: ejecutable legítimo (instalador de WebEx) que carga una DLL maliciosa colocada junto a él.</li>
+<li><strong>Persistencia por tarea programada</strong> creada por el propio script de entrada.</li>
+<li><strong>VirusTotal y any.run</strong>: búsqueda de muestras por nombre de archivo, contenido de scripts y genealogía de procesos en sandbox.</li>
+<li><strong>Trellix EDR</strong> (ex McAfee): telemetría de genealogía de procesos para reconstruir las cadenas.</li>
+<li><strong>Caso Colonial Pipeline (2021)</strong>: acceso inicial con credenciales válidas robadas; impacto social del robo de credenciales.</li>
+<li><strong>Tuit de Florian Roth</strong>: en ingeniería de detección, velocidad y agilidad antes que la detección perfecta.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El robo de datos tiene cuatro etapas identificables y cada una deja observables; entender que el objetivo son las credenciales y las sesiones cambia la respuesta, que debe incluir revocación de accesos, regeneración de credenciales y revocación de sesiones activas.</li>
+<li>Las defensas basadas solo en hashes de archivos pierden contra infostealers: los scripts cambian de hash en cada campaña y a veces se generan en la víctima; detectar patrones elevados (genealogías, entrelazado de intérpretes, inyección en binarios .NET legítimos) es lo que impacta la capacidad del atacante.</li>
+<li>El EDR es una herramienta que asiste, no reemplaza: sin analistas que interpreten las alertas y un playbook de respuesta que contemple el robo de datos, la tecnología no se traduce en contención.</li>
+<li>El código malicioso viaja dentro de binarios legítimos del sistema; las detecciones deben abstraerse del binario concreto hacia el comportamiento.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ZluFoeJrBcQ">«InfoStealers: Detección, Monitoreo y Respuestata - Ale Houspanossian»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

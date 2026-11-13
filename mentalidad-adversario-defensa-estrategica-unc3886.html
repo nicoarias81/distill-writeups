@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pensar como el enemigo: la mentalidad del adversario como defensa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Pensar como el enemigo: la mentalidad del adversario como defensa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SDZ95UJi1fs">«DEF CON 33 - Thinking like the enemy: Adversary Mindset - Shao Xiang»</a> · ver el <a class="nz-link" href="https://youtu.be/SDZ95UJi1fs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La premisa central: defender no es hacking, es pensamiento estratégico. Quien defiende suele razonar en técnicas — cómo parchear, cómo buscar intrusiones, cómo cortar el movimiento lateral — con acciones reactivas cuyo éxito se mide en la velocidad con que se cierra un incidente. El adversario razona en estrategia: plan de largo plazo, operaciones que minimizan ruido, y éxito medido en cuánto tiempo permanece dentro de la red de la víctima. Ese desajuste de marcos mentales es, con frecuencia, la razón por la que la expulsión queda incompleta. El recorrido articula dos verdades incómodas, tres perfiles de adversario, cuatro principios que guían a los actores tipo APT, y el estudio del grupo UNC3886 como demostración completa — incluida una demostración en vivo de cómo llegar a una VM con EDR sin ser detectado.</p>
+<h2>Dos verdades incómodas</h2>
+<ol>
+<li><strong>No se puede proteger lo que no se entiende.</strong> Si no se comprende cómo razona el adversario, qué le importa y qué operaciones planea, la defensa apunta a los lugares equivocados. Los defensores piensan en técnicas y acciones inmediatas; los atacantes piensan en objetivos y meses de permanencia.</li>
+<li><strong>El atacante solo necesita acertar una vez.</strong> El defensor debe acertar siempre, en todo momento, en cada rincón de la red — lo que es irrealizable. De ahí que seguridad sea gestión de riesgo, no perfección: entender al adversario permite dejar de intentar cubrirlo todo y concentrar esfuerzo en el riesgo más alto.</li>
+</ol>
+<h2>Tres adversarios, tres modos de operar</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Perfil</th>
+<th>Objetivo</th>
+<th>Comportamiento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>APT</strong></td>
+<td>Espionaje y posicionamiento previo</td>
+<td>Acceso de larga duración; tolerancia baja al ruido; meses o años de preparación; herramientas personalizadas y borrado de rastros (opsec extrema)</td>
+</tr>
+<tr>
+<td><strong>Crimen organizado (ransomware)</strong></td>
+<td>Pago rápido</td>
+<td>Menos pacientes: la velocidad es dinero; opsec inferior a la de un APT</td>
+</tr>
+<tr>
+<td><strong>Activistas (hacktivistas)</strong></td>
+<td>Visibilidad</td>
+<td>Ruido y volumen; motivados por eventos — cuando el evento se apaga, la actividad también; la opsec más débil de los tres</td>
+</tr>
+</tbody>
+</table></div>
+<p>El foco está en el APT, el adversario que define el estándar de lo que una defensa madura debe resistir.</p>
+<h2>Los cuatro principios del adversario APT</h2>
+<ol>
+<li><strong>Acción guiada por objetivos.</strong> Nada es casual: tocar una máquina sin motivo eleva el riesgo de detección. Comprometer usuarios o servidores porque concentran credenciales útiles, comprometer clientes para ganar control amplio de varias máquinas y facilitar el movimiento lateral, elegir clientes con defensas débiles para conservar acceso de largo plazo.</li>
+<li><strong>Gestión de riesgo y opsec.</strong> Cada decisión pesa valor obtenido contra riesgo de exposición. Si asumen que fueron detectados, bajan la actividad al mínimo. Despliegan múltiples variantes de backdoors y de canales C2 para que la caída de un camino no los deje afuera.</li>
+<li><strong>Paciencia y sigilo.</strong> Priorizan evadir antes que avanzar rápido: dedican tiempo a estudiar al defensor y planear el siguiente movimiento con cuidado.</li>
+<li><strong>Aprender y adaptarse.</strong> Saben que no siempre ganarán; su permanencia depende de adaptarse más rápido que el defensor, aprender de los errores y corregir el curso rápido.</li>
+</ol>
+<h2>Caso UNC3886: vivir donde el EDR no mira</h2>
+<p>El grupo UNC3886 aplica esos principios con una estrategia reconocible: <strong>quedarse en equipos sin EDR</strong> — hipervisores, routers, switches y firewalls. La cadena:</p>
+<ul>
+<li>Explota un SSL VPN orientado a Internet para entrar a la red.</li>
+<li>Compromete vCenter: quien controla vCenter controla todos los dispositivos ESXi de la red.</li>
+<li>Usa una API de vCenter para desplegar backdoors personalizadas que <strong>no escuchan en ningún puerto TCP ni inician conexión saliente</strong> — se activan al recibir un paquete ICMP con un payload mágico.</li>
+<li>Busca vCenter, obtiene acceso vía exploit, y con él: modificar los ESXi gestionados, extraer las cuentas de servicio ESXi de la base de datos (hash de contraseñas incluidos), romper los hashes y usar esas credenciales para entrar por SSH a los ESXi.</li>
+<li>Desde el ESXi, mueve binarios y archivos entre el hipervisor y las VMs guest usando vib (los paquetes de instalación de ESXi): toda la actividad pasa por la capa de virtualización, invisible para el EDR de las VMs.</li>
+<li>Identifica VMs guest sin EDR y despliega ahí herramientas para expandir el control de la red.</li>
+</ul>
+<pre class="mermaid">
+flowchart TD
+    A["SSL VPN expuesto a Internet<br/>(exploit inicial)"] --> B["vCenter comprometido<br/>API → backdoor ICMP activada"]
+    B --> C["Base de datos de vCenter:<br/>hashes de cuentas de servicio ESXi"]
+    C --> D["SSH a ESXi con credenciales rotas"]
+    D --> E["vib: mover archivos/binarios<br/>hipervisor ⇄ guest VMs<br/>invisible para el EDR"]
+    E --> F["Guest VMs sin EDR:<br/>expansión en la red"]
+
+</pre>
+
+<p>El resultado: acceso profundo y duradero — el actor logró permanecer en la red de la víctima <strong>más de un año</strong> — apoyado en capas de respaldo (si la actividad en la VM guest es detectada, el control sobrevive en el hipervisor), backdoors sigilosas sin puertos abiertos, y variantes de backdoor evolucionando sin pausa desde 2021.</p>
+<h2>La demostración paso a paso</h2>
+<p>La demo en vivo reproduce la cadena contra un laboratorio: portal de vCenter con credenciales de administrador filtradas; inventario de ESXi y VMs guest con una VM Windows como crown jewel; listener netcat en el C2 del atacante; exploit de una CVE de vCenter que abusa de alarmas configurables para ejecutar comandos — se crea una alarma cuya acción ejecuta un binario netcat que devuelve shell al C2; con la shell, extracción de las cuentas de servicio desde la base de datos de vCenter (con script para romper los hashes); habilitación del SSH en el ESXi desde el propio portal de vCenter (no viene activo por defecto); transferencia de un binario al ESXi con SCP; entrada por SSH; exploit adicional para obtener ejecución directa en la VM Windows guest (lectura de un archivo secreto como prueba); y despliegue de un binario — la calculadora — en la guest VM mediante una tarea programada, porque una ejecución en segundo plano no produce efecto visible en la GUI.</p>
+<h2>Las preguntas que un defensor debe hacerse</h2>
+<p>Traducir cada principio del adversario a acción defensiva:</p>
+<ul>
+<li><strong>Objetivo:</strong> ¿cuál es la intención más probable del atacante ya dentro? ¿Dónde están los crown jewels? ¿Qué servidor otorga control amplio para el movimiento lateral? Esto ordena qué proteger y qué revisar primero en un incidente.</li>
+<li><strong>Opsec y riesgo:</strong> ¿qué zonas de la red no observa ningún EDR y no reportan logs al SIEM? ¿Qué TTPs usó UNC3886 y cuáles conviene vigilar? ¿Hay forma de forzar al atacante a operar en todos los frentes? ¿Conviene cazar amenazas en cada incidente, por si hay actividad adicional sin alertar?</li>
+<li><strong>Paciencia y sigilo:</strong> ¿cómo detectar actividad de bajo ruido? El atacante paciente volverá a la red: ¿cómo detectar las señales tenues de su regreso?</li>
+<li><strong>Aprender y adaptarse:</strong> el defensor también debe adaptarse rápido. La clave es leer reportes de threat intelligence con ojo estratégico — no solo las exploits, sino cómo el APT estructura sus operaciones y maneja sus errores.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La defensa madura cambia de enfoque táctico (técnicas, respuesta inmediata) a estratégico (objetivos del adversario, crown jewels, gestión de riesgo): no se puede proteger lo que no se entiende, y el atacante solo necesita acertar una vez.</li>
+<li>No todos los adversarios son iguales: APT (paciencia, sigilo, largo plazo), ransomware (velocidad y dinero), hacktivistas (ruido y eventos) — la estrategia defensiva debe ajustarse al perfil relevante.</li>
+<li>Los cuatro principios del APT — acción por objetivos, opsec y gestión de riesgo, paciencia, adaptación — explican decisiones concretas como tocar solo máquinas útiles y desplegar backdoors redundantes.</li>
+<li>UNC3886 demuestra el principio "vivir sin EDR": hipervisores y equipos de red como posición de permanencia, backdoors ICMP activadas sin puertos abiertos, y credenciales de servicio extraídas de vCenter para moverse por SSH entre ESXi y VMs guest.</li>
+<li>La capa de virtualización es un punto ciego estructural: el tráfico entre hipervisor y guest pasa por vib y no lo ve ningún EDR de la VM.</li>
+<li>La contraparte del aprendiz APT es el defensor que lee reportes de amenazas preguntándose por la estructura operativa del atacante, no solo por la exploit de moda.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SDZ95UJi1fs">«DEF CON 33 - Thinking like the enemy: Adversary Mindset - Shao Xiang»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

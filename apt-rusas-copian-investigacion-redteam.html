@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuando el APT lee el mismo blog que vos: los grupos rusos que copian la investigación ofensiva — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cuando el APT lee el mismo blog que vos: los grupos rusos que copian la investigación ofensiva</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bpUxuOdfGHM">«DEF CON 33 - Red Russians: How Russian APT groups follow offensive security research - Will Thomas»</a> · ver el <a class="nz-link" href="https://youtu.be/bpUxuOdfGHM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Existe un patrón que se repite desde hace años y casi nadie conecta: los grupos APT rusos monitorean, copian e incorporan a sus campañas la investigación de red team pública apenas se publica. No inventan técnicas novedosas: leen los mismos blogs que la comunidad defensiva, esperan (a veces horas, a veces años) y weaponizan. El resultado es un flujo constante donde la investigación ofensiva divulgada en GitHub o en un blog técnico termina ejecutándose contra gobiernos y organizaciones civiles.</p>
+<p>El hallazgo viene de años de threat hunting en infraestructura global de datos y del rastreo sistemático de tres servicios de inteligencia rusos: el GRU (militar; APT28/Fancy Bear/Forest Blizzard), el SVR (exterior; APT29/Cozy Bear/Midnight Blizzard, autores del supply chain de SolarWinds) y el FSB (Turla/Venomous Bear/Secret Blizzard). El caso más contundente: un exploit de TeamCity publicado por investigadores fue weaponizado por el SVR <strong>en menos de una semana</strong>, con organizaciones gubernamentales entre las víctimas.</p>
+<p>La buena noticia es doble. Primero, casi todas estas técnicas tienen detección conocida, publicada y a veces trivial. Segundo, si el adversario sigue la investigación ofensiva, los defensores pueden adelantarse leyendo lo mismo: construir detecciones cuando la técnica se publica, no cuando aparece el reporte del APT — que a veces tarda años.</p>
+<h2>El ciclo: del PoC de GitHub al espionaje</h2>
+<pre class="mermaid">
+flowchart LR
+    A["Red teamer publica<br/>investigación o PoC"] --> B["APT monitorea<br/>GitHub, blogs, advisories"]
+    B --> C["Weaponización<br/>(días a años)"]
+    C --> D["Campaña de espionaje<br/>gobiernos y ONGs"]
+    D --> E["Reporte de atribución<br/>(años después)"]
+    A --> F["Defensores construyen<br/>detecciones a tiempo"]
+    F -.->|previene| C
+
+</pre>
+
+<p>Los casos documentados muestran el espectro completo de tiempos:</p>
+<h2>Los casos, uno por uno</h2>
+<p><strong>Phishing por device code en M365 (SVR, febrero 2024).</strong> La técnica de login por device code —pensada para smart TVs y dispositivos sin teclado— fue divulgada por Black Hills en 2023. El SVR construyó lures imitando mensajes de WhatsApp, Signal, Element y Microsoft Teams para robar códigos de usuarios con cuenta M365, apuntando a gobiernos y ONGs en EE. UU. y Europa. Detección: la URL <code>/deviceotin</code> en logs de proxy web (Zscaler y similares) y logs de correo. Montar la regla es cuestión de una tarde.</p>
+<p><strong>Phishing por archivo de configuración RDP (SVR, octubre 2024).</strong> Adjuntos <code>.rdp</code> enviados a organizaciones del gobierno ucraniano, luego extendidos a Reino Unido y EE. UU. El usuario ejecuta el archivo, ingresa credenciales y queda conectado remotamente a un sistema del atacante, que obtiene un canal para comandos, exfiltración o malware adicional. Técnica divulgada por Black Hills en <strong>febrero de 2022</strong>. Detección: adjuntos <code>.rdp</code> en gateways de correo (nadie manda eso en la operativa diaria) y Windows event logs.</p>
+<p><strong>Password spraying en Azure AD/Entra ID (SVR, años).</strong> El NCSC británico documentó actividad prolongada, y Ars Technica/Secureworks publicaron que había un bug sin rate limiting que permitía spraying infinito. Apenas salió la noticia, el SVR lo explotó, usando proxies residenciales e IPs rotativas para permanecer invisible. Detección: intentos fallidos de login correlacionados con enriquecimiento de IP (nodos VPN de salida, proxies residenciales, Tor) — clave para el patrón low-and-slow de una petición por hora.</p>
+<p><strong>TeamCity explotado (SVR, octubre 2023).</strong> Investigadores de Rapid7 descubrieron la vulnerabilidad, la divulgaron al vendor y publicaron el PoC. El SVR lo agarró en menos de una semana y golpeó el máximo de organizaciones posible, incluidas gubernamentales — típicamente organizaciones sin EDR ni SIEM. Con controles, se ve de inmediato: comandos <code>wget</code> y tráfico a <code>trycloudflare.com</code> en el servidor Windows que hospeda TeamCity.</p>
+<p><strong>Phishing por Microsoft Teams (SVR).</strong> Cuando Microsoft habilitó mensajería entre tenants externos, era previsible el abuso: en pocos días el SVR lanzaba spear phishing contra ministerios de exteriores, agencias gubernamentales y organizaciones militares en la órbita de la invasión de Ucrania. El flujo: mensaje desde un tenant externo, clic, petición de código, cuenta comprometida. La detección es difícil porque usa infraestructura legítima de <code>microsoft.com</code> con tenants comprometidos o creados a propósito; la mitigación más simple es deshabilitar el acceso externo en Teams. Poco después, grupos de ransomware (DarkGate, afines a BlackBasta) copiaron la técnica — el SVR llegó primero.</p>
+<p><strong>HTML smuggling (SVR, mayo 2021).</strong> Un adjunto HTML se decodifica en un ISO montable que contiene ejecutables y DLLs; al usuario le aparece un PDF inocente mientras el malware corre en segundo plano (incluido DLL sideloading de Acrobat). La técnica estaba blogueada desde <strong>2018</strong>: tres años de ventana de detección desperdiciada. Detección: sideloading en <code>AcroSup.exe</code>, montaje de ISOs por <code>explorer.exe</code> (sospechoso si lo hace alguien de finanzas, no IT), conexiones salientes a la API de Dropbox.</p>
+<p><strong>ClickFix (APT28/GRU, 2024).</strong> John Hammond publicó en GitHub una herramienta de concientización sobre esta técnica en septiembre de 2024; inmediatamente los threat actors la adoptaron. CERT Ucrania observó al GRU spear-pheashing con ella: aparece como un CAPTCHA, el código queda en el portapapeles, el usuario presiona Win+R y Win+V y ejecuta el script con sus propios privilegios. Detección difícil: requiere script block logging completo de PowerShell (que no todos los EDR hacen), y si el usuario es admin local, el daño es inmediato. El monitoreo del portapapeles que algunos recomiendan crea su propio tesoro de datos para el APT.</p>
+<h2>La matriz de herramientas: lo estable en un mar de malware custom</h2>
+<p>De este rastreo surge un proyecto público, la <strong>Russian APT Tool Matrix</strong>: las herramientas que cada grupo usa en sus campañas, categorizadas por robo de credenciales, evasión de defensas, discovery y exfiltración. La lógica es que el malware custom y su C2 cambian, pero las herramientas legítimas reutilizadas son la variable más estable y detectable. Cozy Bear (SVR), por ejemplo, usa herramientas de red team para enumeración y discovery en entornos M365, desactivadores de EDR como EDRSandblast, Mimikatz (presente en prácticamente todos los grupos), C2 ofensivos como Cobalt Strike, Impacket y Sliver — y hasta Brute Ratel C4 obtenido presumiblemente de su filtración en el underground. En exfiltración abusan de APIs de SaaS y cloud file sharing.</p>
+<h2>Inteligencia que llega al hunt: el proceso</h2>
+<p>El puente entre inteligencia y operación defensiva es un ciclo concreto: el equipo CTI recolecta, reporta y comparte IOCs y TTPs; el equipo de threat hunting busca, analiza y crea reglas; el equipo de ingeniería las vetta, despliega y refina. Esa etapa de vetting exige emulación de adversario: correr las herramientas, extraer sus artefactos y verificar que la regla realmente detecta algo en producción. Un red teamer que publica una técnica debería también explicar cómo detectarla — usa los mismos servicios públicos que luego el adversario romperá: si tu hospital cae o te cortan la energía, también te afecta a vos.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Device code phishing</strong>: abuso del flujo de login por código de M365 con lures de WhatsApp/Signal/Teams (SVR).</li>
+<li><strong>RDP config phishing</strong>: archivos <code>.rdp</code> adjuntos que crean canal inverso hacia el atacante (SVR).</li>
+<li><strong>Password spraying en Azure AD/Entra</strong>: abuso de la ausencia de rate limiting, con proxies residenciales para el patrón low-and-slow (SVR).</li>
+<li><strong>TeamCity CVE + PoC público</strong>: weaponización del exploit de Rapid7 en menos de una semana (SVR).</li>
+<li><strong>Microsoft Teams external tenant phishing</strong>: spear phishing sobre infraestructura legítima de Teams (SVR; luego DarkGate/BlackBasta).</li>
+<li><strong>HTML smuggling</strong>: adjunto HTML → ISO montada → ejecución encubierta con sideloading de Acrobat (SVR).</li>
+<li><strong>ClickFix</strong>: CAPTCHA falso que deja el comando en el portapapeles (Win+R / Win+V) (APT28/GRU).</li>
+<li><strong>EDRSandblast, Mimikatz, Cobalt Strike, Impacket, Sliver, Brute Ratel C4</strong>: arsenal reutilizado documentado en la Russian APT Tool Matrix.</li>
+<li><strong>Web proxies (Zscaler), email gateway logs, Entra ID Protection, PowerShell script block logging</strong>: fuentes de detección transversales.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los APT rusos (GRU, SVR, FSB) incorporan sistemáticamente investigación ofensiva pública a sus campañas de espionaje; la ventana entre publicación y weaponización puede ser de días.</li>
+<li>Para red teamers y desarrolladores de herramientas: al publicar un PoC, incluir la explicación de la técnica y su detección ayuda a los defensores — el adversario va a leerlo igual.</li>
+<li>Para blue teamers: seguir la investigación ofensiva (blogs, GitHub, charlas ofensivas) y montar detecciones al momento de la publicación, no esperar el reporte del APT, que puede tardar años. La mayoría de estas detecciones se construyen en una tarde.</li>
+<li>La estabilidad detectable está en las herramientas legítimas reutilizadas, no en el malware custom: mapear y detectar ese arsenal reduce el espacio de maniobra del adversario.</li>
+<li>Mitigaciones de configuración simples (desactivar acceso externo en Teams, alertar adjuntos <code>.rdp</code>) cierran campañas enteras antes de que empiecen.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bpUxuOdfGHM">«DEF CON 33 - Red Russians: How Russian APT groups follow offensive security research - Will Thomas»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

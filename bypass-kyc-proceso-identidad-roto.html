@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KYC Bypass: el proceso de verificación de identidad que suele estar roto de punta a punta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">KYC Bypass: el proceso de verificación de identidad que suele estar roto de punta a punta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/BbTUY8Qe4Hg">«Know Your Customer (KYC) - ¿Qué tan confiable es el reconocimiento facial en aplicaciones moviles?»</a> · ver el <a class="nz-link" href="https://youtu.be/BbTUY8Qe4Hg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El KYC —conocer al cliente— es el proceso que bancos, fintechs y otras industrias usan para verificar la identidad de usuarios mediante dispositivos móviles: reconocimiento facial, OCR y validación de documentos, en cumplimiento de regulaciones contra el lavado de dinero y el fraude. La pregunta que estructura el análisis es si esos bypass realmente funcionan, y la respuesta es incómoda: no solo funcionan, sino que lo que está roto no es una sola pieza — <strong>todo el proceso suele estar roto</strong>: la toma de información, la lectura del documento, la selfie y la sesión misma.</p>
+<p>La demostración abierta es contundente: con una imagen pública de LinkedIn y un script público de internet, el reconocimiento facial hace match. La técnica central es el spoofing de cámara —decirle a la cámara del dispositivo que vea lo que el atacante quiere que vea, no la realidad—, y se combina con gestos grabados y reproducidos en cámara rápida o lenta, documentos impresos o editados, y lectura del código PDF417 del DNI, donde muchas aplicaciones inician su validación. Un disclosure responsable marca el límite: se nombra la técnica y se muestra un fragmento, no el paso a paso.</p>
+<p>Pero la parte más grave no es el bypass facial. Es lo que aparece alrededor: un IDOR sin autenticación que devuelve datos personales de cualquier ciudadano a una aplicación de un tercero desconocido, sesiones que se crean antes del PIN y del 2FA, y componentes exportados y deep links inseguros que permiten saltarse el SDK más duro del mercado.</p>
+<h2>Las piezas del proceso y cómo se rompen</h2>
+<h3>OCR y lectura del documento</h3>
+<p>El OCR extrae letras, números y símbolos de documentos de identidad, formularios y facturas, automatizando lo que antes tomaba 24 o 48 horas de verificación manual. Sus debilidades son conocidas:</p>
+<ul>
+<li><strong>Requiere buena calidad de imagen</strong>, y el negocio obliga a soportar dispositivos viejos: los SDK se negocian a la baja (el proveedor pide 85% de success rate, pero solo soporta Android 14; se baja el umbral y ahí entran los problemas).</li>
+<li><strong>El código PDF417 del DNI</strong> (el QR de la parte inferior) contiene la información del documento, y muchas aplicaciones <strong>empiezan la validación con esa información</strong>. Si se modifica, el flujo puede terminar validando a otra persona: arranca con Pepe, continúa con Juan, y termina siendo Pepe porque así inició.</li>
+<li><strong>El documento no tiene que ser físico</strong>: mostrando el DNI en la pantalla de otro celular con brillo máximo —con el dedo visible sosteniéndolo—, el SDK valida "foto clara, documento válido" y deja continuar el flujo.</li>
+</ul>
+<h3>Reconocimiento facial y liveness detection</h3>
+<p>El flujo esperado: el usuario captura una selfie en tiempo real, el sistema analiza características faciales únicas (distancia entre los ojos, forma de la mandíbula), compara con la imagen del documento y genera un resultado que confirma o rechaza la coincidencia. Lo que ocurre en la práctica:</p>
+<ul>
+<li><strong>Spoofing de cámara</strong>: la aplicación ve el video que el atacante le muestra —grabado con los gestos pedidos— en lugar de la cámara real. Hay APKs públicos que implementan el spoofing, herramientas pagas, virtualización con Genymotion Pro y streaming con OBS.</li>
+<li><strong>Gestos reproducibles</strong>: las aplicaciones piden gestos (acercar la cara, alejarla, mirar a los costados). Se analizan, se graban y se reproducen. Muchas piden tres gestos y si los tres son "válidos de una persona" —por ejemplo, siempre mirar al frente— el flujo sigue.</li>
+<li><strong>Validación insuficiente</strong>: hay desarrollos que únicamente verifican que haya <strong>una persona</strong>, no que sea <strong>la persona</strong>. En la demo, una imagen de una mujer con los bigotes superpuestos pasó la validación.</li>
+<li><strong>Simetría facial como única barrera</strong>: un modelo con ojos no simétricos falla, pero un instante de búsqueda en internet entrega decenas de modelos con ojos simétricos para elegir.</li>
+<li><strong>Imágenes públicas como materia prima</strong>: toda la información está en internet; LinkedIn, fotos filtradas y carnets de conducir filtrados en masa (caso documentado en Argentina, 2014) alimentan los intentos.</li>
+</ul>
+<h3>Componentes exportados y deep links: "lo viejo funciona"</h3>
+<p>Un caso real encontrado por el equipo: reversing con JADX, un activity exportado de forma explícita (<code>exported="true"</code>) cuyo nombre referencia "usuario biometría". Invocado con <code>adb shell</code> desde ADB, abre directamente el flujo de usuario <strong>sin estar logueado</strong>, previo a credenciales. Los deep links inseguros —con custom scheme o HTTPS, con o sin <code>autoVerify=true</code> en el intent filter— son la otra puerta: hace unas semanas el equipo encontró un bypass completo vía un insecure deep link en un SDK fuerte. La lección de desarrollo seguro: tener el SDK más duro no sirve si la integración lo salta, y menos si conviven múltiples SDK en la misma aplicación.</p>
+<h3>Lo peor: la sesión y los datos de terceros</h3>
+<ul>
+<li><strong>Sesión antes de la autenticación</strong>: en una aplicación, capturando tráfico <strong>antes de poner el PIN o el 2FA</strong> ya se obtiene un JWT con la sesión activa. Combinado con un activity exportado que llegue a un flujo interno, se navega la aplicación sin un 401.</li>
+<li><strong>Tampering de respuesta</strong>: el clásico — capturar la respuesta 200 OK de un flujo válido y reproducirla donde la validación falla ("invalid code" con el passcode 333) deja continuar.</li>
+<li><strong>IDOR sin autenticación</strong>: una aplicación de un tercero desconocido, a la que nunca se recurrió, devuelve datos personales a partir del número de documento, <strong>por una petición GET sin ningún tipo de autenticación</strong> (verificado con un man-in-the-middle con CA instalada: el tráfico va cifrado, pero no hay token ni credencial). La información, además, está desactualizada — pero existe, y pertenece a todos. El titular de la escala del problema: "hay aplicaciones que no sé por qué tienen bases de datos de información de nosotros".</li>
+<li><strong>Deepfake</strong>: mencionado como técnica en crecimiento, en la misma línea de fabricar la identidad que el sistema espera ver.</li>
+</ul>
+<h2>Cómo protegernos</h2>
+<ul>
+<li><strong>Equipo de desarrollo entrenado en seguridad móvil</strong> — y, sobre todo, <strong>validación con pen test</strong>: hay un caso clásico en que la empresa paga el SDK y el RASP, y <strong>ni siquiera valida lo que implementó</strong>, porque no tiene un equipo especializado en móvil que verifique si el RASP funciona y si el SDK está validando bien.</li>
+<li><strong>Protecciones binarias y RASP</strong> (root detection, anti-emulation, anti-tampering, certificate pinning): mejor tener algo que nada, pero se bypasean muchas veces; ninguna es un absoluto.</li>
+<li><strong>Ethical hacking sobre el software de reconocimiento facial</strong>: probar que valida que sea la misma persona — no una papa, no cualquier cara — antes de confiar el flujo al proveedor.</li>
+<li><strong>Elegir proveedor mirando la implementación</strong>: entre los SDK públicos del mercado, el que mejor resiste es el que tiene el certificate pinning más picante (el que empieza con F y termina con K). Los RASP son un mercado amplio y desparejo — hay de todo, desde el que da un 20% hasta soluciones serias — y la protección depende de cuánto se pague.</li>
+<li><strong>Revisar los endpoints con análisis estático</strong>: hay endpoints e información que no aparecen con análisis dinámico pero sí al hacer reversing; a veces existe un endpoint que se salta toda la primera parte del proceso.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El KYC es una cadena, y una cadena rota en cualquier eslabón no valida identidad</strong>: OCR, PDF417, selfie, liveness, sesión y componentes son piezas independientes que hay que auditar por separado.</li>
+<li><strong>El spoofing de cámara ya no es exótico</strong>: herramientas públicas, pagas o virtualizadas lo hacen trivial; una validación que solo exige "una persona" o "gestos válidos" no es liveness detection.</li>
+<li><strong>El daño mayor no está en la cara sino en los datos</strong>: un IDOR sin autenticación que expone datos de cualquier ciudadano y sesiones creadas antes del PIN muestran que el problema es de proceso completo, no de un SDK.</li>
+<li><strong>Pagar no garantiza nada</strong>: RASP y SDK comerciales varían brutalmente según el precio y la implementación; sin validación propia por parte de un equipo especializado, la empresa no sabe si lo que compró funciona.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/BbTUY8Qe4Hg">«Know Your Customer (KYC) - ¿Qué tan confiable es el reconocimiento facial en aplicaciones moviles?»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

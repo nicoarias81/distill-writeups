@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gridlock: las APIs de energía solar y EV como riesgo para la red eléctrica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Gridlock: las APIs de energía solar y EV como riesgo para la red eléctrica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/PwcIyS9bc_o">«DEF CON 33 - Gridlock - The Dual-Edged Sword of EV and Solar APIs in Grid Security - Vagelis Tsikas»</a> · ver el <a class="nz-link" href="https://youtu.be/PwcIyS9bc_o">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La generación solar distribuida ya supera un teravatio global —aproximadamente lo que consume Estados Unidos en un día— y los cargadores de vehículos eléctricos suman cientos de miles de puntos conectados. Todos comparten un patrón: están gestionados por plataformas en la nube cuyas APIs fueron construidas apuradas, con proveedores white label de China y con poco, o nada, de autorización real. El resultado es que un atacante remoto, sin acceso físico a ninguna instalación, puede acumular control sobre cientos de miles de inversores y cargadores.</p>
+<p>El escenario "Horus" ya demostró matemáticamente y con CVEs sobre inversores SMA que apagar suficientes paneles puede desestabilizar la red de un país: Alemania y Francia cubren entre el 35% y el 50% de su consumo con instalaciones fotovoltaicas, y las redes europeas están interconectadas —derribar una nación arrastra al continente. Esta investigación muestra el mismo escenario, pero vía cloud APIs: sin CVEs, sin cercanía física, desde una casa en la playa, con potencial de control sobre más de 500 gigavatios-hora y la capacidad de ladrar dispositivos en masa.</p>
+<h2>El patrón de vulnerabilidades: una y otra vez lo mismo</h2>
+<p>A lo largo de ocho plataformas fotovoltaicas (SolarMan, Sunsync, Growatt, Solax, Ingecon, Fox ESS, Platform Admin y otras) y varias de EV, los hallazgos repiten un canon reducido:</p>
+<ul>
+<li><strong>IDOR en cascada</strong>: identificadores de usuarios, grupos, organizaciones y plantas son enteros consecutivos. Un IDOR en la función de alta de usuarios permitía añadir cualquier usuario con cualquier privilegio a cualquier grupo; el resultado era funcionalidad administrativa completa.</li>
+<li><strong>Autorización ausente</strong>: varias plataformas no validan roles. Al editar el propio perfil se envía también el campo <code>user_level</code>; cambiarlo a <code>admin</code> o <code>super administrator</code> eleva la cuenta. En un caso, el nivel se pasaba al actualizar el usuario y se aceptaba sin verificar.</li>
+<li><strong>Autenticación rota</strong>: una plataforma de carga EV (2000 instalaciones en Reino Unido, basada en backend de Growatt) validaba credenciales una única vez en el login; el resto de requests viajaba sin cookies, tokens ni nada —la app "se creía" la identidad.</li>
+<li><strong>Reset de contraseña predecible</strong>: PIN de 4 dígitos sin límite de intentos + IDs consecutivos = resetear la contraseña de todos los usuarios con un script de Python y un bucle.</li>
+<li><strong>Firmware y puertas traseras</strong>: acceso administrativo a la gestión de firmware de todos los gateways —medio millón en una plataforma— con posibilidad de subir firmware arbitrario. En otra, un botón discreto ofrecía shell sobre cada dispositivo, con lectura de RAM y almacenamiento, y la capacidad de desactivar protecciones de seguridad del equipo (la vía práctica para incendiar hardware remotamente).</li>
+<li><strong>Datos personales a escala decenas de millones</strong>: información de usuarios y empresas, ubicación de plantas, potencia generada —violaciones del GDPR potenciales en cada caso.</li>
+</ul>
+<p>El kit de trabajo fue de web app testing estándar: dirsearch, Burp Suite, decompilador JADX, APKLab, un droplet de DigitalOcean, Shodan para dimensionar. Metodología: buscar cuenta demo, si no existe registrarse, cazar issues web obvios, y desde ahí intentar controlar dispositivos.</p>
+<h2>Cargadores de EV: mismo código, mismos errores</h2>
+<ul>
+<li><strong>Project EV</strong> (Reino Unido, backend Growatt): autenticación inexistente tras el login; los IDs de cargadores eran consecutivos y se podían recorrer a mano. Control total: lock/unlock remoto, backdoor de red, ladrado masivo.</li>
+<li><strong>EVBox</strong> (Ámsterdam, ~400.000 puntos de carga): API sólida en general, pero el update de usuario incluía el propio rol, aceptado sin validación. Compromiso total, con capacidad de operar también el aspecto financiero de la plataforma (recargas, cobros). Respuesta ejemplar: contacto en dos horas, fix en 24, verificación.</li>
+<li><strong>Wallbox</strong> (Barcelona, ~200.000 usuarios): IDOR de segundo nivel —nada del body del request se validaba, con cuatro instancias distintas del mismo defecto en la API. Control total de cargadores; sin vía de actualización de firmware para mitigar. Respondieron al día, corrigieron rápido y volvieron a contratar; el proceso se cortó cuando pidieron firmar un NDA.</li>
+<li><strong>Un cargador pionero en el UK</strong>: era, literalmente, una Raspberry Pi en producción —sin seguridad de bootloader, raíble, con el "código fuente" completo (dos scripts de Python con credenciales hard-codeadas y documentación) recuperable. Permitía suplantar la comunicación con el servidor e incorporar los dispositivos a un botnet. Rehicieron todo y lanzaron una versión mejorada: también una Raspberry Pi.</li>
+<li><strong>ChargePoint</strong> (EE. UU., top 3 mundial de carga pública): endpoint GraphQL público, sin autenticación y con introspección habilitada, filtrando potencialmente el esquema completo. Respuesta en una hora, fix el mismo día. Nota metodológica importante: con cargadores públicos ajenos jamás se interactúa; aquí solo se observó y reportó de inmediato.</li>
+</ul>
+<h2>Divulgación: tres años de un desastre</h2>
+<p>La responsable de investigación documentó 3,5 años de intentos de disclosure contra proveedores que en su mayoría no respondieron: emails, tweets, llamadas telefónicas. SolarMan arregló en cinco días y persiguió la verificación. Sunsync respondió a los tres años, tras una charla en OWASP; su CISO juró haber corregido y la re-verificación lo desmintió. Solax dejó autoresponder y luego años de silencio. Growatt preguntó "de qué país sos" —como si el origen del reporte determinara la gravedad— y tres años después publicó una política de divulgación sin haber respondido nunca. Ingecon cortó la llamada al escuchar "vulnerability disclosure". Para los creadores de los writeups el balance: solo una y media de cada ocho plataformas actuó.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante remoto] -->|API cloud sin autorización| B[Plataforma de gestión]
+    B --> C[Inversores PV<br/>cientos de miles]
+    B --> D[Cargadores EV<br/>hundreds of thousands]
+    C --> E[Desbalance de generación:<br/>parada masiva de PV]
+    D --> F[Demanda sincronizada<br/>o cargadores fuera]
+    E --> G[Inestabilidad de la red<br/>interconectada continental]
+    F --> G
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>IDOR / BOLA (OWASP API Top 10)</strong>: la clase dominante; IDs consecutivos en todos los recursos sensibles.</li>
+<li><strong>Broken authentication y broken authorization</strong>: login único, roles enviados por el cliente, ausencia de validación server-side.</li>
+<li><strong>Fuzzing de directorios</strong> (dirsearch) y <strong>proxy de tráfico</strong> (Burp Suite) como base.</li>
+<li><strong>Ingeniería inversa de apps móviles</strong>: JADX para decompilar APKs, APKLab para el workflow.</li>
+<li><strong>Shodan</strong>: dimensionar instalaciones y encontrar más superficies.</li>
+<li><strong>Escenario Horus</strong>: modelo de un blackout inducido apagando inversores en masa; referencia matemática del riesgo para redes con alta penetración PV.</li>
+<li><strong>Segmentación de red</strong>: VLANs aisladas para IoT como mitigación parcial (con el límite obvio de que no salva al hardware que se incendia).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El riesgo de la energía distribuida no está en el firmware del inversor sino en la nube que lo administra: las APIs de gestión acumulan control de gigavatios con la seguridad de un CRUD de startup.</li>
+<li>El mismo white label backend reaparece detrás de muchas marcas; un proveedor genérico mal construido multiplica el problema a decenas de plataformas comerciales distintas.</li>
+<li>Autenticación no es autorización: el error recurrente de todo el sector es validar quién entró y luego no verificar qué puede tocar.</li>
+<li>La respuesta del proveedor varía más que la vulnerabilidad: hay fixes en 24 horas y silencios de tres años; elegir vendors que actúen es una decisión de seguridad tan importante como parchear.</li>
+<li>Para operadores: aislar dispositivos IoT en VLANs propias, asumir que habrá vulnerabilidades y no apoyarse en white labels sin historial de respuesta.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/PwcIyS9bc_o">«DEF CON 33 - Gridlock - The Dual-Edged Sword of EV and Solar APIs in Grid Security - Vagelis Tsikas»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

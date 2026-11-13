@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prompt injection: el LLM es un límite de confianza, no un oráculo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Prompt injection: el LLM es un límite de confianza, no un oráculo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/2-C7xSJ9rhI">«DEF CON 33 - Breaking down the anatomy of a prompt injection attack - Sean Perd»</a> · ver el <a class="nz-link" href="https://youtu.be/2-C7xSJ9rhI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Sean Perd (integrante del equipo de respaldo / red team de Netflix) desarma el prompt injection como se desarma un exploit: qué es, cómo se arma payload a payload, por qué las defensas por listas negras no funcionan y qué hacer en su lugar. La tesis de cierre: hay que tratar el LLM como un límite de confianza propio — un "zero trust boundary" para LLMs — y aplicar a sus capacidades (leer archivos, llamar APIs, enviar datos) las mismas salvaguardas que a cualquier endpoint público.</p>
+<h2>Qué es y por qué funciona</h2>
+<p>Un prompt injection es una técnica de explotación específica de los LLM, con payload — "olvida tus instrucciones anteriores y..." —, goal — hacer que el modelo revele el system prompt, ejecutar comandos que no debería, modificar datos — y un objetivo — "victory condition": cuando el modelo reemplaza sus instrucciones originales, revela información sensible o bypassea las reglas de seguridad—. A diferencia de un bug de memoria, no es un bug del modelo: es el abuso del mecanismo que hace útil al modelo. Las inyecciones pueden ser directas (el usuario escribe el payload) o indirectas (el payload viaja dentro de los datos que el LLM procesa — un PDF, una página web, un email — y el modelo lo obedece sin que nadie lo vea).</p>
+<h2>Anatomía del payload</h2>
+<p>El ataque se construye con un proceso de cuatro pasos, ilustrado con ejemplos en vivo contra un chatbot con system prompt, incluyendo:</p>
+<ul>
+<li><strong>Jailbreak de modelo</strong>: hacer que el modelo ignore sus instrucciones (el clásico "ignore previous instructions").</li>
+<li><strong>Revelación del system prompt</strong>: el objetivo más común; hay un repositorio público con los system prompts de GitHub Copilot, Gemini, ChatGPT, Microsoft y compañía — todos han sido filtrados, incluso el de GPT-4o se filtró recién publicado.</li>
+<li><strong>Escalada</strong>: del texto a la acción, cuando el chatbot tiene capacidades (function calling): leer archivos, consultar APIs, ejecutar comandos. Ahí la inyección deja de ser molesta y se vuelve explotación con impacto.</li>
+</ul>
+<h2>Vulnerabilidades en el código: la demo del chatbot de facturas</h2>
+<p>La demo central es un snippet corto que integra la API de OpenAI con un asistente de soporte que consulta facturas. En pocas líneas conviven tres vulnerabilidades:</p>
+<ul>
+<li><strong>Prompt injection directa</strong>: el input del usuario entra al prompt sin sanitización, validación ni filtrado.</li>
+<li><strong>Prompt injection indirecta</strong>: el contenido de la factura (texto de un PDF devuelto por la API de invoices) se concatena al system prompt; si ese texto contiene instrucciones maliciosas, el modelo las ejecuta.</li>
+<li><strong>Falta de control de acceso (IDOR)</strong>: la llamada a la API de facturas no lleva token ni restricciones — el chatbot puede devolver la factura de cualquier cliente. Si se le da al LLM capacidades, hay que aplicarle los mismos controles que a un endpoint público.</li>
+</ul>
+<h2>Defensas: el casino de las listas negras</h2>
+<p>Se repasan las defensas habituales y sus límites: monitoreo de output con regex (buscar palabras clave, detectar pedidos de base64), limitación de temas, stop sequences que cortan la generación ante palabras peligrosas o secretos, "false leads" (secretos falsos plantados para detectar al atacante), denegación sistemática ("always deny knowing the secret"), tagging del input del usuario con delimitadores custom, una segunda llamada LLM de verificación, e instrucciones pre y post en el prompt ("sandwich defense", con repetición). Veredicto: ninguna funciona sola, es apuestas — "estamos en Vegas": no hay silver bullet contra el prompt injection.</p>
+<p>La arquitectura segura propuesta sí es defendible:</p>
+<ul>
+<li><strong>Pre-procesamiento del input</strong>: regex y reglas hardcodeadas antes de que llegue al modelo.</li>
+<li><strong>Modelos de contenido dañino</strong>: modelos especializados (Moderation API de OpenAI —gratuita—, modelos pequeños de HuggingFace entrenados para detectar jailbreaks, prompt injection y contenido dañino) aplicados tanto al input como al output — hay bypasses que solo se ven en la salida.</li>
+<li><strong>Access control real</strong> en cada capacidad que el LLM ejecute: el LLM es su propio límite de confianza.</li>
+<li><strong>Testing continuo</strong>: pruebas de caso de uso (prompts que deben funcionar) y de mal uso (inyecciones conocidas), automatizadas y repetidas — el modelo nunca responde igual dos veces, y las blocklists envejecen porque los modelos son intercambiables. Hacen falta end-to-end tests reales, como en el software tradicional.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El prompt injection no es un bug del modelo sino el abuso de su mecanismo: payload, goal y victory condition; directo e indirecto (via datos que el LLM procesa, como PDFs de facturas).</li>
+<li>Cuando el LLM tiene capacidades (APIs, archivos, comandos), la inyección escala a explotación real; la demo mostró un IDOR en la API de facturas conviviendo con dos inyecciones en pocas líneas.</li>
+<li>Todas las defensas por listas negras (regex, stop sequences, false leads, tagging, sandwich) son apuestas: incluso los system prompts de los grandes proveedores están filtrados en un repositorio público.</li>
+<li>La arquitectura defendible combina pre-procesamiento, modelos de contenido dañino en input y output, controles de acceso por capacidad y testing automatizado continuo.</li>
+<li>El takeaway central: threat model todo y tratar al LLM como su propio límite de confianza — zero trust para LLMs — considerando todos los tipos de inyección sobre cualquier dato que se le dé o al que tenga acceso.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/2-C7xSJ9rhI">«DEF CON 33 - Breaking down the anatomy of a prompt injection attack - Sean Perd»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

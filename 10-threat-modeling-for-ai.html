@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI-300 Module 10 — Threat Modeling for AI-Enabled Targets — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ai300.html">AI300 — Offensive AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · AI300 — Offensive AI</p>
+<h1 class="nz-h2">AI-300 Module 10 — Threat Modeling for AI-Enabled Targets</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec AI-300 (OSAI) course material (module 10) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Formalize target selection into a repeatable, iterative threat-modeling methodology for AI-enabled targets. Unlike a textbook decomposition, a real engagement starts with fragments (scoping doc, DNS, job postings, assumptions); the threat model is a living artifact that evolves with every piece of intelligence collected, every assumption validated or discarded, and every scope constraint that eliminates a theoretical path.</p>
+<p>Working scenario: 10-day grey-box assessment of <strong>Nexus AI</strong>, an enterprise AIOps platform deployed by Megacorp Financial Services. Access: VPN tunnel into the Kubernetes cluster network (attack host <code>10.10.40.2</code> routed to service subnet <code>10.10.50.0/24</code>) and a read-only Kubernetes API token scoped to the <code>nexus-ai</code> namespace (pod listing + secret read; no write). No prior perimeter breach. The deliverable is an <strong>attack intelligence brief</strong>: the artifact that says which target to pursue next based on what is known right now.</p>
+<h2>Target surface</h2>
+<ul>
+<li><strong>Scoping document</strong> — hybrid cloud (on-prem Kubernetes + AWS); Nexus AI is internal-only, no public endpoint. Out of scope: production financial trading systems, customer-facing banking apps, AD domain controllers.</li>
+<li><strong>RoE highlights</strong> (used later as hard constraints): no destructive actions against production DBs; vector DB poisoning permitted <strong>only</strong> against staging (<code>Qdrant-staging</code>, port <code>:16333</code>); no DoS; no real customer PII exfil; all MCP tool invocations must be reported to the Blue Team POC within 24 hours; testing window 08:00–20:00 Mon–Fri.</li>
+<li><strong>Passive OSINT</strong>: LinkedIn posting for "Senior ML Platform Engineer" (MLflow, Qdrant, Kubernetes); DevOps profile (HashiCorp Vault, MCP integrations); a public GitHub fork of an MCP server library referencing the private upstream <code>megacorpfs/nexus-mcp-tools</code> with three tools: <code>aws_cli_exec</code>, <code>snow_create_ticket</code>, <code>datadog_query</code>.</li>
+<li><strong>Client data-flow statement</strong>: alerts → central orchestrator → specialized agents (triage, remediation, security) → shared knowledge base for context + central tool server for actions.</li>
+<li><strong>Active recon</strong> (<code>nmap -sV -p- --open -T4 10.10.50.0/24</code>) — 9 services:</li>
+</ul>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Host</th>
+<th>Port</th>
+<th>Service</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>10.10.50.10</td>
+<td>9000</td>
+<td>Uvicorn — Nexus Orchestrator API v2.1</td>
+</tr>
+<tr>
+<td>10.10.50.11</td>
+<td>9001</td>
+<td>Uvicorn — Nexus Triage Agent</td>
+</tr>
+<tr>
+<td>10.10.50.12</td>
+<td>9002</td>
+<td>Uvicorn — Nexus Remediation Agent</td>
+</tr>
+<tr>
+<td>10.10.50.13</td>
+<td>9003</td>
+<td>Uvicorn — Nexus Security Agent</td>
+</tr>
+<tr>
+<td>10.10.50.14</td>
+<td>9004</td>
+<td>Uvicorn — Nexus Knowledge Agent</td>
+</tr>
+<tr>
+<td>10.10.50.15</td>
+<td>9005</td>
+<td>Uvicorn — Nexus MCP Server (JSON-RPC)</td>
+</tr>
+<tr>
+<td>10.10.50.20</td>
+<td>6333</td>
+<td>Qdrant REST API 1.7.4</td>
+</tr>
+<tr>
+<td>10.10.50.21</td>
+<td>5000</td>
+<td>MLflow Tracking Server 2.9.2</td>
+</tr>
+<tr>
+<td>10.10.50.22</td>
+<td>8200</td>
+<td>Vault 1.15.4 (status: unsealed)</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Techniques</h2>
+<h3>1. Assumption register (the backbone)</h3>
+<p>Every hypothesis about the target is tracked with source, confidence, and validation status. Template (initial entries from pre-engagement intel):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>ID</th>
+<th>Observation</th>
+<th>Hypothesis</th>
+<th>Confidence</th>
+<th>Source</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A-01</td>
+<td>Client doc: "central orchestrator"</td>
+<td>Single orchestration component routes all tasks</td>
+<td>HIGH</td>
+<td>Client kickoff doc</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-02</td>
+<td>Client doc: agents for triage/remediation/security</td>
+<td>≥3 distinct agent services</td>
+<td>HIGH</td>
+<td>Client doc</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-03</td>
+<td>Job posting: MLflow, Qdrant, K8s</td>
+<td>MLflow = model registry, Qdrant = vector storage</td>
+<td>MEDIUM</td>
+<td>LinkedIn OSINT</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-04</td>
+<td>DevOps profile: Vault</td>
+<td>Credential management via Vault, not embedded secrets</td>
+<td>MEDIUM</td>
+<td>LinkedIn OSINT</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-05</td>
+<td>GitHub fork: <code>aws_cli_exec</code>, <code>snow_create_ticket</code>, <code>datadog_query</code></td>
+<td>MCP Server exposes ≥3 tools</td>
+<td>HIGH</td>
+<td>Public fork</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-06</td>
+<td>Client doc: "shared knowledge base"</td>
+<td>RAG pipeline exists, likely Qdrant-backed (A-03)</td>
+<td>MEDIUM</td>
+<td>Client doc + A-03</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-07</td>
+<td>No mention of vector DB auth</td>
+<td>Qdrant may be unauthenticated in-cluster</td>
+<td>LOW</td>
+<td>Absence of evidence</td>
+<td>UNVALIDATED</td>
+</tr>
+<tr>
+<td>A-08</td>
+<td><code>aws_cli_exec</code> tool</td>
+<td>MCP Server has AWS credentials (likely via Vault, A-04)</td>
+<td>MEDIUM</td>
+<td>A-05 + A-04</td>
+<td>UNVALIDATED</td>
+</tr>
+</tbody>
+</table></div>
+<p>Rules of the register:</p>
+<ul>
+<li>Lifecycle: observation → hypothesis → validation testing → <strong>VALIDATED</strong> (drives attack planning) or <strong>INVALIDATED</strong> (generates new hypotheses). Update after every new artifact (port scan, API response, config file).</li>
+<li><strong>Confidence reflects the reliability of the source, not the probability the hypothesis is true.</strong> A-07 is LOW confidence flagged "absence of evidence": missing documentation is not evidence of a missing control. Treating absence of information as confirmation of a vulnerability is the most common pre-engagement threat-modeling mistake. LOW-confidence assumptions drive verification tasks, not attack planning.</li>
+<li>Hypotheses can be partially wrong: A-02 resolved to <strong>4 agents</strong> (Knowledge Agent is standalone — own network presence, own attack surface, directly queryable); A-08's flat credential model was <strong>invalidated</strong> — the MCP Server enforces per-agent tool scoping. Learning a path is closed early is more valuable than clinging to a plausible one; it re-aims time budget.</li>
+</ul>
+<h3>2. Progressive validation (Phase 2 — active recon → register updates)</h3>
+<p>Exact steps, in order:</p>
+<ol>
+<li>Unauthenticated vector DB check — <code>curl -s http://10.10.50.20:6333/collections | jq '.result.collections[].name'</code> → <code>operational_knowledge</code>, <code>detection_rules</code>, <code>incident_history</code>, <code>runbook_corpus</code>. A-07 VALIDATED: direct unauthenticated read on the production vector DB. Immediately check RoE: reads permitted on production, writes only against staging <code>:16333</code>.</li>
+<li>MCP tool listing — <code>curl -s http://10.10.50.15:9005/tools</code> → the three OSINT tools plus a fourth not present in the public fork: <code>vault_rotate_secret</code> ("Rotate a secret in HashiCorp Vault"). A tool that <em>writes</em> secrets means the MCP Server's Vault credentials include rotation, not just retrieval → new assumption A-10 (HIGH).</li>
+<li>Kubernetes secret extraction — <code>kubectl --token=$K8S_TOKEN get secrets -n nexus-ai</code> → <code>nexus-{triage,remediation,security,knowledge}-agent-token</code> plus <code>nexus-mcp-vault-approle</code>. Extract with <code>kubectl get secret nexus-triage-agent-token -n nexus-ai -o jsonpath='{.data.token}' | base64 -d</code> → a JWT carrying agent identity and per-tool scope claims. (K8s secrets are base64-encoded, not encrypted; the read-only grey-box token sufficed.)</li>
+<li>Tool authorization test — POST to <code>/invoke</code> with each token against <code>vault_rotate_secret</code> on a canary path (<code>secret/nexus/test_canary</code>): Triage token → <code>Agent triage not authorized</code>; Remediation token → <code>{"status": "success", "message": "Secret rotated", "new_version": 4}</code>. Two findings: (a) per-agent tool scoping is real; (b) the Remediation Agent can <strong>overwrite</strong> Vault credentials — write access, strictly stronger than read. Deliberately avoid testing <code>aws_cli_exec</code> here to limit detection footprint → A-12b stays UNVALIDATED (it later gates Path 1).</li>
+<li>Attribution question → A-12c: at TB-5, Vault sees only the MCP Server's AppRole identity, not the requesting agent — the agent audit trail collapses at this boundary (INFERRED from AppRole architecture).</li>
+</ol>
+<h3>3. Crown jewel analysis under uncertainty</h3>
+<p>Rank assets by offensive value <strong>given current knowledge</strong>, re-rank as intel arrives:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Rank</th>
+<th>Asset</th>
+<th>Location</th>
+<th>Offensive value</th>
+<th>Confidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>AWS credentials</td>
+<td>Vault → MCP Server</td>
+<td>Direct infra control; Remediation Agent can rotate (A-11)</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Detection rule collection</td>
+<td>Qdrant <code>detection_rules</code></td>
+<td>The defender's playbook — what is monitored, what evasion looks like. Readable now</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Runbook corpus</td>
+<td>Qdrant <code>runbook_corpus</code></td>
+<td>Procedures, topology, known vulns. Readable now</td>
+<td>HIGH</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Agent identity tokens</td>
+<td>Agent pods / K8s config</td>
+<td>Per-agent tool authorization; Remediation token = Vault write key</td>
+<td>MEDIUM (obtained Day 2)</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Model weights</td>
+<td>MLflow :5000</td>
+<td>Fine-tuned on proprietary ops data; access unverified</td>
+<td>MEDIUM</td>
+</tr>
+<tr>
+<td>6</td>
+<td>MCP tool schemas</td>
+<td>MCP Server :9005</td>
+<td>Complete capability map; already obtained</td>
+<td>HIGH (obtained)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Operational rule: jewels already accessible (#2, #3, #6, #4) should be <strong>extracted immediately</strong> — they inform every later decision. #1 stays behind multiple trust boundaries and is the primary objective. Also invert staging: reading (not writing) <code>Qdrant-staging:16333</code> may yield dev artifacts, draft runbooks, credential patterns scrubbed from production — and reads are RoE-permitted.</p>
+<h3>4. Trust boundaries and trust zones</h3>
+<p>A trust boundary exists wherever a component accepts input/instructions from another without independent verification. AI systems add a new category: <strong>boundaries enforced by inference rather than policy</strong>. A traditional API gateway rejects bad tokens (policy); a Triage Agent classifying an alert "critical" via LLM inference makes a trust decision with no policy backing — exploitable through <em>input manipulation</em>, not authentication bypass.</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>ID</th>
+<th>From → To</th>
+<th>Trust type</th>
+<th>Enforcement</th>
+<th>Status</th>
+<th>Offensive implication</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TB-1</td>
+<td>Alert sources → Orchestrator</td>
+<td>Input trust</td>
+<td>Webhook auth — mechanism unknown</td>
+<td>UNVALIDATED</td>
+<td>If unauth'd, untrusted input enters the pipeline directly</td>
+</tr>
+<tr>
+<td>TB-2</td>
+<td>Orchestrator → Agents</td>
+<td>Delegation trust</td>
+<td>Internal mTLS between pods</td>
+<td>VALIDATED (nmap TLS fingerprint)</td>
+<td>Agents execute whatever is dispatched</td>
+</tr>
+<tr>
+<td>TB-3</td>
+<td>Agents → Vector DB</td>
+<td>Data integrity trust</td>
+<td><strong>None — unauthenticated</strong></td>
+<td>VALIDATED</td>
+<td>Any agent treats Qdrant content as ground truth</td>
+</tr>
+<tr>
+<td>TB-4</td>
+<td>Agents → MCP Server</td>
+<td>Tool invocation trust</td>
+<td>Per-agent identity tokens</td>
+<td>VALIDATED</td>
+<td>Token scoping limits tools per agent; parameters unvalidated (A-15)</td>
+</tr>
+<tr>
+<td>TB-5</td>
+<td>MCP Server → Vault</td>
+<td>Credential trust</td>
+<td>AppRole (MCP service identity)</td>
+<td>INFERRED</td>
+<td>If Vault sees only MCP identity, agent-level audit trail is lost</td>
+</tr>
+<tr>
+<td>TB-6</td>
+<td>MCP Server → External APIs</td>
+<td>Infrastructure trust</td>
+<td>API keys from Vault</td>
+<td>INFERRED</td>
+<td>No additional auth gate after credential retrieval</td>
+</tr>
+<tr>
+<td>TB-7</td>
+<td>Triage Agent → Orchestrator</td>
+<td>Classification trust</td>
+<td><strong>None — inference-based</strong></td>
+<td>UNVALIDATED</td>
+<td>Manipulated classification drives the whole downstream workflow</td>
+</tr>
+<tr>
+<td>TB-8</td>
+<td>Knowledge Agent → Other agents</td>
+<td>Advisory trust</td>
+<td>None</td>
+<td>INFERRED</td>
+<td>Agents incorporate RAG responses without verification</td>
+</tr>
+</tbody>
+</table></div>
+<p>The zone map marks VALIDATED boundaries solid and INFERRED/UNVALIDATED ones dashed, so the plan distinguishes validated attack surfaces from theoretical ones.</p>
+<h3>5. Escalation paths, constrained by reality</h3>
+<p>Unconstrained theory (the most efficient chain): poison production vector DB (TB-3) → influence Remediation Agent (TB-8) → trigger MCP tool call with malicious parameters (TB-4) → Vault (TB-5) → AWS (TB-6). Five boundary crossings, zero authentication. The RoE kills the first link — production poisoning is prohibited. <strong>Do not keep RoE-prohibited paths in the plan "pending client approval"</strong>; the RoE is a hard constraint. Remove the path from execution, keep the underlying weakness (unauthenticated DB) in the report as a risk finding.</p>
+<ul>
+<li><strong>Path 1 — Remediation Agent token theft → direct MCP abuse (PRIMARY).</strong> We already hold the token from K8s secret extraction ("theft" = using a token outside its intended context). Chain: TB-4 → TB-5 → TB-6, crown jewel #1. Go/No-Go gates: <strong>A-12b</strong> (does the Remediation token also authorize <code>aws_cli_exec</code>?) and <strong>A-15</strong> (is MCP parameter monitoring absent?). Time constraint: the 24-hour MCP reporting clock starts at the first <code>aws_cli_exec</code> invoke — all post-exploitation on the retrieved AWS credentials must finish inside it. Detection risk LOW if A-15 holds and execution happens in business hours (avoids <code>nexus-mcp-002</code> timing detection).</li>
+<li><strong>Path 2 — Staging vector poisoning → indirect remediation influence.</strong> Uses the RoE-permitted staging instance. Complexity: the Knowledge Agent serves all agents, so the poisoned runbook must be crafted to match Remediation-type queries (credential rotation procedures, AWS operations) — if another agent retrieves it, its token lacks Vault write and the path may burn. Hard validation gate: does the Knowledge Agent ever query <code>:16333</code>? If it only touches <code>:6333</code>, the path is dead. Advantage: malicious MCP parameters are generated by the Remediation Agent itself, so they match its normal patterns and A-15 becomes irrelevant.</li>
+<li><strong>Path 3 — Intelligence extraction (SUPPORT, execute first).</strong> Extract <code>detection_rules</code>/<code>runbook_corpus</code> from the attack host; accept the <code>nexus-qdrant-004</code> detection risk because the intel enables every go/no-go decision. If a pod foothold appears later (e.g. container vuln, or a K8s token with <code>pods/exec</code>), route further queries through an agent IP for stealth.</li>
+</ul>
+<p>Decision matrix under time pressure (Day 3 of 10, ~8 days left): GO on Path 3 and on each cheap validation (A-12b single invoke — irreversible, starts the reporting clock; A-15 rule analysis; Path 2 traffic observation); HOLD on Paths 1 and 2 until their gates resolve. If both paths validate but time allows one, pick the lower detection risk first. <strong>The engagement plan is a decision tree, not a script</strong> — prune branches as information arrives.</p>
+<h3>6. Attack intelligence brief (deliverable template)</h3>
+<p>Versioned living document (v1.0 Day 1 hypotheses → v1.1 recon results + invalidated flat-credential model → v1.2 detection intel + go/no-go gates). Structure:</p>
+<pre><code>ATTACK INTELLIGENCE BRIEF — &lt;TARGET&gt;
+Classification / Engagement Day / Brief Version
+
+=== TARGET SUMMARY ===          platform, environment, confirmed components, architecture confidence
+=== CROWN JEWELS ===            ranked, each with location + status [OBTAINED / ACCESSIBLE / BEHIND N BOUNDARIES]
+=== ASSUMPTION REGISTER ===     totals (VALIDATED/UNVALIDATED/INVALIDATED) + critical unvalidated, each tagged
+                                with what it blocks (e.g. A-12b → BLOCKS Path 1)
+=== SCOPE CONSTRAINTS ===       BLOCKED / REQUIRED items from the RoE
+=== ESCALATION PATHS ===        per path: status (GO/HOLD), priority, boundaries crossed, crown jewels,
+                                detection risk, time window, ATLAS + ATT&amp;CK references
+=== NEXT ACTIONS ===            concrete Day-N tasks
+</code></pre>
+<p>The brief's value is honesty about what is known, assumed, and blocked — a team reading it knows exactly which decisions are pending and what information unlocks them. The version history doubles as a decision log documenting every assumption formed, tested, and resolved.</p>
+<h3>7. When paths close and new ones open</h3>
+<ul>
+<li>Path 2 precondition fails (Knowledge Agent only queries production) → path removed, but the test yields new intel: the routing is now known. If the Knowledge Agent's Qdrant endpoint is configurable (ConfigMap / pod env), a new path emerges: pod foothold → change endpoint <code>:6333</code> → <code>:16333</code> → staging poisoning viable again. New hypothesis (A-16), register grows, brief updates.</li>
+<li>A-15 invalidated (parameters are monitored, e.g. a rule matching <code>aws iam</code> in <code>aws_cli_exec</code> parameters) → Path 1 is constrained, not killed: find an objective-achieving command outside the detection pattern (e.g. <code>aws ssm send-command</code> for code execution instead of IAM modification).</li>
+<li>"The engagement team that succeeds is not the one that had the best plan on Day 1. It is the team that replanned correctly when Day 3 broke the plan."</li>
+</ul>
+<h3>MITRE ATLAS mapping</h3>
+<p>Map each confirmed component + validated access level to an ATLAS technique; applicability is qualified by current access, and techniques only enter the active plan once their preconditions are confirmed:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Component</th>
+<th>ATLAS technique</th>
+<th>ID</th>
+<th>Application given current access</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent model weights (MLflow)</td>
+<td>ML Model Access</td>
+<td>AML.T0044</td>
+<td>Applicable if :5000 is reachable — not yet validated</td>
+</tr>
+<tr>
+<td>Vector DB (production)</td>
+<td>Exfiltration via Cyber Means</td>
+<td>AML.T0025</td>
+<td>Immediately applicable — unauthenticated read confirmed</td>
+</tr>
+<tr>
+<td>Vector DB (staging)</td>
+<td>Poison Training Data</td>
+<td>AML.T0020</td>
+<td>Staging instance only (:16333), per RoE</td>
+</tr>
+<tr>
+<td>MCP Server tools</td>
+<td>Data from AI Services</td>
+<td>AML.T0085</td>
+<td>Applicable with a valid agent token (jewel #4)</td>
+</tr>
+<tr>
+<td>Triage Agent input</td>
+<td>Craft Adversarial Data</td>
+<td>AML.T0043</td>
+<td>Applicable if crafted alerts can be delivered — webhook auth unknown</td>
+</tr>
+<tr>
+<td>Model registry (MLflow)</td>
+<td>AI Supply Chain Compromise</td>
+<td>AML.T0010</td>
+<td>Applicable if uploads allowed — not validated</td>
+</tr>
+<tr>
+<td>Agent endpoints</td>
+<td>Inference API Access</td>
+<td>AML.T0040</td>
+<td>Immediately applicable — agent HTTP endpoints respond</td>
+</tr>
+</tbody>
+</table></div>
+<p>The brief also carries ATT&amp;CK companions per path (Path 1: AML.T0085 + ATT&amp;CK T1078.004 Cloud Accounts, T1059.004 Unix Shell; Path 2: AML.T0020 staging-only; Path 3: AML.T0025).</p>
+<h2>Detection &amp; defense</h2>
+<p>Five detection rules extracted from the unauthenticated <code>detection_rules</code> collection (a defender should assume this corpus leaks):</p>
+<ul>
+<li><code>nexus-mcp-001</code> — unusual MCP tool invocation pattern</li>
+<li><code>nexus-mcp-002</code> — <code>vault_rotate_secret</code> called outside the maintenance window</li>
+<li><code>nexus-agent-003</code> — agent-to-agent direct communication bypassing the orchestrator</li>
+<li><code>nexus-qdrant-004</code> — bulk vector read from a non-agent source IP</li>
+<li><code>nexus-aws-005</code> — AWS IAM modification outside change window</li>
+</ul>
+<p>Gap (A-15, MEDIUM): <strong>no extracted rule inspects the content/semantics of MCP tool parameters</strong> — a malicious <code>aws_cli_exec</code> command during business hours under a legitimate tool name looks identical to normal activity. Also note the compounding effect: the RoE's 24-hour MCP reporting requirement plus <code>nexus-qdrant-004</code> means bulk reads both risk automated alerting and guarantee human notification.</p>
+<p>Defensive takeaways the module itself draws:</p>
+<ol>
+<li>The most dangerous escalation paths don't break through trust boundaries — they flow through <strong>gaps where trust was never enforced</strong>: an unauthenticated vector database, a vault that cannot distinguish agents, an orchestrator that trusts classification without verification. These are architectural decisions prioritizing functionality over security, not bugs.</li>
+<li>Kubernetes secrets are base64, not encrypted — scope secret-read RBAC tightly; a "read-only" grey-box token should not yield every agent identity.</li>
+<li>Per-agent tool scoping works (defense win) but is undermined by unvalidated parameters — validate tool arguments, not just tool names and caller identity.</li>
+<li>Preserve attribution at tool boundaries (TB-5): have the Vault path carry the requesting agent's identity, or stolen-token use becomes indistinguishable in Vault audit logs.</li>
+<li>When AI systems get backend access, treat them like privileged service accounts: the attack surfaced through capability discovery (tool listing) and credential material reachable from a single token.</li>
+</ol>
+<h2>Ares integration notes</h2>
+<p><code>pentest-attack-flow</code> and <code>pentest-attack-navigator</code> (both in <code>skills/cybersec/</code>, wired into pentest-orchestrate STEPs 6.8/6.9) currently speak <strong>ATT&amp;CK only</strong>: the Navigator layer pins <code>versions.attack = "16"</code> and colors enterprise techniques <code>Txxxx</code> by severity; Attack Flow builds STIX 2.1 <code>attack-action</code> objects whose <code>technique_id</code> field expects ATT&amp;CK. Neither consumes MITRE ATLAS, so an AI-300-style engagement loses every <code>AML.Txxxx</code> mapping above. An ATLAS mapping would add, concretely:</p>
+<ol>
+<li><strong>A second Navigator layer / matrix source</strong> for the ATLAS matrix (ML Attack Stages: Reconnaissance → Resource Development → Initial Access → ML Attack Stages; enterprise+ATLAS <code>versions</code> block), highlighting <code>AML.T0040</code>, <code>AML.T0025</code>, <code>AML.T0020</code>, <code>AML.T0085</code> etc. per finding — the module's per-component table is exactly the input format.</li>
+<li><strong>Dual-tagged <code>attack-action</code> objects</strong> in attack-flow STIX output: each chain step carries <code>technique_id</code> (ATT&amp;CK) <em>plus</em> an <code>atlas_technique_id</code> extension property, so a chain like "unauth Qdrant read → poisoned runbook → <code>vault_rotate_secret</code> → AWS creds" renders as AML.T0025 → AML.T0020 → AML.T0085 alongside T1078.004/T1059.004.</li>
+<li><strong>An <code>atlas-mappings.json</code> enrichment source</strong> for <code>pentest-framework-enrichment</code> (STEP 6.7 currently enriches ATT&amp;CK / D3FEND / NIST CSF from <code>cwe-framework-mappings.json</code>) — component/asset classes in an AI target (vector DB, model registry, MCP server, agent tokens) would auto-map to ATLAS techniques.</li>
+<li><strong>AI-specific asset taxonomy in attack-flow</strong>: <code>attack-asset</code> currently models servers/APIs; ATLAS brings jewel classes the enterprise matrix lacks — model weights, embeddings/vector corpora, detection-rule corpora, agent identity tokens, tool schemas.</li>
+<li><strong>Go/no-go gate semantics</strong>: ATLAS precondition tagging ("applicable if access validated") would let the flow generator mark actions as conditional on unvalidated assumptions (A-12b/A-15 style), matching the brief's HOLD/GO statuses instead of rendering every step as executed.</li>
+</ol>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

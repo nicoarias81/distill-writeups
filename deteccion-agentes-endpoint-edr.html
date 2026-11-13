@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detección de agentes de IA desde el endpoint: lo que el EDR no ve — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Detección de agentes de IA desde el endpoint: lo que el EDR no ve</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cEbPSQaSLXM">«Mika Ayenson - &quot;Can You See What Your AI Saw?&quot; | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/cEbPSQaSLXM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los desarrolladores ya ejecutan herramientas agénticas en sus máquinas todo el día: Cursor, Claude Code, servidores MCP, SDKs nuevos cada semana. Esos procesos spawnnean shells, escriben archivos y hacen llamadas de red, y el EDR no tiene visibilidad clara de qué los está impulsando. Desde la práctica de threat research y detection engineering en Elastic, este es un recorrido honesto por lo que hoy se puede detectar desde el endpoint, dónde se rompe, y hacia dónde debería moverse la industria.</p>
+<p>El síntoma que lo resume todo vino de Reddit: una usuaria con una extensión del navegador que intentaba conectarse en silencio a un sitio de tickets de fútbol, sin poder identificar cuál de sus extensiones era. Instalación de herramientas más rápida que la auditoría, con los devs ejecutando todo eso en este momento.</p>
+<h2>El problema: atribución de intención rota</h2>
+<p>Los datos de telemetría muestran el volumen: una parte enorme del código que se mergea hoy pasa por estas herramientas, y el DNS hacia proveedores de modelos domina el tráfico. Cuando un detection engineer arranca a triagear, el recorrido natural produce frustración en cada paso:</p>
+<ul>
+<li><strong>Firmas de código</strong>: casi todo viene firmado; una regla de "binario sin firma" es débil porque la actividad maliciosa viaja dentro de binarios firmados y confiables.</li>
+<li><strong>Ancestría de procesos</strong>: Claude y Cursor spawnnean git, gh, node, bash. Los pocos no firmados están enterrados en ese ruido.</li>
+<li><strong>Líneas de comando largas</strong>: los agentes encadenan comandos multi-pipe que complican el parsing.</li>
+<li><strong>Escritura de archivos</strong>: la mayoría toca archivos de código o de configuración (negocio normal); lo peligroso —persistencia, archivos sensibles, reescritura de configs— está escondido bajo ese ruido.</li>
+</ul>
+<p>El resultado es la frase que ordena todo el análisis: <strong>la alerta disparó, un proceso sospechoso corrió, buena suerte averiguando si lo hizo un humano o un LLM</strong>. La telemetría de un desarrollador ejecutando un comando y la de un agente de IA ejecutando el mismo comando es casi idéntica: mismo PID, mismo usuario, misma línea de comando. Y el threat model agrava todo: prompt injection, servidores MCP maliciosos, repos envenenados que convencen al agente de exfiltrar datos a través de procesos legítimos. El EDR ve a cursor-helper lanzando zsh que lanza curl, sin ningún vínculo con el archivo envenenado que originó la cadena: no ve el prompt, no ve la intención.</p>
+<h2>Detecciones posibles hoy</h2>
+<p>Elastic ya publicó reglas abiertas cubriendo credential access por parte de herramientas de IA, persistencia, llamadas DNS inusuales y URLs sospechosas. Son las preguntas concretas que se pueden hacer con la telemetría actual: ¿por qué una herramienta de IA está tocando un plist?, ¿por qué toca un login.json o un archivo de cookies o credenciales?</p>
+<p>Recomendación operativa: no esperar a que todo esté instrumentado. Arrancar con <strong>queries de hunting</strong> que usen la telemetría existente como building blocks, y desde ahí construir <strong>reglas de detección</strong> de mayor fidelidad.</p>
+<p>Otras técnicas exploradas, cada una con sus límites:</p>
+<ul>
+<li><strong>Caminar el árbol de ancestros completo</strong>: el nombre del proceso padre solo captura un nivel y pierde nietos e intención.</li>
+<li><strong>Intersecciones de entity IDs</strong>: correlacionar la cadena entre entidades para reconectar hijos con padres y abuelos.</li>
+<li><strong>Detección de servidores MCP</strong>: hoy se puede heurísticamente por la línea de comando (nodo más shell), pero es frágil y no revela qué herramienta MCP se invocó ni el nivel de confianza de la identidad.</li>
+</ul>
+<p>Los gaps de fondo son de sesión, no de proceso: cómo consolidar contexto entre sesiones paralelas de agentes en el mismo workspace (un adversario puede abusar de esa fragmentación), y cómo distinguir si un agente se auto-escaló o si el usuario le dijo "hacé esto" — sobre todo en herramientas donde algunos pedidos piden permiso y otros no.</p>
+<h2>Hacia dónde debería ir la industria</h2>
+<p>La tesis fuerte: <strong>cada regla de producción es, francamente, un workaround por una telemetría que debería venir nativa</strong>. Lo que se le pide a los vendors de herramientas agénticas:</p>
+<ol>
+<li>Datos nativos y consistentes de uso de herramientas y razonamiento de decisiones.</li>
+<li>Eventos de negación del modelo ("no voy a hacer esto porque...") como telemetría ingesta.</li>
+<li>Atribución de tool calls a nivel de token, vinculada al proceso que la ejecutó.</li>
+</ol>
+<p>El mecanismo de encuadre es <strong>agent hooks</strong>: interceptar pre-tool-calls y sesiones, extraer el contexto, ingestarlo vía OpenTelemetry y empujarlo al EDR. OTEL aparece como el léxico común que evita escribir una regla por vendor solo porque cada uno nombró distinto el mismo campo; Elastic ya viene mergeando PRs de semántica de IA en la spec upstream. Claude Code ya exporta OTEL nativamente, lo que lo convierte en el ejemplo a seguir; el resto de las herramientas todavía está camino a ello. Con esos campos el relato cambia: se sabe qué proceso padre (Cursor), qué herramienta, si fue aprobado por el usuario o no, qué proveedor y qué prompt disparó todo, en una sola historia cohesiva.</p>
+<h2>Reducir la superficie antes de escribir reglas</h2>
+<p>El consejo más práctico antecede a cualquier detección: inventariar qué herramientas usa la organización, decidir cuáles están permitidas, escrutar los runtimes (¿una herramienta genérica debería correr como root?), sumar controles de red y considerar una decisión poco discutida: si la organización será browser-first o native-first, con separación de poderes entre ambos planos. Los firewalls de nueva generación ya están etiquetando tráfico con campos de IA — falta hablar el mismo idioma al ingestar.</p>
+<p>El camino es una madurez gradual: empezar con la visibilidad que ya se tiene, sumar guardrails, controles de red y escrutinio de ejecución como root, y apuntar al juego largo: observabilidad completa del ciclo de vida del agente. En las Q&amp;A quedó una pregunta picante de otro detection engineer — si ya tengo observabilidad de red, proceso y endpoint, ¿me importa si fue un humano o un agente? — con respuesta elocuente: importa porque un desarrollador que decide mal es distinto de alguien que apretó el botón y YOLO-eó; el riesgo no es el mismo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Reglas abiertas de Elastic</strong>: credential access, persistencia, DNS inusual y URLs sospechosas para herramientas de IA, en repos públicos de GitHub.</li>
+<li><strong>Agent hooks</strong>: captura de pre-tool-calls y sesiones para extraer prompts y contexto.</li>
+<li><strong>OpenTelemetry (OTEL)</strong>: léxico común para telemetría de IA; semántica de IA upstream con PRs mergeados por Elastic.</li>
+<li><strong>Claude Code</strong>: exporta OTEL nativamente, caso de referencia.</li>
+<li><strong>Técnicas de detección</strong>: árbol de ancestros completo, intersección de entity IDs, heurísticas de servidores MCP, monitoreo de escrituras en configs de IA por procesos inesperados.</li>
+<li><strong>Controles complementarios</strong>: guardrails de proveedores (Azure, Bedrock), firewalls con etiquetado de tráfico de IA, decisiones de arquitectura browser-first vs. native-first.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La telemetría de endpoint no distingue un desarrollador de un agente de IA ejecutando el mismo comando: sin el prompt y la intención, la atribución está rota y las cadenas completas de ataque vía agentes parecen actividad humana maliciosa ordinaria.</li>
+<li>Se puede empezar hoy: hunting sobre telemetría existente, reglas abiertas de referencia, y foco en los archivos y procesos que no deberían ser tocados por herramientas de IA.</li>
+<li>La solución estructural no es más reglas sino telemetría nativa: uso de herramientas, razonamiento y negaciones del modelo exportadas de forma estándar vía OTEL, para que cualquier EDR pueda ingerirla.</li>
+<li>Antes de detectar, reducir: inventario de herramientas, runtimes escrutados, controles de red y separación de planos (browser vs. nativo) bajan la superficie que las reglas tienen que cubrir.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cEbPSQaSLXM">«Mika Ayenson - &quot;Can You See What Your AI Saw?&quot; | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

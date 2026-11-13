@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Operación Palefire: de una invitación de calendario a ejecutar código en un laptop — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Operación Palefire: de una invitación de calendario a ejecutar código en un laptop</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SUa1nta8FGQ">«Wes Ring &amp; Josiah Peedikayil - Operation Pale Fire | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/SUa1nta8FGQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Josiah Piedecal, del equipo de seguridad ofensiva de Block —con crédito explícito para Hassan, Wes Ring, Michael Rand y Justin Engler— narra la operación Palefire: un red team end-to-end contra <strong>Goose</strong>, el agente de IA de la casa. En Block el red team simula adversarios externos (TTPs de APTs ejecutadas localmente) y explora técnicas futuras contra la organización; trabaja con objetivos concretos —en una fintech, casi siempre financieros— y con énfasis fuerte en la evasión, porque el blue team local es muy competente: si te encuentra, te expulsa del entorno.</p>
+<p>Goose, empezado como proyecto interno en el otoño de 2024 y hoy open source en el GitHub de Block, es terreno fértil: trae de fábrica una tool de developer shell que ejecuta comandos, funciona con múltiples modelos (Sonnet 3.5 y 3.7 dominaban en la época, GPT-4 entre otros) y se integra con un marketplace interno de MCPs que le permite casi todo lo que exista como MCP: actualizar tickets de Jira, tocar Google Drive, y más. La pregunta de la operación no era si una prompt injection es posible —eso ya lo saben todos—, sino si se puede <strong>operacionalizar</strong>: lanzarla sin ser detectado, que se esconda a plena vista. El objetivo final: ejecución de código en el laptop de un empleado.</p>
+<h2>Recon: cazar texto no confiable que llegue al modelo</h2>
+<p>El punto de partida fue el marketplace interno de MCPs, buscando integraciones que tomaran texto no confiable y lo inyectaran en el contexto del modelo. El hallazgo fue Google Calendar —el mismo patrón que la sesión anterior del evento—. En la configuración de Block de entonces, un actor externo podía agendar una invitación con un empleado, y la API de Calendar permite desactivar la notificación por email: la invitación aparece silenciosamente en el calendario, sin email que rastrear. Los retoques de sigilo:</p>
+<ul>
+<li><strong>El atacante puede ausentarse de la lista de invitados</strong>: la invitación solo muestra la cuenta del empleado.</li>
+<li><strong>Calendario compartido con nombre interno</strong> ("calendario de Block", por ejemplo) para camuflarse.</li>
+<li>El único indicio externo es un flag "created by" en letra chica e itálica al pie de la invitación —nadie lo mira, empezando por el propio expositor—.</li>
+</ul>
+<h2>Campaña 1: la prompt injection invisible</h2>
+<p>La primera versión fue torpe a propósito: una prompt injection gigante en la descripción de la invitación (que pedía, para "actualizar por seguridad", ejecutar un <code>curl | bash</code>). Los Sonnet 3.5 de la época se mostraron decentemente resistentes: hacía falta una historia convincente. La innovación vino del <strong>texto invisible</strong>: caracteres Unicode de ancho cero que esconden la inyección a plena vista. El humano ve una invitación normal; Goose procesa y ejecuta.</p>
+<p>Cadena completa: empleado pregunta "Goose, ¿qué tengo hoy en el calendario?" → Goose lee el calendario vía MCP → ingiere la descripción con la inyección → llamada a la tool de developer shell → <code>curl | bash</code>. Lanzamiento: invitaciones enviadas. Resultado: <strong>cero shells</strong>. Lecciones del fracaso:</p>
+<ul>
+<li>El MCP de Google Calendar recibió una reescritura mayor en plena operación, que desajustó la inyección calibrada para la versión anterior.</li>
+<li>La inyección funcionaba aceptablemente en Sonnet 3.5 pero mal en 3.7 o en modelos GPT: había quedado afinada para un solo modelo. No aparecieron injectiones universales en el ejercicio.</li>
+<li>El testing sobre los calendarios propios —con pocas reuniones— sesgó los resultados: en un calendario real con veinte invitaciones, el contexto se llena y una sola invitación que sugiere la shell se olvida rápido.</li>
+<li>Faltó automatización para medir la eficacia de la inyección a través de modelos y versiones; y la hipótesis quedó en pie: una <strong>system prompt injection</strong> rendiría mucho mejor.</li>
+</ul>
+<h2>Campaña 2: recipes con instrucciones invisibles</h2>
+<p>Los <strong>recipes</strong> de Goose son workflows reutilizables compartibles por URL: codificados en Base64 (versión, título, descripción, instrucciones) y —clave para el atacante— cargados en el <strong>system prompt</strong>. Poner una inyección en las instrucciones funcionó de inmediato (la prueba de concepto: abrir Chrome y navegar a un Rickroll). Para blindarla, se reaplicó el ASCII smuggling: instrucciones de ancho cero, invisibles incluso tras decodificar el Base64 — el único rastro es una cascada de caracteres extraños que solo un decodificador muy atento notaría.</p>
+<p>La invitación revisada ("rescheduled", con humor sobre la primera ronda fallida) traía un hyperlink que abre el recipe con Goose, un copy seductor —"te bloqueamos tiempo en tu calendario para probar el nuevo recipe, por favor pruebalo"— y, de yapa, un link de Google Meet. El Meet fue la sorpresa: en la primera campaña la gente se sumó a la sala en el horario agendado con interés genuino. Para la segunda, el equipo llevó un deck presentando el recipe... y alguien clickeó el hyperlink. Ejecución lograda —rota por un typo que el LLM corregía en testing y en producción no, más versiones de Goose en cambio veloz interactuando distinto con los recipes—. Sin detección hasta el momento: las técnicas aguantaron el sigilo.</p>
+<h2>Spear phishing: el golpe final</h2>
+<p>Google Calendar empezó a rate-limitar: máximo 50 invitaciones por día. El pivote fue contactar al propio equipo de Goose por canales públicos, con la coartada de haber encontrado un bug de texto RTL en un recipe. El equipo lo investigó —lo que incluyó ejecutarlo—: la tool de developer shell corrió el <code>curl | bash</code> y con él el payload. Con el equipo de Threat Intel acordaron un infostealer de prueba —querían validaciones de sus detecciones contra actividad vista en la naturaleza—: corrió, y fue <strong>detectado a los pocos minutos</strong>. Props al blue team y a su workflow de deconfliction de red team, que cerró la operación limpiamente.</p>
+<h2>Mitigaciones implementadas</h2>
+<ul>
+<li><strong>Strip de caracteres Unicode no estándar</strong> en inputs y recipes —la contramedida más simple, ya común en otros agentes—.</li>
+<li><strong>Transparencia de recipes</strong>: advertencia grande que muestra qué va a hacer el recipe antes de ejecutarlo (antes había que decodificar el Base64 para saberlo).</li>
+<li><strong>Detección de prompt injections</strong>: mucho más difícil de lo que suena; se exploraron tools conocidas, se construyó internamente un detector de comandos bash maliciosos con un clasificador BERT, y se sigue probando evaluación semántica de inyecciones con LLMs (resultados mixtos).</li>
+<li><strong>Allow listing de comandos</strong>: no siempre hay razón legítima para ejecutar cualquier comando en un host.</li>
+<li><strong>Google Calendar</strong>: ahora agendar con un empleado exige enviar primero un email que el empleado debe aprobar —cambio que ya rindió de sobra—.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Prompt injection operacionalizada</strong>: texto Unicode de ancho cero (ASCII smuggling) en descripciones de calendario y en instrucciones de recipes codificadas en Base64.</li>
+<li><strong>Google Calendar como vector</strong>: invitaciones externas silenciosas (sin email), atacante fuera de la lista de invitados, nombre de calendario camuflado.</li>
+<li><strong>Goose</strong>: agente open source de Block con developer shell tool e integración MCP (marketplace interno).</li>
+<li><strong>Recipes de Goose</strong>: workflows compartibles por URL que se inyectan en el system prompt.</li>
+<li><strong>Spear phishing con coartada técnica</strong> (bug de RTL) hacia el equipo propietario del agente.</li>
+<li><strong>Payload Infostealer acordado con Threat Intel</strong> para validar detecciones; clasificador <strong>BERT</strong> para comandos bash maliciosos; LLM como juez de inyecciones (en experimentación).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un agente con acceso a shell y a MCPs convierte cualquier texto no confiable —una invitación de calendario, un recipe compartido— en un vector de ejecución de código.</li>
+<li>El sigilo del atacante moderno es tipográfico: caracteres invisibles convierten una inyección escandalosa en algo indetectable al ojo humano.</li>
+<li>Los usuarios no son el eslabón débil por negligencia: no había señal visible de que el Meet era externo ni de qué hacía el recipe. Blame the UI, not the user.</li>
+<li>Las defensas efectivas fueron mecánicas (strip de Unicode, allow listing, aprobación previa de invitaciones) antes que magia de detección: prevenir el vector cuesta menos que cazar la inyección.</li>
+<li>Y para el blue team: un infostealer en la naturaleza corrió y fue detectado rápido. El red team que coopera con Threat Intel hace a todos mejores.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SUa1nta8FGQ">«Wes Ring &amp; Josiah Peedikayil - Operation Pale Fire | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

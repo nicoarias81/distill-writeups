@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del Tamarin al ACE3: JTAG en el iPhone 15 y código arbitrario en el controlador USB-C de Apple — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Del Tamarin al ACE3: JTAG en el iPhone 15 y código arbitrario en el controlador USB-C de Apple</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/cFW0sYSo7ZM">«DEF CON 32 - From getting JTAG on the iPhone 15 to hacking Apple&#x27;s USB-C Controller - Stacksmashing»</a> · ver el <a class="nz-link" href="https://youtu.be/cFW0sYSo7ZM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando Apple reemplazó Lightning por USB-C, tiró a la basura — sin quererlo — el trabajo de años de la comunidad de hardware. Lightning permitía cosas que nunca se publicitaron: JTAG, UART, SDQ; había cables de depuración en el mercado negro y existía el Bonobo cable. En respuesta, la comunidad construyó el <strong>Tamarin Cable</strong>: una interfaz de depuración Lightning open source de unos 20 dólares, presentada dos años antes. Con el cambio de conector, todo eso quedó obsoleto.</p>
+<p>La pregunta del nuevo proyecto: el conector USB-C está lleno de pines — ¿podrá alguno hablar JTAG, UART o algo interesante, y no solo cargar? La respuesta termina siendo mucho mejor de lo esperado: sí, y el camino pasa por el microcontrolador secreto que Apple esconde detrás de cada puerto, el ACE, hasta llegar a ejecutar código arbitrario en el ACE3 del iPhone 15 — el chip que, si se compromete, permite atacar el SoC sin dejar prácticamente ningún rastro.</p>
+<h2>El ACE: el microcontrolador que nadie mira</h2>
+<p>El USB-C de Apple negocia la alimentación por USB Power Delivery, y esa negociación no la maneja el SoC sino un microcontrolador diminuto junto al puerto: el <strong>Apple USB-C Port Controller (ACE)</strong>. El cargador le habla por los dos hilos del <em>configuration channel</em>, y el ACE traduce. Un microcontrolador tiene firmware — y años atrás, gente muy hábil ya lo había volcado: soldar un par de cables en un MacBook carísimo, dumpear el firmware, hacer ingeniería inversa y publicar el hallazgo.</p>
+<p>El hallazgo: Apple usa <strong>VDM (Vendor Defined Messages)</strong> sobre USB-PD para reconfigurar los pines del conector. Enviar la acción 0x306 al ACE y los pines SBU se convierten en un puerto serie. Y detrás del serie hay más: JTAG, Thunderbolt, I2C — y en el iPhone, SPMI. Para enviar esos mensajes no sirve el USB normal: el equipo de <strong>Asahi Linux</strong> hizo la ingeniería inversa y descubrió que el puerto trasero izquierdo del MacBook Pro puede emitirlos, con herramienta lista para usar. Además, existe el <strong>Central Scrutinizer</strong>, un adaptador serie basado en Pico que envía estos comandos y da shell UART en un MacBook.</p>
+<h2>Serie en el iPhone 15 (y el JTAG "inútil")</h2>
+<p>Con una PCB propia — controlador USB-C, level shifters, y bastante prueba y error con un conmutador USB y alimentación extra — el Central Scrutinizer funcionó contra un iPhone 15 recién salido: teclas y consola serie en la pantalla. Genial, pero inútil: el objetivo era JTAG o SPMI.</p>
+<p>En el documento gigante de Asahi sobre USB-PD, casi al final, una nota marginal: la acción <strong>0x0206</strong>, "con buena pinta de ser SWD, pero nadie la ha probado públicamente". Osciloscopio y debugger conectados, primer intento fallido, cables invertidos, segundo intento:</p>
+<ul>
+<li><strong>Puerto de depuración encontrado, ID 4BA02477</strong> — JTAG en el iPhone 15 con solo enviar 0x0206.</li>
+<li>El perro: es un dispositivo de producción, y el JTAG está <strong>bloqueado</strong>. Un iPhone de desarrollo sin bloqueo cuesta del orden de 100.000 dólares en el mercado negro. JTAG inútil, sí — pero JTAG.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A["Lightning:<br/>JTAG, UART, SDQ<br/>(cables de mercado negro,<br/>Tamarin Cable open source)"] -->|Apple lo reemplaza| B["USB-C: ¿solo carga?"]
+    B --> C["ACE: microcontrolador<br/>junto al puerto, maneja<br/>USB-PD por el CC"]
+    C --> D["VDM 0x306 -> SBU = serie<br/>VDM 0x0206 -> SWD/JTAG<br/>(ID 4BA02477, bloqueado)"]
+    D --> E["ACE3 (iPhone 15):<br/> USB completo en modo<br/>recovery -> objetivo ideal"]
+    E --> F["ACE2 (TI TPS65986,<br/>ARM, I2C, HPM bus,<br/>comandos 4CC)"]
+    F --> G["Voltage glitching<br/>(ChipWhisperer) -> bit de<br/>desbloqueo -> código<br/>arbitrario, sin rastro"]
+
+</pre>
+
+<h2>ACE2: el precedente en los MacBooks</h2>
+<p>Antes de atacar el ACE3 hacía falta entender al predecesor, el <strong>ACE2</strong>, presente en todos los MacBooks desde la era T2 hasta el M3 Max: un chip ARM de Texas Instruments — un <strong>TPS65986 relabelado</strong> con ROM custom — conectado al SoC por I2C. Volcando el firmware de un M1 se reconstruyó el manejo de comandos, y apareció algo jugoso: comandos privilegiados de lectura/escritura/modificación de memoria — peek y poke — <strong>bloqueados en dispositivos de producción</strong>. Pero cambiar un solo bit basta para desbloquearlos.</p>
+<p>La comunicación desde macOS va por el bus <strong>Apple HPM (Host Port Microcontroller)</strong> con comandos <strong>4CC</strong>: enteros de cuatro bytes que resultan ser ASCII (GAiD, reset, etc.). Una herramienta propia, ACE Tool, habla ese dialecto, y la lista completa de comandos está publicada.</p>
+<h2>Glitching al ACE3: código arbitrario sin dejar rastro</h2>
+<p>Con el mapa del ACE2 en la mano, el objetivo era el ACE3 del iPhone 15 — y su posición estratégica lo convierte en presa ideal: entre el puerto USB y el SoC, y capaz de levantar un puerto USB completo (en modo recovery, quien se conecta al iPhone está hablando con el ACE3). Comprometer ese componente significa atacar el SoC desde un punto que el sistema operativo no ve: <strong>esencialmente cero trazas</strong>.</p>
+<p>La técnica: inyección de fallos por voltage glitching con un <strong>ChipWhisperer</strong>, apuntando al momento crítico de la verificación que mantiene los comandos privilegiados cerrados — el mismo bit que separa el peek/poke del desbloqueo. Tras ajustar el disparo contra el reset del objetivo, los intentos empiezan a dar frutos: la verificación salta, el acceso privilegiado se abre y el siguiente paso es natural — reescribir memoria y ejecutar payloads propios en el ACE3. Código arbitrario en el chip del puerto USB-C del iPhone 15, invisible para el sistema anfitrión.</p>
+<h2>Herramientas y créditos</h2>
+<ul>
+<li><strong>Tamarin Cable</strong> (hace dos años) y <strong>Tamarin C Adapter</strong> (diciembre anterior): fork del Central Scrutinizer con level shifters bidireccionales, conmutador de alimentación USB para investigación prolongada, analizador <strong>SPMI</strong> (el primero público) y sonda JTAG completa; todo open source.</li>
+<li>Ingeniería inversa previa imprescindible: el módulo de kernel de Sigusa, el patcher Thunderbolt Olive, el trabajo de <strong>Asahi Linux</strong> sobre USB-PD, el Central Scrutinizer de Marc Zenier, los volcados del equipo de desarrollo del T8012.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los "puertos de carga" esconden buses de depuración completos: VDMs no documentados exponen serie, JTAG, I2C y SPMI en los dispositivos de consumo más cerrados del mercado.</li>
+<li>La documentación marginal importa: el JTAG del iPhone 15 estaba escrito en una nota al pie del trabajo de Asahi — solo hacía falta alguien que lo probara.</li>
+<li>El JTAG bloqueado no es un punto final sino un mapa: el mismo camino que revela el puerto de depuración revela el chip que lo controla.</li>
+<li>El ACE3 es un objetivo de primera clase por su posición (USB completo frente al SoC) y por su discreción: comprometerlo permite atacar el sistema sin que el sistema se entere.</li>
+<li>La producción puede bloquear comandos privilegiados, pero un solo bit separa el bloqueo del control total — y el fault injection lo encuentra.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/cFW0sYSo7ZM">«DEF CON 32 - From getting JTAG on the iPhone 15 to hacking Apple&#x27;s USB-C Controller - Stacksmashing»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

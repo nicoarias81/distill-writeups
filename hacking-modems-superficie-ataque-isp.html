@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del módem hackeado a millones de módems: la superficie de ataque del ISP — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Del módem hackeado a millones de módems: la superficie de ataque del ISP</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/MmpkfM8I33Q">«DEF CON 33 - Hacking Millions of Modems (and Investigating Who Hacked My Modem)»</a> · ver el <a class="nz-link" href="https://youtu.be/MmpkfM8I33Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Una petición HTTP de prueba enviada a un servidor propio en AWS reapareció minutos después desde una IP ajena: toda la red doméstica reenviaba exactamente la misma request. Ese incidente personal —módem comprometido, atacante que mezclaba infraestructura de phishing sofisticada con operaciones "humanas" ordinarias— desemboca en la pregunta de cómo se gestiona realmente un módem: vía TR-069, un protocolo que no está expuesto a internet pero que el soporte técnico del ISP maneja a través de APIs internas. Lo que sigue es la escalada desde el portal de negocio de Cox Communications hasta la capacidad de reconfigurar el módem de cualquier cliente con solo su dirección MAC, y la constatación estructural final: un único servidor de autenticación de Comcast detrás del cual viven cientos de millones de dispositivos.</p>
+<h2>Parte 1: quién hackeó el módem</h2>
+<p>Durante un pentest, una caja en AWS logueaba requests para explotar un XXE. La request de prueba (<code>GET /hello</code>) apareció replicada desde una IP de DigitalOcean, y no solo desde el ordenador: teléfono, portátil y la smart TV del cuarto de invitados la reenviaban idéntica. La red estaba comprometida en algún punto intermedio; el sospechoso lógico era el módem (Cox Communications), que fue devuelto al store al ser equipo alquilado —perdiendo la evidencia para siempre.</p>
+<p>La historia de esa IP, reconstruida históricamente, era extraña por partida doble:</p>
+<ul>
+<li><strong>Infraestructura de phishing:</strong> había hospedado dominios con BeEF y hook.js, campañas de phishing dirigidas contra sitios concretos —incluida una empresa sudamericana de ciberseguridad.</li>
+<li><strong>Dominios DGA:</strong> miles de dominios de algoritmo de generación de dominios, comprados y rotados, apuntando a la IP —comportamiento de malware sofisticado conviviendo con operaciones de phishing de "humano normal".</li>
+</ul>
+<p>El intento de retorno: inyectar comandos en la <code>curl</code> que el malware reenviaba, para tomar control del C2. Sin éxito. Tampoco se recuperó nunca el binario malicioso: el módem fue entregado y la pregunta de cómo se espejaba el tráfico sigue abierta.</p>
+<h2>Parte 2: la superficie de ataque del ISP</h2>
+<p>La pista vino de una mudanza ajena: el soporte telefónico del ISP configura el módem —no solo la contraseña Wi-Fi— de forma remota. El mecanismo es TR-069, protocolo bien investigado (con varias presentaciones previas que lo pop-ean directamente), pero inaccesible desde internet. Lo interesante está en el intermediario: la API que conecta el call center con el ACS (Auto Configuration Server).</p>
+<h3>Del portal de negocio a la API interna</h3>
+<p>Sin cuenta disponible, el punto de partida fue el portal de negocio de Cox —más funcional que el residencial: gestión de VLAN, security groups, todo— y el saqueo de JavaScript en busca de endpoints. Todo el API del sitio usaba el prefijo <code>api-cbma</code>, que se comportaba de forma distinta al resto del tráfico: candidata a reverse proxy hacia una API interna.</p>
+<p>El obstáculo y la solución: la Swagger UI existía pero sus recursos estáticos (<code>.js</code>, <code>.css</code>, <code>.html</code>) eran interceptados por el frontend. Añadiendo un <code>%2f</code> (slash codificado) al final del path, la request seguía llegando al reverse proxy y cargaba el backend. El swagger reveló <strong>700 routes</strong>.</p>
+<pre class="mermaid">
+flowchart LR
+    A[JS del portal
+endpoints api-cbma] --> B[Reverse proxy
+%2f para cargar Swagger]
+    B --> C[700 routes]
+    C --> D[~15% sin auth
+sin patrón discernible]
+    D --> E[profile search
+registros de clientes, PII]
+    D --> F[endpoint por MAC
+IPv4 actual del dispositivo]
+    D --> G[account equipment
+todos los dispositivos de la cuenta]
+    F --> H[encrypted value
+SAIL interno]
+    G --> H
+    H --> I[Push de configuración
+mismos poderes que soporte]
+
+</pre>
+
+<h3>Autorización rota sin patrón</h3>
+<p>El fuzzing de los 700 endpoints (GET/POST con intruder) arrojó un patrón anómalo: ~50% errores de autorización, ~35% bad requests, ~15% éxito —sin nada discernible que separe endpoints autenticados de no autenticados. Peor: un endpoint que devolvía 200 empezaba a alternar errores de autorización al repetir la request —load balancer con autorización simplemente rota—.</p>
+<p>El endpoint <code>profile search</code> aceptaba parámetro por URI; la cadena de prueba "FBI" devolvió 30 field offices del FBI con direcciones —clientes reales, PII accesible sin autenticación—. El escalado a dispositivos llegó con un endpoint documentado que aceptaba una <strong>MAC address</strong> y devolvía la IPv4 actual: desde la API de negocio, como cliente residencial, se podía golpear el propio módem. El siguiente paso, conseguir la MAC de cualquier otro cliente, era trivial: un endpoint de búsqueda de cuenta por email o nombre devolvía el user ID, y de ahí el inventario completo de equipment de la cuenta —cada iPhone, TV y dispositivo conectado— sin que el titular recibiera notificación alguna.</p>
+<h3>SAIL: el protocolo interno de dispositivos</h3>
+<p>El parámetro que bloqueaba la reconfiguración se llamaba <code>encrypted value</code>, y su error asociado era de "SAIL" —identificado por OSINT de LinkedIn como la capa interna de comunicaciones con dispositivos de Cox, construida sobre TR-069 con las secretas centralizadas. La criptografía estaba en el JavaScript del portal: una función runtime de encriptar/desencriptar. En vez de extraerla, un breakpoint en el punto de registro (con PIN de 4 dígitos cifrado client-side) permitía llamar a la función desde consola: cifrar <code>8042</code> y pasarlo al endpoint de device management cambió el error de SAIL de "no sé qué hacer con esto" a "desencriptado OK" —mismo esquema de cifrado en el backend, puerta abierta a los device endpoints.</p>
+<p>Confirmación de formato con la cuenta real de un amigo MSP de Omaha: desencriptar un <code>encrypted value</code> genuino revela account number, device ID, device name… y la MAC address. La prueba decisiva: firmar un payload con solo la MAC como campo válido y todo lo demás como junk data —funcionó perfectamente—.</p>
+<h3>Del PII al control total</h3>
+<p>La request firmada con la propia MAC actualizó la configuración del dispositivo: la red doméstica se cayó, el módem se reconfiguró y reinició. A partir de ahí, los mismos poderes que un agente de soporte: cambiar contraseña Wi-Fi, ver dispositivos conectados, abrir puertos, usar el módem como proxy, y —la vía real a RCE— push de configuraciones o paquetes nuevos de firmware al dispositivo. La kill chain completa: encontrar account ID → obtener MAC → operación de hardware arbitraria.</p>
+<h2>El punto de falla único: el servidor de Comcast</h2>
+<p>El remate estructural: los ISP comparten software. La app de Cox no autentica contra servidores de Cox sino contra <code>dh.something.comcast.net</code> —un único servidor HTTP con cientos de millones de dispositivos detrás, ~10 petabytes de datos diarios de metadatos (nombres de dispositivos conectados incluidos, impensable hace una década). Con la reautorización de FISA de fondo, la conclusión es directa: pop-ear esa única API es control o observación pasiva de metadatos de cientos de millones de dispositivos. Un punto de centralización con impacto masivo.</p>
+<h2>El desenlace del incidente original</h2>
+<p>Cox, colaborativa en la coordinación (mensajes legalmente verificados, equipo correcto), confirmó dos cosas: la vulnerabilidad encontrada no era la que hackeó el módem original —fue introducida posteriormente—, y la IP de DigitalOcean no les pertenece. Alguien sí poseyó el módem, pero por otra vía. La investigación del incidente inicial queda, honestamente, sin cerrar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>TR-069 / ACS:</strong> protocolo de gestión remota de módems, inaccesible desde internet pero alcanzado vía APIs del call center.</li>
+<li><strong>api-cbma (reverse proxy):</strong> prefijo de la API interna de Cox; <code>%2f</code> para cargar Swagger UI desde el backend.</li>
+<li><strong>Authorization rota sin patrón:</strong> ~15% de endpoints expuestos sin autenticación, alternancia de errores por load balancer.</li>
+<li><strong>Account equipment + MAC lookup:</strong> enumeración pasiva de dispositivos de cualquier cliente y localización por MAC.</li>
+<li><strong>SAIL:</strong> capa interna de comunicación con dispositivos; cifrado client-side extraíble vía breakpoint en consola, firmas de payloads con MAC-only.</li>
+<li><strong>DGA + BeEF/hook.js:</strong> infraestructura del atacante original, reconstruida por historia de la IP en DigitalOcean.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El modelo "el ISP gestiona tu módem" convierte al call center —y a la API que lo conecta al ACS— en la superficie de ataque real del CPE, mucho más rica que el módem mismo.</li>
+<li>Una API interna con autorización intermitente, referenciada desde un portal público, permite escalar de PII a reconfiguración de firmware en tres pasos: account ID, MAC, push.</li>
+<li>El cifrado client-side de un parámetro como <code>encrypted value</code> no protege nada: el mismo esquema sirve para firmar payloads arbitrarios.</li>
+<li>La "internization" de los módems —menos gestión local, más gestión en la nube— crea puntos únicos de falla (un servidor de autenticación de Comcast, cientos de millones de dispositivos) cuyo compromiso es un evento de escala nacional.</li>
+<li>Muchas vulnerabilidades de este ecosistema viven tras VDPs con términos de no divulgación: probablemente se han encontrado antes y no se sabe.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/MmpkfM8I33Q">«DEF CON 33 - Hacking Millions of Modems (and Investigating Who Hacked My Modem)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

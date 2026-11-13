@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canal lateral por longitud de tokens: escuchar las respuestas de un asistente de IA cifradas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Canal lateral por longitud de tokens: escuchar las respuestas de un asistente de IA cifradas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/I1RqhGGRmHY">«DEF CON 32 - Your AI Assistant has a Big Mouth: A New Side Channel Attack - Yisroel Mirsky»</a> · ver el <a class="nz-link" href="https://youtu.be/I1RqhGGRmHY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El cifrado protege el contenido de las respuestas de un asistente de IA, pero no protege su forma. Cuando el modelo genera texto token por token y el cliente lo acumula, el tamaño de cada paquete cifra (literalmente, mide) la longitud de cada token. Esa secuencia de longitudes es una firma estructural del texto que viaja en claro junto con el ciphertext. Un atacante en la red —un WiFi hostil, un ISP, un nodo de salida VPN, un proveedor de red corporativa— puede capturarla, filtrarla y traducirla de vuelta a lenguaje natural con un modelo fine-tuned.</p>
+<p>La investigación demuestra el ataque de punta a punta contra varios proveedores, con tasas de éxito de ~55% en primeras oraciones y ~38% en párrafos completos, un costo de entrenamiento de unos 200 dólares en la nube, y una herramienta pública (GPTKeylogger). Todos los grandes proveedores notificados parchearon en semanas, y las defensas resultaron ser las clásicas de cualquier canal lateral: padding y buffering.</p>
+<h2>Por qué el tamaño delata el contenido</h2>
+<p>Un LLM genera su respuesta token a token, y los clientes de asistentes (ChatGPT, Copilot) acumulan los tokens y los muestran en streaming. Cada vez que llega un token, el tamaño del paquete aumenta: el payload acumula tokens previos más el nuevo. En el tráfico capturado esto produce un patrón incremental reconocible, cuyas diferencias (deltas) entre paquetes consecutivos son exactamente las longitudes de los tokens. La longitud de un token depende del tokenizer del proveedor y del contenido: es información semántica real sobre el texto.</p>
+<p>El canal es explotable porque la secuencia de longitudes de tokens conserva la estructura del lenguaje: ritmo de palabras, puntuación, listas, párrafos. Con suficiente contexto, esa estructura basta para reconstruir el significado sin romper el cifrado.</p>
+<h2>Ingeniería inversa del tráfico</h2>
+<p>El primer paso fue aprender el protocolo desde adentro: conectarse como cliente legítimo, exportar la clave de sesión TLS (SSLKEYLOGFILE), cargarla en Wireshark y observar el tráfico descifrado. Sobre ese análisis se construyeron reglas para extraer la secuencia de longitudes de tokens directamente del tráfico cifrado. El pipeline completo: capturar → filtrar (por IP/destino) → extraer la secuencia de deltas.</p>
+<p>Dos problemas prácticos complican la extracción:</p>
+<ul>
+<li><strong>MTU y fragmentación.</strong> ChatGPT sobre QUIC impone un máximo de ~1.200 bytes por paquete. Como el payload acumula tokens, en respuestas largas el excedente desborda al paquete siguiente (y al tercero, cuarto, quinto). El filtro debe contar esos paquetes en lugar de descartarlos.</li>
+<li><strong>Delimitación de la respuesta.</strong> Al inicio y al final de la respuesta hay ráfagas de handshakes y mensajes de cierre que hinchan los paquetes; esos puntos marcan el comienzo y el fin, y entre ambos se busca el patrón incremental.</li>
+<li><strong>Buffering por carga de red.</strong> Con muchos clientes conectados, los servidores agrupan varios tokens en un mismo paquete: el delta pasa a ser la suma de varios tokens sin poder separarlos. Un experimento de 24 horas contra ChatGPT midió la densidad de agrupamientos por hora (mucho mayores de día que de noche) y demostró que el problema es manejable.</li>
+</ul>
+<h2>Traducir longitudes a texto con un LLM fine-tuned</h2>
+<p>El paso final es aprender el mapeo secuencia de longitudes → texto. Entrenar un modelo desde cero es inviable; la vía práctica es fine-tuning:</p>
+<ul>
+<li><strong>Modelo base:</strong> T5 de Google, público.</li>
+<li><strong>Dataset:</strong> UltraChat, un corpus abierto de diálogos con GPT-4 — el atacante no necesita generar sus propios datos.</li>
+<li><strong>Framework:</strong> Hugging Face para el entrenamiento; ~2 días de cómputo, rentable en la nube (~200 USD en Azure) sin GPU propia.</li>
+<li><strong>Uso:</strong> generar varias veces la traducción de la misma secuencia y quedarse con la salida de mayor score de confianza.</li>
+</ul>
+<p>El primer intento directo fracasó: la tarea completa es demasiado difícil incluso para un LLM. Pero el modelo aprendía estructura de alto nivel (listas, formato), lo que abrió el camino a dividir el problema. La observación clave: <strong>la primera oración de una respuesta de asistente condensa el tema de todo el párrafo</strong>. El pipeline resultante:</p>
+<ol>
+<li>Segmentar la secuencia en oraciones sin leer el texto: la mayoría de los tokenizers codifican la puntuación como token propio, así que una longitud de 1 casi siempre es puntuación; una heurística anti-falsos-positivos evita cortar en oraciones demasiado cortas.</li>
+<li>Entrenar un modelo especializado solo en primeras oraciones.</li>
+<li>Entrenar un segundo modelo para el resto, alimentándolo con la primera oración reconstruida como contexto, y así oración a oración, preservando el tema.</li>
+<li>Afinar con la naturaleza del corpus: las respuestas de asistentes no son texto aleatorio; tienen estilo predecible (warnings, plantillas, salvaguardas, estructura) y baja diversidad, y muchos prompts distintos sobre el mismo tema producen respuestas casi iguales. Entrenar sobre respuestas de asistente —no sobre texto genérico— explota esa predictibilidad.</li>
+</ol>
+<p>El salto de rendimiento es drástico: entrenar sobre texto aleatorio rinde poco, y pedirle directamente a ChatGPT que resuelva el canal lateral rinde menos aún; el enfoque combinado alcanza ~55% de éxito en primeras oraciones y ~38% en párrafos completos. Bajo buffering agresivo (agrupamientos aleatorios en el dataset) la tasa cae a ~35% en primeras oraciones; contra la API de OpenAI, que transmite tokens emparejados (dos por paquete), entrenando con pares se logra ~17%.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Captura en la red<br/>(tráfico cifrado)"] --> B["Filtrar por destino<br/>+ delimitar respuesta"]
+    B --> C["Extraer deltas:<br/>secuencia de longitudes"]
+    C --> D["Segmentar oraciones<br/>(longitud 1 = puntuación)"]
+    D --> E["T5 fine-tuned<br/>1er modelo: primera oración"]
+    E --> F["2º modelo: resto del párrafo<br/>con contexto acumulado"]
+    F --> G["Texto reconstruido<br/>~38% párrafos / ~55% 1ª oración"]
+
+</pre>
+
+<p>No todos los temas son igual de vulnerables: salud mental y situación financiera resultaron mucho más susceptibles que salud sexual, simplemente por su mayor frecuencia en el dataset. Un atacante con un objetivo específico puede entrenar un modelo dedicado a ese subtema y obtener resultados aún mejores.</p>
+<h2>Demo y herramienta</h2>
+<p>La demostración pública: una víctima usa Microsoft Copilot con una pregunta sensible (desarrollos de IA que podrían revolucionar la salud); al lado, el atacante captura el tráfico con Wireshark, filtra por IP, identifica a mano el inicio de la respuesta, ingresa los tamaños de paquete en la herramienta, que calcula los deltas, obtiene la secuencia de longitudes de tokens y la pasa por el modelo — que reconstruye en segundos un texto con el mismo tema que el original.</p>
+<p>La herramienta completa, <strong>GPTKeylogger</strong>, está publicada en GitHub con dos módulos: el de ataque (acepta tamaños de paquete, longitudes de token o texto original, tokeniza y predice) y el de entrenamiento, con comandos para reentrenar el modelo contra otro proveedor u otro LLM base (el modelo distribuido está afinado sobre respuestas de GPT-4 de febrero de 2024; para atacar un backend tipo Llama hay que reentrenar). La configuración va incluida en el repositorio.</p>
+<h2>Defensas y divulgación</h2>
+<p>Todos los proveedores vulnerables fueron notificados hasta el 8 de febrero; los principales parchearon antes del 1 de marzo, cinco pagaron bounty, y la vulnerabilidad se hizo pública el 14 de marzo en Ars Technica. Las contramedidas, acordadas con los ingenieros de los proveedores, son las tres canónicas de los canales laterales por tamaño:</p>
+<ul>
+<li><strong>Padding aleatorio</strong> a los paquetes (despliegue de Cloudflare: tamaños irreconocibles).</li>
+<li><strong>Padding al múltiplo más cercano</strong> (OpenAI: redondeo al múltiplo de 32 añadiendo un campo de pad en el JSON transmitido).</li>
+<li><strong>Más buffering</strong> de las respuestas (menos paquetes, menos resolució de deltas).</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Canal lateral por longitud de tokens</strong>: fuga de información semántica en el tamaño de paquetes de streaming de asistentes de IA, sobre tráfico correctamente cifrado.</li>
+<li><strong>Wireshark + SSLKEYLOGFILE</strong>: descifrado propio del tráfico para ingeniería inversa del protocolo y diseño de reglas de extracción.</li>
+<li><strong>Deltas de tamaño de paquete / patrón incremental</strong>: método de extracción de la secuencia de longitudes de tokens.</li>
+<li><strong>Segmentación por puntuación</strong>: token length 1 ≈ signo de puntuación, usado para dividir la secuencia en oraciones.</li>
+<li><strong>T5 + UltraChat + Hugging Face</strong>: receta de fine-tuning para traducir longitudes a texto; ~2 días de cómputo, ~200 USD.</li>
+<li><strong>GPTKeylogger</strong>: herramienta pública con módulos de ataque y entrenamiento para reproducir el ataque contra cualquier proveedor.</li>
+<li><strong>Defensas</strong>: random padding, padding a múltiplos (32 en OpenAI), buffering; todas de bajo costo para el proveedor.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El cifrado correcto del contenido no basta: los metadatos de forma —en este caso, la longitud de cada token en streaming— son un canal lateral real que expone respuestas completas de asistentes de IA a un observador de red.</li>
+<li>La IA funciona en ambos lados: el LLM es tanto el origen del canal (generación token a token) como la herramienta que lo cierra (fine-tuning que traduce longitudes a texto), a costo de atacante marginal (~200 USD).</li>
+<li>La primera oración de una respuesta es el eslabón débil: condensa el tema y habilita la reconstrucción del resto oración por oración con contexto preservado.</li>
+<li>Las defensas son simples y baratas (padding, buffering) frente a un ataque difícil de ejecutar; el riesgo real está en los nuevos servicios de IA que nazcan sin estas contramedidas, y en la pregunta que queda abierta: qué otros canales laterales similares esperan a ser explorados.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/I1RqhGGRmHY">«DEF CON 32 - Your AI Assistant has a Big Mouth: A New Side Channel Attack - Yisroel Mirsky»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code review con IA: adversarial, con evidencia y con gates — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">Code review con IA: adversarial, con evidencia y con gates</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/38Y1JWU-mdE">«Code Review Course»</a> · ver el <a class="nz-link" href="https://youtu.be/38Y1JWU-mdE">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los agentes escriben muy bien el código; el problema aparece cuando ese mismo agente es autor, revisor y juez de su propio trabajo. Es el equivalente exacto de la empresa donde el desarrollador revisa su propia tarea, la encuentra perfecta, y solo el junior de turno — con ese ojo crítico que hay que aprovechar — señala lo que falta. Confiar en la autoevaluación del modelo es confiar en una opinión; la confianza necesita un arnés.</p>
+<p>Ese arnés es un sistema de revisión con IA que combina conceptos de ingeniería de sistemas confiables con verificación adversarial: eventos inmutables, hashes de contenido, fail-closed, separación de deberes y presupuestos de corrección acotados. Todo integrado en Gentile AI como proceso orgánico que el usuario no tiene que manejar a mano: se activa según la severidad del cambio y termina en un <em>receipt</em> (recibo) que la cadena de gates exige antes de dejar commitear, pushear o abrir un PR.</p>
+<h2>Las siete fallas típicas del auto-review</h2>
+<p>El punto de partida son los modos de falla recurrentes cuando el agente revisa lo que él mismo escribió:</p>
+<ol>
+<li><strong>Loops infinitos de review</strong>: revisa, encuentra algo nuevo, arregla, vuelve a revisar, encuentra otra cosa... sin fin.</li>
+<li><strong>Findings persuasivos pero falsos</strong>: el hallazgo suena crítico y está redactado con confianza, pero es una alucinación; el problema no existe.</li>
+<li><strong>Sicofancia y autoaprobación</strong>: bajo el propio contexto del agente, lo que hizo está bien; cuando se lo contrasta con el <em>big picture</em> externo, ya no lo está.</li>
+<li><strong>Findings que desaparecen</strong>: se detecta un hallazgo severo, se itera, y en la revisión siguiente el problema "ya no pasa nada" sin que nadie lo haya resuelto.</li>
+<li><strong>El fix que toca 10 cosas</strong>: se pide arreglar una cosa y el fix arregla eso y mucho más; a los agentes les encanta irse de mambo.</li>
+<li><strong>"Ya lo revisé, vos fumás"</strong>: el agente declara que algo está revisado sin ningún tipo de pruebas.</li>
+<li><strong>Amnesia de contexto</strong>: al compactar, abrir sesión nueva o cambiar de máquina, el estado de todo lo conversado se pierde (algo que una memoria persistente tipo Engram mitiga).</li>
+</ol>
+<h2>Los conceptos del arnés</h2>
+<p>Cinco ideas estructurales sostienen el diseño:</p>
+<ul>
+<li><strong>Event sourcing</strong>: el estado nunca se sobrescribe; cada evento es inmutable y se reconstruye reproduciendo la cadena completa desde el origen. Así siempre se puede rastrear de dónde surgió un problema.</li>
+<li><strong>Content-addressable storage</strong> (como Git): cada evento lleva el SHA-256 de su contenido. El hash funciona como huella digital: si el código cambia y se recalcula, el hash distinto indica que es un cambio nuevo que hay que revisar, porque ya no es lo que se revisó.</li>
+<li><strong>Fail closed</strong>: todo lo que no se puede probar se rechaza. Una cadena truncada, un hash que no cuadra, un output incompleto: se deniega directamente, no se asume que está bien. Es el antídoto contra el "ya lo revisé, vos fumás".</li>
+<li><strong>Separación de deberes</strong>: autor, revisor, <strong>refuter</strong> y validador son roles distintos. Nadie es juez y verdugo a la vez.</li>
+<li><strong>Verificación adversarial y racionalidad acotada</strong>: en vez de confiar de una, todo hallazgo debe presentar evidencia; y el proceso tiene presupuesto para que la verificación no se convierta en el loop infinito del punto 1.</li>
+</ul>
+<h2>Clasificación de riesgo y arranque del review</h2>
+<p>El orquestador — que por eso conviene que sea un modelo potente — clasifica el riesgo del cambio tras el <em>apply</em>:</p>
+<ul>
+<li><strong>Low</strong>: documentación, comentarios, formato. No amerita el proceso completo de review.</li>
+<li><strong>Medium</strong>: cualquier otro cambio; se ejecuta el <em>lente dominante</em> de las 4R (las cuatro dimensiones de revisión: resiliencia, confiabilidad, legibilidad y robustez).</li>
+<li><strong>High</strong>: autenticación, seguridad, pagos, todo lo que puede perder dinero o ser vulnerabilidad; se ejecuta el proceso entero.</li>
+</ul>
+<p>La severidad no depende solo del tamaño: una línea cambiada en la configuración de autenticación de un producto se revisa completa, aunque sea una sola línea.</p>
+<p>El review arranca con un comando determinista (implementado en Go, sin gasto de tokens) que toma una "foto" de qué se está revisando: crea una transacción, registra el evento de review y deja una revisión previa vacía como anclaje. Cualquier afirmación posterior queda atada a ese punto del mapa histórico: imposible decir "esto no empezó acá".</p>
+<h2>Lentes congelados y el juicio</h2>
+<p>Los <strong>lentes</strong> corren cada uno en su propio subagente y <em>de touch</em>: solo de lectura, no pueden tocar nada — son jueces. Devuelven hallazgos con pruebas y luego se hace un <em>freeze</em>: las ocurrencias congeladas forman el <strong>ledger</strong>, se les calcula un hash (huella digital de "con este código se encontraron estos problemas") y quedan guardadas. Un hallazgo anotado ya no puede desaparecer ni modificarse; es el antídoto directo contra los findings que se esfuman entre iteraciones.</p>
+<p>Después llega el <strong>Día del Juicio</strong>, una skill que corre dos jueces que no saben nada uno del otro. Cada juez evalúa el código y da resultados con criticidad (warning, crítico); el orquestador compara ambas evaluaciones y se manda a arreglar lo confirmado. Se itera <strong>como máximo dos veces</strong>, y cada iteración revisa únicamente lo que ya se arregló — el scope se contrae en cada ronda y el proceso se vuelve más rápido. Cada juez puede correr con su propio modelo, otro antídoto contra la autoaprobación.</p>
+<p>Los hallazgos se clasifican por el tipo de evidencia:</p>
+<ul>
+<li><strong>Determinística</strong>: un unit test que no pasa es un unit test que no pasa; se arregla y funciona. No hace falta refutarlo.</li>
+<li><strong>Inferencia</strong>: se infiere que algo será una problemática y hay que solucionarla.</li>
+<li><strong>Insuficiente</strong>: no hay pruebas para justificar el problema. Warnings y sugerencias quedan guardados como información útil a futuro, sin bloquear.</li>
+</ul>
+<h2>El refutador y la corrección acotada</h2>
+<p>El <strong>refutador</strong> es un subagente que recibe un <em>target inmutable</em> — un JSON con el problema, el código y todo lo que se sabe de ese problema — y va a buscar evidencias: intenta <strong>replicar</strong> el defecto. Si lo replica, queda corroborado; si no, refutado; y si el output es incompleto o mal informado, es <em>inconclusive</em> y no se puede afirmar nada. Los hallazgos determinísticos no se refutan: un unit test roto no necesita réplica.</p>
+<p>La corrección posterior es deliberadamente estrecha: "arreglá esto y solamente esto, con el código mínimo para que funcione". Generalmente es una transacción; se arregla, se hace una revisión chiquita y si pasa, listo. Si no, se escala al orquestador ("esto sigue fallando, veamos qué se puede hacer y si vale la pena"), con el techo de las dos rondas de jueces. Al terminar, se calcula un hash nuevo: la nueva huella digital del código ya arreglado.</p>
+<p>El <strong>validador del fix delta</strong> re-verifica read-only: recibe solo el ledger congelado y el problema específico, y verifica <strong>solamente las líneas que tocó el fix</strong>. No puede editar nada; su veredicto es binario: aprobado o escalar. La validación final produce el <strong>receipt</strong>: el recibo que dice "terminaste, está todo perfecto", asociado a un estado que se guarda (en Engram o en JSON).</p>
+<pre class="mermaid">
+flowchart TD
+    A[Cambio aplicado] --> B{Clasificación de riesgo}
+    B -- low --> P[Directo]
+    B -- medium/high --> C[Review start: transacción + evento]
+    C --> D[Lentes de touch<br/>solo lectura, con pruebas]
+    D --> E[Freeze: ledger con hash]
+    E --> F[Dos jueces ciegos]
+    F --> G[Evidencia: determinista / inferencia / insuficiente]
+    G --> H[Refuter: replica el defecto]
+    H --> I[Fix acotado: solo lo señalado]
+    I --> J[Validador fix delta: solo líneas tocadas]
+    J -- aprobado --> K[Receipt]
+    J -- falla --> I
+    K --> L{Gates: pre-commit, pre-push, pre-PR, release}
+    L -- receipt válido --> M[Commit / push / PR]
+    L -- scope nuevo o evidencia nueva --> D
+
+</pre>
+
+<h2>Gates y máquinas de estado</h2>
+<p>Los <strong>gates</strong> (compuertas o ciclos de vida) validan el recibo en cada punto crítico: post-apply, pre-commit, pre-push, pre-PR y release. Los resultados posibles cuentan la historia entera del arnés:</p>
+<ul>
+<li><strong>Pasa</strong>: la validación está bien, se sigue.</li>
+<li><strong>Scope cambió</strong>: hay contenido nuevo que no se revisó todavía → invalidado, a revisar.</li>
+<li><strong>Nueva evidencia</strong>: la continuous integration dice, por ejemplo, que el unit test que se dijo arreglado no está arreglado → ojo.</li>
+<li><strong>Missing escalated</strong>: hay un problema nuevo, una cadena cortada o perdida → se para y se revalida desde el principio.</li>
+</ul>
+<p>Sobre la release desde main hay un <em>fast path</em> estrecho: si todo lo que entró ya pasó por el proceso, no hace falta otra revisión completa; se verifica el hash de <code>origin/main</code> y que la CI (unit tests, end-to-end en GitHub Actions) esté en verde, y se sigue adelante.</p>
+<p>Todo el flujo es una <strong>máquina de estados</strong>: no revisado → revisando → jueces confirman → findings congelados → clasificación de evidencia → fix requerido → arreglando → validando fix → revisión final → aprobado o escalado. Y el almacenamiento acompaña: los eventos viven en Git, los artefactos en OpenSpec (la parte de SDD), y el espejo para lecturas y recuperación del encadenamiento en Engram.</p>
+<p>La contrapartida es el ahorro: sí, el proceso tiene muchos pasos y máquinas — pero gasta menos tokens que iterar indefinidamente sobre dramas que aparecerán en el futuro, o que explotar producción. Hacer las cosas bien una vez es más barato que hacer todo rápido y derrapar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Event sourcing</strong>: estado inmutable reconstruido reproduciendo la cadena de eventos.</li>
+<li><strong>Content-addressable storage / SHA-256</strong>: huella digital del código; hash nuevo = cambio nuevo a revisar.</li>
+<li><strong>Fail close</strong>: lo no probado (cadena truncada, hash inconsistente, output incompleto) se rechaza por defecto.</li>
+<li><strong>Separación de deberes</strong>: roles de autor, revisor, refuter y validador.</li>
+<li><strong>Lentes / 4R</strong>: resiliencia, confiabilidad, legibilidad y robustez; subagentes read-only ("de touch").</li>
+<li><strong>Día del Juicio</strong>: dos jueces ciegos con criticidad por hallazgo; máximo dos rondas, scope decreciente.</li>
+<li><strong>Refuter</strong>: subagente que intenta replicar el defecto (corroborado / refutado / inconclusive).</li>
+<li><strong>Fix delta validator</strong>: verifica únicamente las líneas tocadas por el fix; aprobado o escalar.</li>
+<li><strong>Ledger / freeze</strong>: hallazgos congelados con hash, inmutables una vez anotados.</li>
+<li><strong>Receipt (recibo)</strong>: comprobante final de revisión que los gates exigen.</li>
+<li><strong>Gates</strong>: post-apply, pre-commit, pre-push, pre-PR, release, con fast path para releases desde main.</li>
+<li><strong>Engram</strong>: memoria persistente para estados, espejo de eventos y recuperación.</li>
+<li><strong>OpenSpec / SDD</strong>: artefactos de especificación dentro del stack.</li>
+<li><strong>GitHub Actions / CI</strong>: unit tests y end-to-end como evidencia del fast path.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El agente que es autor, revisor y juez de su propio trabajo es una falla estructural, no un problema de prompting; la solución es separación de deberes con roles que no comparten contexto.</li>
+<li>Los hallazgos deben ser inmutables y con hash: un problema anotado que desaparece entre iteraciones es la señal de que no hay ledger confiable.</li>
+<li>"Ya lo revisé" sin evidencia no vale nada; fail-closed y verificación adversarial (replicar el defecto) convierten la revisión en algo comprobable.</li>
+<li>La racionalidad acotada — máximo dos rondas, scope decreciente, fixes con código mínimo — es lo que evita tanto el loop infinito como el fix que toca diez cosas.</li>
+<li>Los gates sobre el receipt hacen que el estado de revisión sea una propiedad del repositorio, consultable por el orquestador al comitear, y no una memoria frágil de la sesión.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/38Y1JWU-mdE">«Code Review Course»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

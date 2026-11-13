@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patrón orquestador-minion: calidad de modelo fuerte, precio de modelos livianos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">Patrón orquestador-minion: calidad de modelo fuerte, precio de modelos livianos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vRydZQZ08OQ">«ORCHESTRATOR-MINION Pattern: How to save tokens without sacrificing quality»</a> · ver el <a class="nz-link" href="https://youtu.be/vRydZQZ08OQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El patrón orquestador-minion es una arquitectura de trabajo con agentes que separa dos funciones con necesidades opuestas: <strong>razonar</strong> y <strong>ejecutar</strong>. Un agente central — el orquestador — conversa con el usuario, planifica y decide; los subagentes (minions) reciben tareas concretas, las ejecutan en sesiones completamente nuevas y devuelven un resultado. La recomendación de despliegue es explotar esa separación económicamente: un modelo frontier para el orquestador y modelos open source livianos para los minions, lo que reduce el costo total sin sacrificar la calidad del plan.</p>
+<p>El patrón no es una optimización cosmética: ataca el problema central de cualquier agente, que es la ventana de contexto. Cada token que el orquestador consume explorando o ejecutando tareas mecánicas es presupuesto que deja de estar disponible para pensar, y que acerca al límite donde el modelo empieza a degradar.</p>
+<h2>El problema: la ventana de contexto y la compactación</h2>
+<p>Toda ventana de contexto tiene un límite por una razón: más allá de ese límite crece la probabilidad de que el modelo alucine, además del costo de enviar cada vez más contexto para procesar. Un modelo puede tener 272K (caso de GPT-5.5) y otro un millón (Opus 4.8); más ventana no es automáticamente mejor, porque el límite existe precisamente para contener la degradación.</p>
+<p>La respuesta habitual de las herramientas es la <strong>compactación</strong>: justo antes de llegar al límite, resumir todo lo hablado y escrito. El problema es que la compactación decide por su cuenta qué es lo importante. Y en ese recorte se pierden decisiones que sí lo eran: "te pedí que hagas esto así" desaparece del resumen y el agente deja de hacerlo. Es un mecanismo que trades memoria por fidelidad, y la pérdida no se elige, se sufre.</p>
+<p>La alternativa es que el orquestador <strong>nunca llegue a compactar</strong>: el trabajo que ocuparía contexto se delega antes de que lo contamine.</p>
+<h2>Orquestador y minions: quién hace qué</h2>
+<p>El <strong>orquestador</strong> es el agente con el que se conversa. Sus funciones:</p>
+<ul>
+<li>Decide qué hacer y mantiene el hilo fino con el usuario.</li>
+<li>Controla el contexto, los artefactos (documentación, efectos secundarios), las skills y los gates.</li>
+<li>Delega el trabajo real a minions subagentes.</li>
+</ul>
+<p>En una palabra: es el que <strong>razona</strong>. Por eso la regla de asignación de modelos es inequívoca: para orquestador, el mejor modelo disponible — el que mejor razona. Con un buen plan, los subagentes no tienen que pensar mucho: tienen que ejecutarlo.</p>
+<p>Los <strong>minions</strong> tienen un contrato estrecho: reciben una tarea concreta, trabajan con <em>fresh context</em> (una sesión nueva, sin herencia), producen un artefacto o reporte, y <strong>no orquestan otros agentes</strong>.</p>
+<p>La analogía es la construcción de una casa: nadie le entrega las inversiones de su vida a un grupo de obreros y se va. Se contrata un arquitecto, se planifica, se le dan los planos al maestro de obra y él maneja a los obreros. Cuanto mejor el arquitecto y el maestro de obra, mejor ejecutan los obreros — aunque los obreros sean más baratos.</p>
+<h2>Cómo funciona la delegación</h2>
+<p>El mecanismo es simple y visible en la práctica de Gentle AI:</p>
+<ol>
+<li>El orquestador detecta una tarea compleja o que consumiría mucho contexto.</li>
+<li>Lanza un subagente (por ejemplo, el <em>scout</em> para explorar un repositorio y ver qué documentos hay) con un <strong>modelo liviano</strong> y esfuerzo mínimo — una exploración no exige razonamiento.</li>
+<li>El subagente arranca "en pelotas": ventana de contexto nueva, únicamente la prompt del padre y lo que necesita para esa tarea. Sin ruido, enfocado en un solo objetivo.</li>
+<li>Ejecuta y devuelve el resultado completo al orquestador, que lo integra en su hilo.</li>
+</ol>
+<p>La imagen de diseño: como abrirle la cabeza a alguien, meterle solo la tarea y lo necesario para cumplirla, cerrarle la cabeza y dejarlo trabajar. Contexto limpio, sin contaminación, donde todo lo disponible sirve para el objetivo. Menos ruido también significa menos alucinaciones y mejor calidad de ejecución — con un modelo más barato que el orquestador.</p>
+<p>El beneficio económico es doble. El orquestador no quema su ventana en trabajo mecánico (no compacta, no gasta tokens en resumirse a sí mismo), y el trabajo pesado de tokens ocurre en modelos abiertos de costo marginal bajo: la carga cognitiva la pagó una vez, cara, el modelo fuerte que planificó.</p>
+<h2>Comunicación bidireccional</h2>
+<p>El patrón no es un despacho en frío. Orquestador y subagente pueden intercambiar mensajes en cualquier momento: si el minion encuentra una incertidumbre a mitad de tarea, pregunta; el orquestador contesta; el subagente <strong>sigue desde donde estaba</strong>, sin reiniciar. Esa continuidad es un ahorro adicional de tokens — el error típico de los flujos rígidos es que ante cualquier duda el subagente se pierde y hay que arrancar todo de vuelta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Patrón orquestador-minion</strong>: separación entre el agente que razona y planifica y los subagentes que ejecutan.</li>
+<li><strong>Fresh context</strong>: cada minion arranca con sesión y ventana de contexto nuevas, sin heredar el ruido del padre.</li>
+<li><strong>Modelo frontier como orquestador / modelos open source como minions</strong>: asignación de modelo por rol para abaratar el costo total.</li>
+<li><strong>Scout (subagente de exploración)</strong>: minion dedicado a buscar e inspeccionar cosas en un repositorio.</li>
+<li><strong>Compactación de contexto</strong>: resumen automático antes del límite de ventana; se evita delegando a tiempo.</li>
+<li><strong>Gentle AI</strong>: ecosistema donde el patrón está integrado, con subagentes configurables por modelo y esfuerzo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El contexto es presupuesto: cada token gasto en ejecución mecánica por el modelo fuerte es razonamiento que deja de hacerse y una aproximación más al límite donde el modelo alucina.</li>
+<li>Con un plan bueno, la ejecución no requiere el modelo caro: minions livianos con contexto fresco ejecutan tan bien o mejor, porque trabajan sin ruido y enfocados en un único objetivo.</li>
+<li>La delegación temprana evita la compactación y su riesgo principal: que el resumen borre decisiones que el usuario consideraba importantes.</li>
+<li>La comunicación bidireccional orquestador↔minion mantiene la flexibilidad de un equipo humano: se puede preguntar a mitad de tarea sin perder el trabajo ya hecho.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vRydZQZ08OQ">«ORCHESTRATOR-MINION Pattern: How to save tokens without sacrificing quality»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

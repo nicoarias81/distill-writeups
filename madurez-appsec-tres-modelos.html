@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Madurez en AppSec: tres modelos comunes y cómo sacarles más valor — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Madurez en AppSec: tres modelos comunes y cómo sacarles más valor</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Tv_W0iRr0qQ">«DEF CON 32 - Maturing Your Application Security Program - SheHacksPurple»</a> · ver el <a class="nz-link" href="https://youtu.be/Tv_W0iRr0qQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La mayoría de los programas de seguridad de aplicaciones no están donde deberían estar: quien acude a un congreso a aprender ya es la crema de la industria, mientras miles de empresas siguen sin ningún programa. Tanya Janca —28 años en tecnología, autora de <em>Alice and Bob Learn Application Security</em> y responsable de comunidad en Semgrep— condensa seis años de consultoría con casi 400 equipos de AppSec en un catálogo de los tres modelos más comunes, por qué fracasan y qué pasos concretos los maduran, con variantes para presupuestos grandes y para bolsillos vacíos.</p>
+<p>El punto de partida es humilde: los modelos formales de madurez como OWASP SAMM son demasiado para donde está la mayoría. En el meetup de usuarios de SAMM —gente obsesionada con el modelo durante años— la puntuación media es 1,1 sobre 3. Hay que empezar por debajo de eso.</p>
+<h2>Modelo 1: "pentest a lo importante y ya"</h2>
+<p>Pen test a una o dos de las 200 aplicaciones una o dos veces al año, y llamarlo programa de AppSec. Es carísimo para lo que cubre —una pizca minúscula de la superficie de ataque— y el conocimiento del pentester entra y sale de la empresa sin dejar aprendizaje. El contexto: sin ciclo de vida de desarrollo formal ("water-gile", sprints de seis meses, un standup semanal), stack tecnológico mezclado, y código repartido en cinco tipos de repositorios con 22 instancias que nadie sabe ubicar. Aun así, es un punto de partida real: el año anterior acompañó a una empresa de videojuegos a crear su primer programa, y este año a una compañía que custodia 2.000 millones de dólares de sus clientes —donde cualquiera consultaba la base de datos de producción con el mismo usuario y se ejecutaban scripts de clientes sin revisión—.</p>
+<p>Sin presupuesto: formación de codificación segura que al equipo le tolere (probar antes con algunos desarrolladores, no pagar 12.000 dólares por algo que odian), escáneres DAST gratuitos como ZAP o Burp, cualquier SAST open source decente, una guía de codificación aceptable (robada sin remordimiento de OWASP o de su web), una lista corta de requisitos por proyecto —escanear con SAST y DAST, arreglar severidad media hacia arriba, pen test al final—, consolidar el código en un solo sitio, empujar centralización y estandarización (social currency, pero lo paga todo el departamento de IT), modelar amenazas solo de las apps críticas con las cuatro preguntas de Adam Shostack, compartir con los desarrolladores lo que ocurre en los incidentes reales, escanear secretos y rotarlos, y poner delante de las apps vetustas el ModSecurity gratuito de OWASP. Con presupuesto, tres añadidos: contratar a una persona de AppSec —la mejor inversión posible—, pagar un SAST de nueva generación (los DAST, dice, decepcionan siempre) y mantener todo lo anterior.</p>
+<h2>Modelo 2: herramientas, herramientas y más herramientas</h2>
+<p>El más común: 60-75.000 dólares en SAST y DAST, licencias usadas al 20%, informes que nadie atiende, falsos positivos sin destinar a nadie, escaneos tan esporádicos que no sirven, gobernanza inconsistente (el template de 80 páginas que se volvía 160 y que rellenaron cero personas), poca documentación y la frase que lo resume todo: "¿por qué los desarrolladores no arreglan los bugs?" La respuesta incómoda: no se les preguntó. Nunca hablaron con ellos.</p>
+<p>El diagnóstico de fondo es más duro que la mala cobertura: la industria no existe para encontrar bugs sino para reducir el riesgo organizativo de forma significativa y duradera. Encontrar 45.000 bugs y que no se arregle ninguno significa cobrar de más. La maduración de este modelo: contratar más personal de AppSec pero formando un equipo arcoíris —un pentester agresivo sí, pero también gente que haya sido desarrolladora, sepa hacer code review, modelar amenazas y escribir política—; reevaluar las herramientas sin piedad (si en dos o tres años no desplegaste la licencia, es la herramienta equivocada: deshacerse del coste hundido y cambiar), exigir despliegues rápidos al proveedor y renegociar licencias no usadas; y sobre todo dar soporte: una página de guía, ayuda con sus frameworks, estar disponible, ganarse la confianza. Completarlo con respuesta a incidentes: canal rápido de reporte, formación para que los desarrolladores reconozcan algo malo, y un proceso documentado —muchas empresas están listas para ransomware y no tienen plan para nada más—.</p>
+<h2>Modelo 3: el estrangulamiento de gran presupuesto</h2>
+<p>Once herramientas compradas, gobernanza opresiva, tres semanas para cambiar una línea de código, fricción constante, security y desarrollo hablando solo a gritos. La anécdota insignia: una amiga que entra diciendo "hola, soy Nicole, vengo de seguridad, vengo en paz" con las manos extendidas —a veces aplauden, a veces abuchean—, y esa reacción le marca el punto de partida. El síntoma extremo: desarrolladores que se agachan físicamente al ver pasar al chico de seguridad. Nadie quiere ser eso, y se llega así por acumulación de cultura; el coste es innovación frenada y gente que dimite.</p>
+<p>La salida es escalar: programa de security champions hecho en serio y con intención (o, si no, un programa de advocacy para cambiar la cultura); convertir guías en estándares con formación y acompañamiento para cumplirlas —se hacen amigos, no enemigos—; herramientas rápidas o ruptura ("pagas una fortuna y mereces velocidad y verdaderos positivos"); cuidar APIs, móvil, IoT y WebSockets, no solo el frontend web; modelado de amenazas como práctica generalizada; gestión de secretos a nivel de toda la empresa —"no vendo una, ojalá, son maravillosas"—; escaneo continuo real, con revisión cuando algo inquieta; formación que no asista (elegir la que los desarrolladores toleran, no la barata ni la popular); RASP si hay presupuesto; y equipos de AppSec e incident response cruzados para que un incidente grande de aplicación no pille a nadie improvisando. La brújula final: métricas cada 90 días, experimentos, más de lo que funciona y tirar lo que no.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los tres modelos fracasan por motivos distintos: cobertura minúscula y cero aprendizaje, herramientas compradas y nada arreglado, o tanto control que la seguridad se vuelve enemiga de la innovación.</li>
+<li>El objetivo real de AppSec no es encontrar bugs sino reducir riesgo organizativo de forma duradera: si nada se arregla, el programa falla aunque encuentre todo.</li>
+<li>Hablar con los desarrolladores —preguntar por qué no arreglan, dar soporte, compartir incidentes— es el cambio más barato y más subestimado de todos.</li>
+<li>Sin presupuesto hay muchísimo margen: herramientas gratuitas, guías prestadas, requisitos cortos y claros, escaneo de secretos y un WAF libre delante de las apps imposibles.</li>
+<li>La madurez se mide en relaciones y datos, no en licencias: champions, estándares aplicables, métricas cada 90 días y equipos con habilidades diversas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Tv_W0iRr0qQ">«DEF CON 32 - Maturing Your Application Security Program - SheHacksPurple»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

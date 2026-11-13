@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pwn2Own contra el Xiaomi 13 Pro: un clic hasta RCE y la guerra de parches más rara vista en la competencia — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Pwn2Own contra el Xiaomi 13 Pro: un clic hasta RCE y la guerra de parches más rara vista en la competencia</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/B0A8F_Izmj0">«DEF CON 33 - Show Me The Money: Xiaomi 13 Pro Pwn2Own Exploit - Ken Gannon, Ilyas»</a> · ver el <a class="nz-link" href="https://youtu.be/B0A8F_Izmj0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Esta es la historia completa de la cadena de explotación contra el Xiaomi 13 Pro que llevó a NCC Group a una victoria en Pwn2Own Toronto 2023: un solo clic en un enlace desde el navegador resultaba en ejecución remota de código en el teléfono. También es la historia de todo lo que salió mal en el camino — y de la respuesta del fabricante, que en cuestión de días desactivó la tienda de aplicaciones, bloqueó navegadores y borró el archivo vulnerable <strong>mientras la competencia seguía en curso</strong>, dejando a los dos equipos que atacaron el dispositivo sin crédito ni CVE del propio vendor.</p>
+<h2>El blanco: dos variantes, muchas regiones</h2>
+<p>El Xiaomi 13 Pro existe en dos variantes — la global y la de China — idénticas a nivel de hardware (misma placa, procesador y cámara). La diferencia es el firmware que acepta cada una: el modelo de China puede instalar tanto firmware de China como el global; el global solo el global.</p>
+<p>Lo interesante del firmware global es que <strong>emula regiones</strong>: Europe, India, Taiwán, Reino Unido, Rusia, España, Indonesia, Estados Unidos... Y la región activa habilita o deshabilita aplicaciones que están en el firmware de todas formas — solo activadas o desactivadas:</p>
+<ul>
+<li>Reino Unido → tienda de aplicaciones GetApps habilitada</li>
+<li>Rusia → navegador Yandex</li>
+<li>España → navegador Opera</li>
+<li>Indonesia → WhatsApp</li>
+</ul>
+<h2>El plan y los primeros 22 días</h2>
+<p>Con múltiples regiones y apps activables, la primera idea — descargar los 400+ APKs y revertirlos todos — era inviable. El enfoque realista: priorizar las aplicaciones desarrolladas por Xiaomi para ese teléfono. En <strong>22 días de investigación</strong> el resultado fueron tres exploits distintos contra GetApps, la tienda de aplicaciones de Xiaomi, con el mismo escenario de ataque: tocar un enlace malicioso en el navegador instala cualquier aplicación disponible en GetApps <strong>sin consentimiento del usuario</strong>. Dos de los tres métodos fueron parcheados antes de la competencia; el tercero sobrevivió — barely.</p>
+<h2>El exploit que sobrevivió: WebView con interfaz JavaScript</h2>
+<p>GetApps incluye un WebView con una <em>JavaScript interface</em>: código JavaScript que puede invocar funciones Java de la aplicación. La mayoría de esas funciones eran benignas (<code>showToast</code>), pero dos eran oro puro:</p>
+<ul>
+<li><strong><code>install</code></strong>: instala cualquier aplicación de la tienda sin consentimiento.</li>
+<li><strong><code>openApp</code></strong>: abre cualquier aplicación sin consentimiento.</li>
+</ul>
+<p>Xiaomi sabía que esto era peligroso y lo protegía con validaciones sobre la URL que puede cargar el WebView:</p>
+<ol>
+<li>Debe ser HTTPS con dominio dentro de una whitelist de dominios de Xiaomi.</li>
+<li>O bien <code>file://</code> apuntando a un archivo dentro del directorio privado de GetApps (<code>web-res-&lt;números aleatorios&gt;</code>).</li>
+</ol>
+<p>El plan de ataque quedó en cuatro pasos:</p>
+<pre class="mermaid">
+flowchart LR
+    A[1. Lanzar JoinActivity<br/>con URL valida file://] --> B[2. Inyectar JavaScript<br/>DOM XSS en JS interno]
+    B --> C[3. Invocar install + openApp<br/>por la JavaScript interface]
+    C --> D[4. RCE: bind shell<br/>app maliciosa subida a la tienda]
+
+</pre>
+
+<p><strong>Paso 1 — lanzar el WebView.</strong> La actividad <code>JoinActivity</code> era lanzable vía <em>browsable intent</em> (o sea, desde un hipervínculo en una web) y aceptaba la URL a cargar mediante un parámetro GET <code>url</code>. El PoC cargaba <code>file:///.../detail.html</code> desde el directorio privado de GetApps.</p>
+<p><strong>Paso 2 — inyectar JavaScript.</strong> Con el archivo <code>detail.html</code> cargado, la investigación se convirtió en una revisión de código fuente JavaScript: los HTML del directorio privado cargan archivos <code>.chunk.js</code> con nombres correspondientes, algunos aceptan input vía parámetros GET, y casi todos traían filtros anti-XSS integrados. La excepción: <code>IntegralDialogPage.Chunk.js</code>, que fallaba al sanitizar en una zona concreta. Pruebas con payloads marcados (<code>xsstest1</code>…<code>xsstest5</code>) mostraron que el carácter <code>&lt;</code> pasaba sin filtrar en uno de ellos.</p>
+<p>Pero quedaba otra protección: un <strong>filtro XSS en el código Java</strong> de la app que inspeccionaba la propia URL buscando cadenas sospechosas — y detectó el clásico <code>&lt;/script&gt;</code>. La solución fue dejar de usar <code>script</code> por completo (demasiado obvio, y podían existir más filtros) y explotar que el filtro era un simple <em>string matching</em>: codificar el <code>&lt;</code> dentro de <code>&lt;svg onload=...&gt;</code> lo esquivó. <strong>DOM XSS conseguido</strong>, verificado invocando <code>showToast</code> desde el payload.</p>
+<p><strong>Paso 3 — install + openApp.</strong> El payload final llama a <code>install</code> con el package name objetivo, espera en un bucle a que la instalación termine y luego llama a <code>openApp</code> para lanzarla.</p>
+<p><strong>Paso 4 — el payload.</strong> ¿Qué instalar? Un investigador contribuidor del framework de post-explotación Android Drozer lo reskinneó como una app llamada <strong>Sunfish</strong> — misma funcionalidad, más un <em>bind shell</em> al arrancar — y la subió a la propia tienda GetApps de Xiaomi. La cadena completa: Chrome → clic en el enlace → Sunfish instalada y abierta → bind shell → conexión con la consola de Drozer → <code>id</code> y <code>whoami</code> confirman RCE (suficiente según las reglas de Pwn2Own, incluso limitado a una app). <strong>Un clic hasta RCE</strong>, 22 días después de empezar.</p>
+<h2>Lo que se rompió después: la línea de tiempo</h2>
+<pre class="mermaid">
+flowchart TD
+    A[May: plan inicial Samsung S23] --> B[Jul: ZDI anuncia Xiaomi 13 Pro<br/>nuevo objetivo]
+    B --> C[22 días de research<br/>3 exploits en GetApps]
+    C --> D[Ago: Xiaomi cambia el server de GetApps<br/>payload install mucho más grande]
+    D --> E[Sep: viaje a Toronto<br/>confirma región no-launched]
+    E --> F[Oct 9: patch mensual<br/>exploit verificado y operativo]
+    F --> G[1 semana antes: update out-of-band<br/>borra el archivo del APK]
+    G --> H[Sábado pre-competencia: update vía Firebase<br/>re-subió el archivo... pero bloquea Chrome y otros]
+    H --> I[Región España: Opera habilitado<br/>exploit zero-day 'solo en España']
+    I --> J[Día 1 de competencia: Xiaomi limita installs<br/>~20% de éxito; 0% para Sunfish]
+    J --> K[ZDI permite instalar una app cualquiera<br/>victoria acreditada]
+    K --> L[Día 2: nada instala; bloqueo de Yandex y Opera]
+
+</pre>
+
+<p>Con 77 días restantes tras conseguir el exploit, todo podía salir mal — y salió:</p>
+<ol>
+<li><strong>Agosto 2023</strong>: Xiaomi cambia el servidor de GetApps; la función <code>install</code> pasó a requerir mucho más código y el payload se volvió enorme. Peor: el payload nuevo <strong>no funcionaba en todas las regiones</strong> — funcionaba en Japón y Reino Unido, fallaba en Filipinas. El comportamiento de la tienda variaba según la ubicación física del teléfono (tras un factory reset con señal celular activada, no por IP; el VPN no afectaba). La teoría: GetApps estaba "launched" en Filipinas pero no en EE. UU., Reino Unido o Japón — regiones con comportamiento distinto.</li>
+<li><strong>El problema de Canadá</strong>: Pwn2Own era en Toronto, el teléfono no se vendía allí (ni en eBay ni en carriers canadienses), y enviar el propio teléfono ida y vuelta en siete días hábiles — pagando impuestos de importación de ambos países — era inviable. La solución costó lo mismo que el teléfono (~US$1.000): <strong>un vuelo a Toronto de un día</strong> para testear. Confirmado: Canadá era también región "no launched", agrupable con EE. UU., Reino Unido y Japón. A partir de ahí, bastaba validar el exploit en Reino Unido para asumir que funcionaría también en Canadá.</li>
+<li><strong>Octubre 9</strong>: el parche mensual de GetApps llegó como esperaba; el exploit se verificó operativo y todo estaba listo.</li>
+<li><strong>Una semana antes de la competencia</strong>: Xiaomi lanzó un update <strong>out-of-band</strong> que eliminó el archivo vulnerable directamente del APK. Salvación parcial: olvidaron borrarlo de los dispositivos donde ya existía — y ZDI hace factory reset entre intentos. Quedaba una tirada de dados: explotar uno de los dispositivos iniciales antes del siguiente reset.</li>
+<li><strong>El sábado previo</strong>: otro update de GetApps — esta vez con infraestructura nueva basada en <strong>Google Firebase</strong> para modificar archivos del dispositivo remotamente — que, con irónica conveniencia, <strong>volvió a subir el archivo vulnerable</strong> a los teléfonos donde se lo había borrado manualmente. Pero añadió código en <code>JoinActivity</code>: si el intent provenía del navegador Xiaomi, del HTML viewer de Android, del NFC de Android o de <strong>Google Chrome</strong>, la actividad no se lanzaba. La escapatoria: con región España, el Opera (preinstalado pero deshabilitado) se habilita — el exploit seguía siendo zero-day, pero <em>solo en España</em>. ZDI lo aceptó.</li>
+<li><strong>Día 1 de competencia</strong>: Xiaomi empezó a desactivar la instalación de apps desde su tienda — aproximadamente un 20% de probabilidad de éxito por intento, y un 0% absoluto para Sunfish (probablemente por detección de la app). Team Vietel instaló Discord; NCC Group instaló una app cualquiera de la tienda (<code>No.Pix.Color.By.Number...</code>) para demostrar el vector, y con la evidencia previa de malware alojado en la tienda, ZDI dio por buena la demostración. <strong>Victoria.</strong></li>
+<li><strong>Día 2 en adelante</strong>: el update siguiente remató todo — nada se instala de la tienda, punto, y código nuevo bloquea también Yandex y Opera. El resto de la semana fue fallo tras fallo. Como resumió otro competidor (Max Bleecker/Floyd, quien publicó su propia versión en OffensiveCon): el equipo de Xiaomi demostró que se puede parchear un bug de RCE <strong>completamente por remote, en horas</strong>, y romper el flagship a la vez — siempre que el motivo sea arruinar la competencia y no arreglar nada.</li>
+</ol>
+<h2>Después de la competencia</h2>
+<p>Concluido el evento, el código de bloqueo de navegadores desapareció y las instalaciones volvieron a la normalidad. El desenlace institucional fue igualmente inusual: ni NCC Group ni Team Vietel recibieron reconocimiento del vendor, y los números CVE tuvieron que ser asignados por <strong>Zero Day Initiative</strong> — que además documentó que Xiaomi se comprometió a asignar CVE y no lo hizo, salvo para Team Vietel días después.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La superficie regional es superficie de ataque</strong>: apps preinstaladas pero deshabilitadas por región (Opera, Yandex, WhatsApp) reactivables con un ajuste, y comportamiento de servidor distinto por región (la teoría "launched/no launched") puede validar o invalidar un exploit entero según el país — siempre conviene testear en la geografía real de la competencia.</li>
+<li><strong>Un WebView con JavaScript interface + browsable intent + XSS filtrable es una receta letal</strong>: tres capas de protección (whitelist de URLs, sanitizers JS, filtro XSS en Java) no bastan si una de ellas es un string match y otra tiene un hueco localizado.</li>
+<li><strong>El ecosistema de apps es parte del attack surface</strong>: subir un payload (Drozer reskinneado con bind shell) a la tienda oficial del blanco convierte la función <code>install</code> en RCE de un clic.</li>
+<li><strong>Los vendors pueden — y lo hacen — cambiar el terreno de juego en tiempo real</strong>: updates out-of-band, remote file push vía Firebase y kill-switches de la tienda durante la competencia misma.</li>
+<li><strong>ZDI importa</strong>: cuando el vendor no colabora, el organizador es quien acredita, asigna CVE y mantiene la integridad del proceso.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>GetApps</strong> — tienda de aplicaciones de Xiaomi; superficie de los tres exploits, con vulnerabilidades y malware real alojado en ella.</li>
+<li><strong>JoinActivity + browsable intent</strong> — actividad lanzable desde un hipervínculo que acepta la URL a cargar vía parámetro GET.</li>
+<li><strong>WebView con JavaScript interface (<code>install</code> / <code>openApp</code>)</strong> — puente JS→Java que instala y abre aplicaciones sin consentimiento del usuario.</li>
+<li><strong>DOM XSS en <code>IntegralDialogPage.Chunk.js</code></strong> — inyección en el JS interno de GetApps, esquivando sanitizers integrados y el filtro XSS basado en string matching del código Java (<code>&lt;svg onload=...&gt;</code> en lugar de <code>&lt;script&gt;</code>).</li>
+<li><strong>Drozer</strong> — framework de post-explotación Android, reskinneado como app "Sunfish" con bind shell y subido a la propia tienda del blanco.</li>
+<li><strong>Firebase</strong> — infraestructura usada por Xiaomi para push remoto de archivos y bloqueos en tiempo real.</li>
+<li><strong>Zero Day Initiative (ZDI)</strong> — organizador de Pwn2Own que acredita los intentos, asigna CVE y mantiene la integridad del proceso.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/B0A8F_Izmj0">«DEF CON 33 - Show Me The Money: Xiaomi 13 Pro Pwn2Own Exploit - Ken Gannon, Ilyas»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

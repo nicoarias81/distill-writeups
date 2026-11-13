@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sshamble: exposiciones inesperadas en Secure Shell — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Sshamble: exposiciones inesperadas en Secure Shell</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/G7GwXu684JY">«DEF CON 32 - Sshamble: Unexpected Exposures in the Secure Shell - HD Moore, Rob King»</a> · ver el <a class="nz-link" href="https://youtu.be/G7GwXu684JY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El ecosistema SSH vivió su año más agitado en 2024: la puerta trasera de xz Utils dirigida contra las compilaciones Debian/Red Hat de OpenSSH con parches de systemd, la vulnerabilidad Terrapin (ataque de truncado que afectó a casi todas las implementaciones) y la regresión de OpenSSH —un solo bug de reentrada de señal que da root remoto con la configuración por defecto, explotable en horas en 32 bits y en semanas o meses en 64—. Siguiendo esa estela, el proyecto Sshamble nació como escáner de media autenticación para cazar la clave pública de "Jia Tan" por toda internet y terminó como una herramienta open source de investigación que destapó decenas de miles de shells gratuitas.</p>
+<p>La clave pública dejó de ser secreta hace años: Ubuntu permite provisionar servidores desde GitHub o Launchpad por nombre de usuario, herramientas como <code>age</code> usan claves SSH para cifrado, y GitHub preserva el campo comentario (suele ser el usuario por defecto). La autenticación SSH es de dos fases —primero el servidor confirma que aceptaría esa clave pública, luego hay que firmar—, y la primera fase no exige private key. Eso permite dos ataques simétricos: una clave contra toda internet (en ~1 hora por máquina individual) o 117 millones de claves de GitHub/Launchpad contra un solo servidor.</p>
+<h2>La superficie post-autenticación que nadie audita</h2>
+<pre class="mermaid">
+flowchart TB
+    A[Conexión al puerto 22] --> B{Auth none aceptada?}
+    B -- Sí --> C[Sesión larval: sin shell todavía]
+    C --> D[Segunda capa de login interna]
+    D --> E[Superficie de ataque post-auth]
+    E --> F[Inyección de señales<br/>SIGSEGV, SIGABRT, core dumps]
+    E --> G[TCP forwarding a localhost<br/>saltando restricciones]
+    E --> H[Inyección de shell en el prompt<br/>de contraseña interna]
+    E --> I[Variables de entorno<br/>arbitrarias]
+
+</pre>
+
+<p>Implementaciones como SonicWall, Juniper o Ruckus aceptan <code>auth none</code> y luego piden usuario y contraseña <em>dentro</em> de la sesión SSH ya establecida. Nadie prueba esa capa interior, y ahí se escondían bugs que deberían haberse encontrado hace veinte años:</p>
+<ul>
+<li><strong>Ruckus:</strong> ~36.000 puntos de acceso expuestos; en el prompt de contraseña interna, escribir <code>$(comando)</code> la ejecuta como root pre-autenticación. El fabricante lo había parcheado en silencio, sin CVE ni aviso de seguridad, así que ~900 dispositivos siguen sin actualizar.</li>
+<li><strong>Digi Transport (gateways ICS):</strong> dan shell pre-auth por transición de estados del protocolo; el fabricante recompiló firmware legacy para parchearlo. La reproducción fue un caso Heisenberg: la variable sin inicializar se fijaba al hacer login para monitorizar antes de explotar.</li>
+<li><strong>Netterbit/Netis y clones:</strong> firmware 2018-2023 con shell libre, populares en Irán; más unos 70 dispositivos adicionales sin identificar, incluyendo switches Panasonic de documentación inaccesible.</li>
+</ul>
+<h2>Envenenamiento de entorno y máquina de estados</h2>
+<p>Las bibliotecas SSH embebidas en Git forges (Gitea, Gogs, Forgejo, soft serve) aceptan variables de entorno arbitrarias porque delegan el filtrado en la aplicación:</p>
+<ul>
+<li><strong>Gogs</strong> ejecutaba el comando <code>env</code> al recibir una variable: ejecución de comandos directa pre-autenticación. Sin parche (descubrimiento paralelo con Sonar Source, que los adelantó por dos días).</li>
+<li><strong>Soft Serve</strong> (biblioteca charmbracelet sobre gossh) permitía fijar <code>LD_PRELOAD</code> apuntando a shellcode subido vía Git LFS: shell con acceso de solo lectura al repositorio. Parcheado y con CVE.</li>
+<li><strong>libssh (2018):</strong> enviar <code>USERAUTH_SUCCESS</code> desde el cliente seguía soltando shell en servidores sin parchear.</li>
+</ul>
+<p>El ataque sistemático —pedir shell entre cada transición de estado, con y sin autenticación, con claves falsas y contraseñas vacías— rinde shells en dispositivos que entregan sesión sin siquiera empezar a autenticar.</p>
+<h2>El problema de las distribuciones: todos modifican OpenSSH</h2>
+<p>OpenSSH puro (87% del despliegue mundial) no es lo que corre en los servidores: Debian/Ubuntu acumulan ~36 parches (los que enlazaban con systemd y abrieron la puerta a xz Utils) y Red Hat más de 60, todos con menos escrutinio que el código base. PKIX-SSH, el fork de 2002 para X.509/FIPS que usan los fabricantes que venden al gobierno federal, diverge del upstream en condicionales que ya no coinciden. Y el fork de Windows en el repo de PowerShell cambia 350 archivos: PrivSep reimplementada, telemetría que <strong>no se puede desactivar</strong> (envía versiones de cliente/servidor de cada conexión SSH a Microsoft, incluidos parámetros negociados dentro de la sesión cifrada) y una reescritura de <code>TimingSafeBcmp</code> que en dos líneas añadidas destruye tres propiedades: deja de ser timing-safe (mira un byte por delante), lee fuera de límites (puntero+1) y permite sustituir la comparación por bytes predecibles del final del buffer. Microsoft no lo consideró elegible para parche ni bounty.</p>
+<h2>La herramienta</h2>
+<p>Sshamble (sshamble.com, código abierto) escanea, documenta y da pruebas: detecta forwarding TCP, inyección de entorno, los bugs de Gogs/Ruckus/soft serve, prueba todas las host keys (no solo la primera) contra claves comprometidas, y expone la sesión larval (<code>--interact-first</code>, <code>--interact-auto=none</code>) para fijar <code>LD_PRELOAD</code>, inyectar señales o machacar teclas antes del shell. Efectos secundarios documentados: cambiar accidentalmente contraseñas de servidores (el segundo parámetro de <code>ssh-userauth</code> de SASL es "nueva contraseña"), doxear ~5.000 honeypots (aceptan contraseña byte nulo, algo que ninguna máquina real hace) y dejar ~60 GB de resultados por un escaneo completo de internet.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La recomendación final es simple:</strong> usar OpenSSH estable y no tocar nada. Cada modificación "compatible" de la cadena —distros, forks, bibliotecas embebidas— introduce bugs nuevos.</li>
+<li><strong>La media autenticación es un oráculo de identidad.</strong> El protocolo confirma aceptación de claves públicas sin firmar nada; combinado con claves públicas en GitHub, cualquier servidor puede revelar qué usuarios tienen acceso.</li>
+<li><strong>Lo post-auth es tierra incógnita.</strong> Toda la capa de segunda autenticación, señales, forwarding y entorno dentro de sesiones SSH semiabiertas está prácticamente sin auditar, y ahí es donde vive el software más expuesto (firewalls, gateways ICS, APs).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/G7GwXu684JY">«DEF CON 32 - Sshamble: Unexpected Exposures in the Secure Shell - HD Moore, Rob King»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

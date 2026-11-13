@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lecciones del AWS CIRT: por dónde entra el adversario y cómo cerrarle la puerta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Lecciones del AWS CIRT: por dónde entra el adversario y cómo cerrarle la puerta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/nYwzymRQvZ0">«Lecciones del AWS CIRT: Entendiendo el initial Access - Dario Goldfarb»</a> · ver el <a class="nz-link" href="https://youtu.be/nYwzymRQvZ0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El AWS Customer Incident Response Team (CIRT) es el equipo de la nube que asiste a organizaciones cuando hay un adversario adentro: actividad maliciosa confirmada, movimientos que nadie reconoce como propios. La experiencia acumulada de ese equipo apagando incendios reales —no papers, no laboratorios— dibuja un mapa del acceso inicial bastante contundente: los incidentes de seguridad en la nube no vienen por abajo del modelo de responsabilidad compartida, sino por arriba, por lo que cada organización configura y por las credenciales que deja tiradas.</p>
+<p>Los números que se repiten en el campo son claros: el compromiso de credenciales explica alrededor de dos tercios de los incidentes activos (y cerca de un tercio de esos casos involucra a la cuenta root), la explotación de vulnerabilidades ronda el 13% (más aún si se suman misconfigurations de aplicaciones) y la amenaza interna pesa apenas un 2%, aunque suficiente como para no ignorarla. Con ese panorama, el artículo recorre qué mitiga la nube por sí sola, dónde tiene que poner el foco el equipo de seguridad de cada organización y qué herramientas concretas existen para cerrar el acceso inicial.</p>
+<h2>Por dónde entran los incidentes reales</h2>
+<p>Cuando se pregunta en qué lado del modelo de responsabilidad compartida se originan los incidentes, la intuición suele acertar: por arriba, del lado del cliente. Incluso estimaciones provocadoras que hablaban del 99% de casos por configuraciones abiertas o credenciales perdidas se quedaron cortas según la experiencia de campo: de decenas de clientes asistidos casi cada año, ninguno sufrió un incidente por el lado de infraestructura de la nube. Eso no significa que la capa inferior no importe; significa que está cubierta y que el RFP hacia un proveedor de nube debería concentrarse en lo que realmente la organización controla. Para las auditorías, existe el Standardized Information Gathering Questionnaire, disponible en Artifact, con las preguntas típicas ya respondidas.</p>
+<p>Dentro del compromiso de credenciales, el problema número uno por lejos, hay dos subgrupos que dominan:</p>
+<ol>
+<li><strong>Credenciales de root</strong> — cerca de un tercio de los compromisos de credenciales. El uso cotidiano de root es un patrón clásico: siete personas con acceso root "por si acaso", y a las cinco de la mañana aparece actividad que nadie reconoce. Además, recuperarse de un root comprometido es mucho más laborioso: como puede hacer casi todo, la revisión forense de CloudTrail y logs se vuelve enorme, mientras que con una credencial de permisos acotados el perímetro de lo que hay que auditar queda delimitado.</li>
+<li><strong>Credenciales duraderas (access keys)</strong> — los dos tercios restantes. El patrón típico: la clave quedó metida en el código o en un archivo de configuración en una workstation, la workstation se infectó con malware, y el malware sabe que lo primero que hay que robar son las access keys locales. En assessments se encontraron access keys de 2016 sin rotar: empleados que se fueron hacía años y retenían acceso activo.</li>
+</ol>
+<p>Las vulnerabilidades forman el segundo bloque. Las de aplicación suelen estar contempladas con algún application security testing (incluso básico, tipo Burp), pero lo que casi nadie cubre bien son las <strong>vulnerabilidades de infraestructura</strong>: falta de parches en sistema operativo y middleware, especialmente en servicios expuestos (80/443) y en puertos de administración como SSH (22) o RDP (3389). El tiempo entre la publicación de una vulnerabilidad y una campaña global de ataque se achica: con la IA generativa, un adversario puede pedirle a un modelo que le arme el exploit kit a partir del advisory. Tener 200.000 vulnerabilidades preocupa menos que las 1.500 críticas que permiten ejecución remota.</p>
+<p>Los errores de configuración completan el cuadro: buckets abiertos (mucho menos frecuentes desde los defaults más seguros de Block Public Access, pero presentes en organizaciones que corren en la nube desde hace seis años o más), credenciales cometeadas "disfrazadas" en archivos de configuración dentro del repositorio, y fallos de comunicación interna — como la aplicación crítica de una compañía que no tenía backups porque cada equipo creía que el otro los hacía.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Acceso inicial] --> B[Compromiso de credenciales ~66%]
+    A --> C[Vulnerabilidades ~13%]
+    A --> D[Misconfigurations y otros]
+    B --> B1[Root ~1/3]
+    B --> B2[Access keys duraderas ~2/3]
+    C --> C1[Aplicación]
+    C --> C2[Infraestructura: parches y middleware]
+
+</pre>
+
+<h2>Lo que la nube ya resuelve por abajo</h2>
+<p>La capa inferior del modelo de responsabilidad compartida está cubierta por una base que combina certificaciones y hardware. AWS construye su línea base de seguridad sobre unas 143 certificaciones y acreditaciones, deduplicando requerimientos que a veces piden cosas extremas — como que un disco fallado no salga vivo del datacenter — y los cumple: los discos con fallas se destruyen dentro de la instalación en lugar de ir a garantía.</p>
+<p>Sobre ese baseline hay mitigaciones estructurales que explican por qué la capa baja no es el problema:</p>
+<ul>
+<li><strong>Hipervisores en hardware</strong>: las placas Nitro son appliances fabricados a medida para mantener a los humanos lejos de los datos. Un sniffing dentro de una instancia EC2 no escucha nada que no esté dirigido a esa instancia.</li>
+<li><strong>Cifrado universal con KMS</strong>: todos los servicios soportan cifrado y las llaves viven en appliances de KMS fabricados por AWS donde ni los administradores pueden extraer la llave — tamper-proof: sacarlo del datacenter dispara la autodestrucción de la información.</li>
+<li><strong>Threat intelligence y defensa activa</strong>: monitoreo masivo de DNS, una HoneyNet desplegada para observar al adversario, y bloqueo automático de campañas de ataque global antes de que lleguen a infraestructuras vulnerables de los clientes. Hay vulnerabilidades que nunca se explotan porque la campaña se bloquea de antemano.</li>
+<li><strong>Capa 4 mitigada por diseño</strong>: los ataques de denegación de servicio volumétricos son constantes pero de bajo impacto dentro de la nube, precisamente porque si no se quedaran sin routers y switches propios.</li>
+<li><strong>Post-quantum</strong>: las conexiones vía CloudFront ya usan mecanismos de cifrado resistentes a ataques post-cuánticos, antes de que exista un caso real de explotación.</li>
+</ul>
+<h2>El foco del equipo: credenciales, permisos y aislamiento</h2>
+<p>Todo lo que se ve en el campo apunta a IAM. Las contramedidas concretas para los riesgos principales:</p>
+<ul>
+<li><strong>IAM Identity Center</strong> conectado a una buena fuente de datos (Okta, Azure AD, Active Directory): el repositorio donde se da de baja a un empleado tiene que propagarse al Identity Center, que entrega credenciales temporales (Access Key ID, secreto y token con duración limitada). Se termina con la era de las credenciales permanentes.</li>
+<li><strong>Root controlado</strong>: MFA obligatoria, alertas ante cualquier uso de root, y cero uso cotidiano. Hay una funcionalidad de centralización de root que elimina el problema de raíz (ver sección de quick wins).</li>
+<li><strong>MFA en todos los accesos humanos</strong>: hoy se puede usar Touch ID, Windows Hello o passkeys como segundo factor, así que desaparece la excusa del costo de tokens físicos y de la molestia del código que cambia cada 30 segundos.</li>
+<li><strong>Permisos excesivos</strong>: el asterisco en las policies es más fácil que leer la documentación, pero ya no hay excusa — pedirle a un asistente de IA que arme la policy de solo lectura condicionada por IP toma segundos. IAM Access Analyzer ayuda en las dos direcciones: encuentra permisos que no se usan y permite generar una policy nueva basada en lo que realmente se usó, reemplazando la original con asteriscos.</li>
+<li><strong>Credenciales en código</strong>: Secrets Manager guarda el secreto fuera del repositorio, el acceso se otorga vía rol (un Lambda Execution Role o un Instance Profile), el secreto se trae en tiempo de ejecución y rota sin tocar el código.</li>
+<li><strong>Malware y ransomware</strong>: EDR serio en servidores críticos y en las laptops de quienes tocan la nube, más capacidades de detección de malware agentless. Y backups de verdad: AWS Backup con políticas de RPO/RTO, idealmente con copias en otra región para poder restaurar a un punto en el tiempo anterior a la infección.</li>
+<li><strong>Backups en cuenta aislada</strong>: si el adversario compromete credenciales de la cuenta productiva y los backups viven en la misma cuenta, además de borrar los datos cifra los backups. Una cuenta dedicada solo a backups es parte estándar de un cloud foundation.</li>
+<li><strong>Aislamiento por cuentas</strong>: en la nube, las cuentas son un límite de seguridad — por defecto, una cuenta no puede acceder a nada de otra. Repartir cargas en cuentas reduce el blast radius. El patrón patológico típico: todo lo nuevo bien repartido en cuentas y el 80% de la carga estancado en la "cuenta legacy" cuya migración avanza un 20% por año. O se acelera la deprecación, o se le ponen controles a la cuenta legacy; no se puede bancar cinco años más de riesgo.</li>
+</ul>
+<p>Para la detección temprana, GuardDuty trae unas 50 reglas de base y alrededor de 175 con los protection plans habilitados. El valor está en reconocer lo que hace un adversario con una credencial recién robada: probar <code>Access Denied</code> en serie hasta encontrar <code>Success</code> (escalada de privilegios), hacer barridos de red, reconocimiento. Detectarlo antes de la fase de impacto reduce el daño radicalmente. Las alertas tienen que ir a algún lado — mail, Slack — y en empresas grandes conviene configurar la trusted list para no alertar sobre el propio equipo de seguridad.</p>
+<p>Amazon Inspector cubre vulnerabilidades en instancias, imágenes de contenedores en ECR y ahora también código: escaneo SAST, de infraestructura como código y de secretos cometeados (capacidad que migró de CodeGuru Security a Inspector). Para la segmentación, Control Tower despliega las buenas prácticas y protege los logs en una cuenta aparte — borrarlos junto con la infraestructura es justo lo que el adversario quiere, porque tapa qué se movió y si dejó persistencia. En entornos multicloud tienen sentido herramientas de terceros tipo Orca, Wiz o Prisma; si el 95% de la carga está en AWS, el Security Hub con su funcionalidad CSPM y estándares (CIS, NIST, AWS Foundational Security Best Practices) hace el chequeo de alineamiento que manualmente sería una tarea interminable.</p>
+<h2>El modelo de madurez y los quick wins</h2>
+<p>El AWS Security Maturity Model ordena las recomendaciones en cuatro fases, priorizadas según lo que termina saliendo mal en el campo:</p>
+<ol>
+<li><strong>Quick wins</strong>: alrededor de una docena de configuraciones implementables en una semana, con impacto alto.</li>
+<li><strong>Fundacional</strong>: lo importante, aunque no alcanzable en una semana en la mayoría de las organizaciones.</li>
+<li><strong>Gobierno de seguridad</strong>: recomendaciones de gobernanza.</li>
+<li><strong>Grandes y regulados</strong>: capacidades para banca y servicios financieros con requerimientos duros.</li>
+</ol>
+<p>El modelo lo construyó quien lo presenta, con aportes de la comunidad, lo usan más de 50.000 usuarios únicos por año y varios partners lo usan como base de sus assessments de seguridad. La lógica interna: cada recomendación está ahí porque es lo que, según el CIRT, termina mal.</p>
+<h3>Quick win 1: centralizar el root</h3>
+<p>Root Access Management hace que el único root con credenciales duraderas sea el de la cuenta de management. Los roots de las cuentas hijas dejan de tener credencial física: la identidad existe y se puede asumir con <code>assume-role</code> para obtener credenciales temporales de root, pero la credencial eterna que había que guardar en un vault desaparece. Beneficios en cadena: no hay que configurar MFA por root (no hay credencial que proteger), desplegar cuentas nuevas se acelera porque no hace falta que un humano configure MFA a mano en cada una, y el riesgo total baja alrededor de un 20%. Activarlo lleva menos de una hora: se habilita, y las cuentas existentes se van procesando una por una con una acción privilegiada que elimina sus credenciales.</p>
+<p>¿Y la usabilidad? Se mantiene: las acciones privilegiadas cubren los rescates clásicos, como borrar una bucket policy mal configurada que dejó a la propia organización afuera de su bucket, o borrar una SQS queue policy para arrancar de cero. Y si hace falta la credencial física, se puede volver a traer temporalmente y volar después.</p>
+<h3>Quick win 2: GuardDuty con alertas</h3>
+<p>Las detecciones de comportamiento anómalo — reconocimiento, port scans, port sweeps, pivoting desde una instancia comprometida — tienen que estar activas y con alertas configuradas. Cerrar al intruso cuando recién está mirando es cualitativamente distinto que cerrarlo cuando ya arraigó.</p>
+<h3>Quick win 3: limpieza de IAM users y access keys</h3>
+<p>IAM Access Analyzer detecta las dos variantes del problema: <strong>acceso externo</strong> (un principal fuera de la organización que puede asumir un rol, leer un bucket o interactuar con una cola — el clásico ex empleado que dejó su cuenta personal con acceso al bucket corporativo "por si lo despedían") y <strong>acceso no utilizado</strong> (el ex empleado que se fue hace un año, probó ayer si su acceso seguía vivo, y entró). La consola de hoy, al crear una access key, pregunta para qué y sugiere alternativas (Cloud Shell, CLI con Identity Center); el único caso real que justifica una access key es una aplicación legacy sin otra vía de integración, y eso debería ser un puñado por compañía. La recomendación es bloquear directamente la creación de IAM users y access keys y exigir un proceso con etiquetado: quién es el dueño, quién la rota, por qué existe. Vía infraestructura como código el mensajito de la consola no se ve, así que el bloqueo tiene que ser explícito.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Habilitar Root Access Management] --> B[Roots de cuentas hijas sin credencial duradera]
+    B --> C[Sin MFA manual por cuenta]
+    B --> D[Cuentas nuevas más rápidas de crear]
+    B --> E[Riesgo total -20%]
+
+</pre>
+
+<h2>Cuando ya hay un adversario adentro</h2>
+<p>El CIRT ayuda, pero tiene límites que conviene conocer antes del mal día. Es gratuito, es un best effort: tiene un service level objective, no un service level agreement. No mete mano en la consola del cliente; investiga los logs y orienta la contención ("te hicieron esto, desactivá estas access keys"). Para llegar al equipo, si hay un incidente activo: con enterprise support, a través del TAM; sin importar el nivel de soporte, un ticket de billing con "tengo un incidente de seguridad activo" deriva directo al CIRT, y una vez en la cola la respuesta suele llegar en 3 o 4 minutos.</p>
+<p>Para quienes quieren más que orientación, existe <strong>AWS Security Incident Response</strong>: un servicio pago con acuerdo de nivel de servicio, proactivo y reactivo. Investiga todos los hallazgos de GuardDuty — incluidos los falsos positivos — documentando qué hicieron los adversarios, qué tácticas usaron y cuáles fueron los indicadores de compromiso, con opción de acciones de mitigación automatizadas y un resumen ejecutivo listo para el board. El detalle incómodo: arranca en torno a los 7.000 dólares mensuales, así que no aplica a todas las organizaciones. Complemento gratuito del CIRT: el <strong>Threat Technique Catalog</strong>, que baja las técnicas de MITRE ATT&amp;CK a casos reales con nombres de servicios de AWS.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Más vale prevenir que curar</strong>: es infinitamente más fácil dejar afuera a alguien que sacarlo cuando ya está adentro. Las causas del acceso inicial son conocidas y mayormente prevenibles con configuración, no con presupuestos gigantes.</li>
+<li><strong>Las habilidades de respuesta determinan el impacto</strong>: en un banco comprometido con una minería de bitcoins, la detección rápida (salta al toque en billing y en GuardDuty) y la desactivación de la access key cerraron el caso sin mayores daños. La misma credencial tenía permisos de <code>RDS*</code>, <code>EC2*</code> e <code>IAM*</code>: con wildcard a todo, el impacto potencial era muchísimo más grave. Permisos mínimos y respuesta rápida se combinan.</li>
+<li><strong>El compromiso de credenciales domina el mapa de incidentes</strong>: root controlado (idealmente centralizado), credenciales temporales vía Identity Center, access keys bloqueadas salvo excepciones justificadas, y Secrets Manager para lo que quede.</li>
+<li><strong>Seguir las buenas prácticas en la nube permite un mejor nivel de seguridad con menor costo operativo</strong>: buena parte del arsenal (GuardDuty, Inspector, Access Analyzer, Security Hub, el modelo de madurez, el CIRT) es gratuito o muy barato en comparación con el mercado, porque el proveedor tiene interés directo en que las cargas estén seguras.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>AWS CIRT (Customer Incident Response Team)</strong> — equipo de AWS que asiste a clientes con un incidente de seguridad activo; gratuito, best effort, orienta la contención sin intervenir la consola.</li>
+<li><strong>Modelo de responsabilidad compartida</strong> — AWS cubre la infraestructura; todo lo configurable es responsabilidad del cliente, y ahí ocurren los incidentes.</li>
+<li><strong>Nitro</strong> — appliance de hardware que implementa el hipervisor, para mantener a los humanos lejos de los datos.</li>
+<li><strong>AWS KMS</strong> — servicio de llaves sobre appliances tamper-proof que se autodestruyen fuera del datacenter.</li>
+<li><strong>IAM Identity Center</strong> — credenciales temporales federadas con el IdP corporativo (Okta, Azure AD, Active Directory).</li>
+<li><strong>Root Access Management / centralización de root</strong> — elimina las credenciales duraderas de root en cuentas hijas; reduce ~20% del riesgo total.</li>
+<li><strong>IAM Access Analyzer</strong> — detecta acceso externo y no utilizado, y genera policies basadas en uso real.</li>
+<li><strong>Secrets Manager</strong> — almacenamiento y rotación de secretos fuera del código, con acceso por roles.</li>
+<li><strong>GuardDuty</strong> — detección de amenazas con ~50 reglas base y ~175 con protection plans; patrones de escalada de privilegios y barridos de red.</li>
+<li><strong>Amazon Inspector</strong> — escaneo de vulnerabilidades en instancias, imágenes ECR, y código (SAST, IaC, secret scan).</li>
+<li><strong>AWS Backup</strong> — backups con políticas de RPO/RTO; recomendación de cuenta aislada y copias cross-region.</li>
+<li><strong>Control Tower</strong> — despliegue de buenas prácticas y protección de logs en cuenta aparte.</li>
+<li><strong>AWS Security Hub (CSPM)</strong> — chequeo de alineamiento contra estándares CIS, NIST y AWS FSBP.</li>
+<li><strong>AWS Security Maturity Model</strong> — recomendaciones en 4 fases (quick wins, fundacional, gobierno, regulados); 50.000+ usuarios únicos por año.</li>
+<li><strong>AWS Security Incident Response</strong> — servicio pago de respuesta a incidentes con SLA, investigación proactiva de hallazgos y resumen ejecutivo.</li>
+<li><strong>Threat Technique Catalog</strong> — catálogo del CIRT que mapea MITRE ATT&amp;CK a casos reales de AWS.</li>
+<li><strong>Artifact / SIG Questionnaire</strong> — cuestionario estándar de seguridad pre-respondido para auditorías de proveedor.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/nYwzymRQvZ0">«Lecciones del AWS CIRT: Entendiendo el initial Access - Dario Goldfarb»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

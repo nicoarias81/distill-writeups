@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bug Bounty en la práctica: lo que aprenden los programas cuando abren las puertas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Bug Bounty en la práctica: lo que aprenden los programas cuando abren las puertas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TB-ux1uhLKA">«Panel de Discusión de Bug Bounty»</a> · ver el <a class="nz-link" href="https://youtu.be/TB-ux1uhLKA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los programas de bug bounty funcionan muy distinto según el lado de la mesa desde el que se los mire: el hacker que reporta, la plataforma que intermedia, la empresa que paga y el equipo de seguridad que tiene que convertir reportes en fixes. Este análisis reúne las perspectivas de esos cuatro actores a partir de la experiencia de programas consolidados —incluido el de Mercado Libre, con más de 3.000 vulnerabilidades aceptadas en seis años y un año de programa público tras cinco de programa privado— y de plataformas europeas como YesWeHack.</p>
+<p>Los temas que emergen con más fuerza son concretos: dónde entra la IA en el triaje, cómo se combina calidad e impacto en un buen reporte, qué hacer con los duplicados, cuándo conviene un VDP (Vulnerability Disclosure Program) frente a un bounty pago, y cómo coexisten pentesting y bounty dentro de una misma estrategia de seguridad. La conclusión transversal es que empresa y hackers están del mismo lado: el reporte es solo el punto de partida, el valor real está en elevar el impacto y llegar a un fix.</p>
+<h2>Calidad versus impacto: las dos caras de un buen reporte</h2>
+<p>Un reporte de calidad extrema —problema diseccionado, teoría incluida, redacción impecable— no sirve de nada si no hay un problema real que explotar y comunicar. En el otro extremo, un reporte de una línea con un cross-site scripting reflejado puede ser simple, claro y acelerar el triage y el fix, sobre todo si incluye ese "extra mile": señalar dónde el response queda reflejado en el DOM, por ejemplo.</p>
+<p>Las dos dimensiones se complementan. Cuando el investigador es experto en el tipo de vulnerabilidad que reporta y puede ir un paso más en la solución, el triage va rápido, el fix va rápido y el pago también. El consejo para los hunters es elegir las batallas: profundizar la calidad donde realmente aporta, y en contextos competitivos —como un evento— reportar rápido y sin adornos, y recién después tomarse el tiempo de agregar detalle, elevar el impacto o sumar colaboradores. Las plataformas permiten seguir enriqueciendo el reporte con comentarios después de enviarlo.</p>
+<p>Desde el lado de la empresa, la postura de Mercado Libre es explícita: no quieren bajar vulnerabilidades, quieren aceptarlas, entenderlas, explotarlas y elevar el impacto para llevar el caso con argumentos a los equipos de desarrollo.</p>
+<h2>IA en el bounty: triaje, no reemplazo</h2>
+<p>El impacto visible de los LLMs en los programas no está en los reportes —a veces uno escrito por un LLM es peor que uno escrito de verdad— sino en la operativa interna. Los usos concretos que se describen:</p>
+<ol>
+<li><strong>Triaje asistido</strong>: generar respuestas internas automáticas a partir del histórico de reportes previos, que el analista revisa y ajusta antes de enviar.</li>
+<li><strong>Escalado de issues</strong>: cuando un reporte es válido, la IA ayuda a redactar el ticket inicial hacia los equipos de producto.</li>
+<li><strong>Enfoque del hunter</strong>: delegar tareas repetibles y procedimientos mecánicos al modelo para concentrarse en la parte creativa y difícil del bounty.</li>
+</ol>
+<h2>Duplicados: pagar la empatía antes que la regla</h2>
+<p>Un duplicado es el peor momento para un hunter: la vulnerabilidad es válida, pero alguien llegó antes. La pregunta que inmediatamente aparece es qué significa "llegó antes": ¿un minuto o tres años? ¿Reportó lo mismo y con el mismo trabajo, o disparó un alert mientras el segundo reporter elevó un XSS a account takeover?</p>
+<p>En el programa de Mercado Libre los duplicados pasan un segundo análisis: si el reporte posterior eleva el impacto, agrega endpoints no considerados, muestra otra vulnerabilidad o ayuda al equipo interno de Application Security a encontrar algo nuevo, da valor más allá de la duplicidad y puede merecer un bonus. La transparencia —comentar el debate técnico, mostrar pruebas, incluso capturas de herramientas internas— suma cuando corresponde; no se trata de pelear todos los duplicados, sino de generar tranquilidad cuando el caso lo amerita.</p>
+<h2>VDP versus bounty pago: audiencias distintas</h2>
+<p>El consenso del panel es directo: un VDP no paga, y para un investigador dedicado al bug bounty eso lo deja fuera de consideración como objetivo principal. Pero el VDP tiene su nicho:</p>
+<ul>
+<li><strong>Formación</strong>: es un campo de práctica ideal para quien recién arranca, con alcances reales y permiso explícito para probar.</li>
+<li><strong>Prueba de herramientas</strong>: automatizaciones y scripts propios se pueden validar contra alcances de VDP.</li>
+<li><strong>Proyectos sin fines comerciales</strong>: para open source u organizaciones sin capacidad de pagar, la divulgación coordinada es totalmente entendible.</li>
+</ul>
+<p>El punto crítico es el contexto: una gran empresa con beneficios altísimos que ofrece solo un VDP genera rechazo legítimo en la comunidad. La regla práctica es que las empresas anuncien el VDP como lo que es —sin recompensas— y lo usen como complemento, nunca como sustituto, del bounty pago.</p>
+<h2>Pentesting y bounty: primas hermanas</h2>
+<p>Las diferencias entre ambos modelos se resumen en tres ejes:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Eje</th>
+<th>Pentesting</th>
+<th>Bug bounty</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tiempo</td>
+<td>Fechas de inicio y fin</td>
+<td>Continuo, depende de lo que se descubra</td>
+</tr>
+<tr>
+<td>Alcance</td>
+<td>Metodología y scope delimitados</td>
+<td>Scope definido pero más libertad creativa</td>
+</tr>
+<tr>
+<td>Costo</td>
+<td>Pago por adelantado, findings desconocidos</td>
+<td>Pago por hallazgo, con criticidad determinada</td>
+</tr>
+</tbody>
+</table></div>
+<p>Ninguno reemplaza al otro. A medida que la empresa crece y la superficie de ataque se agranda, un modelo mixto se vuelve casi obligatorio: un pentest cubre un conjunto de módulos en un período, y el programa continuo nutre el resto con perspectivas externas menos viciadas, especialmente valiosas en empresas con red team interno.</p>
+<p>El requisito previo es tener pulido el proceso de gestión de vulnerabilidades y de incidentes, con SLAs de remediación claros. Lanzarse a un bounty con todo el scope abierto y sin proceso definido termina en incident responses improvisados. Empezar con un VDP como ensayo a escala es una opción razonable antes de escalar.</p>
+<h2>Datos reales: qué cambia al salir de privado a público</h2>
+<p>El programa de Mercado Libre ofrece una comparación poco común, con cinco años de datos privados y uno público:</p>
+<ul>
+<li>Ratio de reportes válidos en privado: <strong>40%</strong> — casi uno de cada dos.</li>
+<li>Ratio tras salir público: <strong>25%</strong> — una caída que sigue siendo excelente frente a referencias de programas públicos que rondan el 3–10%.</li>
+<li>Composición: en privado, el 90% de los hackers eran de Latinoamérica y dominaban las vulnerabilidades de negocio, aportadas por los propios usuarios de la aplicación. Al abrirse, llegaron vulnerabilidades técnicas que complementaron esa visión.</li>
+</ul>
+<p>El ruido adicional temido nunca llegó a ser un problema, y la comunidad creció. La conclusión práctica: salir a público suma, y los hallazgos de negocio y los técnicos no compiten, se complementan.</p>
+<p>Un último dato contra la intuición: el hardware casi no aparece. El programa incluye los dispositivos de Mercado Pago —hasta en modo debug, con laboratorios en eventos para probar anti-tamper, keys y downgrades de firmware— pero los bugs de hardware son uno en mil. La curva de aprendizaje de ese perfil es tan especializada que los reportes tardan años; lo mismo pasa con mobile frente a web en los reportes anuales de las grandes plataformas.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bug bounty / VDP</strong>: programas con recompensa económica frente a programas de divulgación coordinada sin pago; audiencias y expectativas distintas.</li>
+<li><strong>Triaje asistido por LLMs</strong>: generación automática de respuestas internas y de tickets de escalado a equipos de producto.</li>
+<li><strong>Duplicados (DUP)</strong>: gestión de reportes repetidos, con segundas instancias de análisis y bonos por valor agregado.</li>
+<li><strong>Account takeover</strong>: elevación típica del impacto de un cross-site scripting que justifica recompensas mayores.</li>
+<li><strong>Pentesting continuo</strong>: modelo mixto donde el pentest tradicional y el bounty coexisten y se nutren mutuamente.</li>
+<li><strong>Live Hacking Event</strong>: eventos en vivo con scope dedicado para participantes con laptop, como el organizado por YesWeHack.</li>
+<li><strong>Hardware hacking (anti-tamper, firmware)</strong>: especialidad minoritaria pero incentivada, con dispositivos en modo debug disponibles para pruebas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Calidad e impacto no compiten: el mejor reporte es el que combina claridad para acelerar el fix con profundidad para demostrar riesgo; reportar rápido y enriquecer después resuelve la tensión con los duplicados.</li>
+<li>La IA ya está dentro de los programas, pero en la operativa (triaje, escalado) más que en la redacción de reportes.</li>
+<li>El VDP es un complemento legítimo —formación, pruebas de herramientas, proyectos sin fines comerciales— pero no sustituye al bounty pago, y ofrecerlo como única vía en una empresa rentable daña la relación con la comunidad.</li>
+<li>Pentesting y bounty son primas hermanas: el modelo mixto con proceso de gestión y SLAs maduros es lo que escala con el crecimiento de la superficie de ataque, y salir a público tiende a sumar más de lo que estorba.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TB-ux1uhLKA">«Panel de Discusión de Bug Bounty»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

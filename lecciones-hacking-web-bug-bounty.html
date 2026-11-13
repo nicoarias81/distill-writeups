@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lecciones de hacking web: cinco casos reales de bug bounty en sistemas gubernamentales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Lecciones de hacking web: cinco casos reales de bug bounty en sistemas gubernamentales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Ahn_J8QS7Oo">«DEF CON 33 - Web Hacking Lessons From GovTech Bug Bounty Program - Seng Peng Boon»</a> · ver el <a class="nz-link" href="https://youtu.be/Ahn_J8QS7Oo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los programas de bug bounty sobre sistemas gubernamentales en producción son de los escenarios más exigentes para el hacking web: superficie amplia, restricciones estrictas y tiempo limitado. Cinco años de trabajo del equipo de seguridad de CSIT (Singapur) sobre el Government Bug Bounty Program (GBBP) — lanzado en 2018 para testear aplicaciones web de las agencias del gobierno — dejaron una colección de lecciones prácticas: alrededor de 100 hallazgos aceptados (incluyendo críticos y severos) y unos 40 bugs únicos repartidos entre la mayoría de las 17 ediciones del programa, tanto en rondas públicas como en las pre-rondas internas reservadas a empleados públicos.</p>
+<p>Cinco casos de estudio ilustran qué funcionó, qué no, y qué conviene hacer distinto tanto para atacantes como para defensores. El hilo conductor: el impacto real rara vez vive en un solo bug — nace de <strong>encadenar</strong> hallazgos aparentemente menores.</p>
+<h2>El método de trabajo: equipo y triaje contra reloj</h2>
+<p>En un bug bounty la mayoría trabaja solo; aquí se trabajó <strong>en equipo y en el mismo lugar físico</strong>. Las consecuencias son medibles: se aprende más rápido de los demás, cada bug se discute desde ángulos distintos en la sala, los reportes finales mezclan el conocimiento de varios integrantes — y, sin dinero de por medio en las rondas internas, es más divertido.</p>
+<p>La distribución del esfuerzo sigue un patrón simple:</p>
+<ol>
+<li>Correr herramientas automáticas (scanners, spiders) sobre todas las aplicaciones para mapear la superficie.</li>
+<li>Priorizar las aplicaciones con <strong>más superficie y mayor complejidad</strong>.</li>
+<li>Dedicar el testing manual profundo ahí.</li>
+</ol>
+<h2>Caso 1: de un upload escondido a RCE vía file descriptors</h2>
+<p>Una aplicación gubernamental con el típico laberinto de formularios escondía un punto de subida de archivos Excel con vista previa. Encadenando tres debilidades se llegó a ejecución remota de código:</p>
+<ul>
+<li>El endpoint de descarga validaba con una comprobación trivial sobre el <strong>header Referer</strong> → acceso de lectura no autorizado a documentos ajenos.</li>
+<li>Esa misma lectura admitía <strong>path traversal / LFI</strong> → lectura de <code>/etc/passwd</code>, archivos de sistema y código fuente.</li>
+<li>Con logs y código fuente a mano seguía faltando el paso final a RCE. La clave fue preguntarse qué más queda por leer: <strong>los file descriptors de los procesos en ejecución</strong> (<code>/proc/&lt;pid&gt;/fd</code> — del 3 en adelante, archivos abiertos por la aplicación). Entre ellos aparecieron secretos de configuración en memoria — claves y tokens — que permitieron autenticarse en la nube y convertir la lectura arbitraria en control total.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    U[Upload escondido de Excel<br/>con preview] --> R[Descarga con check de Referer<br/>lectura no autorizada]
+    R --> L[Path traversal / LFI<br/>passwd, logs, código fuente]
+    L --> FD[File descriptors de procesos<br/>secrets y tokens en memoria]
+    FD --> RCE[Autenticación en la nube<br/>RCE completo]
+
+</pre>
+
+<p>Lecciones para atacantes: revisar <strong>cada</strong> rincón de la aplicación (los endpoints de riesgo suelen estar bien escondidos); no conformarse con reportar el primer bug (solo con LFI no hay RCE); y pensar la <strong>cadena de explotación</strong>, no el bug aislado. Para defensores: un acceso de lectura puede significar compromiso total; no exponer logs ni código fuente por la web; y usar WAF y controles que impidan combinar piezas entre endpoints distintos.</p>
+<h2>Caso 2: command injection en el nombre de archivo</h2>
+<p>Tras días sin hallazgos en una aplicación, el equipo miró algo que rara vez se testea: el <strong>nombre del archivo en el cuerpo de la petición</strong> (no la URL, que es donde casi siempre se testa). Inyectar metacaracteres de shell en el nombre produjo una diferencia de timing medible — inyección de comandos confirmada.</p>
+<p>El comando inyectado era ciego (sin output), así que el pivote fue exfiltrar por un canal alternativo: descargar el archivo de resultados hacia un endpoint accesible. Con eso se obtuvieron credenciales de una API interna, acceso a un servicio backend y, de nuevo, RCE — esta vez sin necesidad de encadenar un segundo bug, pero pasando por la infraestructura interna.</p>
+<p>Lecciones: probar en los lugares poco comunes — los nombres de archivo viajan por el body y a menudo terminan concatenados en comandos shell; y la inyección ciega sigue siendo explotable si existe cualquier canal de exfiltración. Para defensores: nunca confiar en el nombre del archivo subido, y tratar toda entrada del cuerpo de la petición como entrada de usuario.</p>
+<h2>Caso 3: validación JWT inconsistente entre endpoints</h2>
+<p>El endpoint principal de login validaba los JWT correctamente — pero otro endpoint (el de refresh de token, menos visible y no documentado en la spec de la API) <strong>no verificaba la firma</strong>. Con un token autofirmado, cambiar el rol a admin bastó para tomar control de cuentas.</p>
+<p>Lecciones: testear <strong>todos</strong> los endpoints que procesan el token, no solo el principal; el endpoint débil ni siquiera aparecía en la documentación — se encontró explorando. Para defensores: <strong>centralizar la lógica de validación de tokens</strong> en un solo componente verificado, no repetirla por endpoint.</p>
+<h2>Caso 4: OTP con el umbral de fallos controlado por el cliente</h2>
+<p>Un login por código de un solo uso (OTP de 6 dígitos enviado por email) parecía sólido: había un límite de 5 intentos fallidos. Al revisar la configuración del mecanismo, el parámetro que define ese umbral de fallos llegaba desde el cliente y era modificable. Poniéndolo en otro valor y reconfigurando el envío, el OTP quedó adivinable a voluntad → toma de cuenta <strong>sin autenticación previa</strong>.</p>
+<p>Lecciones: los mecanismos de seguridad también tienen parámetros, y esos parámetros son superficie de ataque; el IDOR aplicado a un control de seguridad tiene impacto desproporcionado. Para defensores: los controles (límites, umbrales, rate limiting) deben validarse del lado del servidor; jamás permitir que el cliente defina cuántas veces puede fallar una autenticación.</p>
+<h2>Caso 5: de un error SQL filtrado a cloud service takeover</h2>
+<p>Una aplicación web estática, aburrida, descartada a los pocos minutos de testing manual. Con el spider de Burp corriendo de fondo apareció un endpoint con muchos parámetros y URLs largas, con valores que parecían codificados. Las pruebas clásicas de SQLi no encontraban inyección — pero provocar deliberadamente un <strong>error de SQL</strong> hizo que la aplicación devolviera en la respuesta un secreto de configuración: una API key de un servicio en la nube. Con esa clave, el servicio cloud fue tomado directamente.</p>
+<p>Lecciones: dejar la automatización corriendo aunque el objetivo parezca trivial; los mensajes de error siguen siendo una mina (aquí no hubo inyección explotable, pero el error sí filtró el secreto). Para defensores: nunca exponer secretos en respuestas de error, y auditar qué devuelve la aplicación cuando algo falla.</p>
+<h2>Conclusiones</h2>
+<pre class="mermaid">
+flowchart TD
+    A[Superficie mapeada con automatización] --> B[Priorizar apps complejas]
+    B --> C[Testing manual profundo en equipo]
+    C --> D[Bug individual]
+    C --> E[Encadenamiento de bugs]
+    D --> F[Impacto moderado]
+    E --> G[Impacto crítico: RCE, takeover]
+
+</pre>
+
+<ul>
+<li><strong>El impacto está en la cadena</strong>: LFI solo es molesto; LFI + file descriptors + tokens de nube es RCE. Un JWT sin verificar es un bug; combinado con un endpoint de refresh, es account takeover.</li>
+<li><strong>Lo raro es rentable</strong>: nombres de archivo en el body, parámetros de configuración de controles de seguridad, endpoints fuera de la documentación — los lugares que nadie testea guardan los hallazgos más severos.</li>
+<li><strong>Manual y automático se complementan</strong>: los scanners abren el mapa; los casos 2 y 5 se resolvieron mirando donde la automatización no llega (o dejándola trabajar más tiempo del previsto).</li>
+<li><strong>Trabajar en equipo multiplica</strong>: los mejores reportes salieron de la combinación de perspectivas de varios integrantes, no de un investigador aislado.</li>
+<li>Para defensores, la lista de compras es corta y accionable: no filtrar secretos en errores ni en logs, centralizar validación de tokens, validar del servidor todo control de seguridad, y asumir que cualquier entrada —incluido el nombre de un archivo— puede llegar a un shell.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Burp Suite (scanner + spider)</strong> — mapeo inicial de superficie y descubrimiento de endpoints no documentados.</li>
+<li><strong>Path traversal / LFI</strong> — lectura arbitraria de archivos, incluidos file descriptors de procesos (<code>/proc/&lt;pid&gt;/fd</code>) con secretos en memoria.</li>
+<li><strong>Inyección de comandos en nombre de archivo</strong> — metacaracteres de shell en el body de la petición, detectada por diferencias de timing.</li>
+<li><strong>JWT sin verificación de firma</strong> — endpoint de refresh con validación ausente.</li>
+<li><strong>OTP con umbral controlado por el cliente</strong> — IDOR sobre el parámetro de límite de intentos.</li>
+<li><strong>Error SQL como oráculo de secretos</strong> — API key de servicio cloud filtrada en la respuesta de error, que desembocó en takeover.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Ahn_J8QS7Oo">«DEF CON 33 - Web Hacking Lessons From GovTech Bug Bounty Program - Seng Peng Boon»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

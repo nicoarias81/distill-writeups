@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caza de bugs en la virtualización de dispositivos de VMware: primero el hipervisor, después los periféricos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Caza de bugs en la virtualización de dispositivos de VMware: primero el hipervisor, después los periféricos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/sfma7ymwmdA">«DEF CON 32 - Bug Hunting In VMware Device Virtualization - JiaQing Huang, Hao Zheng, Yue Liu»</a> · ver el <a class="nz-link" href="https://youtu.be/sfma7ymwmdA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Una guía de principio a fin para investigar la seguridad de VMware: primero ingeniería inversa de la arquitectura completa del hipervisor (Workstation y ESXi) para entender qué código puede influir el sistema invitado y cómo, y después la aplicación práctica con cuatro bugs reales en la emulación de USB y SCSI. La tesis de fondo: la vista panorámica del hipervisor multiplica el rendimiento de la caza de bugs, aunque el dispositivo virtual siga siendo el objetivo más rentable.</p>
+<p>El equipo —investigadores de seguridad en ingeniería inversa y virtualización— empezó de cero a fines de 2022, atraídos por el papel de la virtualización en contextos de hacking (pwn2own, escapes de sandbox) y por lo desafiante del objetivo. Un año después: un escape de Parallels Desktop que presentaron en GeekCon 2023 y numerosos bugs de Workstation y ESXi reportados a VMware, con un aprendizaje que va más allá de la virtualización: toda la arquitectura de una computadora.</p>
+<h2>Parte 1: ingeniería inversa del hipervisor VMware</h2>
+<p>Consejos iniciales para quien empieza: el binario más importante, tanto en Workstation como en ESXi, es <strong>VMX</strong>, responsable de arrancar la máquina virtual y contenedor de la mayor parte del código de dispositivos virtuales; ambos VMX son idénticos y solo difieren en las APIs del sistema que usan. Depurar Workstation sobre Windows es más fácil, <strong>Open VM Tools</strong> comparte mucho código con VMX (funciones de IO, event loop) y acelera el reversing, y conviene recolectar CVEs, papers, documentación de dispositivos e incluso el código de QEMU.</p>
+<p>El punto de partida natural es el <strong>bucle de conmutación</strong> entre host e invitado. VMX es un proceso de modo usuario: necesita un módulo de kernel para las transiciones —en Windows, <strong>VMX86</strong>—; en ESXi se comunica directamente con el VMkernel. Herramientas como API Monitor y los strings de log del SO ayudan a entender la comunicación. El hallazgo clave: VMX usa un <code>IOCTL_VMX_RUN</code> que bloquea hasta que la máquina virtual necesita ayuda del host; el código de retorno determina qué handler <strong>userRPC</strong> se ejecuta.</p>
+<h3>userRPC, shared area y VMM blob</h3>
+<p><strong>UserRPC</strong> es el mecanismo que diseñó VMware para que el VMM interactúe con VMX en el host; contiene mucho del código de emulación de dispositivos y recibe un único argumento, el puntero al <strong>userRPC block</strong>, una región de memoria compartida. Si un dato no cambia en VMX, puede estar modificándose en el VMM: para saber qué viaja por ahí hay que entender cómo se construye esa memoria compartida, empezando por la inicialización y cada asignación de memoria.</p>
+<p>En la interacción entre VMX y VMX86 aparece un objeto ELF llamado <strong>VMM blob</strong> embebido en el binario de VMX, con extensiones VMM que VMX enlaza en memoria para construir el binario VMM real según la configuración del usuario. El VMM blob exporta símbolos predefinidos (como userRPC blob) con sus direcciones de mapeo en la sección compartida por vCPU; con ellos VMX calcula el tamaño total y reserva la memoria. Dos secciones del blob —información de la GDT del VMM y su mapeo de direcciones virtuales— permiten a VMX construir las tablas de páginas, que VMX86 completa para que el VMM construido por VMX pueda ejecutarse: VMX, VMM blob y VMX86 cooperan para mapear las direcciones del host a las virtuales del VMM.</p>
+<h3>Crosspage y conmutación</h3>
+<p>La estructura central del switch es la <strong>crosspage</strong>: una página por vCPU reservada por VMX86 que almacena el estado entre el VMM y el host, análoga a la VMCS de Intel VT. Al ejecutar <code>IOCTL_VMX_RUN</code> el host guarda su estado de CPU en la crosspage y restaura el del VMM; la salida es el proceso inverso. El userRPC se implementa en el código de plataforma del VMM: guarda el opcode y el número 100 en la crosspage, y ese código de plataforma hace que VMX86 devuelva el control a VMX con el userRPC correspondiente. Cada vez que el VMM invoca userRPC, modifica el userRPC block para transferir datos al proceso VMX.</p>
+<p>Con esto queda completo el cuadro de la emulación: en <strong>port IO</strong> el VMM reserva la instrucción x86 y llama a userRPC para que VMX procese (aunque algunos dispositivos implementan su callback en el propio VMM); en <strong>MMIO</strong>, VMX asocia la región de memoria con un ID y el callback vive en el VMM, que suele llamar a userRPC pero puede transferir datos vía shared area; y la <strong>memoria física del invitado</strong> se mapea como archivo en Windows y por el VMkernel en ESXi. Detalle fino: en el VMM de ESXi, algunos MMIO de dispositivos no llaman a userRPC salvo que la emulación "hosted" esté activa —usan vmkcall directo al VMkernel—, así que la emulación de dispositivos no siempre es idéntica entre ESXi y Workstation. La moraleja práctica: si no sabés de dónde vienen los datos de un dispositivo, cómo disparar su código o dónde está el código de un dispositivo nuevo — <strong>andá a mirar el código del VMM</strong>.</p>
+<h2>Parte 2: caza de bugs en la emulación USB</h2>
+<p>La emulación USB se divide en tres capas: el <strong>controlador de host USB</strong> (UHCI, EHCI, XHCI), la <strong>emulación VUSB</strong> (objetos de la especificación USB: URB, pipe, puerto) y los <strong>dispositivos back-end</strong> (Bluetooth, HID, RNG...). Cuando el invitado accede a un dispositivo USB, coloca datos en memoria, toca el espacio MMIO del controlador, el handler del VMM dispara el userRPC en VMX, los datos se convierten en un objeto URB y los procesa el back-end; si el dispositivo está enchufado al host, interviene además un servicio extra. Encontraron bugs en las tres capas.</p>
+<h3>Bug 1: memoria sin inicializar en el controlador de host (UHCI)</h3>
+<p>En una transferencia de control, el dispositivo recibe <em>standard device requests</em> que empiezan con un <strong>setup packet</strong> de 8 bytes con el campo <code>wLength</code> (longitud de los datos subsiguientes). Pero el controlador de host no transfiere por esa unidad: en UHCI la unidad es el <strong>transfer descriptor</strong> (TD). Al emular UHCI, VMX toma el primer TD de la queue head, extrae el doble word del setup packet y usa ese tamaño para asignar el buffer de datos del objeto URB, con múltiples chequeos contra el buffer overflow. El problema está en la localización: según el tipo de dispositivo back-end, el URB lleva campos distintos, y los dispositivos HID localizan URBs sin campos adicionales usando <strong>malloc</strong> — memoria sin inicializar. Asignar un URB de tamaño <code>wLength</code> no garantiza obtener <code>wLength</code> bytes de datos desde los TDs del invitado, así que los datos de heap se filtran al sistema invitado.</p>
+<h3>Bug 2: use-after-free entre controlador de host y VUSB (XHCI)</h3>
+<p>En XHCI, el <strong>device context</strong> (device slot context + endpoint context) guarda el estado del dispositivo USB, y cada endpoint tiene uno o más <strong>transfer rings</strong> con transfer requests. La pista vino del parche de un bug viejo, que solo alteraba el orden entre liberar la transferencia y asignar valores al endpoint context. Liberar una transferencia implica obtener el objeto del endpoint context, recuperar el objeto dispositivo VUSB por el número de puerto del device slot context, obtener el <strong>pipe VUSB</strong> por endpoint ID, liberar todos los URBs de ese pipe y finalmente la transferencia (y los URBs del back-end, para evitar punteros colgantes ahí). Todo parece correcto... pero el puntero a la transferencia no lo sostiene solo el endpoint context: un objeto URB también apunta a un campo de la transferencia (el que rastrea el TRB correspondiente al devolver la respuesta al invitado). Antes del parche, comandos XHCI como <em>config endpoint</em> podían modificar el endpoint context antes de liberar la transferencia, haciendo que el tipo guardado no coincidiera con el tipo del pipe VUSB: la liberación fallaba en encontrar el pipe, dejaba URBs sin liberar y el puntero quedaba colgando.</p>
+<p>Tras el parche, la pregunta era si el desajuste podía provocarse de nuevo. VMX busca el dispositivo VUSB por el <strong>número de puerto</strong> guardado en el slot context... y el comando <strong>address device</strong> modifica justamente el slot context (y el endpoint de control). La receta: configurar el dispositivo, crear transferencias en un endpoint no-control, transferir datos URB por esos rings y, al final, ejecutar address device para cambiar el número de puerto del dispositivo. Al liberar la transferencia, VMX ya no encuentra el pipe VUSB correcto: use-after-free de nuevo. La causa raíz es la misma: gestión deficiente del ciclo de vida de objetos en la emulación VUSB.</p>
+<h3>Bug 3: lectura fuera de límites en el back-end de smart card (CCID)</h3>
+<p>El invitado se comunica con la tarjeta inteligente a través del lector virtual, usando el protocolo <strong>CCID</strong>; el <strong>APDU</strong> (application data unit) es el payload entre lector y tarjeta, una relación análoga a la del controlador de host con el dispositivo USB. Ambas estructuras llevan un campo de longitud, y los campos de longitud exigen cuidado: VMware verifica que el campo de longitud del mensaje CCID coincida con el del comando APDU, pero <strong>no verifica que ninguno de los dos respete el tamaño del buffer URB</strong>, y usa esos valores directamente como argumentos de la API de Windows <code>SCardTransmit</code>, que no puede validar la coherencia entre longitud y buffer. Resultado: acceso fuera de límites a los datos del heap que se escriben en la tarjeta del host — y potencialmente se leen de vuelta.</p>
+<p>Con las tres capas atacadas queda claro el mapa: se puede atacar la emulación del controlador, la de VUSB y la de los dispositivos back-end; en el horizonte, conectar un dispositivo USB malicioso al host y apalancar VMX para ejecutar código, o usar el servicio USB local para escalar privilegios.</p>
+<h2>Parte 3: SCSI y la nueva superficie de ataque del VMkernel</h2>
+<p>ESXi es un hipervisor de tipo 1 sobre el hardware físico; Workstation es de tipo 2 sobre un SO anfitrión, con más configuraciones y dispositivos, y por tanto más puntos auditables. Pero lo decisivo son las diferencias en el <strong>flujo de datos</strong> de cada dispositivo.</p>
+<pre class="mermaid">
+flowchart TD
+    W1["Workstation: LSI Logic<br/>MPT process SCSI IO message"] --> W2["hosted emulation<br/>→ userRPC → handler en VMX"]
+    E1["ESXi: ¿hosted emulation?"] -->|"sí"| W2
+    E1 -->|"no"| E2["LSI Logic<br/>VMK process SCSI IO message"] --> E3["VMK call arguments<br/>→ VMkernel"]
+
+</pre>
+
+<p>En SCSI hay dos caminos para escribir datos al disco: por VMkernel (ESXi) o por VMX (Workstation), rutas de código completamente distintas. En Workstation, el flujo pasa por <code>LSI_Logic_MPT_process_SCSI_IO_message</code>, confirma si hay emulación hosted y termina llamando handlers de VMX vía userRPC. En ESXi, si no hay emulación hosted, el flujo va a <code>LSI_Logic_VMK_process_SCSI_IO_message</code> y al VMkernel por los argumentos de vmkcall. Ese pequeño hueco de código da a ESXi una superficie de ataque que Workstation no tiene.</p>
+<h3>Bug 4: lectura/escritura fuera de límites en VMX (verificación de disco)</h3>
+<p>La estabilidad es el requisito básico de un disco, y VMware implementa verificación de corrupción por checksum en la emulación del dispositivo. El comando SCSI <strong>write16</strong> permite operar con direcciones lógicas de bloque de 8 bytes y longitud de transferencia de 4 bytes: sin una comprobación del límite de capacidad del disco, alcanza cualquier dirección del espacio de 64 bits. VMware no implementó esa comprobación en su programa de verificación: tras reservar un heap según la capacidad del disco, solo verifica si la operación es lectura o escritura. Es un heap overflow que, combinado con write16 y los demás comandos de lectura/escritura del manual SCSI, habilita lectura y escritura arbitrarias.</p>
+<h3>Bug 5: escritura fuera de límites en el VMkernel (comando unmap)</h3>
+<p>El comando SCSI <strong>unmap</strong> desmapea bloques lógicos y tiene estructura en tres partes: comando, lista de parámetros y descriptores de bloque. Dos campos de longitud conviven: <strong>parameter list length</strong> (longitud total de los datos de parámetros, incluida la cabecera) y <strong>unmap block descriptor data length</strong> (longitud de todos los descriptores que siguen). Antes de ejecutar, <code>vscsi_check_unmap_cmd</code> reserva un heap del tamaño del parameter list length y copia todo ahí; luego valida el contenido... pero <strong>olvida verificar la relación entre ambos campos de longitud</strong>, y el número de descriptores se deduce del segundo. Un atacante puede construir una lista con una gran cantidad de descriptores sin que se validen más que los primeros. En la fase de uso, el boundary es el parameter list length, con lo que los descriptores sin validar entran en juego y el tamaño de bloque no verificado se usa como variable en <code>memcpy</code>: escritura fuera de límites — que, de hecho, es lo que provocó el crash real, no la lectura fuera de límites de la descripción oficial.</p>
+<p>El VMkernel, como superficie nueva, abre tres líneas de investigación: modificar los mecanismos existentes de protección de sandbox, elevar privilegios del proceso actual y escapar de la máquina virtual.</p>
+<h2>Técnicas y conceptos mencionadas</h2>
+<ul>
+<li><strong>VMX / VMX86 / VMkernel</strong>: proceso de modo usuario con el código de dispositivos, módulo de kernel en Windows y kernel del hipervisor en ESXi.</li>
+<li><strong>userRPC + userRPC block</strong>: mecanismo VMM→VMX con memoria compartida como canal de datos.</li>
+<li><strong>VMM blob y shared area</strong>: ELF embebido en VMX, extensiones enlazadas en memoria y construcción de tablas de páginas para el VMM.</li>
+<li><strong>Crosspage</strong>: página por vCPU análoga a la VMCS de Intel VT para el estado entre host y VMM.</li>
+<li><strong>Port IO, MMIO y memoria física del invitado</strong>: tres vías de entrada al código de emulación, con diferencias ESXi/Workstation (hosted emulation y vmkcall).</li>
+<li><strong>Stack USB virtual</strong>: controlador de host (UHCI/EHCI/XHCI), objetos VUSB (URB, pipe, puerto) y back-ends; ataques en las tres capas.</li>
+<li><strong>Setup packet / wLength / transfer descriptors</strong>: discrepancia entre tamaño solicitado y tamaño transferido como fuente de memoria sin inicializar.</li>
+<li><strong>Device context y transfer rings de XHCI</strong>, y el comando <em>address device</em> como palanca para desincronizar el ciclo de vida de objetos (UAF).</li>
+<li><strong>Protocolo CCID y APDU</strong>: longitudes no validadas contra el buffer URB antes de llamar a <code>SCardTransmit</code>.</li>
+<li><strong>Comandos SCSI write16 y unmap</strong>: ausencia de chequeo de capacidad del disco y de coherencia entre campos de longitud, con heap overflow y escritura fuera de límites en VMX y VMkernel.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Empezar por la arquitectura completa del hipervisor —y no solo por el código del dispositivo— revela de dónde vienen los datos, cómo disparar el código de cada dispositivo y dónde hay código nuevo que nadie audita.</li>
+<li>La diferencia hosted emulation entre ESXi y Workstation no es un detalle: crea rutas de código distintas y una superficie de ataque (VMkernel) que no existe en Workstation.</li>
+<li>Los campos de longitud son el hilo conductor de los bugs: sin inicializar cuando el tamaño solicitado no coincide con lo transferido, UAF cuando el ciclo de vida de objetos depende de contextos que otro comando puede modificar, y lecturas/escrituras fuera de límites cuando las longitudes no se validan contra el buffer.</li>
+<li>El dispositivo virtual sigue siendo el objetivo más rentable de la caza en virtualización, pero el VMkernel y sus mecanismos de sandbox son la frontera siguiente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/sfma7ymwmdA">«DEF CON 32 - Bug Hunting In VMware Device Virtualization - JiaQing Huang, Hao Zheng, Yue Liu»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

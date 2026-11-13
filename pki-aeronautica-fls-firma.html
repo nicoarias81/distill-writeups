@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PKI aeronáutica: cómo se firma el software que vuela — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">PKI aeronáutica: cómo se firma el software que vuela</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/sjd5LrzHus0">«DEF CON 33 - Airplane PKI  - Matt Gaffney»</a> · ver el <a class="nz-link" href="https://youtu.be/sjd5LrzHus0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un recorrido por la infraestructura de clave pública (PKI) de la aviación comercial desde el punto de vista de un operador aéreo: para qué se usan los certificados a bordo, cómo se firma el software que se carga en los aviones según los métodos A, B y C, qué exige la especificación ATA Spec 42, y qué plantea la transición a algoritmos post-cuánticos en una flota que vuela durante décadas.</p>
+<p>El enfoque es agnóstico respecto a proveedores: hay retos industriales que fabricantes y operadores resuelven en conjunto, y que no se pueden detallar públicamente. También conviene avisar: el tema da fácil para tres días de conversación, así que aquí hay simplificaciones deliberadas.</p>
+<h2>Por qué importa: el software cargable en campo</h2>
+<p>En los aviones comerciales modernos abunda el <strong>FLS</strong> (field-loadable software): software que se carga en una unidad reemplazable en línea (<strong>LRU</strong>) sin sacarla del avión. No es solo el entretenimiento a bordo: sensores que generan registros para mantenimiento preventivo, sistemas de comunicación, superficies de control y bases de datos de navegación. En los aviones de última generación, actualizar un LRU ya no implica cambiar hardware: se le envía FLS nuevo para activar funcionalidades o corregir errores.</p>
+<p>Algunos números para dimensionar: un 787 tiene alrededor de <strong>1.400 partes de software</strong> distintas (dos de ellas controlan los baños). Un operador como United pasó de unos 150 aviones "e-enabled" a más de 1.000 proyectados, lo que multiplica el trabajo de PKI y conectividad.</p>
+<p>Los operadores reciben FLS de múltiples fuentes: fabricantes (OEMs), proveedores y equipos internos. Un subtipo generado internamente es el <strong>UMI</strong> (user modifiable information), por ejemplo la configuración de carga del dominio de sistemas de información del avión que define conectividad a tierra y funcionalidades activadas; esas partes se crean y se firman antes de subirlas. La regulación obliga a verificar <strong>autenticidad</strong> e <strong>integridad</strong> de todo FLS antes de subirlo al avión, y los fabricantes proveen herramientas configuradas con las cadenas de confianza de los proveedores verificados.</p>
+<p>Los <strong>PDL</strong> (portable data loaders) conforme a ARINC 645-1 son la novedad regulatoria reciente: fuerzan la verificación de firma del FLS antes de la carga de forma técnica —no se puede poner físicamente el software en el avión hasta que la firma se ha validado—, eliminando la dependencia de que el mecánico haga el chequeo a mano.</p>
+<h2>Otros usos de los certificados a bordo</h2>
+<ul>
+<li><strong>Telemetría</strong>: un avión genera cientos de megabytes o varios gigabytes por vuelo (la mayoría, de los motores; en aviones de fibra de carbono, también datos de tensión estructural al aterrizar). Al tocar pista, la aviónica intenta enlazarse a los sistemas de tierra por 4G o Wi-Fi; muchas puertas de aeropuerto tienen un punto de acceso de <strong>GateLink</strong>, una red de uso común dedicada al tráfico de aeronaves, sobre la que los operadores suelen montar una VPN hacia su perímetro. Cada VPN puede exigir entre uno y tres certificados <strong>por avión</strong>.</li>
+<li><strong>Registros firmados</strong>: los logs se firman digitalmente y se verifican antes de ser ingeridos por las herramientas del operador o enviados a terceros. La razón es de seguridad operacional: si un registro se alterara, un chequeo de mantenimiento obligatorio podría no hacerse, o hacerse sin necesidad. Los datos de motor (<em>focal</em> data) ni siquiera se decodifican en el operador: vuelven al fabricante del motor, que los analiza y los revende.</li>
+<li><strong>Autenticación de usuario con smart cards</strong>: certificados en tarjetas inteligentes para personal en áreas públicas (por ejemplo, agentes de puerta de embarque). Dos factores sin depender de un móvil, y mejor experiencia: en lugar de una contraseña de más de 15 caracteres rotada cada 3-12 meses, un PIN; al retirar la tarjeta, la pantalla se bloquea sola. Unas ganas reales de que llegue a producción.</li>
+</ul>
+<h2>Los tres métodos de firma de FLS</h2>
+<p><strong>Método A — firma delegada con smart card.</strong> La parte de software (un cargable ARINC 665: esencialmente un estándar de estructuras ZIP y cabeceras) llega normalmente sin firmar. El patrocinador del dispositivo usa su smart card con certificado de hardware; el software valida el certificado contra una respuesta OCSP y, si es válida, firma el FLS con la clave privada del patrocinador. El resultado lleva la respuesta OCSP firmada junto a los datos y el hash cifrado (la firma).</p>
+<p>Ventajas: una vez firmado con certificado válido, el FLS nunca necesita firmarse de nuevo aunque el certificado se revoque o expire después —se sabe que al momento de firmar era válido—, y el avión no necesita acceder a ninguna CRL: basta con la cadena de confianza configurada. Desventajas: no se controla la PKI (y se paga por ella), y el montaje técnico es delicado: el patrocinador firma desde un portátil que atraviesa un jump box hacia una zona segura, y hacer que el lector de la smart card del portátil llegue al software corriendo en una VM es un reto de configuración conocido.</p>
+<p><strong>Método B — firma centralizada con HSM.</strong> Más simple: si los datos llegan firmados, se verifica y se elimina la firma; el certificado de firma vive en un HSM usado por el software, con verificación por CRL, y el resultado pasa al repositorio.</p>
+<p><strong>Método C — firma con sellado de tiempo largo.</strong> Como el método A pero añadiendo una respuesta firmada de servidor de sellado temporal. Hoy no se conoce en uso para aviación comercial, pero tiene sentido para FLS de vida muy larga: la validez del método A dura lo que dure la CA emisora (puede ser 20 años... o no), y el método C mantiene válido el software a largo plazo con mínima disrupción. También encaja con la conservación de registros de mantenimiento, que a veces debe demostrar que un documento no se modificó durante toda la vida del avión.</p>
+<p>¿Y si el certificado se revoca o caduca? Método A: se emite un certificado nuevo y se sigue. Método B: certificado nuevo y re-firmar todo.</p>
+<h2>Del repositorio al avión</h2>
+<p>Hay varias rutas para cargar el FLS una vez firmado y almacenado:</p>
+<ul>
+<li><strong>Over the air</strong>: algunos aviones lo permiten, aunque sigue haciendo falta que un técnico entre en cabina y pulse botones, además de otras condiciones que deben cumplirse. La ciencia ficción de actualizar software en pleno vuelo choca con esas condiciones: están ahí para impedirlo.</li>
+<li><strong>USB "de herramienta"</strong>: nada de llaves USB domésticas; son herramientas asignadas, se firman y retiran del almacén de herramientas y deben pasar procedimientos de borrado y limpieza.</li>
+<li><strong>PDL</strong>: el cargador portátil ARINC 645-1 se conecta a la red, descarga el software, se camina hasta el avión y se enchufa.</li>
+</ul>
+<h2>Generación de certificados para un avión</h2>
+<p>Dar de alta la criptografía de un avión es parte de la función de mantenimiento, con procedimientos, autorizaciones y documentación. El flujo típico:</p>
+<pre class="mermaid">
+flowchart TD
+    WI[Instrucción de trabajo<br/>de generación de claves] --> AC[Técnico en el avión:<br/>genera el par de claves<br/>la privada nunca sale del avión]
+    AC --> CSR[CSR traída de vuelta<br/>por OTA / PDL / USB]
+    CSR --> RA[RA: registration authority<br/>autentica y aprueba<br/>control doble, ATA Spec 42]
+    RA --> CA[CA valida CSR y firma<br/>y emite el certificado]
+    CA --> RET[Técnico recupera el certificado,<br/>instrucción de carga, subida al avión]
+    RET --> VAL[El avión valida el certificado]
+
+</pre>
+
+<p>El rol de <strong>RA</strong> (registration authority) es un requisito de ATA Spec 42 pensado para el control doble: prueba todas las altas y solicitudes. Cuando una aerolínea externaliza su PKI a un tercero, suele hacer falta insertar a un empleado de la aerolínea como RA dentro del proveedor, porque el proveedor sabe de PKI pero no de aviones, y confirmar la identidad de una aeronave es justo lo que hace falta. Eso crea un problema de auditoría: la RA cuenta como parte de la PKI, pero usa la red y el TI del operador, y para no arrastrar todo el TI del operador a una auditoría anual profunda se usan equipos de TI muy restringidos, con lo mínimo indispensable, controlados por la política de certificados y el CPS, y verificados presencialmente en las comprobaciones in situ del auditor anual (hay varias repartidas por el país, y el auditor tiene que volar hasta cada una).</p>
+<h2>ATA Spec 42: confianza basada en identidad verificada</h2>
+<p>El <strong>DSWG</strong> (ATA eBusiness Data Security Working Group) define la estrategia de estos estándares: un grupo de expertos de OEMs, fabricantes, operadores, proveedores y partes interesadas de la membresía ATA. La especificación (410 páginas de lenguaje complejo; primera lectura dura, varias necesarias, y buena cura para el insomnio) pone el énfasis en:</p>
+<ul>
+<li>Establecimiento de confianza sobre <strong>identidad verificada</strong>: los suscriptores pasan comprobaciones de identidad y control de dos personas.</li>
+<li>Uso de certificados, controles técnicos y procedurales, protección de PII y documentación de auditoría.</li>
+<li>Autenticación de todos los suscriptores a la plataforma de gestión de PKI con certificados de hardware en smart card; según el método, el certificado de firma puede vivir en la smart card de los suscriptores autorizados a firmar.</li>
+<li>El alcance de la auditoría lo define la red y la tecnología que opera la PKI: todo lo que la PKI toca queda dentro (el "fruto del árbol envenenado").</li>
+</ul>
+<p>Con la exigencia de que toda PKI usada para firmar partes de software sea conforme a Spec 42, en la práctica los operadores migran todos sus usos de PKI a certificados conformes.</p>
+<h2>El elefante post-cuántico</h2>
+<p>El reto que más preocupa desde hace un año: los plazos de un ordenador cuántico capaz de romper el algoritmo de Shor se estiman entre 5 y 20 años según a quién se escuche, pero la vida útil de un avión es de 30 años o más, y una vez certificado, cambiarlo es carísimo —el rumor sectorial dice que una línea de código en la aviónica cuesta un millón de dólares solo en re-test—. Preguntas abiertas:</p>
+<ul>
+<li>¿Tienen los LRU memoria y potencia de proceso para los algoritmos post-cuánticos?</li>
+<li>La migración de SHA-1 a SHA-2 hacia 2017 ya hizo que generar un par de claves pasara de 5 a 10 minutos; ¿cuánto tardará una firma post-cuántica en un LRU?</li>
+<li>Pasar de firmas de decenas de kilobytes a varios megabytes duele en código C con punteros y memoria ajustada.</li>
+</ul>
+<p>La recomendación del DSWG a nivel de operador: inventariar ya todos los casos de uso de PKI, y cuando NIST cierre qué algoritmos sirven para qué caso, identificar los adecuados para cada uno. Con fabricantes y OEMs queda resolver el desafío del software embebido, más tests y aprobación regulatoria —todo en una ventana temporal que probablemente no alcanza—.</p>
+<h2>Técnicas y conceptos mencionados</h2>
+<ul>
+<li><strong>FLS / LRU / UMI</strong>: software cargable en campo, unidades reemplazables en línea e información modificable por el usuario.</li>
+<li><strong>ARINC 665 / ARINC 645-1</strong>: formato de cargable (estructuras ZIP y cabeceras) y cargadores portátiles con verificación técnica de firma.</li>
+<li><strong>Métodos A, B y C</strong>: firma con smart card + OCSP, firma con HSM + CRL, y firma con sellado temporal de larga vida.</li>
+<li><strong>ATA Spec 42 / DSWG</strong>: especificación sectorial de PKI aeronáutica y su grupo de trabajo estratégico.</li>
+<li><strong>RA, CA, CRL, OCSP</strong>: autoridad de registro con control doble, autoridad certificadora, listas de revocación y validación online de certificados.</li>
+<li><strong>GateLink + VPN</strong>: red común de tráfico aeronáutico en puerta y túneles con 1-3 certificados por avión.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La PKI aeronáutica no es un accesorio: sostiene la carga de software, la telemetría firmada, la conectividad a tierra y (pronto) la autenticación de personal con smart cards.</li>
+<li>La verificación de firma del FLS se está moviendo del procedimiento humano al control técnico obligatorio (PDL ARINC 645-1): mejor señal no puede haber.</li>
+<li>Los tres métodos de firma equilibran distinto: A minimiza el mantenimiento de validez, B centraliza la clave en HSM, C resuelve la vida ultralarga que la aviación exige.</li>
+<li>La RA insertada en el proveedor de PKI y sus equipos bloqueados son el precio pragmático de auditar una PKI tercerizada que debe conocer aviones.</li>
+<li>El riesgo post-cuántico es de largo plazo pero con plazos de migración imposibles de improvisar: inventariar casos de uso y preparar el software embebido es la única vía realista.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/sjd5LrzHus0">«DEF CON 33 - Airplane PKI  - Matt Gaffney»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modelo, harness y gym: por qué el stack completo importa en el pentesting con IA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Modelo, harness y gym: por qué el stack completo importa en el pentesting con IA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/O40GChrv5bY">«Model, harness, gym: why Novee owns the full AI pentesting stack - Ido Geffen»</a> · ver el <a class="nz-link" href="https://youtu.be/O40GChrv5bY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los incidentes recientes con agentes de IA que salieron de control en laboratorios de OpenAI y Hugging Face subrayan un problema de fondo: cuando el agente es potente pero el stack está fragmentado —un modelo de terceros, un harness prestado, prompts improvisados—, ni la eficacia ni la seguridad se pueden garantizar. La respuesta de Novee Security es apropiarse de todo el stack: entrenar un modelo propio especializado en seguridad ofensiva, construir el harness con guardarrails deterministas, y validar todo en el Novee Gym, cientos de entornos realistas que replican organizaciones grandes.</p>
+<p>El resultado más contraintuitivo: con la combinación correcta de modelos abiertos, cerrados y propios —asignando el modelo adecuado a cada tarea del pentest— se alcanza la misma precisión y recall que con modelos frontier a una décima parte del costo. Y el hallazgo estratégico más importante: el cuello de botella ya no es encontrar vulnerabilidades, es validar cuáles son realmente explotables.</p>
+<h2>Guardarrails en dos capas: dentro del modelo y fuera del agente</h2>
+<p>La seguridad del agente ofensivo se resuelve en dos niveles. El primero está embebido en el modelo: por diseño, el agente no ejecuta acciones destructivas —si se conecta a una base de datos, no puede lanzar un DROP TABLE—. El segundo es externo y determinista: un firewall que el agente no puede tocar, un cerco duro que impide salir de la IP o el dominio que está en scope. El agente puede ser creativo dentro del perímetro contratado; afuera, no pasa nada. Esto importa porque la creatividad de los modelos —menor que la de un humano, pero real— los lleva a buscar caminos inesperados para cumplir los objetivos que se les dan.</p>
+<h2>El Novee Gym: benchmarking contra entornos reales, no CTFs</h2>
+<p>La pregunta "¿qué modelo rinde mejor en pentesting?" no se responde con un leaderboard genérico. El Novee Gym son cientos de entornos grandes que imitan la arquitectura de organizaciones reales —explícitamente no setups de CTF, que tienen otro propósito— donde se corrigen continuamente distintos modelos con distintos harness, tooling, orquestación y prompts. De ahí salen las decisiones de arquitectura: el mapa de qué modelo sirve para qué tarea.</p>
+<p>Las métricas definidas son seis; las dos primeras: <strong>recall</strong> —de 100 vulnerabilidades sembradas en una aplicación, cuántas detecta— y <strong>precision</strong> —qué proporción de hallazgos son verdaderos positivos—. La comparación contra el mundo real llega con los clientes: sobre aplicaciones que ya fueron pentesteadas manualmente, se corre el assessment propio y se contrasta —mejor, igual o peor que el tester humano—. Ese baseline es la única forma honesta de saber si un modelo nuevo mejoró o empeoró, porque "usar el modelo más reciente" no garantiza nada.</p>
+<h2>Vulnerabilidades de lógica de negocio: la ventaja diferencial</h2>
+<p>El escaneo clásico —XSS, SSRF, escalada de privilegios— sigue el estándar de la industria (la guía de testing web de OWASP). La especialidad declarada de Novee es más difícil: vulnerabilidades novedosas de lógica de negocio, detectadas solo si el agente entiende qué hace la aplicación y cuáles son sus workflows. Dos ejemplos reales de entornos de producción: un sistema de RRHH donde hay que validar que el empleado A no pueda ver el salario del empleado B, y una aplicación de venta de pasajes donde el importe a pagar no puede ser manipulado. Son las fallas que los frameworks y los IDE están desapareciendo del mundo XSS/SQLi —el cupón que se puede aplicar dos veces, la autorización mal dibujada— y que requieren razonamiento sobre el dominio, no fuzzing.</p>
+<h2>El humano en el punto correcto: aplicabilidad y contexto</h2>
+<p>La IA encuentra; el humano decide qué importa. La evaluación de severidad depende del negocio: enumeración de usuarios es una falla grave en un banco —nadie quiere que un desconocido sepa su nombre de usuario—, pero en una red social es una feature deliberada con efectos de red. El flujo operativo lo aprovecha: tras una o dos corridas de assessment, los practitioners marcan hallazgos como no aplicables a su aplicación y re-direccionan al agente con prompts —"enfócate en el módulo de nómina y busca si el empleado A puede ver el salario del empleado B, porque es crítico para mi negocio"—. Es la versión moderna del kickoff call y el statement of work, pero acumulativa: markdown que itera, en lugar de repetir el contexto a cada tester nuevo o cada vendor.</p>
+<h2>Economía de tokens: el modelo adecuado por fase</h2>
+<p>La metodología clásica del pentest se descompone en fases con necesidades de razonamiento distintas: mapeo de la aplicación, análisis de conexiones, hipótesis ("este campo huele a SSRF"), hunting y validación/fix. La hipótesis exige el razonamiento más potente —ahí sí conviene un modelo de frontera—; el mapeo y el hunting son tareas más deterministas donde un modelo chico sobra. Asignar el modelo correcto a cada fase, incluyendo el modelo propio, produce la misma precision y recall a un costo diez veces menor. En empresas con miles de aplicaciones que quieren testing continuo, la diferencia entre costo impredecible (los checks enormes de tokens que generan los harnesses open source, donde solo se controla el prompt) y costo predecible es la diferencia entre adoptar o no la tecnología.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Stack completo (prompt + harness + modelo)</strong> — control integral del pipeline de IA ofensiva como condición de seguridad y eficacia.</li>
+<li><strong>Modelo propietario de ofensiva</strong> — modelo entrenado por Novee especializado en pentesting, con guardarrails embebidos (bloqueo de acciones destructivas tipo DROP TABLE).</li>
+<li><strong>Firewall de agente</strong> — cerco determinista externo que impide salir del scope (IPs/dominios contratados).</li>
+<li><strong>Novee Gym</strong> — cientos de entornos realistas a escala empresarial para benchmarking continuo de modelos, harness y prompts.</li>
+<li><strong>Precision y recall</strong> — métricas núcleo del benchmarking (cobertura de vulnerabilidades sembradas y tasa de falsos positivos), contrastadas contra pentests manuales previos.</li>
+<li><strong>Business logic vulnerabilities</strong> — clase diferencial: salario visible entre empleados, importes manipulables en ticketing; exigen comprensión de workflows.</li>
+<li><strong>WSTG (OWASP)</strong> — estándar al que se mapea el testing de aplicaciones web.</li>
+<li><strong>Mix de modelos por fase</strong> — frontera para hipótesis, modelos chicos para mapeo y hunting: misma calidad a 10x menos costo.</li>
+<li><strong>Harnesses open source</strong> — alternativa viable solo a nivel de prompting, con costo de tokens impredecible a escala empresarial.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Poseer el stack completo —modelo, harness y entorno de evaluación— es lo que permite garantizar tanto la eficacia como la seguridad del agente ofensivo; el ensamblaje de piezas de terceros deja las dos variables fuera de control.</li>
+<li>El benchmarking en entornos realistas con métricas de precision/recall, contrastado contra pentests humanos previos, es el único método serio para decidir qué modelo usar en cada tarea.</li>
+<li>La ventaja competitiva de la IA ofensiva ya no está en las fallas clásicas sino en las vulnerabilidades de lógica de negocio, que exigen comprensión del dominio del negocio.</li>
+<li>El cuello de botella se movió de encontrar vulnerabilidades a validar explotabilidad y aplicabilidad; el humano aporta el criterio de negocio que convierte un hallazgo en riesgo real.</li>
+<li>La economía importa: el ruteo de modelos por fase reduce el costo hasta diez veces, y es lo que hace viable el testing continuo a escala de miles de aplicaciones.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/O40GChrv5bY">«Model, harness, gym: why Novee owns the full AI pentesting stack - Ido Geffen»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

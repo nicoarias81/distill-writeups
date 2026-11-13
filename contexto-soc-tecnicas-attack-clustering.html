@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El SOC necesita contexto, no otra caja de IA: técnicas para todo y clustering de incidentes — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El SOC necesita contexto, no otra caja de IA: técnicas para todo y clustering de incidentes</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/h8E6w3vVzWo">«DEF CON 32 - AI for Attack Detection and Incident Investigation: Context is All You Need»</a> · ver el <a class="nz-link" href="https://youtu.be/h8E6w3vVzWo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cada año el problema crece: hace un tiempo era Colonial Pipeline, este año es CrowdStrike; los ataques son más sigilosos, las herramientas más numerosas y la seguridad, paradójicamente, peor. La tesis central no es una más de las ventas de IA que se venden hasta en los urinarios de Black Hat: el problema del SOC ya no es tecnología, es gente y proceso. Lo que falta es contexto — qué pasó, cuándo y quién estuvo involucrado — y ese contexto se puede construir con dos piezas de ciencia de datos deliberadamente aburridas: etiquetar cada evento con su técnica de MITRE ATT&amp;CK usando un modelo de lenguaje determinista, y agrupar eventos relevantes con clustering guiado por conocimiento.</p>
+<p>El investigador es un data scientist que trabajó en SOCs de Royal Bank of Canada, Huawei, Forescout y otros, acompañado por dos practitioners: el CISO de Ruby Life (la empresa detrás de Ashley Madison) y un responsable de un proyecto de defensa de 4.500 millones de dólares para el Departamento de Defensa. La promesa del título se cumple al revés de lo esperado: menos IA vistosa, más proceso documentado.</p>
+<h2>El diagnóstico: correlación fantasma, datos en silos y reglas sobre reglas</h2>
+<p>La encuesta anual del SOC Survey de SANS repite el mismo resultado hace seis o siete años: lo que más odian los analistas es la falta de "correlación" — saber qué es relevante respecto de qué. Pero la correlación que venden las herramientas son "correlation searches": reglas que juntan dos cosas si calzan en una lógica estrecha. Y solo funcionan si todos los datos están en un solo lugar — que nunca lo están: un SOC para insider threat, otro para compliance NERC CIP, otro en la subsidiaria adquirida que no comparte nada.</p>
+<p>Para arreglar eso, el primer paso es barato: juntar todos los datos en un archivo S3 como archivo frío (centavos por terabyte), con los LLM actuales para convertir cualquier modelo de datos en otro. No hace falta volcar todo al SIM — alcanzar el 70% del sueño ya cambia el trabajo.</p>
+<p>Sobre la detección actual — queries y playbooks que siguen siendo "reglas sobre reglas sobre reglas", incluidos los investigative playbooks y el risk-based alerting — el argumento en su favor es honesto: son transparentes, adaptables, auditables, se puede dar feedback y nunca te despiden por usar algo que entendés. Nadie puede decir lo mismo de un detector de anomalías: en la sala, solo dos personas usaban UEBA, y los que lo tienen terminan bajándole el volumen frente a los falsos positivos hasta que solo ven lo muy ruidoso — perdiendo justamente lo lento y sigiloso, que es el mejor caso de uso de la detección de anomalías.</p>
+<p>Dos anécdotas de los panelistas ilustran el valor del contexto que ninguna regla captura: un DDoS persistente de casi dos semanas que el equipo repelió aplicando fundamentos sin saber que estaban enfrentando a Fancy Bear — solo se enteraron cuando la agencia de inteligencia canadiense los convocó a una reunión —; y una exfiltración masiva de datos de una empleada de RRHH despedida, detectada porque el jefe dio la inteligencia ("vigilá esta persona") y el SOC monitoreó su endpoint durante las dos semanas previas al corte de cuentas. DLP, conocimiento de "qué debería estar pasando" y contexto humano: nada de eso entra en una regla.</p>
+<h2>Paso 1: técnicas de ATT&amp;CK para todo, con un LLM congelado</h2>
+<p>MITRE ATT&amp;CK es la Wikipedia común del industry: cada técnica tiene descripción, ejemplos de procedimiento, mitigación y detección, y de izquierda a derecha hay causalidad (acceso inicial → ejecución → persistencia → escalamiento → impacto). El problema: la mayoría de los datos no llega etiquetada, y la que llega (del EDR o del NDR) fue etiquetada para marketing y dashboards, no para trabajar.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Todo el dato: SIM, EDR, NDR, logs de Windows, PowerShell"] --> B["TTP Detector: LLM con temperatura 0"]
+    B --> C["Cada evento etiquetado con su técnica ATT&CK (>= 99% de confianza)"]
+    C --> D["Los analistas junior trabajan con lenguaje común: T1218 y sus mitigaciones"]
+
+</pre>
+
+<p>La alternativa artesanal — anotar a mano todas las firmas y mensajes del SIM — es la "versión 0.1" y no escala. La versión práctica: un detector de TTPs con un modelo de lenguaje con la temperatura bajada a cero. Temperatura cero significa determinismo: misma entrada, misma salida, todos los días — el atributo que permite confiar en la salida para clasificación, aunque el modelo no sea perfecto. La versión avanzada que ellos construyeron en tres años y publicaron open source: un modelo preentrenado con todo el corpus no etiquetado que nadie lee (los bookmarks, las white papers, los slides) y afinado con un corpus pequeño de etiquetas de confianza — la parte más difícil, porque los humanos no son consistentes: tuvieron que sentar a una persona a escribir expresiones regulares de su propio criterio para mantenerlo estable.</p>
+<p>El resultado, aunque la clasificación no fuera perfecta, cumple lo esencial: es consistente y está en todo. Cada evento — PowerShell, eventos de Windows, lo que llegue al S3 — tiene su técnica. Y eso habilita lo que la industria dice que no puede: contratar juniors. No hay escasez de talento, hay escasez de unicornios que nadie puede pagar; con técnicas ATT&amp;CK en todo, un junior ve T1218, busca qué es, cómo mitigarlo y cómo investigarlo, y tiene un lenguaje común con el equipo.</p>
+<h2>Paso 2: clustering semi-supervisado de incidentes</h2>
+<p>Con eventos etiquetados, el problema es la reducción de datos: de un millón de alertas notables y terabytes diarios (que en su mayoría se recolectan por compliance y nadie mira) a un puñado de tickets que un humano pueda trabajar. El clustering es "capítulo uno" de machine learning, no supervisado — no sabe qué es correcto — pero se puede volver semi-supervisado inyectando conocimiento: representar la investigación como un grafo donde la entidad es un nodo, el evento es una arista, y decirle al algoritmo que agrupe pensando en las entidades involucradas.</p>
+<p>Las comparaciones de similitud que un analista hace intuitivamente — entidades similares (no idénticas), unidades de negocio parecidas, sistemas operativos afines, puertos similares, tickets históricos parecidos — no existen en las reglas, que solo admiten igualdad exacta. El clustering las captura, y además es transparente, auditable, explicable y acepta feedback fácilmente.</p>
+<p>El caso real: 2.500 alertas sobre 180.000 eventos y logs reducidos a 8 clusters. El SOC solo conocía un ticket con unas 10 alertas; el cluster correspondiente contenía 202. No todas eran buenas — hubo basura, se le dio feedback al algoritmo — pero la reacción del equipo dice todo: "qué tecnología alienígena es esta". Respuesta: clustering de siempre, corriendo por unos 20 dólares al mes sobre terabytes diarios, sin GPU ni LLM en el camino de detección.</p>
+<p>La escala completa del ticket resultante: la alerta notable original, las 200 alertas posiblemente relevantes del mismo cluster, y — si hay histórico — los tickets pasados parecidos. El reporte para el jefe lo escribe un LLM, que es genuinamente bueno escribiendo reportes; el análisis pesado lo hizo el clustering.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El cuello de botella del SOC es gente y proceso, no tecnología: herramientas y alertas abundan y la seguridad empeora igual; sin documentación de cómo se investiga (en la sala, solo uno de cada pocos tenía procedimientos), el conocimiento vive en la cabeza de un unicornio cuya salida rompe todo.</li>
+<li>El contexto — qué, cuándo, quién — es la unidad real de una investigación: no se salva el día contra una alerta, se salva contra un ataque completo, y MITRE ATT&amp;CK Flow lo muestra mejor que un PDF de APT.</li>
+<li>Dos piezas simples bastan para industrializar el contexto: un LLM con temperatura cero como etiquetador determinista de técnicas ATT&amp;CK sobre todo el dato, y clustering semi-supervisado guiado por entidades para pasar de un millón de alertas a tickets con historia completa.</li>
+<li>La barrera de entrada es baja y el resultado es un legado: corre en almacenamiento barato, sobrevive al cambio de SIM del jefe, es explicable y acepta feedback — todo lo contrario de la caja negra que se compra por miedo a quedarse atrás.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/h8E6w3vVzWo">«DEF CON 32 - AI for Attack Detection and Incident Investigation: Context is All You Need»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

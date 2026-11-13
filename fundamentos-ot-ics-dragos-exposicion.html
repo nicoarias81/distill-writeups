@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundamentales de ciberseguridad OT/ICS: los datos que nadie leyó del informe de Dragos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Fundamentales de ciberseguridad OT/ICS: los datos que nadie leyó del informe de Dragos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ruVlunKr4BY">«DEF CON 33 - Making it too easy for Attackers in OT/ICS Today - T. Green»</a> · ver el <a class="nz-link" href="https://youtu.be/ruVlunKr4BY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El título original de la exposición era "la peor historia de amor de OT/ICS", y arrancaba de la película Hackers (1995): quince años antes de Stuxnet, Zero Cool ya controlaba brazos robóticos de un estudio de televisión a distancia y el virus Da Vinci hacía zozobrar un petrolero. La anécdota sirve de marco a la tesis real: el panorama de amenazas OT/ICS de hoy no se sostiene en sofisticación, sino en la facilidad con que se deja entrar al atacante. El análisis parte del informe anual "Year in Review" de Dragos —el equivalente del DBIR de Verizon para el mundo OT— y de una trayectoria de respondedor de incidentes, y desemboca en una pregunta incómoda que un académico le devolvió en la revisión de una propuesta: sí, todo eso está bien, pero ¿por qué importa? La respuesta práctica: porque los fundamentos básicos, que casi nadie aplica, bastan para mantener fuera a hacktivistas, operadores de ransomware y adversarios estatales.</p>
+<h2>Los datos del informe: el problema no es la amenaza, es la exposición</h2>
+<p>Los titulares esperables: el ransomware contra entornos industriales sigue creciendo desde Colonial Pipeline, más grupos lo atacan y el sector más golpeado es manufactura —no por relevancia estratégica, sino por abundancia y descuido: fábricas hay por todas partes, y un cliente nuevo del expositor con 100 plantas en Norteamérica ni siquiera tiene firewall entre IT y OT, y no entiende por qué el ransomware les tumba plantas—.</p>
+<p>Los dos datos que merecen más atención de la que recibieron:</p>
+<ul>
+<li><strong>65% de los entornos donde Dragos trabajó (evaluaciones, respuesta a incidentes, pentests, incluidos algunos de los más grandes del mundo) tenían acceso remoto inseguro.</strong> La puerta más usada hacia la red OT está abierta de par en par.</li>
+<li><strong>45% tenían conexiones SSH activas hacia internet.</strong> La pregunta obvia —¿administración remota autorizada o no?— suele quedarse sin respuesta, porque hay un dato que enmarca todo: <strong>menos del 5% de las organizaciones OT del mundo monitorea sus redes</strong>. Y de ese 5%, probablemente la mitad lo hace mal. Casi todo lo que sabemos del panorama de amenazas se mide sobre una muestra minúscula de entornos observados.</li>
+</ul>
+<h2>Hacktivistas y estados: dos curvas que se están cruzando</h2>
+<p>El hacktivismo OT es ruidoso e impacta poco: los Cyber Avengers iraníes comprometieron PLC/HMI combinados expuestos a internet —fabricados en Israel, objetivo obvio— para colgar pantallas de "has sido hackeado", y casi todos los entornos afectados volvieron a operación manual. El apagón de agua en Irlanda dejó a 160 personas sin agua dos días: la reacción habitual es restarle importancia, y la réplica del análisis es que si te toca a ti —con niños, trabajo y escuela— es un impacto real, y la próxima vez pueden ser 16.000 personas o dos semanas.</p>
+<p>Los adversarios estatales operan al revés: pocos ataques, impacto enorme. Sandworm dejó a cientos de miles de personas sin luz en Ucrania en 2015, en pleno invierno con temperaturas bajo cero; repitió en 2016, presuntamente en 2017, y volvió en 2022. La novedad que motivó la exposición es su convergencia: el Cyber Army of Russia Reborn y otros grupos hacktivistas alineados con actores estatales como Sandworm. El actor convergente —hacktivista con respaldo de estado— complica la vieja respuesta del respondedor de incidentes pragmático: no importa de dónde vengas, solo quiero que salgas de mi red. La convergencia hace que la atribución importe cada vez menos y la higiene, cada vez más.</p>
+<h2>FrostyGoop: el malware ICS que se reescribe en ChatGPT</h2>
+<p>FrostyGoop importa por lo simple que es: un malware que se puede recrear en 30 segundos con ChatGPT a partir de la investigación pública de Dragos (el expositor lo rehízo en Python y lo bautizó Snow Crash). Es malware específico de ICS por lo que hizo: cortar la calefacción de 600 edificios de apartamentos en Ucrania, en invierno y bajo cero, durante dos días.</p>
+<p>El mecanismo es el más clásico de OT: conexiones Modbus, el protocolo más común del sector, escrito hace más de 30 años sin autenticación —sin usuario, sin contraseña, control administrativo completo de lectura y escritura de registros que determinan cómo el controlador opera el entorno—. En Shodan, buscar "ENCO" (el fabricante del controlador involucrado) sigue devolviendo unidades expuestas, incluso en Ucrania, con el puerto 23 (Telnet) y el 502 (Modbus) abiertos. La debilidad no es ni hardware ni software: es el protocolo, y los protocolos nuevos y seguros tardarán décadas en desplazarse por parques instalados que tienen 5, 10, 15 o 30 años y no se reemplazan mañana.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Controlador ENCO expuesto a internet: Shodan] --> B[Modbus puerto 502 sin autenticación]
+    B --> C[FrostyGoop o equivalente: lectura y escritura de registros]
+    C --> D[Corte de calefacción de 600 edificios, 2 días, invierno ucraniano]
+
+</pre>
+
+<h2>Tripolis 2 y la explosión sin logs</h2>
+<p>El relato más inquietante viene de Rob Lee, CEO y cofundador de Dragos. El antecedente: en 2017 Sandworm tuvo control total de una instalación petroquímica en Medio Oriente —el incidente Tripolis—, con una docena de formas de provocar una explosión letal; el objetivo real eran los sistemas instrumentados de seguridad (SIS), el respaldo fail-safe de la planta. El año pasado, el mismo grupo hostigó durante seis semanas una instalación petroquímica en Estados Unidos. Luego hubo una explosión. No hay evidencia de ataque ciber —el CEO dijo que el SIS se disparó y causó la explosión—, pero hay evidencia circunstancial acumulada: el disparo del sistema de seguridad fue justamente el objetivo declarado del incidente anterior, y la planta pertenece al 95% que no monitorea sus redes, así que no hay logs que confirmen ni descarten nada. La moraleja no es el FUD: es que sin monitoreo, el resultado de cualquier investigación será siempre "no hay evidencia".</p>
+<h2>Por qué es tan fácil: no es maldad, es falta de recursos</h2>
+<p>El análisis evita juzgar a los entornos. Las grandes petroleras invierten fuertemente; la vasta mayoría de organizaciones OT —plantas de tratamiento de agua, cooperativas, granjas, agroalimentación, manufactura— no tiene ni personal de ciberseguridad OT, ni de IT, ni a veces personal de IT a secas. Que menos del 5% monitoree redes no es negligencia: es que no hay presupuesto. El que la gran mayoría de ataques entre por IT es un dato, no una acusación.</p>
+<p>Y la respuesta práctica no exige presupuesto de monitoreo. Los fundamentales, en orden de impacto:</p>
+<ul>
+<li><strong>Firewall entre IT y OT:</strong> la medida número uno de reducción de riesgo, porque la mayoría de ataques entra por IT. Y sin lectura de "OT contra IT": hay que trabajar juntos para proteger al conjunto.</li>
+<li><strong>Respaldo y recuperación:</strong> no es si, es cuándo; en OT, además, con plan para escenarios de seguridad física que puedan herir personas.</li>
+<li><strong>Gestión de activos:</strong> saber qué hay en el entorno.</li>
+<li><strong>Arquitectura de red segura.</strong></li>
+<li><strong>Respuesta a incidentes preparada y gestión continua de vulnerabilidades:</strong> ¿estamos más seguros hoy que ayer?</li>
+</ul>
+<p>Con esos cinco, sostiene el análisis, se defiende contra hacktivistas de baja habilidad, contra los operadores de ransomware más sofisticados y contra los mejores adversarios estatales —y cuesta creerlo, asegurar OT es más fácil que asegurar IT si se dominan los fundamentales—. El monitoreo de red sería el sexto ideal, pero no es el requisito para empezar.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La superficie de riesgo OT/ICS de hoy está dominada por exposición evitable: acceso remoto inseguro (65%), SSH a internet (45%) y ausencia casi total de monitoreo (&lt;5%).</li>
+<li>La convergencia entre hacktivistas y actores estatales borra la distinción cómoda entre "ruidoso pero inofensivo" y "raro pero devastador"; el pragmatismo del respondedor —fuera de mi red, sin importar quién— vuelve a ser la estrategia correcta.</li>
+<li>Malware ICS como FrostyGoop demuestra que el daño físico ya no requiere sofisticación: protocolos de 30 años sin autenticación y controladores expuestos en Shodan bastan para cortar calefacción a 600 edificios en invierno.</li>
+<li>Los fundamentales (segmentación IT/OT, respaldos, inventario, arquitectura, IR y gestión de vulnerabilidades) reducen la mayor parte del riesgo en entornos de cualquier edad, con o sin presupuesto de monitoreo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ruVlunKr4BY">«DEF CON 33 - Making it too easy for Attackers in OT/ICS Today - T. Green»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

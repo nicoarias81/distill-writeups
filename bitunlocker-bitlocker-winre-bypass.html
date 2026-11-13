@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BitUnlocker: extraer los secretos de BitLocker desde el entorno de recuperación de Windows — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">BitUnlocker: extraer los secretos de BitLocker desde el entorno de recuperación de Windows</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Cc6vrQSVMII">«DEF CON 33 - BitUnlocker: Leverage Windows Recovery to Extract BitLocker Secrets - Leviev, Ben Simon»</a> · ver el <a class="nz-link" href="https://youtu.be/Cc6vrQSVMII">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>WinRE, el entorno de recuperación de Windows, es una superficie de ataque con potencial enorme y, sorprendentemente, poca atención previa de la investigación: cualquier atacante físico puede arrancarla manteniendo Shift + Reiniciar en la pantalla de inicio de sesión, y bajo el modelo de amenazas de BitLocker —un ladrón con acceso físico completo pero sin credenciales— es la interfaz expuesta más jugosa. La investigación de dos miembros del equipo de security testing y offensive research de Microsoft encontró tres vulnerabilidades de explotación en esa superficie que terminan en un bypass completo de BitLocker, demostrado en vivo sobre una máquina bloqueada sin contraseña: todas las secretos protegidas quedan accesibles. Todo se corrigió en el Patch Tuesday de julio con CVEs asignados.</p>
+<h2>Contexto: BitLocker y los cambios de diseño que abrieron la puerta</h2>
+<p>BitLocker es el cifrado de volumen completo de Windows: por defecto cifra el volumen del OS, de modo que un equipo robado mantiene los datos ilegibles. La importancia no es teórica —se roba una laptop cada 53 segundos, 1 de cada 10 laptops será robada, y el costo promedio ronda los 49.000 dólares contando reemplazo, productividad, legalidad y, sobre todo, la fuga de datos y propiedad intelectual—.</p>
+<p>Cuando se introdujo BitLocker, WinRE tuvo que evolucionar con tres cambios de diseño que definen su seguridad actual:</p>
+<ol>
+<li><strong>Reubicación del WIM</strong>: la Recovery OS completa (DLLs, ejecutables, drivers, comprimidos en <code>winre.wim</code>) se movió del volumen del OS —ahora cifrado— a un <strong>volumen de recuperación dedicado, sin cifrar</strong>. Necesario para que la recuperación sobreviva a fallos de BitLocker, pero expone el WIM a montaje y manipulación por un atacante físico.</li>
+<li><strong>Trusted WIM boot</strong>: para compensar, se valida la integridad del WIM comparando su hash con un hash de confianza. Si coinciden, el volumen del OS se <strong>auto-desbloquea</strong> (WinRE puede recuperar sin intervención); si no, el volumen queda bloqueado. Toda modificación no autorizada rompe la confianza.</li>
+<li><strong>Relock en herramientas riesgosas</strong>: herramientas como el símbolo del sistema disparan una re-bloqueo del volumen del OS; recuperar el acceso exige insertar manualmente la BitLocker recovery key.</li>
+</ol>
+<p>La consecuencia combinada: mientras el WIM es confiable y no se disparan herramientas riesgosas, WinRE corre en estado <strong>auto-unlocked</strong> con acceso total al OS cifrado. Y en ese estado, WinRE <strong>parsea archivos de volúmenes sin protección</strong>: el volumen EFI y el volumen de recuperación —archivos que antes de BitLocker no importaban porque no había frontera de seguridad que cruzar. Con BitLocker, cualquier ejecución de código en WinRE auto-unlocked sirve para extraer las secretos. Los tres vectores atacan exactamente ahí: <code>boot.sdi</code> y <code>ReAgent.xml</code> en el volumen de recuperación, y el BCD store en el volumen EFI.</p>
+<h2>Bug 1: sustitución de WIM vía offset en boot.sdi</h2>
+<p>El formato SDI (system deployment image) se usa opcionalmente para arrancar desde disco virtual a RAM disk: al arrancar, todo el WIM se descomprime del disco a un RAM disk, con lo que el entorno de recuperación es intrínsecamente volátil. El <code>boot.sdi</code> contiene un blob WIM con un <strong>offset</strong> que apunta al WinRE WIM confiable, más un volumen NTFS vacío para compatibilidad.</p>
+<p>El pseudocódigo del cargador: recupera los tamaños de SDI y WIM, asigna el buffer, copia el SDI, carga el WIM y calcula su hash para la validación de confianza. Pero hay un detalle fatal: <strong>no existe verificación de que el WIM que se ejecuta sea el que se hasheó</strong> —el offset del SDI puede apuntar a cualquier parte—. El exploit: adjuntar un WIM no confiable (por ejemplo uno que lance CMD directamente) al <code>boot.sdi</code> y ajustar el offset hacia él. La validación del hash del WIM confiable pasa, pero el WIM malicioso se carga y ejecuta en su lugar, con el volumen del OS todavía desbloqueado. En la demo, el C drive —bloqueado ("BitLocker status: locked") al abrir la command prompt sin recovery key— aparece "unlocked" tras el reboot, con las secretas listadas.</p>
+<h2>Bug 2: shell vía offline scanning con TTTracer</h2>
+<p><code>ReAgent.xml</code>, en el volumen de recuperación, define el estado de recuperación de WinRE y se procesa inmediatamente al arranque, antes de cualquier UI. Entre las operaciones programables está el <strong>offline scanning</strong>: un AV scan contra el volumen del OS principal, pensado para cazar malware que no corre dentro de WinRE. El parser permite elegir qué aplicación ejecuta el scan, con tres restricciones: debe correr desde el volumen del OS principal, estar firmada digitalmente por Microsoft o WHQL, y llevar las firmas embebidas en el binario. De las ~30 candidatas, ninguna útil era compatible… hasta encontrar <strong>TTTracer</strong>, la utilidad del time travel debugger, que permite trazar un ejecutable arbitrario. Trazar CMD = lanzar CMD.</p>
+<p>El flujo: antes de arrancar, se edita <code>ReAgent.xml</code> en el volumen de recuperación (accesible y modificable libremente) para programar la operación de offline scanning con TTTracer y CMD como objetivo. Al arrancar WinRE, la operación programada ejecuta TTTracer, que lanza CMD —todo en estado auto-unlocked, con el OS sin cifrar accesible—. En la demo, el BitLocker status pasa a "protection on and unlocked" y las secretas del C drive quedan listadas.</p>
+<h2>Bug 3: app confiable caducada (SetupPlatform) y message box infinita</h2>
+<p>La operación programable "WinRE apps" ejecuta aplicaciones dentro de WinRE: si están registradas como confiables en el registro de WinRE (nombre de ejecutable + hash de archivo, dentro del WIM, inmodificable sin romper su hash), corren con auto-unlock; si no, corren tras el relock. La validación es sólida… salvo por una app registrada legítimamente: <strong>SetupPlatform</strong>, usada durante las actualizaciones de Windows, cuya entrada confiable <strong>permanece en el registro después de completar la actualización</strong>.</p>
+<p>SetupPlatform registra el hotkey Shift + F10 para lanzar CMD, pero falla si falta un archivo de configuración en el volumen del OS (protegido, imposible de crear). El tiempo entre el registro del hotkey y la salida del proceso es demasiado corto para el hotkey manual. El hallazgo decisivo: justo después de registrar el hotkey, SetupPlatform busca un <code>setupplatform.ini</code> <strong>en el volumen de recuperación —el volumen que el atacante controla</strong>—. Configurándolo apropiadamente, se dispara un message box que bloquea la ejecución del proceso: la ventana de tiempo se vuelve infinita, y Shift + F10 lanza CMD con el volumen del OS desbloqueado. La demo: BitLocker "protection on", "unlocked", secretas visibles.</p>
+<h2>Bug 4: impersonación del target OS vía orden de volúmenes y PBR</h2>
+<p>El vector más potente ataca el BCD (Boot Configuration Data), el archivo que define cómo arranca Windows. WinRE lo usa casi exclusivamente para localizar el volumen del OS al que apuntar la recuperación, y confía plenamente en esa configuración —suposición razonable: el BCD vive en el volumen EFI, cifrado bajo BitLocker, fuera del alcance del atacante físico—.</p>
+<p>Modificar el BCD directamente no sirve: el boot manager usa la misma ubicación del target OS para el auto-unlock, y apuntarla al volumen de recuperación impediría desbloquear el volumen cifrado que contiene las secretas. La primitiva debía no interferir con el boot. La solución está en <strong>cómo WinRE busca el store</strong>: itera los volúmenes con <code>FindFirstVolume</code>/<code>FindNextVolume</code> y usa el primer BCD que encuentra. Estas APIs de Windows ordenan los volúmenes de forma inconsistente con el orden real del disco: devuelven primero el OS, luego <strong>el de recuperación, y recién después el EFI</strong>. Basta colocar un BCD store controlado por el atacante en el volumen de recuperación para que WinRE lo use en lugar del legítimo —sin tocar el que usa el boot manager—.</p>
+<p>Con esa primitiva de impersonación, cualquier configuración que WinRE consulte "del target OS" pasa a estar bajo control del atacante. Para explotarla hacía falta un flujo de WinRE que se pueda disparar libremente (desde la UI o desde <code>ReAgent.xml</code>), que no dispare el relock, y que consulte configuración sensible del target OS. El candidato perfecto: <strong>Push Button Reset (PBR)</strong>, la herramienta de reset de Windows, en su modo <em>online</em>. Su configuración sensible es <code>resetSession.xml</code> en el volumen del OS, que define todas las operaciones del reset —incluida la directiva <strong>decryptVolume</strong>, que ordena descifrar un volumen BitLocker arbitrario—.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Exploit en volumen de recuperación\nsin protección] --> B[ReAgent.xml: programa online PBR]
+    A --> C[BCD store falso: target OS →\nvolumen de recuperación]
+    A --> D[resetSession.xml falso:\ndecryptVolume del OS cifrado]
+    B --> E[Boot: boot manager usa BCD legítimo del EFI\nauto-unlock del volumen cifrado]
+    E --> F[WinRE itera volúmenes:\nencuentra primero el BCD falso]
+    F --> G[PBR consulta su config del volumen falso\ny descifra el volumen del OS]
+    G --> H[BitLocker disabled:\nsecretas libremente accesibles]
+
+</pre>
+
+<p>La demo completa sobre la máquina bloqueada: exploit en D (volumen de recuperación), reboot, PBR corre durante minutos descifrando el volumen; al volver a WinRE, la recovery key ya no se solicita, el C drive se lista íntegro, y el BitLocker status muestra "protection off" —el bypass no rompe el cifrado: lo deshabilita—. De una primitiva de impersonación acotada se pasó a una primitiva de descifrado arbitrario de BitLocker.</p>
+<h2>Mitigaciones y estado de las correcciones</h2>
+<p>Todas las vulnerabilidades y técnicas de explotación se corrigieron en el Patch Tuesday de julio, con CVEs asignados. Las recomendaciones accionables de extremo a extremo:</p>
+<ul>
+<li><strong>TPM + PIN</strong> para la autenticación pre-boot: reduce la superficie al TPM; con PIN, los bypass originados en WinRE, componentes de boot o la pantalla de inicio de sesión exigen además la clave.</li>
+<li><strong>Mitigación contra downgrade attacks</strong> de BitLocker: enforce de versionado seguro en componentes críticos de boot, impidiendo reintroducir vulnerabilidades conocidas de BitLocker y Secure Boot.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>WinRE / Recovery OS</strong>: plataforma de recuperación de Windows; Recovery OS volátil descomprimida a RAM disk desde <code>winre.wim</code> en el volumen de recuperación no cifrado.</li>
+<li><strong>Trusted WIM boot</strong>: validación por hash del WIM que gobierna el auto-unlock del volumen del OS.</li>
+<li><strong>Boot.sdi offset confusion</strong>: WIM no confiable adjunto con offset manipulado, ejecutado en lugar del WIM hasheado.</li>
+<li><strong>Offline scanning abuse</strong>: programación de TTTracer (time travel debugging) en <code>ReAgent.xml</code> para lanzar CMD firmado por Microsoft.</li>
+<li><strong>Trusted app stale registration</strong>: reutilización de la entrada confiable de SetupPlatform post-actualización, con <code>setupplatform.ini</code> en el volumen de recuperación para congelar el proceso vía message box.</li>
+<li><strong>BCD store iteration confusion</strong>: <code>FindFirstVolume</code>/<code>FindNextVolume</code> devuelven el volumen de recuperación antes que el EFI, permitiendo un BCD falso sin afectar el boot.</li>
+<li><strong>Online PBR + decryptVolume</strong>: Push Button Reset en modo online, con <code>resetSession.xml</code> controlado, para descifrar el volumen BitLocker completo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los cambios de diseño que hicieron a WinRE compatible con BitLocker crearon, paradójicamente, su mayor superficie de ataque: parsear archivos de volúmenes sin protección en estado auto-unlocked equivale a entregar la clave del OS cifrado a quien controle esos archivos.</li>
+<li>La fragilidad no residía en la criptografía sino en suposiciones de confianza no verificadas: el WIM hasheado no es necesariamente el WIM ejecutado, la app confiable puede ser una sobrante, y el BCD "inalcanzable" se consulta antes de tiempo en el volumen equivocado.</li>
+<li>El bypass completo de BitLocker se logra sin romper AES ni extraer claves: se deshabilita la protección con las propias herramientas de recuperación de Windows.</li>
+<li>Las contramedidas concretas —TPM + PIN y mitigación de downgrades— existían y bastan para cerrar estos caminos; aplicarlas antes del robo de la laptop es la diferencia entre un incidente y una fuga de 49.000 dólares.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Cc6vrQSVMII">«DEF CON 33 - BitUnlocker: Leverage Windows Recovery to Extract BitLocker Secrets - Leviev, Ben Simon»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

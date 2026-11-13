@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Biometría facial: cómo funcionan y dónde fallan los sistemas que nos identifican — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Biometría facial: cómo funcionan y dónde fallan los sistemas que nos identifican</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AN5sYXzENZs">«Biometría facial: un enfoque de seguridad - Carlos Ganoza - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/AN5sYXzENZs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El reconocimiento facial dejó de ser ciencia ficción: se usa para desbloquear teléfonos, abrir cuentas bancarias, marcar asistencia y controlar el acceso a estadios. Las proyecciones para 2025 estiman 1.400 millones de personas usando esta tecnología para acceder a productos financieros. Sin embargo, la mayoría de quienes implementan estos sistemas no entiende cómo funcionan por dentro, y ese desconocimiento los convierte en presas fáciles de fabricantes que venden humo de "inteligencia artificial y blockchain".</p>
+<p>Este artículo desarma la caja negra: cómo un rostro se convierte en un vector matemático, por qué la biometría funciona con probabilidades y no con coincidencias exactas, y qué significa realmente el "ratio de falsa aceptación". Después recorre los ataques reales —desde sostener una foto frente a la cámara hasta la inyección de video directo en la aplicación— y el concepto que separa a los sistemas serios de los juguetes: la prueba de vida (liveness detection).</p>
+<p>La tesis central es doble. Primero: la biometría facial no es una bala de plata, es un control más dentro de un sistema de seguridad, y sin un segundo factor el compromiso de los datos biométricos es irreversible. Segundo: ningún control sirve de nada si el usuario no puede usarlo — la seguridad que ignora la experiencia de usuario termina escrita en un post-it pegado al monitor.</p>
+<h2>De la tableta de Stanford al Face ID</h2>
+<p>La historia empieza mucho antes de los selfies. En los años 60, en la Universidad de Stanford, se desarrolló la "Rand Tablet", una tableta rudimentaria precursora de las Wacom actuales, donde ya se trabajaba en detectar patrones para convertir manuscritos en datos digitales. Su creador es uno de los padres del reconocimiento de patrones dentro de la inteligencia artificial, y ese trabajo temprano sigue siendo valioso para los desarrollos actuales.</p>
+<p>Los hitos posteriores son conocidos: Google lanzó en 2011 el primer celular con validación de biometría facial, y Apple respondió en 2017 con el iPhone X y su Face ID con sensor 3D. Hoy el reconocimiento facial está en todas partes, y no solo en el ámbito de seguridad: los filtros de Snapchat o Instagram que ponen ojos de perrito o "arreglan" el rostro necesitan primero detectar los patrones faciales para superponer el efecto. Pero el uso que importa aquí es el identificador: la tecnología que decide si una persona es quien dice ser.</p>
+<h2>Cómo funciona: embeddings, distancias y probabilidades</h2>
+<p>Un sistema de reconocimiento facial moderno sigue un camino simple de describir:</p>
+<ol>
+<li>Un sensor (normalmente una cámara) captura el rostro.</li>
+<li>Una red neuronal convolucional procesa la imagen y detecta los patrones del rostro.</li>
+<li>El resultado es un embedding: un vector, la representación matemática de esos patrones.</li>
+<li>El sistema guarda bases de datos de vectores y compara el vector capturado contra los almacenados.</li>
+</ol>
+<p>La comparación es geometría: dos vectores son puntos en un espacio, y cuanto más cerca están, más similares son los rostros. Métodos como la distancia euclidiana cuantifican esa cercanía. Aquí está la diferencia fundamental con las contraseñas: una contraseña debe coincidir exactamente, carácter por carácter; un rostro se valida por similitud, por probabilidad. Siempre existe un margen de error, y por eso todos los sistemas usan el FAR (False Acceptance Ratio): el porcentaje de personas que no son el titular pero que el sistema deja pasar. Los fabricantes suelen garantizar un 1%, y ese umbral se puede ajustar según el contexto — no exige lo mismo marcar asistencia en un colegio que abrir una cuenta bancaria o recuperar el acceso a una cuenta financiera.</p>
+<p>Un ejemplo práctico con la librería Python DeepFace (disponible en GitHub) lo ilustra: comparando rostros de personas distintas con el modelo VGG Face, la distancia euclidiana resulta superior a 1 y la verificación devuelve "False"; con dos fotos distintas de la misma persona, la distancia es menor y el resultado es "True".</p>
+<p>Hay una consecuencia crítica de esta naturaleza probabilística: si te filtran una contraseña, la cambiás y listo. Si se compromete tu plantilla biométrica —tu rostro, tus huellas— no hay rotación posible. Nadie se va a operar porque su foto se vendió en alguna base de datos. Los datos biométricos son credenciales que no se pueden revocar.</p>
+<h2>Seguridad o usabilidad: un falso dilema</h2>
+<p>¿Por qué se implementa biometría facial: por seguridad o por experiencia de usuario? La respuesta correcta es "ambas". Un caso real: el acceso a estadios con identificación facial se adoptó para detectar personas en listas negras y evitar la falsificación de entradas (seguridad), pero también elimina la necesidad de retirar o presentar un ticket físico, y resuelve los problemas de entradas perdidas o teléfonos sin batería (usabilidad).</p>
+<p>El principio general aplica a cualquier control: de nada sirve una política súper rigurosa que nadie puede cumplir. Contraseñas de mil dígitos serían infalibles en teoría y desastrosas en la práctica: el usuario las anotaría en el blog de notas del celular o en un post-it. Al definir controles hay que contextualizar quién es el usuario —no es lo mismo una persona técnica que un usuario final, una persona mayor o un niño— y también anticipar el costo del fallo: si un sistema de acceso a estadios identifica mal y bloquea a todos como si estuvieran en lista negra, el problema es grave.</p>
+<h2>Ataques clásicos: foto, pantalla y máscara 3D</h2>
+<p>Los primeros bypasses de la biometría móvil son ilustrativos. En 2017, el primer Samsung Galaxy con reconocimiento facial se burlaba sosteniendo una foto del titular frente a la cámara: el sistema estaba programado para dejar pasar a quien "se pareciera mucho" al rostro registrado, y una foto se parece mucho. En el mismo período, el Face ID de Apple requería un ataque más sofisticado: una máscara hiperrealista impresa en 3D del rostro del usuario, con el escaneo previo del rostro y una inversión considerable. El resultado fue el mismo —acceso a la cuenta—, pero la explotabilidad no es comparable: para el primer caso basta entrar al Facebook de la víctima y descargar una foto; para el segundo hay inversión, equipamiento y tiempo. Que algo se pueda vulnerar no significa que sea fácil de vulnerar, y esa distinción es la que debe guiar la evaluación de riesgo.</p>
+<h2>Prueba de vida: el eslabón que lo decide todo</h2>
+<p>Dorothy Denning, científica matemática, acuñó en 2011 el término "pruebas de vida" con una idea contundente: los sistemas de biometría facial son tan robustos como lo sea su prueba de vida. No por los secretos —los datos biométricos no son secretos, circulan en fotos y videos en redes sociales—, sino porque el sistema debe verificar que hay una persona viva y real frente al sensor. La pregunta correcta no es "¿se parece al titular?" sino "¿es una persona viva, presente, y no una foto o una pantalla?".</p>
+<p>Existen dos modalidades:</p>
+<ul>
+<li><strong>Pasiva</strong>: el usuario solo se pone frente a la cámara y el software analiza patrones anómalos. Un ejemplo clásico es el análisis de textura: una pantalla reproduce la imagen con píxeles visibles, una piel real no.</li>
+<li><strong>Activa</strong>: el sistema pide movimientos concretos —mirar a un lado y al otro, sonreír, abrir la boca—.</li>
+</ul>
+<p>La norma ISO/IEC 30107 define dos niveles de certificación anti-spoofing que cualquier fabricante serio debe cumplir. El nivel 1 cubre ataques triviales: máscaras impresas simples y fotos frente a la cámara. El nivel 2 cubre máscaras impresas más realistas. Pero fuera de la norma quedan ataques más serios: máscaras hiperrealistas, manipulación de datos biométricos capturados, alteración de sensores, dispositivos o aplicaciones, y la inyección directa de fotos o videos.</p>
+<p>La inyección de video es el ataque que salta el sensor por completo: no se imprime ni se proyecta nada, se engaña a la aplicación haciéndole creer que la cámara está capturando en vivo cuando en realidad recibe una emulación de cámara con un video pregrabado. Con una prueba de vida pasiva, el video en loop del rostro del titular basta para pasar la validación y cambiar la contraseña de la cuenta.</p>
+<p>Con prueba de vida activa la cosa se complica, pero no se resuelve: como los movimientos solicitados están predefinidos (girar la cabeza a la derecha, abrir la boca, mirar al otro lado), basta extraer de una entrevista pública en YouTube los clips donde la víctima hace exactamente esos movimientos, recortarlos y reproducirlos en el momento justo en que el sistema los pide. El sistema evalúa probabilidades, el video acumulado cruza el umbral configurado, y la validación pasa. Sin imprimir una sola foto: el sensor quedó bypaseado.</p>
+<p>Esta vulnerabilidad tiene una contracara defensiva clara: la aplicación móvil es parte de la superficie de ataque. Un cliente que prevenga ingeniería inversa y manipulación, que aplique un correcto gobierno de la configuración y los permisos, y que imponga un límite de intentos —el atacante necesita muchas pruebas y los usuarios reales solo una— habría complicado o directamente impedido el ataque.</p>
+<p>Un paper académico apunta a una defensa de prueba de vida viable en teléfonos comunes: la pantalla se pone en blanco y proyecta luz blanca sobre el rostro; si la superficie es plana (una foto o una pantalla), la reflexión delata al impostor, mientras que un rostro 3D real la difumina de forma característica. Una alternativa al sensor 3D dedicado de Apple, que no está abierto al público y no escala a aplicaciones masivas.</p>
+<h2>Nuevas amenazas y conclusiones</h2>
+<p>La IA generativa agravó el panorama: hoy existen soluciones que crean identificaciones falsas superrealistas, el nuevo desafío para sistemas que cada día son más masivos. Y los casos límite siguen ahí: gemelos idénticos, maquillaje extremo. La biometría mide distancias —entre ojos, nariz, proporciones del rostro— y en algunas soluciones escaneo 3D completo, así que más allá de pintarse la ceja más arriba, la forma del rostro manda; pero ante gemelos, la probabilidad de suplantación existe y solo un factor adicional la reduce de verdad.</p>
+<p>Para llevar:</p>
+<ul>
+<li><strong>La biometría es probabilística, no exacta.</strong> Todo sistema tiene un FAR mayor que cero; ajustar el umbral según el contexto y el costo del error es parte del diseño, no un detalle.</li>
+<li><strong>Los datos biométricos no se pueden rotar.</strong> Su compromiso es permanente, lo que eleva el estándar de protección exigible.</li>
+<li><strong>La prueba de vida es el eslabón crítico</strong>, y su lado débil suele estar en la aplicación: hardening contra ingeniería inversa, gobierno de permisos y límite de intentos son tan importantes como el algoritmo.</li>
+<li><strong>La biometría no es bala de plata</strong>: es un control más. Combinada con un segundo factor, romperla deja de ser suficiente.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Embedding facial</strong>: vector matemático que codifica los patrones del rostro, producido por una red neuronal convolucional.</li>
+<li><strong>Distancia euclidiana</strong>: métrica de similitud entre vectores faciales; menor distancia, mayor parecido.</li>
+<li><strong>FAR (False Acceptance Ratio)</strong>: porcentaje de impostores que el sistema deja pasar; los fabricantes suelen garantizar ~1%.</li>
+<li><strong>DeepFace</strong>: librería Python de Face Recognition, con modelos como VGG Face, útil para entender e implementar verificación facial.</li>
+<li><strong>Prueba de vida pasiva</strong>: análisis por software (ej. textura de pantalla) sin acción del usuario.</li>
+<li><strong>Prueba de vida activa</strong>: movimientos solicitados (girar cabeza, abrir boca); vulnerable a ataques con clips pregrabados.</li>
+<li><strong>ISO/IEC 30107</strong>: norma de certificación anti-spoofing con niveles 1 y 2 (fotos simples a máscaras impresas realistas).</li>
+<li><strong>Inyección de video</strong>: bypass del sensor emulando la cámara y alimentando la app con video pregrabado.</li>
+<li><strong>Prueba de vida por luz blanca</strong>: técnica de paper académico que ilumina el rostro con pantalla en blanco para distinguir superficie plana de rostro 3D real.</li>
+<li><strong>Máscara 3D hiperrealista</strong>: ataque físico de alto costo contra Face ID.</li>
+<li><strong>Hardening de aplicaciones móviles</strong>: anti ingeniería inversa, gobierno de configuración/permisos y límite de intentos como controles complementarios.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AN5sYXzENZs">«Biometría facial: un enfoque de seguridad - Carlos Ganoza - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

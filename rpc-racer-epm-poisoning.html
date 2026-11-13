@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>You snooze, you lose: ganando endpoints RPC con RPC Racer — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">You snooze, you lose: ganando endpoints RPC con RPC Racer</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vBz8TBVxwk4">«DEF CON 33 - You snooze you lose: RPC Racer winning RPC endpoints against services - Ron Ben Yizhak»</a> · ver el <a class="nz-link" href="https://youtu.be/vBz8TBVxwk4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El Remote Procedure Call (RPC) es el mecanismo de comunicación entre procesos que Windows usa por todas partes: los servicios del sistema se hablan entre sí mediante servidores RPC que exponen interfaces. Toda la investigación ofensiva clásica sobre MSRPC apunta al código vulnerable de los <strong>servidores</strong> para conseguir RCE o escalada de privilegios. Este trabajo da la vuelta: ataca el código de los <strong>clientes</strong>.</p>
+<p>La idea nace de una analogía con DNS. El endpoint mapper (EPM) de Windows funciona como un servidor DNS, pero resuelve UUIDs de interfaz RPC a endpoints de comunicación. Si existe el DNS poisoning, ¿existe el <strong>EPM poisoning</strong>? La respuesta es sí, y no hace falta ningún privilegio para montarlo: un proceso de integridad media puede registrarse en el EPM con la interfaz de un servicio del sistema —incluso de uno crítico como Windows Defender— y el mapper le reenviará clientes sin hacer ninguna verificación de identidad.</p>
+<p>Encadenando esa usurpación con un servicio de arranque tardío, un método indocumentado que devuelve una ruta y una máquina unida a un dominio, se consigue que un servicio protegido autentique con NTLM usando las credenciales de la cuenta de máquina. El fallo del storage service fue reconocido por Microsoft y parcheado el 8 de julio.</p>
+<h2>Cómo funciona el RPC de Windows</h2>
+<p>Un servidor RPC expone funcionalidades que los clientes le piden ejecutar en su nombre. Ambos lados comparten un archivo IDL (interface definition language) con structs, enums, funciones y, sobre todo, el <strong>UUID</strong> de la interfaz: el identificador único con el que el servidor se registra y el cliente lo busca.</p>
+<p>Antes de comunicarse, el cliente crea un <em>binding handle</em> con tres partes:</p>
+<ol>
+<li><strong>Secuencia de protocolo</strong>: TCP, named pipes sobre SMB, o LPC/ALPC para comunicación local eficiente y segura. La mayoría de servidores RPC de Windows usan endpoints ALPC.</li>
+<li><strong>Dirección de red</strong>: IP o nombre del equipo.</li>
+<li><strong>Endpoint</strong>: el puerto (TCP), el nombre del pipe (SMB) o un string único (LPC).</li>
+</ol>
+<p>Al registrarse, un servidor puede declarar su endpoint (<em>well-known</em>, hardcodeado en el cliente) o dejar que el sistema le genere un string dinámico (<em>dynamic endpoint</em>). Ahí aparece la pregunta clave: si el endpoint dinámico es aleatorio, ¿cómo lo encuentra el cliente? Por el <strong>endpoint mapper</strong>, que mapea cada UUID a los endpoints que lo exponen y conecta al cliente con el <strong>primer servidor que registró esa interfaz</strong> (el orden no puede modificarse; las entradas solo se quitan cuando el proceso original se desregistra o muere).</p>
+<h2>EPM poisoning: sin credenciales, sin privilegios</h2>
+<p>El primer hallazgo fue casi decepcionante de tan fácil: con la API <code>RpcEpRegister</code>, un proceso cualquiera registra una interfaz que pertenece a un servicio del sistema y <strong>funciona</strong>. Sin admin, sin elevation. El EPM no comprueba nada sobre quién registra qué.</p>
+<p>El matiz: los clientes solo llegan si el servicio original todavía no se registró. Registrando la interfaz de un servicio apagado, el cliente conectó inmediatamente al impostor. La conclusión estructural: <strong>todo servidor RPC que no arranca en el boot es secuestrable</strong>.</p>
+<p>Para cazar objetivos se desarrolló <strong>RPC Recon</strong> (público en GitHub): un tool que se lanza como tarea programada al iniciar sesión, consulta el EPM y escanea la memoria de los procesos (localizando el módulo RPCRT4 y parseando sus estructuras internas) para listar endpoints well-known y dinámicos. Escanea dos veces —temprano en el boot y varios minutos después, cuando arrancan los servicios diferidos— y la diferencia entre ambas pasadas son las interfaces que se pueden registrar antes que el servicio legítimo.</p>
+<h2>Primer intento: impersonar y chocar con la política</h2>
+<p>Armado con una lista de objetivos, un servidor RPC genérico se puso a registrar interfaces y a recibir conexiones de procesos que corren como <strong>Local System</strong>. La escalada más intuitiva falló: llamar <code>RpcImpersonateClient</code> y crear un proceso con el token obtenido devuelve "bad impersonation level". La razón es la <strong>política de impersonación</strong>: un thread de integridad media solo puede obtener el nivel <em>identification</em> (consultar quién es el cliente) sobre un token de integridad superior, no el nivel <em>impersonate</em> (actuar con su contexto de seguridad) ni <em>delegation</em> (acceder a recursos remotos con él).</p>
+<p>El segundo intento —usar el token para autenticar NTLM contra un SMB propio y capturar el hash— choca con la misma política: el acceso a recursos remotos exige delegation.</p>
+<h2>Segundo intento: servicios de autenticación y el QoS de seguridad</h2>
+<p>Cambiando de enfoque, se buscó entre las interfaces vulnerables una cuyo secuestro entregara credenciales directamente: nombres con "credentials", "identity", "accounts" apuntaron al Vault service, Microsoft Account Signing Assistant y Sync Host. Ninguna conexión llegó. Motivo: el <strong>security quality of service</strong> del binding handle. Un cliente puede exigir que el servidor corra como un SID concreto (por ejemplo, <code>NT AUTHORITY\SYSTEM</code>); si el impostor corre como otro usuario, la conexión se rechaza. Microsoft Account Signing Assistant hace exactamente eso antes de aplicar el binding.</p>
+<h2>Tercer intento: el storage service y la ruta maliciosa</h2>
+<p>Recapitulando: conexiones de servicios privilegiados sin posibilidad de impersonar; servicios de autenticación que exigen un SID específico. La tercera vía fue pedirle al servicio víctima que hiciera una acción que el atacante no puede hacer nativamente, como escribir en <code>system32</code>. Mascarándose como servicio de sistema de archivos, algún cliente privilegiado pediría datos que luego copia donde sea.</p>
+<p>El elegido fue el <strong>storage service</strong> (implementado en <code>fileStoreSVC.dll</code>, configurado con <em>delayed start</em>). Su lista de clientes deja sin aliento: <strong>Windows Update</strong> —un servicio que puede modificar drivers y DLLs del core— conecta a un proceso desconocido sin privilegios. Luego conectó el propio storage service (se usa a sí mismo como cliente, pero el impostor se registró primero) y el <strong>delivery optimization service</strong>, que corre como <strong>Protected Process Light</strong>, la clase de proceso más protegida de Windows. Hasta los procesos más blindados caen en la trampa.</p>
+<p>De los 36 métodos de la interfaz, solo tres se invocaban. Dos devolvían enteros (poco útil); el tercero, <code>getStorageDeviceInfo</code>, devolvía una estructura indocumentada con mucho más potencial. Para entenderla se miró el lado cliente: el call stack atravesaba <code>AppXDeploymentClient</code>, cuyos <strong>símbolos públicos</strong> contenían enums, nombres de variables y toda la definición necesaria, incluida una <strong>ruta</strong>.</p>
+<p>Comparando el desensamblado de todos los clientes se encontró la joya: el delivery optimization service hace unos sanity checks sobre la ruta recibida (superables devolviendo un share de red hacia <code>C:</code> de la máquina local) y luego <strong>crea un directorio basado en esa ruta</strong>. Un proceso sin privilegios dicta una ruta que un proceso privilegiado usa. Probado: se creó un directorio en el home del usuario del servicio.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Proceso de integridad media] --> B[RPC Recon: halla interfaces con registro tardío]
+    B --> C[Registra la interfaz del storage service en el EPM]
+    C --> D[Delivery optimization consulta el EPM y conecta al impostor]
+    D --> E[getStorageDeviceInfo devuelve un SMB share del atacante]
+    E --> F[Autenticación NTLM con la cuenta de máquina]
+    F --> G[Relay de la autenticación]
+
+</pre>
+
+<h2>La cuenta de máquina: cruzar la frontera</h2>
+<p>¿Por qué importa? El delivery optimization corre como <strong>Network Service</strong>: token de integridad altísima, pero fuera del grupo administradores. Su propósito es poder autenticarse contra máquinas remotas, y lo hace con la <strong>cuenta de máquina</strong>: la cuenta que Active Directory crea en NTDS para cada equipo unido al dominio, reconocible por el <code>$</code> final. Las sesiones de usuarios logueados no pueden usar esas credenciales; solo Local System y Network Service.</p>
+<p>La vulnerabilidad rompe justo esa frontera: devolviendo un share de un servidor externo, el delivery optimization autentica NTLM contra él con la cuenta de máquina, y el atacante retransmite (relay) la autenticación. El exploit completo vive en <strong>RPC Racer</strong> (también público): lanza una tarea programada al logueo, registra la interfaz del storage service, deja que delivery optimization pida la ruta y recibe la autenticación NTLM de la cuenta de máquina para retransmitirla.</p>
+<h2>Impacto en dominio: ESC8 y volcado de secretos</h2>
+<p>Relayar el NTLM de vuelta a la misma máquina está bloqueado por mitigación, así que hay que encontrar otro servidor en el dominio. El caso ideal: correr el attack desde un <strong>domain controller</strong> y apuntar al <strong>ESC8</strong>, la explotación del web enrollment de Active Directory Certificate Services (ADCS). La cadena:</p>
+<ol>
+<li>NTLMRelayX (Impacket) recibe la autenticación de la cuenta de máquina del DC y la retransmite al web server de ADCS, obteniendo un <strong>certificado</strong> que representa esa cuenta.</li>
+<li>Certify pide al DC un <strong>TGT</strong> (ticket granting ticket de Kerberos) a partir del certificado.</li>
+<li>Con el TGT de la cuenta de máquina del DC, SecretsDump (Impacket) vuelca los hashes de <strong>todos los usuarios del dominio</strong>.</li>
+</ol>
+<p>La demostración completa: SMB relay, logueo sin privilegios, reinicio, autenticación capturada, certificado, TGT y volcado de secretos del controlador de dominio.</p>
+<h2>Detectar y corregir</h2>
+<p>El parche de Microsoft (8 de julio) tocó al <strong>cliente</strong> del storage service: en vez de un binding handle simple, ahora aplica un security QoS que exige que el servidor corra como Local System. Pero como solo se parcheó ese cliente, quedan muchos otros expuestos al EPM poisoning. Sugerencias de detección:</p>
+<ul>
+<li><strong>Hooking</strong> de <code>RpcEpRegister</code>: si un proceso no legítimo intenta registrar una interfaz built-in conocida, alertar.</li>
+<li><strong>ETW</strong>: el provider <code>Microsoft-Windows-RPC</code> registra eventos que correlacionan el PID del impostor, el PID de la víctima y la interfaz secuestrada, incluso el número de procedimiento invocado.</li>
+</ul>
+<p>Otras vías con el mismo primitivo: ataques man-in-the-middle reenviando peticiones al servicio original y filtrando llamadas para ocultar el foothold; denegación de servicio silenciosa registrando interfaces ajenas; envenenar los archivos de configuración que el delivery optimization busca en la carpeta privada que el atacante ahora controla (<code>lkg.dat</code> con URLs de descarga, <code>dosvcstate.dat</code> con CDN URL y working directory). Y candidatos evidentes para seguir investigando: Windows Security Center (delayed start, interactúa con Windows Defender) — secuestrarlo podría quizá neutralizar al antivirus.</p>
+<h2>Lecciones</h2>
+<ul>
+<li><strong>Verificar la identidad del servidor, siempre.</strong> Como SSL pinning valida que el certificado use una clave pública concreta, los clientes RPC deberían validar quién está del otro lado. El diseño actual del EPM no lo hace; la carga recae en el cliente.</li>
+<li><strong>Los delayed starts son deuda de seguridad.</strong> Se configuran para acelerar el boot, pero cualquier ventana donde código no confiado pueda ejecutarse antes es terreno de ataque. El rendimiento no puede pagarse con seguridad.</li>
+</ul>
+<p>Herramientas publicadas: <strong>RPC Recon</strong> (mapear interfaces secuestrables) y <strong>RPC Racer</strong> (explotar y observar clientes), ambas en GitHub.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vBz8TBVxwk4">«DEF CON 33 - You snooze you lose: RPC Racer winning RPC endpoints against services - Ron Ben Yizhak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

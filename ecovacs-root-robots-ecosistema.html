@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De la caja a la raíz en media hora: anatomía del ecosistema de robots Ecovacs — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">De la caja a la raíz en media hora: anatomía del ecosistema de robots Ecovacs</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/_wUsM0Mlenc">«DEF CON 33 - Un Proceso De La Cola A La Raíz: Reverse Engineering The Ecovacs Robot Ecosystem - Dennis Giese, Braelynn-»</a> · ver el <a class="nz-link" href="https://youtu.be/_wUsM0Mlenc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cinco años de investigación privada sobre el ecosistema Ecovacs —aspiradoras Deebot, purificadores Airbot, cortacéspedes G1 y la submarca Yeedi, todo lo que corre Linux— llegan a una conclusión rotunda: hay acceso root en todos los robots lanzados, con certificaciones de seguridad de por medio que no impidieron nada. Los hallazgos abarcan app, robots y nube, y el más grave —ejecución remota de código por Bluetooth, sin parche a la fecha— encadena todo lo demás.</p>
+<p>La motivación de fondo va más allá del hacking recreativo: verificar las promesas de privacidad de los fabricantes, frenar el teléfono a casa perpetuo, facilitar el derecho a reparación y, no menos importante, poder auditar un dispositivo de segunda mano. Con un restablecimiento de fábrica no basta: el software de un robot usado es indistinguible de un rootkit instalado por el dueño anterior, y el acceso root es la única vía de verificación real. El historial del sector da munición a la desconfianza: iRobot fue pillado vendiendo imágenes de hogares capturadas por sus aspiradoras para etiquetado por trabajadores externos, y se rumoreó que el interés de Amazon en comprar la compañía era por los datos, no por los robots.</p>
+<h2>Hardware y ecosistema</h2>
+<p>Ecovacs, fundada en 1998 en China y con cuota global estimada entre los dos o tres primeros fabricantes, recicla hardware entre generaciones, lo que multiplica el valor de cada hallazgo. El Deebot X1 y el purificador Airbot Z1 comparten base: SoC Horizon X3 con cuatro núcleos ARM Cortex-A más un Cortex-R y aceleración de IA, 2 GB de RAM, un MCU GD32 clon de STM32, y un chip dedicado de Baidu para procesamiento de voz con firmware propio. El Z1 —apodado SpyBot— añade una cámara extra y seis micrófonos, sigue a las personas por la casa, hace videovigilancia con alerta de intrusos y persigue a su dueño enfocando su cara; por dentro, es un X1 montado sobre un chasis de la serie 900 vieja, conectados por un cable Ethernet interno.</p>
+<p>El cortacésped G1 es otra liga: octa-core Rockchip con acelerador de IA, 4 GB de RAM, 16 GB de eMMC, varios MCU (pantalla, cuchillas), cámara 360, cámara frontal, sensores de tiempo de vuelo, lluvia y choque. Navega con GPS, cámaras visuales y de tiempo de vuelo para generar nubes de puntos, balizas de banda ultraancha y módulo LTE opcional. Desarmarlo llevó horas de tornillos; el hallazgo clave es que todos los modelos desde 2019 exponen puertos de depuración idénticos —UART a 3,3 V, SWD y USB— que dan shell de root sin romper precintos de garantía.</p>
+<p>En software, son servidores Linux móviles con ROS Melodic, la suite propietaria Medusa, Python 2.7, y SDKs de AWS Kinesis (transmisión de vídeo fuera de China) y Alibaba (dentro). Las protecciones contra root son escasas o nulas, aunque incluyen ofuscación con XOR y desplazamientos de bits, antidebugging que detecta LD_PRELOAD y depuradores, y Secure Boot o Android Verified Boot en algunos modelos.</p>
+<h2>Privacidad: la nube no olvida</h2>
+<p>La app y los robots son hablan demasiado con sus servidores de Ecovacs con los servidores de Ecovacs, con endpoints de recolección llamados, sin pudor, "big data" y "data upload". Se transmiten coordenadas en vivo dentro de la casa, puntos de acceso WiFi propios y vecinos (el robot mapea el mundo entero), información de depuración cuando se atasca y, en algunos modelos, imágenes para análisis de IA que pueden ir a la nube de Alibaba aunque el usuario no haya dado su consentimiento. Los mapas y fotos viven en una base NoSQL sin controles de acceso: quien conozca el identificador del objeto puede leer el plano de tu casa. Y el olvido es imposible: los mapas persisten tras un restablecimiento de fábrica o tras vincular el robot a otra cuenta, sobreviven a la eliminación de la cuenta entera y, peor aún, los tokens JWT siguen siendo válidos después de borrar la cuenta, con acceso al robot incluido. En el dispositivo, la partición de datos sin cifrar guarda el hash MD5 del PIN de vídeo en vivo, el PIN del cortacésped en texto plano, credenciales WiFi y registros del asistente de voz.</p>
+<h2>Las grietas de TLS</h2>
+<p>La app principal valida certificados correctamente; los plugins específicos de cada robot no siempre. Aceptan certificados autofirmados sin advertencia alguna, de modo que en una WiFi hostil —aeropuerto, hotel, la red abierta de la conferencia— un atacante intercepta los tokens de autenticación y obtiene acceso completo a la cuenta, vídeo incluido, durante hasta siete días. Los propios robots también aceptan certificados autofirmados en sus conexiones MQTT/TLS, lo que permite inyecciones de actualizaciones OTA maliciosas; la causa es visible en los scripts bash que llaman a wget sin verificación de certificado.</p>
+<h2>El PIN de la cámara: honestidad opcional</h2>
+<p>El acceso remoto a vídeo y audio, servido por AWS Kinesis, está protegido por un PIN que verifica la nube contra el hash local del robot antes de abrir la sesión WebRTC. El diseño falla en lo conceptual: la autenticación es del lado cliente y el robot no registra autenticaciones exitosas, así que la sesión se confía a la honestidad de la app. Manipulando el tráfico con Burp Suite —con reglas de buscar y reemplazar— un PIN incorrecto se convierte en una respuesta "correcta" y la sesión de vídeo se establece igual; incluso se puede eliminar por completo la consulta del PIN de la app. No es un problema de AWS sino de la implementación del fabricante. Reportado en 2023, el arreglo fue parcial: se actualizaron plugins, no el firmware, y retrasar la app con el plugin antiguo reabre la puerta. A esto se suma un detalle siniestro: el aviso sonoro que reproduce el robot al acceder a la cámara vive en la partición sin cifrar, así que puede sustituirse por un archivo vacío y la vigilancia queda en silencio.</p>
+<h2>El cortacésped y la ejecución remota por Bluetooth</h2>
+<p>El G1 incorpora un mecanismo antirrobo: al levantarlo suena la alarma y hace falta un PIN para desbloquearlo. Ese PIN vive en un archivo de texto plano en el sistema del SoC, lo que hace el mecanismo decorativo; la recomendación general para este tipo de equipos —de cualquier fabricante— es no dejarlos fuera desprotegidos.</p>
+<p>La vulnerabilidad central afecta a todos los robots nuevos y a todos los cortacéspedes: BLE se usa para el aprovisionamiento (enviar credenciales WiFi) y en los cortacéspedes queda activo permanentemente como vía de control alternativa; en las aspiradoras está activo los primeros 20 minutos tras el arranque y en cada reinicio nocturno de mantenimiento. El protocolo cifra su carga con una clave AES estática, de complejidad comparable a un conteo del uno al ocho con el nombre de la marca, y la validación posterior de la entrada es deficiente: un argumento extraído del JSON se inserta directamente en una línea de comandos, y la inyección resultante se ejecuta como root.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante con teléfono Android<br/>a 50-100 m por BLE] --> B[Payload cifrado con clave AES estática]
+    B --> C[Inyección de comando en el robot<br/>ejecución como root]
+    C --> D[Shell inverso al atacante]
+    D --> E[El robot infectado usa sus radios<br/>para atacar al siguiente Ecovacs cercano]
+    E --> F[Propagación entre vecinos:<br/>el tercero reinfecta al primero]
+
+</pre>
+
+<p>La propagación entre robots de usuarios distintos —demostrada como prueba de concepto, sin protocolo de routing completo— convierte la densidad de despliegue del fabricante en un vector: en barrios con muchos Ecovacs, la infección salta de robot en robot.</p>
+<h2>Root, persistencia y actualizaciones</h2>
+<p>Para un root local, la interfaz UART pide una contraseña distinta en cada dispositivo, generada al arranque por una función muy ofuscada: un SHA-256 sobre un puñado de direcciones MAC fijas, el número de serie y el modelo, codificado en base64. Una herramienta pública la calcula a partir del número de serie. Las actualizaciones de firmware van cifradas pero sin firmar, con una clave AES derivada dinámicamente de una cadena que incluye una dirección de correo cualquiera. En X1 y Z1, el sistema de archivos raíz no está protegido y puede modificarse y reempaquetarse; en varios modelos queda un autostart sin protección: un shell en la carpeta adecuada de la partición de datos se ejecuta en cada arranque. Y como el restablecimiento de fábrica solo borra archivos sin recrear el sistema de archivos, marcar los archivos como inmutables con chattr confiere persistencia eterna.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ingeniería inversa de hardware</strong>: UART/SWD, máquina de rayos X para trazas ocultas por el fabricante, teardown exhaustivo.</li>
+<li><strong>CertMidim (del autor)</strong>: herramienta de MITM de certificados TLS.</li>
+<li><strong>Burp Suite con reglas find-and-replace</strong>: manipulación del flujo PIN/nube para el bypass de la sesión WebRTC vía AWS Kinesis.</li>
+<li><strong>BLE con AES de clave estática</strong>: protocolo de aprovisionamiento e inyección de comandos como root a 50-100 metros.</li>
+<li><strong>Gestión de contraseñas UART derivada de SHA-256(MAC + serie + modelo)</strong> con herramienta pública de generación.</li>
+<li><strong>Firmware cifrado sin firma</strong> y clave AES derivada de cadenas predecibles.</li>
+<li><strong>Persistencia vía autostart y chattr</strong> sobre particiones de datos sin protección.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El acceso root se logró en todos los robots Ecovacs lanzados, vía puertos de depuración, inyección BLE o manipulación de firmware; las contramedidas del fabricante son improvisadas.</li>
+<li>La ejecución remota por BLE es la falla más grave y seguía sin parche: hardware con cámara y micrófono, controlable a distancia y propagable entre vecinos.</li>
+<li>El PIN de la cámara y del antirrobo es seguridad del lado cliente; el aviso sonoro de la cámara es un archivo borradable en una partición sin cifrar.</li>
+<li>La nube retiene mapas y fotos indefinidamente sin controles de acceso y los tokens sobreviven al borrado de la cuenta; el restablecimiento de fábrica no protege ni al comprador ni al vendedor.</li>
+<li>Las certificaciones (TÜV, sellos ISO en la app) no impidieron ninguno de estos problemas; no son garantía de seguridad ni de privacidad.</li>
+<li>Recomendaciones prácticas: cortacéspedes vulnerables apagados hasta el parche, nada de redes WiFi abiertas con estas apps, precaución extrema con equipos de segunda mano y escepticismo total ante los sellos de certificación.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/_wUsM0Mlenc">«DEF CON 33 - Un Proceso De La Cola A La Raíz: Reverse Engineering The Ecovacs Robot Ecosystem - Dennis Giese, Braelynn-»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

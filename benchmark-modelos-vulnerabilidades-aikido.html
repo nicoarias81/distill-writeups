@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Benchmark de IA en ciberseguridad: qué modelos encuentran realmente las vulnerabilidades — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Benchmark de IA en ciberseguridad: qué modelos encuentran realmente las vulnerabilidades</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/IQpOqsKFoQw">«Which AI Model Actually Finds Vulnerabilities? Aikido&#x27;s CVE Benchmark Explained»</a> · ver el <a class="nz-link" href="https://youtu.be/IQpOqsKFoQw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En el podcast Bad Dependencies, Mackenzie entrevista a Philippe, responsable del equipo técnico de pentesting con IA en Aikido, sobre el benchmark que su equipo mantiene para medir qué tan buenos son los modelos de lenguaje encontrando vulnerabilidades. La idea central: en vez de confiar en los números que los propios proveedores publican, Aikido mide por su cuenta si cada modelo nuevo puede redescubrir CVEs recién publicadas en código abierto real. Y el resultado más contraintuitivo es que el mejor modelo no gana: un enjambre de modelos baratos, orquestado con un buen harness, supera a la bestia más cara del mercado.</p>
+<h2>El diseño del benchmark: redescubrir CVEs frescas</h2>
+<p>Medir seguridad de modelos es un campo enorme —defensa, ofensiva, forensia, cada cosa distinta—. Aikido acotó un nicho específico: dada una base de código, ¿puede el agente encontrar un zero-day? El problema de preguntarle "encontrame zero-days" a un modelo es que nadie puede verificar el resultado: no se sabe si es válido, si es reproducible, si la base tenía muchas o pocas vulnerabilidades.</p>
+<p>La solución fue medir el redescubrimiento de CVEs recientemente divulgadas por sus mantenedores en software open source real. El balance es fino: las CVEs viejas no sirven porque los modelos ya las conocen de su entrenamiento —por eso tampoco sirve OWASP Juice Shop, excelente para aprender a hachear, pero inútil para evaluar IA que ya memorizó todas sus vulnerabilidades sin mirar el código—. Se usan vulnerabilidades de los últimos uno o dos meses: demasiado nuevas para estar en los datos de entrenamiento, pero públicas y verificables, así se puede comprobar si el resultado del modelo es correcto.</p>
+<h2>Los modelos hacen trampa (un poco)</h2>
+<p>Sí se detectaron intentos de trampa, aunque del tipo sutil: modelos que reconocían la base de código que tenían delante, recordaban que dos o tres años atrás esa misma base tuvo una vulnerabilidad concreta, iban a verificar si seguía presente y, al ver que ya estaba parcheada, volvían a rutas principales. No es trampa en sentido estricto, pero es lo contrario de lo que el benchmark quiere medir: razonamiento sobre el código, no memoria de incidentes pasados.</p>
+<h2>Qué es un harness y por qué decide todo</h2>
+<p>Sin harness, un modelo es apenas un chatbot: habría que copiar y pegar archivos manualmente en bucle, o intentar volcar la base entera al contexto —imposible cuando una base como la de OpenSSL tiene millones de líneas y decenas de millones de caracteres—. El harness es lo que conecta el cerebro con los brazos: herramientas para leer archivos, ejecutar grep, buscar dónde se define o se llama una función, y la orquestación de todo lo demás —qué contexto recibe cada agente, cómo se recogen sus salidas, cómo se fusionan y se depuran duplicados—.</p>
+<p>El benchmark no mide un modelo a secas: mide el modelo dentro de un setup concreto, y eso cambia el ranking completo.</p>
+<h2>El resultado clave: varios intentos baratos le ganan a uno caro</h2>
+<p>Mythos es probablemente uno de los mejores modelos publicados recientemente para ciberseguridad: individualmente encuentra la mayor cantidad de vulnerabilidades. Pero cuesta entre diez y cincuenta veces más que algo como GPT-5.6 Luna de OpenAI. Y aquí aparece el hallazgo central de la investigación: los modelos no son deterministas. El mismo agente, corrido dos veces, toma decisiones distintas, explora lugares distintos del código, persigue hipótesis distintas.</p>
+<p>Eso convierte el juego en una batalla estadística: Mythos con un solo intento contra un modelo chico con tres intentos, cuyos resultados se agrupan en un solo reporte. Basta con que uno de los tres agentes encuentre la vulnerabilidad. La matemática es implacable: tres corridas a 20 centavos cuestan mucho menos que una a diez veces el precio —y encuentran más.</p>
+<h2>GPT-6 Astra: el récord con precio de récord</h2>
+<p>Aikido tuvo acceso temprano a GPT-6 Astra, y el salto es real, no puro marketing: rediscoveró el 90% de las vulnerabilidades del benchmark, tanto en corrida única como agrupando tres agentes —el puntaje más alto jamás visto—. El problema es el precio: una sola corrida cuesta varios miles de dólares. Se puede obtener el 95% del rendimiento con modelos mucho más chicos; ese último 5% se paga multiplicando por diez el costo. Para una empresa con presupuesto enorme y activos sensibles puede valerlo; para la mayoría, no.</p>
+<h2>Los modelos abiertos ganan por cantidad</h2>
+<p>La brecha de precio con los modelos de pesos abiertos —Qwen, GLM, Kimi— es de dos a cinco veces: alrededor de un dólar por millón de tokens de entrada contra cinco de los modelos frontera. En corrida única, los frontera siguen siendo mejores. Pero en el régimen de varios agentes, dos modelos abiertos baratos ya encuentran más que el modelo más caro en una sola corrida, y con tres superan todo lo demás.</p>
+<p>El dato de cierre, al momento de la grabación: el modelo ganador es DeepSeek V4 Pro —open source, accesible para cualquiera— superando a GPT-5.6 o GROK-4.6, esos modelos "espeluznantes" que presumen puntajes altísimos en benchmarks de ciberseguridad. La conclusión del equipo: Mythos es un gran modelo aislado, pero el verdadero peligro está en el harness —cuántos agentes se corren y cómo se orquestan—.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Modelo frontera<br>1 corrida, costo x10] --> B[N hallazgos]
+    C[Modelo abierto x3 corridas<br>agrupadas, costo x0.6] --> D[Resultados fusionados<br>y deduplicados]
+    D --> E[Mas hallazgos que B<br>a menor precio]
+    B --> E
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>El benchmark de Aikido mide redescubrimiento de CVEs de los últimos dos meses: frescas para que el modelo no las conozca, públicas para poder verificar.</li>
+<li>El harness —lectura de código, búsqueda, orquestación y fusión de agentes— importa tanto como el modelo: sin él, solo hay un chatbot.</li>
+<li>Correr un modelo chico varias veces y agrupar resultados supera en hallazgos y precio a una corrida única del modelo frontera; el no determinismo se vuelve una ventaja.</li>
+<li>Los pesos abiertos ya ganan en el régimen multiagente; al cierre, DeepSeek V4 Pro lideraba sobre GPT-5.6 y GROK-4.6.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/IQpOqsKFoQw">«Which AI Model Actually Finds Vulnerabilities? Aikido&#x27;s CVE Benchmark Explained»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

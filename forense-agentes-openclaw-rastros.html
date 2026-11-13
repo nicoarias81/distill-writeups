@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forense de agentes de IA: qué deja OpenClaw cuando borra tus archivos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Forense de agentes de IA: qué deja OpenClaw cuando borra tus archivos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/RaCPMQqQkIA">«DCSG1 - The Lobster Ate My Homework: Informal Research on OpenClaw Forensics - Tang»</a> · ver el <a class="nz-link" href="https://youtu.be/RaCPMQqQkIA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La IA agéntica ya no solo conversa: ejecuta acciones sobre el sistema con permisos del usuario. OpenClaw es el caso extremo — gratuito, fácil de instalar para un lego y saturado de videos hype en YouTube que lo presentan como milagro, con muy poco material serio sobre cómo implementarlo con seguridad. El resultado previsible ya está documentado: una investigadora de Meta AI Safety salió a almorzar y la herramienta le borró todos los correos; varios usuarios de Google Antigravity reportaron que borraba unidades D completas.</p>
+<p>El problema forense es nuevo: cuando un archivo desaparece, ¿lo borró el usuario o lo borró el agente "por decisión propia"? La investigación montó un experimento controlado con OpenClaw en una VM, usando FTK Imager y VMware Workstation Pro, bifurcando la máquina en dos escenarios: uno donde el usuario ordena explícitamente el borrado y otro donde el entorno lo induce a la IA a llegar a esa conclusión sola. La conclusión general: los rastros permiten reconstruir no solo qué se hizo, sino quién decidió hacerlo — y esa distinción es la diferencia legal entre intención, imprudencia y negligencia.</p>
+<h2>El escenario de Joe: ¿quién borró la tarea?</h2>
+<p>Un profesor de secundaria recibe la queja de su alumno Joe: OpenClaw, instalado en su máquina, borró su tarea a medio terminar. Joe no tiene perfil técnico — interactúa con el agente por el camino de menor resistencia, sin VPS ni laptop extra, todo sobre su propia máquina. Con acceso completo al equipo, la pregunta forense es doble: ¿Joe borró la tarea y culpó a la langosta para no hacerla? Y en cualquier caso, ¿qué se hace con Joe?</p>
+<p>El marco legal ayuda a ordenar la pregunta. El derecho penal distingue grados de <em>mens rea</em>: intención (se quería el resultado), imprudencia (se sabía que podía pasar y se siguió adelante) y negligencia (no se comprendió el alcance). Con IA agéntica esa gradación se aplica raro pero aplica: el agente actúa como un usuario adicional en la máquina, más poderoso e impredecible que el software normal, y en un equipo multiusuario rompe la primera regla de cualquier investigación — poder atribuir una acción a una persona específica.</p>
+<h2>El mapa de artefactos: dónde vive la evidencia</h2>
+<p>El grueso de los datos forenses de OpenClaw está en el directorio por usuario de <code>.openclaw</code>. El punto de partida natural es <code>session.json</code>, el registro de todas las sesiones: UUID de sesión (clave para el mapeo posterior), timestamp, canal usado (web chat en el experimento; también se puede sincronizar con Discord o Matrix), ruta del transcript y la información de cierre de sesión con el prompt report y el <em>skill snapshot</em>.</p>
+<pre class="mermaid">
+flowchart TD
+    A["session.json<br/>UUID · timestamp · canal"] --> B["agents/<main>/sessions/<br/>UUID.jsonl · transcript completo"]
+    B --> C["Mensajes: role user/assistant<br/>parent_id encadena la conversación"]
+    C --> D["Bloques type thinking<br/>razonamiento interno del bot"]
+    C --> E["tool call → tool result<br/>acciones ejecutadas"]
+    A --> F["skill snapshot<br/>skills realmente cargadas"]
+    F --> G["workspace/skills/*.md<br/>instrucciones legibles"]
+
+</pre>
+
+<p>Cada UUID de sesión produce un archivo JSONL en <code>agents/&lt;agente&gt;/sessions/</code>: el transcript completo del ida y vuelta. Cada mensaje lleva un <code>id</code> y un <code>parent_id</code>, de modo que la conversación se puede reconstruir como árbol. Un mensaje del usuario muestra su etiqueta visible y el contenido; la estrategia práctica de lectura es empezar por lo que dijo el usuario y ramificar hacia las respuestas del bot, porque los bots son prolijos y el usuario va al grano.</p>
+<h2>Leer el transcript: thinking, tool calls y costos</h2>
+<p>Un turno del agente se descompone en capas bien diferenciables. Primero, el bloque de razonamiento (<code>type: thinking</code>) — el texto que el bot no muestra al usuario. Seguir esa línea de razonamiento permite ver <em>cómo</em> el agente llegó a una conclusión o decidió hacer una llamada: es exactamente la evidencia que separa "el usuario lo ordenó" de "el agente lo decidió". Después viene el texto visible (que en el experimento se cortaba abruptamente por un bug de alternancia entre thinking y texto) y, por último, el <em>tool call</em> con su ID único, que se mapea con el <em>tool result</em> correspondiente en un mensaje posterior. El bloque cierra con el resumen de tokens y costo.</p>
+<p>En el encabezado de sesión figuran el agente usado (<code>main</code>, el que OpenClaw instala por defecto), el model ID (GLM vía proveedor custom, en este caso NVIDIA NIM sobre los proveedores que trae de fábrica) y el <em>thinking level</em> configurado al momento del prompt. Todos estos metadatos anclan cada acción a una sesión, un modelo y una configuración concretos.</p>
+<h2>Skills: la puerta de entrada del contenido externo</h2>
+<p>Una skill es un archivo <code>skill.md</code>: metadatos YAML arriba, instrucciones en markdown abajo. El usuario no necesita caminar al agente paso a paso — le entrega el archivo y el agente lo reutiliza, igual que cualquiera con quien lo comparta. Ahí está el riesgo: la mayoría de las skills circulan por ClawHub, un repositorio escrito por terceros, y los titulares recientes ya hablan de skills maliciosas.</p>
+<pre class="mermaid">
+flowchart TD
+    A["Skill descargada (ClawHub)<br/>input externo no auditado"] --> B["workspace/skills/<br/>precedencia máxima"]
+    A --> C["Otras ubicaciones<br/>menor precedencia"]
+    B --> D["skill snapshot en session.json<br/>qué se cargó en cada sesión"]
+    D --> E["Agente con autonomía elevada<br/>ejecuta instrucciones no revisadas"]
+
+</pre>
+
+<p>Las skills pueden vivir en varias ubicaciones con precedencia descendente — las del workspace ganan ante contradicciones — y el <em>skill snapshot</em> dentro de <code>session.json</code> dice exactamente cuáles se cargaron en cada sesión. Ese snapshot es evidencia en sí mismo: en el experimento, la skill "marine poetry" existía en disco pero no figuraba en el snapshot de la sesión, y la skill "word doc" sí. Sin el snapshot, sería imposible saber qué instrucciones tuvo disponible el agente al momento de actuar.</p>
+<h2>El veredicto: intención, autonomía y una skill visible</h2>
+<p>El caso de Joe se resuelve con las capas anteriores. El mensaje "quiero que lo borres todo" es evidencia fuerte de intención; el agregado "no me importa qué haces con ello" no alcanza por sí solo para ese grado, pero sí prueba que le dio al bot más autonomía de la necesaria. Y la skill externa que descargó — disponible a la vista, con la instrucción de "reemplazar toda la poesía vieja e inútil con las líneas de lobster, lobster, lobster que hagan falta" — creó el entorno que llevó al agente al borrado. No estaba oculta: parte de la responsabilidad del usuario es leer lo que instala. La conclusión del análisis: la skill jugó un rol mayor al otorgar al agente un nivel alto de autonomía que contribuyó directamente a su descuido.</p>
+<p>El trabajo se apoya en el paper <em>Foundations for Agentic AI Investigations from Forensic Analysis of OpenClaw</em> de Gruber y Hilgert. La lección operativa para cualquiera que administre máquinas con agentes: un agente instalado es un usuario más, el transcript guarda quién pidió qué, y el skill snapshot guarda qué instrucciones externas tenía delante.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OpenClaw</strong> — agente de IA gratuito y agéntico que ejecuta acciones en la máquina del usuario; objeto del análisis forense.</li>
+<li><strong><code>session.json</code></strong> — registro central de sesiones: UUID, timestamp, canal, ruta del transcript y skill snapshot.</li>
+<li><strong>Transcript JSONL</strong> — archivo por sesión en <code>agents/&lt;agente&gt;/sessions/</code> con el historial completo, ids y parent ids encadenados.</li>
+<li><strong>Bloques <code>type: thinking</code></strong> — razonamiento interno del agente, clave para distinguir orden explícita de decisión autónoma.</li>
+<li><strong>Tool calls / tool results</strong> — llamadas a herramientas con ID único mapeable a su resultado en mensajes posteriores.</li>
+<li><strong>Skill snapshot</strong> — lista de skills disponibles por sesión, en <code>session.json</code>.</li>
+<li><strong>Skills y ClawHub</strong> — archivos <code>skill.md</code> con YAML + markdown; repositorio de terceros donde circulan, incluidas las maliciosas.</li>
+<li><strong>FTK Imager</strong> — adquisición de imagen viva de la VM para el análisis.</li>
+<li><strong>VMware Workstation Pro</strong> — entorno del experimento, bifurcado en los dos escenarios de borrado.</li>
+<li><strong>Mens rea</strong> — gradación legal de intención/imprudencia/negligencia aplicada a la responsabilidad sobre acciones del agente.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un agente de IA agéntico es funcionalmente un usuario adicional de la máquina: más poderoso e impredecible que el software normal, y rompe la atribución de acciones por usuario que sostiene cualquier investigación.</li>
+<li>OpenClaw conserva evidencia completa y estructurada: transcript por sesión, razonamiento interno, tool calls con resultados y snapshot de skills cargadas — suficiente para reconstruir quién decidió qué.</li>
+<li>Las skills de terceros son la principal vía de contenido no auditado hacia el agente; leerlas antes de instalarlas es responsabilidad directa del usuario, y el skill snapshot permite probar cuáles estaban activas.</li>
+<li>La distinción legal importa: ordenar un borrado es intención; delegar con "no me importa qué haces" es imprudencia; una skill externa con autonomía elevada agrava el cuadro sin trasladar la culpa al agente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/RaCPMQqQkIA">«DCSG1 - The Lobster Ate My Homework: Informal Research on OpenClaw Forensics - Tang»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

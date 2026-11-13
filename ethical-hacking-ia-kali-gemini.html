@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ethical hacking con IA: cómo montar el laboratorio y automatizar el reconocimiento — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Ethical hacking con IA: cómo montar el laboratorio y automatizar el reconocimiento</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/NdeA5tgA2a0">«65»</a> · ver el <a class="nz-link" href="https://youtu.be/NdeA5tgA2a0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El recorrido completo de un pentester que arranca desde cero ya no empieza y termina en la terminal: empieza en la terminal y pasa por un asistente de IA que genera, ejecuta y explica cada comando. Este curso integral de ethical hacking asistido por IA construye ese flujo paso a paso: montar Kali Linux en VirtualBox, conectar dos asistentes de IA (Gemini CLI y SGPT sobre la API de OpenAI), repasar los fundamentos de red que hacen legible un escaneo, recorrer el arsenal completo de reconocimiento pasivo y activo, cerrar con enumeración de subdominios y detección de takeover, y terminar en frameworks de automatización total como Sn1per y Recon FTW.</p>
+<p>La tesis pedagógica es explícita: la IA no reemplaza el conocimiento —la acelera. Cada técnica se muestra primero a mano, con comandos reales, y después con IA; quien no sabe hacerlo manualmente no puede detectar ni corregir los errores de la IA. El mantra que atraviesa todo el material: la IA no hackea por vos —te enseña a pensar.</p>
+<h2>El laboratorio: Kali, VirtualBox y dos asistentes de IA</h2>
+<p>La base es la imagen de Kali Linux para VirtualBox —sin instalación, con arranque directo, 8 GB de RAM y 3 CPUs asignadas—, habilitando el usuario root y actualizando el sistema con <code>apt update</code> / <code>apt upgrade</code>. El primer asistente es <strong>Gemini CLI</strong>: se instala desde apt, se autentica con cuenta de Google y queda operativo en la terminal. El segundo es <strong>SGPT (shell-gpt)</strong>, un paquete Python que requiere generar una API key en el dashboard de OpenAI, configurar billing —con un mínimo de 5 dólares y sin autopago si no se quiere recarga automática— y guardar la clave en <code>.zshrc</code>. La advertencia de seguridad es directa: la API key nunca se comparte, porque una clave filtrada se factura sola.</p>
+<p>Con los asistentes conectados, el flujo de trabajo queda definido: se describe el objetivo en lenguaje natural y la IA genera la secuencia de comandos, pide permiso de ejecución, corre los escaneos y produce un informe estructurado —incluso en JSON guardado en disco—. Ante cualquier error, el propio asistente lo corrige y reintenta. Los campos de práctica legales aparecen temprano: testphp.vulnweb.com, zero.webappsecurity.com (el banco ficticio de Micro Focus para entrenar scanners) y testfire.net, más el recordatorio de respetar el scope en plataformas de bug bounty como HackerOne, Bugcrowd e Intigriti.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Prompt en lenguaje natural"] --> B["IA genera comandos"]
+    B --> C{"Permiso de ejecución"}
+    C -->|concedido| D["Escaneo en la terminal"]
+    D --> E["Análisis del output"]
+    E --> F["Informe / JSON"]
+    E -->|error| B
+    C -->|denegado| B
+
+</pre>
+
+<h2>Fundamentos: sin red no hay reconocimiento legible</h2>
+<p>El curso insiste en que el reconocimiento no se entiende sin los cimientos: la IP como dirección digital, la diferencia entre IP privada y pública con el NAT del medio, los tres niveles LAN/WAN/Internet, y los puertos como "puertas" del edificio —80 para la web, 22 para SSH, 443 para HTTPS—. TCP y UDP se presentan como la bifurcación que decide todo el escaneo: TCP garantiza entrega con handshake de tres pasos (web, SSH), UDP envía sin confirmación (DNS, streaming, gaming) y es mucho más difícil de escanear.</p>
+<p>La distinción operativa más importante es <strong>pasiva contra activa</strong>. La pasiva recolecta de fuentes públicas sin tocar el objetivo —OSINT puro, riesgo mínimo—; la activa envía paquetes, sondea servicios y escanea puertos con Nmap, hping3 o masscan, y el objetivo puede detectarla. El timing importa: escanear de más o en el momento equivocado delata. Y sobre la superficie de ataque: cuantas más puertas expone un sistema, más grande es; el atacante no va a todas partes, va donde el sistema es débil.</p>
+<h2>Reconocimiento pasivo: el arsenal de fuentes públicas</h2>
+<p>La fase pasiva combina buscadores generales (Google, Bing, DuckDuckGo) con fuentes especializadas:</p>
+<ul>
+<li><strong>Google dorks / GHDB</strong>: operadores avanzados de búsqueda para localizar archivos y configuraciones expuestas; hoy menos fructíferos porque las organizaciones endurecieron sus sitios, pero siguen siendo la base.</li>
+<li><strong>Shodan</strong>: buscador de dispositivos conectados a Internet —servidores, routers, webcams, IoT industrial—.</li>
+<li><strong>Censys</strong>: monitoreo a escala de Internet con énfasis en certificados SSL/TLS y certificate transparency; potente para reconocimiento basado en cifrado.</li>
+<li><strong>DNSDumpster</strong>: mapa visual de registros DNS y subdominios olvidados de un dominio.</li>
+<li><strong>Wayback Machine</strong>: la cápsula del tiempo de Internet desde 1996; directorios ocultos, configuraciones viejas y APIs discontinuadas siguen indexadas en versiones antiguas de un sitio.</li>
+<li><strong>Whois</strong> (domaintools con datos históricos, whois.com básico, Namecheap) y <strong>OpenCorporates</strong> para la parte de inteligencia corporativa.</li>
+</ul>
+<p>La lección práctica: ninguna fuente muestra todo; cada una mira una pieza distinta del mismo rompecabezas.</p>
+<h2>Reconocimiento activo con Nmap: del ping al idle scan</h2>
+<p>El bloque manual de Nmap es un catálogo comentado de escaneos, cada uno con su propósito: <code>nmap -p- -T4 -A -v</code> como barrido completo de puertos con detección de servicios, sistema operativo y red; guardado de resultados con <code>-oN scan.txt</code> para informes. Host discovery escalonado: ping scan (<code>-SN</code>), ICMP echo (<code>-PE</code>), TCP SYN ping a puertos web (<code>-PS 80,443</code>), TCP ACK ping para sondear firewalls stateful (<code>-PA</code>), la combinación de todas en entornos reales y, si todo está bloqueado, <code>-Pn</code> para asumir host vivo y seguir. Si host discovery falla, todo lo que viene después queda desalineado.</p>
+<p>Para evasión y sigilo: fragmentación de paquetes (<code>-f</code>), señuelos con IPs falsas (<code>-D</code>), timing ultralento (<code>-T1</code>), puerto fuente disfrazado de DNS (<code>--source-port 53</code>), el idle scan con zombie (<code>-sI</code>) que oculta por completo al escaneador, y en el lado informativo: scripts de vulnerabilidad (<code>--script vuln</code>), auditoría de cifrados SSL/TLS (<code>ssl-enum-ciphers</code>), detección de firewall (<code>-sA</code>), banner grabbing agresivo (<code>--version-all</code>), traceroute y detección de OS. hping3 completa el kit con pruebas ICMP y de respuesta TCP sin flood. El complemento IA: con un prompt que pide "simular y analizar" el resultado de un escaneo sobre testfire.net, SGPT produce un análisis seguro sin enviar paquetes reales, mientras Gemini CLI ejecuta el escaneo verdadero —simulación versus ejecución, la diferencia clave entre ambos asistentes—.</p>
+<h2>Subdominios y takeover: la puerta lateral del dominio</h2>
+<p>Los subdominios son las habitaciones de la casa: el sitio principal puede estar blindado y una sola habitación —un panel admin, un blog, una API— conservar la debilidad. El descubrimiento combina dorks (<code>site:target.com -inurl:www</code>), Censys vía campo SAN de los certificados, Netcraft, DNSDumpster y plataformas web como PentestTools. Un hallazgo ilustrativo del curso: unas herramientas devuelven 7 u 8 subdominios y PentestTools muestra más de 300 —porque agrega certificados, registros DNS, datasets históricos y terceras fuentes; no que las otras estén mal, sino que miran piezas distintas—.</p>
+<p>En línea de comandos: <strong>subfinder</strong> (pasivo, desde certificate transparency y DNS, guardando a <code>subs.txt</code>), <strong>amass</strong> (potente pero lento), <strong>assetfinder</strong> (<code>--subs-only</code>, rápido para el arranque), <strong>Sublist3r</strong> (buscadores múltiples), <strong>dnsenum</strong> (activo, con wordlists y chequeo de zone transfer). La fase de explotación apunta al <strong>subdomain takeover</strong>: nuclei con templates para detectar el riesgo en lote, subjack buscando registros DNS colgantes que apuntan a GitHub Pages, AWS S3, Heroku, Azure o Fastly sin recurso activo, y subzy sobre la lista de subfinder. El patrón siempre es el mismo: subdominio apuntando a un servicio de tercero donde el recurso ya no existe —territorio de takeover—.</p>
+<p>Con IA, el flujo se abstrae: un prompt pide enumeración pasiva con sublist3r, otro combina subfinder y assetfinder, deduplica y guarda un archivo limpio para la siguiente fase. La IA orquesta; el humano define el objetivo.</p>
+<h2>Automatización total: Sn1per y Recon FTW</h2>
+<p>El tramo final escala el flujo completo a frameworks: <strong>Sn1per</strong>, instalable desde GitHub, que ejecuta reconocimiento, enumeración y explotación en campanadas automatizadas, y <strong>Recon FTW</strong>, el framework todo-en-uno de reconocimiento automatizado especialmente útil para bug bounty hunters, que encadena pasivo, activo, subdominios y análisis de vulnerabilidades en una sola corrida reproducible. La IA entra como capa de orquestación y de análisis: generar los prompts que dirigen el framework, interpretar salidas masivas, resumir hallazgos y producir reportes. Durante el triage, los programas de bug bounty revisan cientos de reportes; cada hallazgo debe ser conciso y totalmente reproducible —ahí la IA bien harnessada marca la diferencia—.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Kali Linux en VirtualBox</strong> — laboratorio base sin instalación, con root habilitado y sistema actualizado.</li>
+<li><strong>Gemini CLI</strong> — asistente IA en terminal que autentica con Google, genera y ejecuta comandos reales (nmap, nikto) con permiso por paso y corrige errores en vuelo.</li>
+<li><strong>SGPT (shell-gpt)</strong> — asistente IA CLI sobre la API de OpenAI; fuerte en simulación y análisis de escaneos sin paquetes reales.</li>
+<li><strong>API key de OpenAI</strong> — configuración de billing y resguardo; una clave filtrada se factura sola.</li>
+<li><strong>Nmap</strong> — catálogo completo: full port scan, host discovery (SN/PE/PS/PA/PN), fragmentación, decoys, T1, source-port 53, idle/zombie scan, scripts vuln, ssl-enum-ciphers, sA, banner grabbing, traceroute, OS detection.</li>
+<li><strong>hping3</strong> — pruebas ICMP y TCP por puerto sin flood para reachability y comportamiento de firewall.</li>
+<li><strong>Google dorks / GHDB</strong> — operadores de búsqueda avanzada para información expuesta.</li>
+<li><strong>Shodan / Censys</strong> — buscadores de dispositivos y certificados a escala de Internet; Censys destaca en SAN y certificate transparency.</li>
+<li><strong>DNSDumpster / Netcraft / Wayback Machine</strong> — mapas DNS, historial de hosting y cápsula temporal para huellas digitales viejas.</li>
+<li><strong>Whois (domaintools, whois.com, Namecheap) / OpenCorporates</strong> — inteligencia de dominios y corporativa.</li>
+<li><strong>subfinder / amass / assetfinder / Sublist3r / dnsenum</strong> — enumeración de subdominios pasiva y activa.</li>
+<li><strong>nuclei / subjack / subzy</strong> — detección de subdomain takeover vía templates y registros DNS colgantes (GitHub Pages, S3, Heroku, Azure, Fastly).</li>
+<li><strong>PentestTools.com</strong> — plataforma web de recon combinada; muestra cómo agregar fuentes multiplica resultados (300 vs 7-8 subdominios).</li>
+<li><strong>Sn1per</strong> — framework de automatización de pentesting instalable desde GitHub.</li>
+<li><strong>Recon FTW</strong> — framework todo-en-uno de reconocimiento automatizado, orientado a bug bounty y corridas reproducibles.</li>
+<li><strong>Sitios de práctica legales</strong> — testphp.vulnweb.com, zero.webappsecurity.com, testfire.net; scope siempre en HackerOne, Bugcrowd, Intigriti.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El flujo moderno de reconocimiento es híbrido: el humano define objetivo, timing y contexto; la IA genera comandos, orquesta herramientas, deduplica resultados y produce reportes —con permiso de ejecución humano en cada paso sensible.</li>
+<li>Simulación y ejecución son modos distintos: SGPT analiza escaneos sin tocar el objetivo; Gemini CLI los corre de verdad. Elegir el modo correcto es parte del oficio y de la ética del testing.</li>
+<li>La fase pasiva es un ejercicio de agregación: ninguna fuente basta, y las plataformas que combinan certificados, DNS e historia revelan órdenes de magnitud más superficie que las herramientas sueltas.</li>
+<li>El takeover de subdominios sigue siendo la fruta más accesible del reconocimiento: un registro DNS colgante hacia un servicio de tercero es una puerta abierta que el enumerador bien hecho encuentra sola.</li>
+<li>La automatización total (Sn1per, Recon FTW) con IA como capa de orquestación convierte un flujo de días en corridas reproducibles; el cuello de botella se traslada a la calidad del prompt y del reporte final.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/NdeA5tgA2a0">«65»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

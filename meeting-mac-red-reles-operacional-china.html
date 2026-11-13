@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Mac: anatomía interna de una red de relés operacionales basada en China — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Meeting Mac: anatomía interna de una red de relés operacionales basada en China</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/e93V9TWnxJo">«DEF CON 33 - Inside Look at a Chinese Operational Relay Network - Michael Torres, Zane Hoffman»</a> · ver el <a class="nz-link" href="https://youtu.be/e93V9TWnxJo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las redes de relés operacionales (ORB, <em>operational relay networks</em>) son la infraestructura invisible que usan actores maliciosos para ocultar el origen de sus operaciones: enjambres de nodos que reenvían tráfico para lavar la atribución. Entender cómo están construidas y de qué servicios gratuitos se alimentan es una de las preguntas más difíciles de la seguridad ofensiva-defensiva actual.</p>
+<p>Este artículo documenta el hallazgo accidental de una de esas redes —bautizada "Meeting Mac"— a partir de una investigación completamente distinta: la búsqueda masiva de secretos filtrados en imágenes de Docker Hub. Desde esa puerta de entrada inicial, dos investigadores reconstruyeron durante meses la infraestructura completa: proveedores en la nube abusados, esquemas de contraseñas, dominios, direcciones de correo, cuentas de redes sociales, herramientas de gestión de identidades y hasta registros de chat con asistentes de IA usados para desarrollar la propia red.</p>
+<p>El valor del análisis es doble: un mapa concreto de cómo opera este tipo de red (almacenamiento gratuito, cómputo serverless, túneles, API de credenciales con huellas de navegador) y una advertencia práctica para cualquiera que publique contenedores: lo que se "borra" de una imagen sigue ahí, y lo que se copia sin cuidado llega a públicos no previstos.</p>
+<h2>Origen: secretos en Docker Hub</h2>
+<p>Todo empezó en DEF CON 32, viendo una demo del Docker exploitation framework que mostraba cómo identificar archivos marcados con <em>whiteout</em> en imágenes de contenedores. Cuando borras un archivo de una imagen de Docker, este no desaparece del tarball completo: queda registrado como "eliminado" pero sigue presente en el overlay FS. La idea inicial era buscar a escala secretos publicados accidentalmente: archivos .env, contraseñas, claves SSH.</p>
+<p>La primera versión fue, en palabras propias, "el peor Trufflehog del mundo": un regex sobre imágenes descargadas masivamente, empezando en una habitación de hotel. Los primeros cinco hallazgos motivaron ampliar el alcance a claves de API de proveedores cloud, claves SSH y contraseñas en general. En tres meses llegaron a 240.000 hallazgos indexados en Elasticsearch, con muchos falsos positivos (claves de ejemplo, bots de trading cripto repetidos decenas de veces), y al ritmo de 5.000 contenedores al día tuvieron que contratar la cuenta premium de Docker Hub justo antes de que el proveedor anunciará un límite de 50.000 descargas mensuales para ese tier.</p>
+<h3>El pivote: repositorios Git privados</h3>
+<p>Con demasiado ruido, el siguiente paso fue buscar dentro de los contenedores archivos <code>.git/config</code>, que indican si la imagen proviene de un repositorio privado. El patrón que lo hace posible es el flujo de containerización típico: hacer <code>git clone</code> del repositorio, crear un Dockerfile basado en una imagen base (<code>FROM ubuntu</code>) y copiar todo con <code>COPY . .</code>. Esa instrucción copia también archivos y directorios ocultos: el <code>.env</code> filtrado y, sobre todo, la carpeta <code>.git</code> completa del repositorio clonado. Cuando un pipeline de CI hace clone → build → push a Docker Hub, si el repositorio es privado pero la imagen es pública, el contenido del repositorio viaja con la imagen.</p>
+<p>De más de 80.000 contenedores analizados en tres meses, unos 15.000 contenían metadatos Git y 1.500 correspondían a repositorios no públicos (identificados por respuestas 404 al consultar el remoto, o redirecciones a dominios corporativos tipo <code>git@empresa.com</code>). Entre los hallazgos: una rama enterprise de un proyecto open source de Apache, un fabricante ruso de cámaras de salpicadero y reglas de detección privadas de un proveedor de seguridad. Los intentos de reporte, incluyendo correos al autor del último commit del log, no obtuvieron respuesta.</p>
+<p>Detalle extra del <code>.git/config</code>: contiene también el token usado por el job de CI para hacer push. Esos tokens de CI son de vida corta y sin permisos de escritura, pero algunos usuarios usan <em>personal access tokens</em> con permisos de lectura-escitura para sus pipelines. En ese caso, extraer el token da acceso de escritura al repositorio privado, y cualquier push posterior dispara otro job de CI que incluye el código inyectado en la imagen pública del contenedor —un vector de cadena de suministro con potencial serio, demostrado en directo escribiendo en el README del repo víctima.</p>
+<h2>Meeting Mac: la red que emergió</h2>
+<p>Entre el ruido, un usuario de Docker Hub destacaba: subía varios contenedores al día, con actualizaciones constantes, y sus imágenes activaban alertas por contener repositorios Git privados. Al mirar el contenido parecía usar Docker como almacenamiento cloud gratuito: gigas de datos etiquetados como "backups". Alrededor de las 22:40, una mirada más profunda reveló que esos backups apuntaban a infraestructura cloud que se levantaba y destruía dinámicamente para proxyar tráfico, con redirecciones al Great Firewall. El interés inmediato desembocó en meses de investigación.</p>
+<p>La red resultó ser, con confianza alta, una <strong>red de relés operacionales basada en China (PRC)</strong>: infraestructura que hace de proxy para actores maliciosos, de las mismas que Google ha documentado usando a actores chinos de amenazas. Con confianza media: sirve para proxyar tráfico web, gestionar cuentas de redes sociales y navegar de forma anónima. Con confianza baja: no hay pruebas directas de operaciones maliciosas dentro de los backups, aunque sí herramientas y evidencia de uso puntual — un paquete PyPI malicioso (visible todavía en VirusTotal) y un log de listener de Cobalt Strike, aparentemente de pruebas. La red está en desarrollo desde 2022, con múltiples personas implicadas (los backups contienen mensajes entre varias personas usando un formato <code>.rec</code> de aplicación de notas que no se pudo identificar) y múltiples <em>personas</em> operativas.</p>
+<h3>Arquitectura general</h3>
+<pre class="mermaid">
+flowchart LR
+    subgraph Almacenamiento
+        DH[Docker Hub]
+        MG[Mega]
+        GH[Repos GitHub]
+    end
+    subgraph Computo
+        VM[VMs tradicionales]
+        SV[Serverless: GitHub Actions, Hugging Face]
+    end
+    subgraph Datos
+        DB[Bases de datos]
+        BB[Backblaze]
+        OD[OneDrive]
+        HF[Hugging Face Spaces]
+        TC[TerraBox]
+    end
+    DH --> N[Red de nodos relay]
+    MG --> N
+    GH --> N
+    VM --> N
+    SV --> N
+    N --> DB
+    N --> BB
+    N --> OD
+    N --> HF
+    N --> TC
+
+</pre>
+
+<p>El almacenamiento se reparte entre Docker Hub, Mega y repositorios de GitHub; el cómputo combina VMs tradicionales con cómputo serverless (GitHub Actions, Hugging Face, con los nodos de Hugging Face numerados en la serie 42x); los datos se persisten en TerraBox (el de mayor volumen), Backblaze, Hugging Face Spaces, GitHub, OneDrive y las propias imágenes de Docker.</p>
+<h3>Dominios, correos y contraseñas</h3>
+<p>De los dumps salieron los dominios principales del hub, además de servicios internos curiosos: un dominio de acceso a repositorios privados (si conocés la estructura de directorios, podés navegar y descargar los archivos), un servidor propio de hosting de herramientas y scripts que se descargan al aprovisionar infraestructura, y dominios varios que apuntan a Cobalt Strike crackeado. Los correos superan los 50, con herramientas propias para crear cuentas en Outlook y Gmail.</p>
+<p>La plantilla de contraseñas es sistemática: dos letras iniciales, unos caracteres que no se revelan, un <code>@</code> y una letra derivada del nombre de usuario (para <code>temp0230</code> la letra era <code>t</code>; para <code>Coral86</code>, <code>CO</code>). Esa misma contraseña se usa en correos, gestión de dominios, redes sociales y prácticamente todo. Hay además claves de API en texto plano por todo el código y las notas: Heroku (nodos de salida) y GitHub dominan, junto con una clave de Grok y otra de xAI que usaban para desarrollo asistido por IA —accediendo a esos servicios a través de su propia red, ya que desde China están bloqueados.</p>
+<p>Un token de OneDrive, al ser un JWT decodificable, reveló un correo en un dominio compartido de universidades chinas (<code>host.ac.cn</code>) y una IP residencial de China Telecom en el ASN correspondiente.</p>
+<h3>La API de credenciales</h3>
+<p>La red opera una API que sirve credenciales a sus propios operadores o usuarios. Además de claves de API, persiste <strong>cookies de navegador y huellas de navegador</strong> (<em>browser fingerprints</em>): no basta con reutilizar un session ID, también se imita la huella del navegador original para evadir detección de cuentas automatizadas o para suplantar por completo la sesión robada a un usuario.</p>
+<h3>Grupos de trabajo y acceso a nodos</h3>
+<p>Los servicios se organizan en <em>work groups</em>:</p>
+<ul>
+<li><strong>Social:</strong> headless Chrome, presumiblemente para gestionar cuentas de redes sociales.</li>
+<li><strong>Op stations:</strong> Visual Studio Code Web y ttyd (terminal web) sobre la máquina objetivo.</li>
+<li><strong>Scraper:</strong> llamadas a APIs de terceros y salida propia para scrapear sitios web, devolviendo contenido crudo y capturas de pantalla bajo demanda.</li>
+</ul>
+<p>Todos los nodos corren SSH y VNC para administración. El acceso se orquesta desde un servidor hub central mediante <strong>reverse port forward</strong>, con un esquema de puertos predecible: el ID del nodo de tres dígitos concatenado con el puerto del servicio (node 123 + SSH → puerto 12322). Un puerto 90 en cada nodo devolvía el bloqueo del Great Firewall, lo que sugiere un servicio interno no accesible desde fuera.</p>
+<h2>El paquete PyPI malicioso y btPanel</h2>
+<p>El paquete PyPI, llamado <code>ptmpl</code>, descargaba un script desde uno de sus dominios y lo ejecutaba, con un hook post-instalación que hacía exactamente eso: descargar de internet y ejecutar como script Python. Sin sofisticación, pero funcional.</p>
+<p>La joya fue btPanel, un equivalente chino de cPanel implementado en Python/Flask que la red usaba para administrar servidores. La investigación de vulnerabilidades sobre él arrojó dos vías de RCE como root si sos man-in-the-middle:</p>
+<ol>
+<li><strong>Módulo PAM en texto plano:</strong> el panel descarga un módulo PAM sin cifrar; un MITM puede sustituirlo por uno malicioso que se ejecuta como root en el próximo inicio de sesión. (Parcheado.)</li>
+<li><strong>Script de instalación/actualización inseguro:</strong> descarga RPMs y tarballs por HTTP y se ejecuta como root; seguía sin parchear al momento de la publicación del trabajo, con detalles publicados en colaboración con SSD Disclosure.</li>
+</ol>
+<p>A eso se suman fallos de diseño en autenticación: el TOTP de doble factor usa <strong>la misma clave para todos los usuarios</strong> (registrando tu propio autenticador obtenés los códigos de todos), y el "one-time password" de SSH es en realidad una credencial estática sin expiración.</p>
+<h2>Vibe coding: la IA también construye infraestructura maliciosa</h2>
+<p>En los backups aparecieron logs de bases de datos y chats con asistentes de IA usados para desarrollar la red. Los operadores, al tener ya partes del sistema funcionando, podían usar su propia infraestructura para acceder a modelos como OpenAI pese a los bloqueos geográficos desde China. Los chats —en chino simplificado, pasados por Google Translate, y en inglés— muestran pedidos de ayuda para implementar nuevas funciones, configurar la estructura de directorios para que Cursor trabaje mejor, y lluvias de ideas sobre nuevos servicios a ofrecer. Hay evidencia puntual del uso de Cursor como entorno de desarrollo.</p>
+<h2>Última actualización y lecciones</h2>
+<p>El último contenedor actualizado se vio el 20 de junio. Para entonces habían implementado cifrado en sus datos, pero como el esquema de generación de contraseñas ya era conocido, el cifrado resultó inútil: se descifró todo de nuevo, revelando nuevos repos Git y direcciones de correo.</p>
+<p>Lecciones prácticas:</p>
+<ul>
+<li><strong>Docker Hub:</strong> los contenedores públicos arrastran secretos con ellos. Se recomendó a Docker un <code>.dockerignore</code> por defecto; confirmaron recepción y no hubo respuesta hasta que se anunció la publicación.</li>
+<li><strong>GitHub y GitLab:</strong> el <code>.git/config</code> incluye credenciales en texto plano por defecto; se sugirió cambiar ese comportamiento. La respuesta fue que es un problema de configuración del usuario —lo es, pero el valor por defecto importa—.</li>
+<li><strong>La nube no es solo de los buenos:</strong> plataformas cloud, incluidos los free tiers, sirven para construir infraestructura de ataque o de manipulación de redes sociales. La misma facilidad que permite a cualquiera levantar servicios distribuidos está disponible para quien quiera abusar de ella.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Whiteout en Docker overlay FS:</strong> los archivos borrados de una imagen siguen presentes en el tarball completo; base de la búsqueda de secretos.</li>
+<li><strong>Trufflehog / regex a medida:</strong> herramienta clásica de detección de secretos; aquí reimplementada de forma mínima para escanear imágenes a escala.</li>
+<li><strong><code>.git/config</code> en imágenes de contenedor:</strong> identifica el repositorio remoto de origen y, a veces, tokens de CI o personal access tokens con permisos de escritura.</li>
+<li><strong><code>COPY . .</code> en Dockerfile:</strong> instrucción que arrastra archivos ocultos, incluyendo <code>.env</code> y <code>.git</code>, al construir la imagen.</li>
+<li><strong>Cadena de suministro vía token de CI:</strong> si el token tiene permisos de escritura al repo, se puede inyectar código que termina en la imagen pública tras el siguiente push.</li>
+<li><strong>Elasticsearch:</strong> índice de los 240.000 hallazgos para exploración y filtrado.</li>
+<li><strong>ORB (Operational Relay Network):</strong> red de nodos proxy que oculta el origen del tráfico; el objeto de estudio bautizado Meeting Mac.</li>
+<li><strong>NPS y FRP:</strong> herramientas de túnel/C2 usadas por la red; el fingerprint de FRP fue modificado (renombrando claves) para evasión.</li>
+<li><strong>Headless Chrome, VS Code Web, ttyd:</strong> servicios de los work groups de la red (social, op stations, scraper).</li>
+<li><strong>Reverse port forward con esquema de puertos nodeID+servicio:</strong> patrón de acceso centralizado a los nodos relay.</li>
+<li><strong>Browser fingerprints y cookies en la API de credenciales:</strong> persistencia de identidad de navegador para evadir detección o suplantar sesiones.</li>
+<li><strong>JWT de OneDrive:</strong> decodificable para extraer información adicional (correos, IPs).</li>
+<li><strong>ptmpl:</strong> paquete PyPI malicioso con hook post-instalación que descarga y ejecuta un script remoto.</li>
+<li><strong>btPanel:</strong> panel de administración chino (Flask) con RCE como root vía módulo PAM descargado en texto plano y actualizaciones por HTTP; MFA con TOTP compartido y OTP de SSH estático.</li>
+<li><strong>SSD Disclosure:</strong> publicación de detalles de las vulnerabilidades de btPanel.</li>
+<li><strong>Cursor y asistentes de IA:</strong> usados por los operadores para desarrollar la red, accediendo a modelos bloqueados en China a través de su propia infraestructura.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las imágenes de Docker públicas son una mina de secretos a escala industrial: 80.000 contenedores en tres meses arrojaron 240.000 hallazgos, 15.000 con metadatos Git y 1.500 apuntando a repositorios privados.</li>
+<li>El vector más peligroso no es el secreto suelto sino la combinación: un <code>.git</code> completo dentro de una imagen pública expone código fuente, historia de commits y, en algunos casos, tokens de CI con permisos de escritura capaces de comprometer la cadena de suministro del proyecto.</li>
+<li>Las redes ORB se construyen con servicios cloud legítimos y gratuitos (Docker Hub, Mega, GitHub, Hugging Face, Backblaze, Heroku, OneDrive), y su higiene de seguridad interna puede ser pésima: plantillas de contraseñas predecibles, claves SSH compartidas, MFA con semilla común y OTP estáticos.</li>
+<li>La infraestructura ofensiva también se desarrolla con IA: los logs de chat muestran operadores usando modelos bloqueados en su país a través de su propia red de relés, con Cursor como entorno de trabajo.</li>
+<li>Para el defensor, el valor de estos análisis está en los indicadores concretos: patrones de puertos (nodeID+servicio), dominios de hub, herramientas de túnel con fingerprints modificados y APIs de credenciales con huellas de navegador persistidas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/e93V9TWnxJo">«DEF CON 33 - Inside Look at a Chinese Operational Relay Network - Michael Torres, Zane Hoffman»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

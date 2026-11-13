@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del ruido OSINT al grafo: inteligencia de amenazas que responde preguntas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Del ruido OSINT al grafo: inteligencia de amenazas que responde preguntas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lib_KZKISOo">«Dongdong Sun - From OSINT Chaos to Knowledge Graph | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/lib_KZKISOo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los equipos de threat intelligence se ahogan en datos abiertos. Existen más de 200 fuentes válidas de inteligencia en internet, con alrededor de 10.000 informes publicados cada semana; ningún equipo humano puede consumirlos. Los indicator feeds resuelven la parte mecánica —volcar IoCs al EDR— pero pierden el contexto: no explican qué actor usa ese indicador, contra quién ni cómo. El valor real del OSINT está en el texto no estructurado de los informes, y leerlos, extraer la inteligencia y volcarla a un formato utilizable consume entre 40 y 50 minutos por informe.</p>
+<p>La propuesta del equipo de inteligencia de amenazas de Palo Alto Networks invierte el problema: en lugar de empujar informes a los analistas, construir un grafo de conocimiento extraído de esos informes y exponerlo como un sistema de pregunta-respuesta. Un analista pregunta qué malware usa APT28, qué actores explotan una vulnerabilidad concreta o si existe conexión entre dos grupos, y un agente recorre el grafo y responde citando las fuentes de cada afirmación. El resultado es una capa semi-estructurada que sirve tanto a humanos como a modelos de lenguaje.</p>
+<h2>El problema de la estructura: ni STIX ni texto libre</h2>
+<p>La ontología natural para datos de ciberseguridad es un grafo: los datos están interconectados por naturaleza (actores que usan malware, malware con indicadores, víctimas atacadas, campañas que comparten patrones). El formato STIX resuelve la parte máquina-legible, pero se vuelve ilegible para humanos muy rápido y tampoco es ideal para modelos: los LLM trabajan bien con texto libre, pero no se puede alimentar con miles de informes completos.</p>
+<p>La solución intermedia es un formato semi-estructurado: restricciones sobre qué tipos de entidades y relaciones se extraen, conservando el texto original como contexto de cada nodo. Cada entidad del grafo mantiene la explicación textual que la respalda.</p>
+<p>Un informe real sobre la vulnerabilidad crítica de BeyondTrust ilustra el proceso: once minutos de lectura que cubren el malware VShell, los vectores de infección, el contexto histórico de vulnerabilidades anteriores y una lista final de indicadores. La extracción produjo más de 100 entidades y más de 100 relaciones, que al expandirse sobre el grafo global revelan, por ejemplo, que el patrón de ataque "ingress transfer" aparece en múltiples campañas de distintos actores — una vista granular imposible de obtener leyendo un solo informe.</p>
+<h2>Extracción en varios pasos, no de un tirón</h2>
+<p>Extraer 100 entidades de un informe denso de forma fiable no se resuelve con una única petición al LLM. El pipeline se divide en etapas encadenadas:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Informe] --> B[Skeleton extractor<br/>¿vale la pena?]
+    B -->|sí| C[Extracción por tipo<br/>de entidad, grounded]
+    C --> D[Patrones de ataque:<br/>candidatos + corrección<br/>contra base MITRE]
+    D --> E[Relaciones:<br/>tripletas restringidas<br/>con descripción]
+
+</pre>
+
+<ul>
+<li><strong>Router inicial (skeleton extractor)</strong>: decide si el informe contiene algo extraíble y lo enruta a los componentes de extracción.</li>
+<li><strong>Entidades ancladas al texto</strong>: la extracción respeta la redacción literal del informe para minimizar invención.</li>
+<li><strong>Patrones de ataque</strong>: los informes rara vez citan el ID MITRE ATT&amp;CK correspondiente. Pedir directamente al modelo que asigne el patrón produce ruido (recall difuso entre patrones similares). La solución es en dos fases: el modelo extrae el comportamiento observado, propone candidatos, y luego lee los patrones relacionados de la base de conocimiento para autocorregirse y aterrizar en el patrón final.</li>
+<li><strong>Relaciones</strong>: con cientos de entidades, las relaciones explotan combinatoriamente. Se restringe el espacio a un conjunto fijo de tripletas (entidad-relación-entidad) y el modelo enruta cuáles aplican. Cada relación lleva una descripción contextual, no un verbo seco, lo que permite validar si el vínculo es real.</li>
+</ul>
+<h2>Evaluación: más de la mitad del esfuerzo</h2>
+<p>No existía un benchmark para extraer entidades y relaciones de informes largos de threat intelligence, así que hubo que construirlo desde cero. El "vibe checking" y los evaluadores LLM contra fuentes externas cubren lo conocido, pero fallan con lo que falta en el informe o con patrones inducidos desde comportamiento: ahí hace falta conocimiento humano.</p>
+<p>El proceso se diseñó para maximizar el tiempo de los investigadores: se parte de un dataset pequeño curado a mano, se hace que el modelo lo memorice, se infiere sobre un lote nuevo y tras dos o tres iteraciones el modelo alcanza ~90% de acierto en la mayoría de las tareas, dejando a los investigadores solo una verificación mínima en lugar de anotación completa. Cuando el dataset llegó a cientos y miles de entidades, la curación pasó a ser automática con LLM.</p>
+<p>La optimización automática de prompts trampas clásicas: el modelo genera una hipótesis de por qué algo falló, la añade al prompt, y rompe algo que ya funcionaba, entrando en un bucle infinito de correcciones. La solución fue separar el prompt en una sección que el LLM puede modificar y otra reservada a humanos, lo que estabilizó las iteraciones. Un hallazgo inesperado del proceso: el agregador de reflexión detectó inconsistentes veredictos entre anotadores humanos (una entidad clasificada como malware en un informe y como tool en otro), y se montó un circuito para listar esos conflictos y resolverlos con los investigadores.</p>
+<p>Dos observaciones contraintuitivas del benchmark: los modelos más nuevos no siempre puntúan mejor, y los modelos con razonamiento explícito rinden peor que los sin razonamiento en esta tarea — piensan demasiado y se apoyan en su conocimiento interno, cuando el objetivo es atenerse a las fuentes.</p>
+<h2>Del grafo a las respuestas</h2>
+<p>Sobre el grafo opera un agente con capacidades de búsqueda y navegación como las de un analista humano: parte de un nodo pivote y explora relaciones.</p>
+<ul>
+<li><strong>Cadena de explotación</strong>: ante la pregunta "¿cuál es la vulnerabilidad más reciente de BeyondTrust y cómo se explota?", el agente busca la entidad, selecciona la más reciente, recupera el subgrafo, obtiene el actor relacionado, las campañas asociadas y la cadena de ataque completa. Cada afirmación lleva la fuente de la que proviene, y el resultado incluye el grafo de investigación con los pasos seguidos.</li>
+<li><strong>Preguntas multi-hop</strong>: "¿qué vulnerabilidad explota APT28 y qué otros grupos la explotan?" obliga a pivotar del actor (con sus múltiples alias) a la relación de explotación y de ahí a un salto más hacia otros actores; el agente resuelve alias distintos que apuntan al mismo grupo.</li>
+<li><strong>Conexiones entre grupos</strong>: para APT28 y APT29 el agente busca co-ocurrencias (entidades mencionadas en el mismo informe), caminos en el grafo y acaba respondiendo con tooling común, infraestructura compartida, tipo de víctimas y atribución nacional (GRU ruso en un caso, servicios de inteligencia exteriores rusos en el otro).</li>
+</ul>
+<p>El anclaje a las fuentes es lo que evita alucinaciones del tipo "ambos se llaman <em>bear</em>, deben estar relacionados": el modelo responde desde el grafo curado, no desde su conocimiento paramétrico. La calidad del grafo es la única garantía de calidad de las respuestas — si el grafo está mal, todo lo que se construye encima hereda el error. La validación final es doble: el dataset de evaluación y el uso real por equipos internos (malware, URL, investigadores) que cruzan el grafo con fuentes internas de inteligencia.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OSINT / threat reports</strong>: más de 200 fuentes públicas, ~10.000 informes semanales.</li>
+<li><strong>Indicator feeds</strong>: IoCs sin contexto; se complementan con el texto de los informes.</li>
+<li><strong>STIX</strong>: formato estructurado de inteligencia; legible por máquinas, no por humanos.</li>
+<li><strong>Knowledge graph</strong>: ontología semi-estructurada de entidades y relaciones de amenazas.</li>
+<li><strong>MITRE ATT&amp;CK</strong>: inducción de patrones de ataque desde comportamientos descritos en informes.</li>
+<li><strong>Pipeline LLM multi-etapa</strong>: router de esqueleto, extracción grounded, autocorrección contra base de conocimiento.</li>
+<li><strong>Dataset de evaluación curado</strong>: iteración modelo-humano hasta ~90% de acierto con anotación mínima.</li>
+<li><strong>Optimización automática de prompts</strong>: con secciones separadas LLM/humano para evitar bucles de regresión.</li>
+<li><strong>LLM-as-a-judge</strong>: evaluador en producción, secundario al dataset.</li>
+<li><strong>Búsqueda semántica y multi-hop</strong>: navegación del agente por alias, co-ocurrencias y relaciones.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El cuello de botella de la inteligencia de amenazas no es conseguir datos sino estructurarlos; un grafo bien extraído convierte 10.000 informes semanales en preguntas respondibles.</li>
+<li>La extracción fiable exige dividir el problema: enrutado, extracción anclada al texto, inducción de patrones con autocorrección y relaciones restringidas a tripletas.</li>
+<li>Más de la mitad del esfuerzo del proyecto fue evaluación, no modelado; un buen dataset curado en iteración con humanos vale más que cualquier evaluador automático.</li>
+<li>Anclar cada respuesta del agente a las fuentes del grafo es la defensa práctica contra las alucinaciones de los LLM en un dominio donde el error cuesta caro.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lib_KZKISOo">«Dongdong Sun - From OSINT Chaos to Knowledge Graph | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

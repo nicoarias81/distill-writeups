@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game Hacking 101: aprender seguridad rompiendo videojuegos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Game Hacking 101: aprender seguridad rompiendo videojuegos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XSzXaD6A73s">«DEF CON 33 - Game Hacking 101  - Julian &#x27;Julez&#x27; Dunning»</a> · ver el <a class="nz-link" href="https://youtu.be/XSzXaD6A73s">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los videojuegos son un campo de entrenamiento de seguridad poco explotado: binarios que corren en la propia máquina del jugador, lógica de negocio falsificable en tiempo real y una comunidad de miles de personas buscando vulnerabilidades por diversión. Aprender a romper juegos —por speedrunning, modding, memory hacking o ingeniería inversa— afina exactamente las mismas habilidades que la ofensiva en software empresarial: leer código ajeno, fuzzear entradas raras, explotar números negativos y entender dónde un sistema decide confiar en el cliente.</p>
+<p>El panorama cubre cuatro grandes frentes: la lógica del juego (el terreno natural del speedrunning), el modding (que históricamente impulsa la innovación de la industria), el memory hacking (la puerta de entrada más accesible) y el anti-cheat, donde se libra una carrera armamentista a nivel kernel con millones de dólares de por medio. El enfoque es explícitamente educativo: la idea no es hacer trampa en juegos competitivos en línea, sino aprender conceptos de seguridad a través de la lente del game hacking.</p>
+<h2>La lógica del juego como superficie de ataque</h2>
+<p>Los bugs lógicos de los videojuegos son gemelos de los bugs lógicos de cualquier aplicación de negocios. Dos ejemplos célebres del speedrunning lo demuestran:</p>
+<p><strong>Shadow Boxing (Baldur's Gate 3).</strong> Se mata a una aliada (típicamente Shadowheart), se guarda su cuerpo dentro de una caja, se le prende fuego a la caja y se la arroja a un punto específico del vacío. El salto casi completo del juego resulta de una condición de estado: mientras el cuerpo está dentro de la caja, el personaje no es un personaje sino un ítem de almacenamiento; cuando el fuego rompe la caja, el personaje "reaparece" donde la caja aterrizó. Los desarrolladores apilan niveles no renderizados unos sobre otros para ahorrar espacio, y el juego detecta suelo debajo del cursor en esa zona: la escena cinemática que se dispara teleporta al grupo a otro capítulo. Encontrar lugares donde provocar una cinemática fuera de orden es, en esencia, cazar vulnerabilidades.</p>
+<p><strong>Backward Long Jump (Super Mario 64).</strong> Mario puede saltar en cadena sin cooldown; el límite real es la velocidad horizontal, que el juego acota a un máximo. Nadie acotó el mínimo: moviéndose hacia atrás la velocidad se lee como número negativo, y un negativo ilimitado genera un momentum infinito. Como el motor calcula la posición futura por frames, si Mario avanza lo suficiente entre un frame y el siguiente, nunca "toca" el collider de una puerta —el juego nunca registra que la atravesó— y termina del otro lado. La lección de seguridad es directa: validar rangos completos (incluidos negativos) y no confiar en que el cliente reporte estados coherentes.</p>
+<p>En juegos multijugador estos mismos bugs dejan de ser curiosidades: son problemas de dinero. Las grandes compañías los tratan como incidentes, con logs del lado del servidor, análisis de anomalías y parches urgentes —bugs de juegos como Apex Legends les costaron millones de dólares y se corrigieron con rapidez.</p>
+<h2>Modding: el motor de la innovación</h2>
+<p>El modding suele quedar fuera de la conversación de seguridad, pero es la prueba histórica de que hackear juegos mueve la industria:</p>
+<ul>
+<li>Counter-Strike fue un mod de Half-Life.</li>
+<li>Dota nació como mod de Warcraft y creó el género de los MOBA; League of Legends surgió de esa misma idea.</li>
+<li>PUBG salió de un mod de Arma 3 que inventó el battle royale, y Fortnite —que originalmente iba a ser un juego de construir fuertes contra zombis durante la noche— reconstruyó su lógica sobre esa base con los assets que ya tenía.</li>
+</ul>
+<p>Más allá del impacto comercial, el modding aporta calidad de vida: accesibilidad que el desarrollador no incluyó, localización a idiomas no soportados, "modo aracnofobia" que elimina las arañas, DLC caseros que continúan historias. Y para quien aprende seguridad, los ecosistemas de Unity y Unreal son el mejor punto de entrada: llevan décadas siendo moddeados y documentados, mientras que un motor propietario desconocido exige mucho más trabajo de reconocimiento previo.</p>
+<h2>Memory hacking: ver el juego como números</h2>
+<p>La idea central es simple: si el juego corre en tu computadora, todo son valores en memoria. La vida es un 100 en algún lado; al recibir un golpe pasa a 90. Un escáner (la herramienta clásica es Cheat Engine, útil para mucho más que juegos) filtra las direcciones cuyo valor era 100 y entre ellas las que pasaron a 90; iterando el proceso se aísla la dirección real y de ahí se puede reescribir el valor, teletransportar al personaje o cambiar cualquier flotante de posición.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Scan inicial: valor 100] --> B[Recibir daño: valor pasa a 90]
+    B --> C[Narrowing: intersección de direcciones]
+    C --> D{¿Queda una dirección?}
+    D -- no --> B
+    D -- sí --> E[Rewrite del valor en memoria]
+
+</pre>
+
+<p>Es la puerta de entrada de barrera más baja al game hacking y, como aprendizaje transferible, enseña a buscar estado y a razonar sobre dónde "vive" un dato. La contracara: en juegos en línea con servidor autoritativo, modificar valores del cliente es detectable y baneable —no hacerlo.</p>
+<h2>Reverse engineering</h2>
+<p>Cuando el juego está escrito en C# (Unity), el binario se decompila casi de vuelta al código original —a veces con nombres de símbolos intactos—, lo que permite entender la lógica, encontrar contenido inédito (un nivel de lava que nunca se publicó) y preparar mods con conocimiento preciso del código. Ejemplos citados: las máquinas arcade de Killer Queen, esencialmente juegos extraíbles y reversibles como cualquier título de Unity.</p>
+<p>Para aprender assembly existe Squally, un juego de Steam que enseña manipulando el assembly del propio sistema (con crash incluido si se divide por cero). Herramientas como Melon Loader con Unity Explorer permiten cargar mods y recorrer la escena de un juego —por ejemplo Outer Wilds— viendo y alterando cada objeto, sus scripts y sus propiedades en vivo, como caminar por la matriz del juego.</p>
+<p>Un problema interesante del lado defensivo: si el juego corre localmente con todo accesible, ¿cómo evitar que un jugador encuentre las respuestas de un desafío? Un enfoque usado en la práctica: colocar un cubo invisible flotante en cada nivel, rotado aleatoriamente en cada eje, hashear ese vector y usar el hash como clave de cifrado de las flags. Un día después de publicarlo, ya había un script en GitHub que extraía todas las flags. La ofuscación contra un adversario con acceso total al binario es una batalla de ida y vuelta.</p>
+<h2>Anti-cheat: la guerra por el kernel</h2>
+<p>El anti-cheat comercial es un negocio lucrativo con torneos de millones de dólares, y el enfrentamiento cheat-vs-anti-cheat replica la dinámica malware-vs-EDR: gana quien corre con más privilegios.</p>
+<ul>
+<li>Un cheat a nivel kernel sobre un anti-cheat en modo usuario gana: puede suprimir todo lo que vea.</li>
+<li>Un anti-cheat a nivel kernel deja casi sin opciones al cheat en modo usuario.</li>
+<li>Ambos lados persiguen drivers kernel firmados; perder el driver firmado obliga a rehacer todo desde cero.</li>
+</ul>
+<p>La otra cara del dilema es confiar en un desarrollador de anti-cheat cualquiera con acceso kernel en la propia máquina —el incidente de CrowdStrike ilustra lo que puede salir mal incluso con un proveedor confiable. Es un verdadero catch-22 para el jugador.</p>
+<p>Las tácticas defensivas copian al mundo EDR: los <em>wave bans</em> esperan a que toda una generación de cheats se consolide para banear en bloque, negando a los desarrolladores de cheats información sobre qué los delató. Y el fenómeno llega a los torneos en vivo: hay registros de jugadores retirados del escenario en plena competencia mientras cerraban apuradamente los programas que estaban corriendo.</p>
+<h2>Aprendizaje práctico: el Game Hacking Village</h2>
+<p>El Game Hacking Village (gamehacking.gg) materializa este enfoque con actividades concretas:</p>
+<ul>
+<li><strong>Hacker vs Hacker Olympics</strong>: equipos compitiendo para desarrollar hacks sobre juegos nuevos construidos junto a sus propios desarrolladores (con desafío adicional de <em>sandbox escape</em> sobre una plataforma tipo Roblox/sandbox, sucesora de Garry's Mod).</li>
+<li><strong>Puzzles de código en Minecraft</strong> para aprender scripting aplicado a modding.</li>
+<li><strong>Workshops de modding y de game hacking móvil</strong>, más un juego tutorial propio de memory hacking descargable gratuitamente.</li>
+<li><strong>Bug bounty real</strong>: con Epic Games y otros sponsors, buscando escapes de sandbox y exploits pagos en juegos.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Cheat Engine</strong> — escáner y editor de memoria; la herramienta estándar para memory hacking (y mucho más).</li>
+<li><strong>Shadow Boxing / Backward Long Jump</strong> — exploits lógicos emblemáticos del speedrunning en Baldur's Gate 3 y Super Mario 64.</li>
+<li><strong>Melon Loader + Unity Explorer</strong> — carga de mods e inspección de objetos de juegos Unity en tiempo real.</li>
+<li><strong>Decompilación C#</strong> — reversión de binarios Unity casi al código fuente original.</li>
+<li><strong>Squally</strong> — juego de Steam para aprender assembly manipulándolo directamente.</li>
+<li><strong>Anti-cheat a nivel kernel</strong> — drivers firmados y carreras de privilegios entre cheats y defensas.</li>
+<li><strong>Wave bans</strong> — estrategia de banear en bloque tras dejar madurar un ecosistema de cheats.</li>
+<li><strong>Ofuscación de flags con hash de vectores</strong> — cifrado de respuestas de desafíos locales contra data mining.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El game hacking es entrenamiento ofensivo legítimo: los bugs lógicos de los juegos (números negativos, colisiones por frames, estados de ítem/personaje) tienen equivalentes directos en software de negocios.</li>
+<li>El modding no es periférico: Counter-Strike, Dota, PUBG y Fortnite salieron de mods; es la innovación de la industria y un área desatendida para la comunidad de seguridad.</li>
+<li>La relación cheat/anti-cheat es una carrera de privilegios donde el kernel es el objetivo de ambos lados, con un dilema real de confianza para el usuario final.</li>
+<li>Para empezar: escaneo de memoria con Cheat Engine en juegos de un jugador, decompilación de juegos Unity y comunidades como Nexus Mods o el Game Hacking Village —con la regla de oro de no llevar cheats a juegos competitivos en línea.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XSzXaD6A73s">«DEF CON 33 - Game Hacking 101  - Julian &#x27;Julez&#x27; Dunning»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

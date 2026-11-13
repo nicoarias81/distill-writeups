@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plumbing the Plumber: playbook de ataque contra servidores de integración webMethods — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Plumbing the Plumber: playbook de ataque contra servidores de integración webMethods</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/wgf5GKrY3nc">«DEF CON 33  Recon Village -  A Playbook for Integration Servers - Ryan Bonner, Guðmundur Karlsson»</a> · ver el <a class="nz-link" href="https://youtu.be/wgf5GKrY3nc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los servidores de integración son el middleware que conecta sistemas viejos con sistemas nuevos: el mainframe con Salesforce, la banca con los procesadores de pagos, los hospitales con sus aseguradoras. El más difundido de esta categoría es IBM webMethods Integration Server, un producto nacido en 1996 que pasó por Software AG en 2007 y terminó en IBM en 2024, y que usan empresas del calibre de Google, AT&amp;T, Aflac, Medtronic o Johnson &amp; Johnson. Es, literalmente, la plomería oculta de las grandes corporaciones: casi nadie sabe que existe, y casi nadie la ha auditado.</p>
+<p>Esa combinación —infraestructura crítica, documentación hermética y cero atención de la comunidad de seguridad— resultó ser un terreno de caza excepcional. Dos investigadores, uno de ellos con casi una década de experiencia laboral sobre la plataforma, destilaron ese conocimiento en un playbook replicable: reconocimiento con motores de exposición en internet, detección de servidores, credenciales por defecto, abuso de endpoints administrativos no autenticados y explotación de servicios internos expuestos al público. El resultado: alrededor de 80 reportes de bugs entre VDP y programas de bounty, varios de severidad crítica máxima, y suficientes servidores caídos como para pedir disculpas públicas.</p>
+<p>El hallazgo de fondo no es una CVE puntual sino un patrón: funcionalidad pensada para desarrolladores —ejecutar cualquier servicio con un simple GET desde el navegador— está habilitada por defecto también en producción, y un error clásico de permisos convierte paquetes completos en superficie anónima. Cualquier servidor legado con esa filosofía de diseño es candidato al mismo tratamiento.</p>
+<h2>Un middleware que nadie mira</h2>
+<p>webMethods Integration Server cumple una función poco glamorosa pero central: transformar datos y orquestar transacciones business-to-business entre plataformas que jamás hablarían entre sí. Están en la ruta del dinero y de los datos médicos, lo que los convierte en un punto único de falla con impacto directo en banca, salud, seguros y finanzas.</p>
+<p>La barrera de entrada para auditarlos era deliberadamente alta. La documentación oficial ronda las 30.000 páginas, dispersa durante años entre foros, entrenamientos privados y knowledge bases recién centralizados. Un curso privado para entender la plataforma costaba entre 8.000 y 10.000 dólares por semana; si alguien que trabaja con el producto a diario necesita pagar eso, los investigadores externos simplemente no llegaban. Ese vacío de conocimiento público es la razón de que un producto de casi 30 años en internet conservara una superficie de ataque virgen.</p>
+<h2>Reconocimiento: encontrar la plomería expuesta</h2>
+<p>El playbook arranca con reconocimiento de superficie amplia, apoyado en varios motores con enfoques complementarios:</p>
+<ul>
+<li><strong>Shodan</strong>: la consulta sobre el banner de autenticación de Integration Server arroja entre 600 y 700 resultados.</li>
+<li><strong>ZoomEye</strong>: escanea un rango de puertos mucho más amplio (unos 3.800 contra los ~1.000 de Shodan), cubre mejor los mercados asiáticos y se integra con una base de datos de vulnerabilidades.</li>
+<li><strong>FOFA</strong>: destaca por su fingerprinting basado en reglas.</li>
+<li><strong>Censys</strong>: datos de buena calidad y un asistente de consultas que ahorra leer documentación.</li>
+<li><strong>Google y thestack.com</strong>: cruzar anuncios de empleo con tecnologías identifica unas 2.800 empresas usuarias del producto.</li>
+</ul>
+<p>A esto se suma el escaneo de CT logs como fuente de infraestructura oculta: con una herramienta corriendo 24/7 durante las evaluaciones aparecen hosts que no aparecen en ningún otro listado.</p>
+<h2>El detector: de la lista de IPs al primer hallazgo</h2>
+<p>Con los objetivos reunidos, una herramienta propia (confesamente "vibe-coded") automatiza la triada básica del playbook:</p>
+<ol>
+<li>Fingerprinting de respuestas específicas para confirmar que el host es realmente un Integration Server.</li>
+<li>Prueba de credenciales por defecto: sobre la lista de Shodan aparecieron del orden de 50-60 servidores accediendo con defaults.</li>
+<li>Barrido de endpoints de API: unos 5.100 endpoints documentados contra los que se prueba acceso sin autenticación.</li>
+</ol>
+<p>El barrido de endpoints rinde de inmediato: hay endpoints que listan claves y otros que devuelven errores 500 en operaciones sensibles como eliminar o establecer contraseñas. Un 500 en estas funciones indica que el servicio existe y responde; con la documentación en la mano, basta formatear correctamente la petición para ejecutarlo.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Recon: Shodan, ZoomEye, FOFA, Censys, CT logs] --> B[Fingerprinting del servidor]
+    B --> C[Credenciales por defecto]
+    B --> D[Barrido de ~5.100 endpoints]
+    C --> E[Acceso admin]
+    D --> F{Respuesta}
+    F -->|404| G[No existe el servicio]
+    F -->|401| G
+    F -->|500| H[Existe: buscar variables]
+    F -->|200| I[Ejecutado: vulnerable]
+    H --> I
+
+</pre>
+
+<h2>Por qué funciona: el error de los permisos por defecto</h2>
+<p>La raíz del problema es un patrón de administración trivialmente equivocable. Cuando un servicio interno falla por permisos, el administrador restablece la ACL del paquete a sus valores por defecto —sin darse cuenta de que el grupo <code>Anonymous</code> forma parte de ese default—. El paquete queda, en la práctica, ejecutable sin autenticación. Y no se trata de paquetes menores: el paquete público <code>WmPublic</code> trae cientos de servicios, todos heredando esa exposición.</p>
+<p>La vía de ejecución es de una simplicidad desarmante: cualquier servicio puede invocarse desde el navegador con un GET del estilo <code>/invoke/&lt;paquete&gt;.&lt;servicio&gt;</code>, la misma facilidad que el IDE ofrece al desarrollador para probar, disponible también en los servidores de producción expuestos a internet.</p>
+<p>Sobre el significado de cada respuesta al invocar servicios: un 404 indica que el servicio no existe en esa instalación; un 401 que existe pero está protegido; un 500 que existe y es explotable, a falta de encontrar las variables correctas; y un 200 que el servicio se ejecutó, sin más.</p>
+<h2>Explotación: del humo al crítico máximo</h2>
+<p>Con servicios expuestos, el salto a evidencia de impacto suele ser corto. Los casos más rentables reportados:</p>
+<ul>
+<li>Endpoints que devuelven credenciales B2B en masa: dos reportes bastaron para cobrar bounty de severidad crítica máxima.</li>
+<li>Servicios de utilidades como decodificación HTML (XSS que atraviesa firewalls) o, mejor aún, servicios de ejecución de comandos del sistema operativo.</li>
+<li>Servicios de lectura de archivos con restricción de directorio, útiles aunque limitados, porque el directorio permitido casi siempre contiene material sensible.</li>
+</ul>
+<p>Conviene descartar de entrada los servicios que exigen estructuras de datos complejas: con un crítico máximo ya en el bolsillo, el costo-beneficio no acompaña. El paso siguiente es más interesante aún: los clientes crean sus propios servicios reutilizando los del paquete, y si se deduce su convención de nombres, el fuzzing dirigido casi garantiza encontrar servicios propios expuestos con errores jugosos, generados por el mismo hábito de "no funciona → lo pongo en default".</p>
+<h2>Conclusión: la lección va más allá de webMethods</h2>
+<p>La advertencia operativa para quien administre uno de estos servidores es directa: no dejarlos expuestos a internet bajo ninguna circunstancia. La advertencia para la comunidad es más amplia: el método —elegir tecnología legada omnipresente y poco auditada, reconstruir su documentación, automatizar detección y barrer su superficie de servicios— se traslada tal cual a MuleSoft o cualquier servidor de integración similar, que es la próxima parada anunciada por los investigadores.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Shodan / ZoomEye / FOFA / Censys</strong>: motores de exposición para localizar Integration Servers; cada uno aporta cobertura de puertos, fingerprinting o calidad de datos distinta.</li>
+<li><strong>CT log scanning (herramienta Gungnir)</strong>: monitoreo continuo de Certificate Transparency para descubrir infraestructura oculta.</li>
+<li><strong>thestack.com</strong>: correlación de ofertas de empleo con tecnologías para estimar la base instalada (~2.800 empresas).</li>
+<li><strong>Herramienta propia de detección</strong>: fingerprinting + credenciales default + barrido de ~5.100 endpoints de API.</li>
+<li><strong><code>/invoke/&lt;paquete&gt;.&lt;servicio&gt;</code></strong>: invocación por GET de cualquier servicio, heredada del IDE de desarrollo y activa en producción.</li>
+<li><strong>ACL por defecto con grupo <code>Anonymous</code></strong>: causa raíz de la exposición no autenticada de paquetes como <code>WmPublic</code>.</li>
+<li><strong>Servicios explotables</strong>: retorno de credenciales B2B, HTML decode (XSS), ejecución de comandos, lectura de archivos.</li>
+<li><strong>IBM webMethods Integration Server</strong>: el objetivo; nacido en 1996, Software AG (2007), IBM (2024).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los servidores de integración son infraestructura crítica (banca, salud, seguros) que lleva décadas en internet sin auditoría seria; el desconocimiento público de la plataforma fue su mejor defensa y su mayor riesgo.</li>
+<li>El fallo estructural es cultural: permisos restablecidos a valores por defecto que incluyen al grupo anónimo, y funcionalidad de desarrollo (<code>invoke</code> por GET) habilitada en producción.</li>
+<li>Un flujo metodológico simple —fingerprint, credenciales default, barrido de endpoints, lectura de códigos de respuesta— produjo ~80 reportes y varios críticos máximos; el playbook es replicable por principiantes en bug bounty.</li>
+<li>La metodología es transferible a cualquier servidor legado similar y poco testeado (MuleSoft y otros): si nadie lo ha auditado, hay campo para encontrar fallos serios.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/wgf5GKrY3nc">«DEF CON 33  Recon Village -  A Playbook for Integration Servers - Ryan Bonner, Guðmundur Karlsson»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

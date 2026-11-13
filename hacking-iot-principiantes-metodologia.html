@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hacking IoT para principiantes: metodología, herramientas y presupuesto mínimo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hacking IoT para principiantes: metodología, herramientas y presupuesto mínimo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YPcOwKtRuDQ">«DEF CON 32 - Anyone can hack IoT- Beginner’s Guide to Hacking Your First IoT Device - Andrew Bellini»</a> · ver el <a class="nz-link" href="https://youtu.be/YPcOwKtRuDQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La broma clásica —"la S de IoT viene de security"— es merecida, y la firma quien diseñó dispositivos industriales y embebidos antes de pasarse a la ciberseguridad. Hay más de 15.000 millones de dispositivos IoT conectados —casi dos por persona— y las proyecciones hablan de 30.000 millones hacia fin de década, empujados por la IA en edge devices. Están en los hogares, en los autos y en la infraestructura crítica; los criminales las reclutan para botnets y acceso inicial; y sin embargo, preguntado hacker a hacker, casi nadie las hackea. La razón no es falta de vulnerabilidades sino tres malentendidos: que es carísimo (cursos de 5.000 dólares, osciloscopios, microscopios), que requiere un título de ingeniería y que las herramientas cuestan una fortuna. Esta exposición demuestra lo contrario: con 10 dólares de equipo, un dispositivo barato y una metodología clara, cualquiera puede encontrar vulnerabilidades con CVE. Los testimonios de estudiantes lo respaldan: una cámara inteligente barata con tres CVEs en camino, y un router barato con un remote code execution reportado a un CNA.</p>
+<h2>Elegir el blanco</h2>
+<p>Las reglas para el primer dispositivo:</p>
+<ul>
+<li><strong>Cuanto más barato, mejor</strong>: en seguridad, generalmente se paga lo que se gasta; los dispositivos baratos rara vez tienen puertos de debug bloqueados o firmware cifrado. Y si se frie —pasa incluso a hackers veteraniados como Joe Grand, que dedicó una charla entera a sus dispositivos ladrillados—, no duele.</li>
+<li><strong>Routers baratos o cámaras inteligentes baratas</strong>: tienen vulnerabilidades que encontrar y, lo más importante, casi siempre corren embedded Linux, mucho más accesible para aprender que un microcontrolador tipo ESP32 o STM32 sobre RTOS.</li>
+<li><strong>Dumpster diving</strong>: los amigos y la familia del "tipo que hackea cacharros" donan routers y cámaras obsoletas que funcionan perfectamente y que nadie siente si se rompen.</li>
+</ul>
+<p>Seguridad primero: nunca trabajar con alto voltaje (la pared hiere; los 3.3/5/9/12 voltios del interior, ni se sienten), no usar fuentes de poder dañadas o modificadas, y apagar el dispositivo antes de conectar o desconectar clips y cables —el puente accidental de un corto con el equipo encendido es la forma número uno en que los principiantes fríen su blanco—. Regla extra para llevar la habilidad a otros equipos: los capacitores grandes acumulan carga y la retienen desenchufados bastante tiempo; "desenchufado" no siempre significa "seguro". Y la regla de oro ética: solo probar dispositivos autorizados, con responsible disclosure —si no hay bug bounty, casi siempre hay vía de reporte—.</p>
+<h2>El kit de 10 dólares</h2>
+<p>La regla 80/20 se aplica a las herramientas: un par de cosas hacen el 80% del trabajo.</p>
+<ul>
+<li><strong>Multímetro digital</strong> (5-100 dólares; el de 5 de AliExpress sirve perfectamente para aprender): verifica voltajes y —como se verá— identifica puertos de debug sin equipo especial.</li>
+<li><strong>Adaptador USB a X</strong>: donde X es el protocolo hardware del dispositivo (UART, SPI, I2C, JTAG, SWD). El foco es UART, el más presente: uno de 2 dólares alcanza. Para futuro-proof, la placa Tigard habla todos esos protocolos y tiene documentación gratuita.</li>
+<li><strong>Programador de flash</strong> (unos 10 dólares, un CH341A genérico): para extraer firmware directamente del chip; opcional si se obtiene por otras vías —y si la Tigard está, su conexión SPI lo reemplaza—.</li>
+</ul>
+<h2>UART: el puerto abierto por defecto</h2>
+<p>Los dispositivos IoT carecen de teclado, mouse y monitor; para quien los diseña, los puertos de debug son su única ventana al estado interno durante R&amp;D, y en los dispositivos baratos suelen quedar abiertos en la placa —evitar una revisión de hardware sale más barato—, además de usarse en producción para logging, QA y flasheo. UART (Universal Asynchronous Receiver Transmitter) es el más común: protocolo viejo, sin clock, dos líneas (TX y RX) que comunican binario con voltaje: 3.3 o 5 V para un 1, 0 V para un 0.</p>
+<p><strong>Identificarlo</strong>: buscar pines TX, RX y ground juntos (a veces un VCC que, para hackear, se ignora). Si no vienen etiquetados —pads de prueba, conectores sin marcar—, truco con el multímetro en voltios DC: medir cada pin candidato contra ground y encender el dispositivo. UART es chatty al arrancar: pasados unos segundos del bootloader, el pin de TX mostrará un voltaje fluctuante (el promedio se mueve entre ~1.5 y 2.7 V en dispositivos de 3.3 V, demasiado rápido para leer los pulsos reales). Sin el arranque, el dispositivo apenas habla y el blip pasa inadvertido.</p>
+<p><strong>Conectarse</strong>: adaptador USB-serial con TX→RX cruzado (el TX de uno va al RX del otro), grounds juntos, VCC ignorado. Sin soldador también se puede: en conectores through-hole alcanza con presión lateral, un twist tie o sticky tack en apuros. En Linux: identificar el device ID del adaptador (normalmente /dev/ttyUSB0) y abrir un emulador de terminal; screen es el más simple, con dos argumentos: el dispositivo y el baud rate —115200 en el 99% de los casos, 9600 como segunda opción—.</p>
+<p><strong>Lo que se obtiene</strong>: los boot logs, oro puro. Versiones de librerías desactualizadas (a veces basta para reportar un CVE con el trabajo ya hecho por otro), el mapa de particiones de la flash que después guía el dumping del firmware, rutas de llaves RSA al levantar DropBear (el SSH embebido común), y trazas verbosas de cada interacción —incluidos candidatos a command injection o el manejo de pre-shared keys y SSIDs de un router—. Muchas veces basta presionar Enter al terminar el boot para obtener un root shell: embedded Linux corre todo como root, sin passwords ni menor privilegio. Los fabricantes lo saben y no lo consideran vulnerabilidad —no vale reportarlo—, pero es la puerta para encontrar lo que sí les importa.</p>
+<p>La prioridad, aclarado el autor, no es la shell sino el logging: UART funciona sin autenticación y streamerá los logs igual, salvo que el dispositivo silencie la línea (poco común). Enumeración con shell: /etc y /var primero, passwords y llaves hardcodeadas, endpoints hacia backends, ps y netstat para ver procesos y conexiones.</p>
+<h2>Obtener el firmware, por tres vías</h2>
+<p>El firmware embebido en Linux tiene cuatro partes: bootloader, kernel, root file system (donde vive casi todo lo interesante: binarios, scripts, configuraciones) y una partición de datos escribibles (passwords configurados, pre-shared keys; suele estar al final de la flash). El blanco es el root file system.</p>
+<ol>
+<li><strong>Descarga del vendor</strong>: los fabricantes baratos no incluyen mecanismo de actualización —pasan la responsabilidad al usuario, que un 99% no cumple— y publican el firmware en su página de soporte. Vía gratis: sin dispositivo ni equipo, hacking IoT desde la descarga.</li>
+<li><strong>TFTP desde la shell</strong>: ~90% de los dispositivos lo traen, horneado en su mecanismo de updates; se levanta un server propio y se traen archivos de interés o el root file system completo.</li>
+<li><strong>Dump del chip</strong>: los dispositivos baratos usan casi siempre un chip SPI flash de 8 pines con pinout estándar, legible in-circuit con el CH341A (con SOIC clip, sin desoldar) o la Tigard, usando flashrom: un solo comando lee el contenido completo.</li>
+</ol>
+<p>Si el firmware está cifrado —otra razón para empezar con dispositivos baratos, que rara vez cifran por costos de desarrollo y de hardware—, guardar ese blanco para más adelante: se puede derrotar (las llaves pasan por memoria al bootear), pero es un tema avanzado.</p>
+<h2>Análisis y reversing del root file system</h2>
+<p>Descomprimir con binwalk (<code>-Me</code>: identifica tipos de archivo recursivamente y extrae todo; correrlo sin flags solo lista lo que ve), o tallar particiones con dd usando el mapa del boot log. Y luego, la fruta baja con herramientas básicas de Linux:</p>
+<ul>
+<li><strong>Config files</strong>: find -name "*.xml" (o .conf, .json...) y leer. Sorprende lo que queda adentro.</li>
+<li><strong>strings + grep</strong>: el truco favorito del expositor — <code>strings -f</code> adjunta el nombre de archivo a cada string, se pipea a grep y se buscan "password", "api key", TLDs como ".com" para encontrar endpoints.</li>
+<li><strong>Scripts legibles</strong>: embedded Linux usa Bash/sh, sin decompilar; los comentarios de los desarrolladores (a veces con mails de contacto) dan contexto. Los imprescindibles: los scripts RC<strong>S</strong> de /etc/init.d que BusyBox ejecuta en orden alfanumérico al arrancar —definen qué binarios levanta el dispositivo, qué contacta en la nube—. Para quien no domina Bash, ChatGPT los desglosa sin problema.</li>
+</ul>
+<h2>Reversing de binarios: interactuar, rastrear, decompilar</h2>
+<p>Con cientos o miles de binarios y librerías, evitar la aguja en el pajar exige un approach top-down: empezar por los custom —los que hacen al dispositivo— e ignorar lo que es Linux genérico. El método para encontrarlos sin adivinar: <strong>interactuar con el dispositivo y rastrear el logging hasta el binario o función subyacente</strong>.</p>
+<p>Ejemplo real sobre un router: jugar con su utilidad de ping test desde la web UI (usar el dispositivo como se supone que se usa, sin inyectar nada todavía), observar el log verboso y encontrar que el fabricante —amablemente— imprime la función llamada entre corchetes: <code>util_exec_system</code>, con el formato completo del comando (<code>oal_startPing: command is iping -c ...</code> y la IP ingresada por el usuario dentro). Huele a system call sin sanitizar.</p>
+<p>De ahí, de vuelta a strings+grep: buscar el nombre de función en los binarios (<code>-f</code> da el archivo: libscmm.so, librería custom con la lógica del router). Si los binarios están stripped, la pista alternativa son las strings de formato: buscar "command is" encuentra el <code>%s command is %s</code> dentro del binario —los strings de logs no se ofuscan, no son malware—.</p>
+<p>En Ghidra, donde los principiantes se amedrentan, dos principios desactivan la intimidación:</p>
+<ul>
+<li><strong>No es malware</strong>: los desarrolladores IoT escriben código legible, con print statements que describen lo que hacen. Leer los prints primero: confirman estar en el lugar correcto, y las funciones printf/sprintf de dos argumentos revelan qué es cada variable —en el ejemplo, que el segundo parámetro es justamente la string que el usuario controla—.</li>
+<li><strong>Buscar lo unsafe</strong>: el objetivo número uno es que el input del usuario termine en un system call sin validación. La trampa clásica: <code>util_exec_system</code> (sin sanitización, con ~500 llamadas en el dispositivo) escrito por una persona, y el caller que sí sanitiza escrito por otra —el desalineo entre capas es donde se cuela el command injection—. El segundo objetivo, algo más difícil de explotar: input del usuario en funciones C inseguras (memcpy, strcpy, strcat, printf/sprintf, gets/scanf), donde buffers acotados por la escasez de memoria invitan a overflow —desde crash y DoS hasta, con trabajo posterior, buffer overflow explotable—.</li>
+</ul>
+<p>Para completar el mapa de interacción: no solo la web UI —la mobile app (setup, pairing; el expositor crasheó una cámara con un QR malformado) y el cloud (interactuar legítimamente, sin pentestear el cloud) también generan inputs que hay que rastrear hasta el código.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El hardware hacking de IoT comercial es accesible: 10 dólares de equipo (multímetro, USB-UART, CH341A), Linux básico y metodología alcanzan para encontrar vulnerabilidades con CVE, como lo demuestran los resultados de estudiantes.</li>
+<li>Los dispositivos baratos son el mejor laboratorio: sin firmware cifrado, sin puertos bloqueados, con logging verboso que entrega versiones, particiones y nombres de funciones a quien sabe leerlos.</li>
+<li>El flujo metodológico es repetible: identificar UART (multímetro en boot), leer logs, obtener firmware (descarga, TFTP o dump SPI), descomprimir con binwalk, fruta baja con find/strings/grep, y reversing dirigido rastreando la interacción con el dispositivo hasta las system calls y funciones inseguras en Ghidra.</li>
+<li>La ética es parte del método: authorized targets only, responsible disclosure, y reportar aunque no haya bug bounty —los CVEs demuestran que el sistema funciona.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YPcOwKtRuDQ">«DEF CON 32 - Anyone can hack IoT- Beginner’s Guide to Hacking Your First IoT Device - Andrew Bellini»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

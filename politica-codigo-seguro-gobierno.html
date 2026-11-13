@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de código seguro: infraestructura crítica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Política de código seguro: infraestructura crítica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Tanya Janca (SheHacksPurple), security advocate y autora de la saga <em>Alice and Bob Learn</em>, plantea una tesis incómoda: el software que ejecuta los servicios del Estado es infraestructura crítica, y sin una política de código seguro exigible, su seguridad es un "haz lo que quieras" donde cada departamento improvisa. El trabajo es a la vez un caso de campaña ciudadana —tres años presionando al gobierno canadiense tras jubilarse del servicio público— y una caja de herramientas replicable: una política de código seguro de 9 páginas, gratuita y agnóstica de stack, más plantillas de carta y una petición, para que cualquiera presione a su propio gobierno.</p>
+<h2>Por qué importa la política</h2>
+<ul>
+<li>El código inseguro en aplicaciones gubernamentales es <strong>riesgo nacional</strong>: sin servicios, con datos privados expuestos y con consecuencias peores.</li>
+<li>Una política de código seguro protege democracia, privacidad y seguridad pública. Sin ella no hay nada exigible ni accountable: cada departamento hace "su propia cosa", que es exactamente lo que está pasando.</li>
+<li>La política bien escrita ofrece guía, claridad y un checklist; permite señalar incumplimientos concretos ("tu app está disponible por HTTP", "tus cookies van abiertas") apuntando a una regla escrita.</li>
+<li>Anécdota reveladora del interior del gobierno: el elemento número uno de la lista de "mission critical" era <strong>la web del departamento</strong> — si cae, el público entra en pánico, llaman al 911 y "podría haber disturbios en la calle". El software corre el país.</li>
+</ul>
+<p>El problema educativo de fondo: los desarrolladores se gradúan por miles sin ninguna clase de codificación segura (casi ninguna universidad lo enseña; alguna toca hacking web; una sola tenía un curso de AppSec), y el <strong>vibe coding</strong> agrava el panorama. "No estamos listos para las amenazas actuales, y mucho menos para las que vienen."</p>
+<h2>El panorama canadiense (según Tanya y la web pública)</h2>
+<p>Descargo metodológico: nada de información bajo NDA de sus 13,5 años en el gobierno canadiense (salió en 2018); todo lo que sigue es público y contrastable.</p>
+<ul>
+<li><strong>No existe</strong> una política o guía formal de codificación segura para todo el servicio público canadiense.</li>
+<li><strong>No hay</strong> programa de vulnerability disclosure ni bug bounty a escala de gobierno: solo uno limitado en CDS (un grupo de cinco personas), uno en la provincia de Alberta y otro en Canada Post. En el resto no hay canal oficial para reportar bugs, y <strong>ninguno ofrece safe harbor</strong> — pueden demandarte por reportar.</li>
+<li><strong>No hay</strong> educación gubernamental en seguridad de software: sin guía y sin formación, cada uno improvisa.</li>
+<li>La guía existente es escasa: el <em>Software Security Code of Practice</em> (lo mejor disponible) lista solo cuatro puntos — autenticación fuerte, validar entrada, proteger datos sensibles, almacenar credenciales de forma segura — sin detalle alguno, más una sección de "secure by design" sin ejemplos ni explicaciones. No es obligatorio, no es accionable.</li>
+<li>Dos documentos más sobre componentes de terceros: sugieren SBOM pero <strong>no analizar</strong> los componentes; todas las recomendaciones son manuales, caras y no escalables ("no tengo 12 personas para revisar manualmente cada dependencia de una app"). Ambos no obligatorios.</li>
+<li>Una guía web básica para el público ("security considerations for your website"): correcta pero mínima, y el gobierno no está obligado a seguirla.</li>
+<li>La estrategia oficial (whole of society engagement, certificaciones de ciberseguridad) se queda en <strong>IoT y dispositivos inteligentes</strong>: el software desaparece de la ecuación; colaboran con una sola universidad de todo el país.</li>
+<li>Contexto de brechas: una investigación de CBC (2025) destapó <strong>42 brechas "materiales" no reportadas</strong> por la CRA (el equivalente canadiense del IRS), que guarda los datos financieros de todos los canadienses; hay una demanda colectiva en curso (a la propia Tanya le robaron dos identidades de familiares). Solo se reportan las brechas "materiales": las que se conocen son la punta del iceberg.</li>
+</ul>
+<p>Su diagnóstico: no es falta de trabajo ni de talento — hay gente brillante trabajando duro — sino que <strong>el foco está en redes e infraestructura y el software no entra en la foto</strong>, pese a que más de medio millón de desarrolladores canadienses (de 1,3 millones de trabajadores tech) no reciben ninguna guía.</p>
+<h2>Lo que ella ha intentado (y qué respondieron)</h2>
+<ul>
+<li>Voluntariado con ICTC desde 2018: ciber en currículums de primaria y secundaria, la lección de hacking ético del libro de carreras, profesionales de seguridad en career days, apoyo a CyberTitan (CyberPatriot en EE. UU.), charlas gratuitas en universidades y su academia completa de cursos —incluida codificación segura— gratis al público.</li>
+<li>Contactos con la CRA (muchísimos), cartas al First Minister, blogs, entrevistas en CBC y otros medios, redes sociales, viajes a Ottawa, y hasta acorralar educadamente al CIO de la CRA en un pasillo ("¿y tú cómo lo sabes?" — "porque yo escribí esa política cuando trabajaba para ustedes"). La respuesta acumulada tras tres años: <strong>ignora, ignora, ignora</strong> — o cartas del tipo "no podemos decírtelo por seguridad" (cuando la queja era la ausencia de cabeceras de seguridad y cookies sin protecciones).</li>
+<li>Escribió para ellos una política de codificación segura y se la regaló; campaña de cartas con su MP (que luego perdió el escaño); cartas a Shared Services, el comisionado de privacidad, Defensa... Sin respuesta.</li>
+<li>Conclusión dura: la vía "educada" no funciona; hacer <strong>ruido colectivo</strong> es lo único que no pueden ignorar ("si hago ruido yo sola, me ignoran; si somos miles, no pueden").</li>
+</ul>
+<h2>La política y las herramientas</h2>
+<ul>
+<li><strong>Política de código seguro</strong> (9 páginas, accionable, agnóstica de lenguaje/framework/cloud — vale para cualquier stack, "ponla en manos de cualquier desarrollador y sabe qué hacer"): versión con gráficos en <code>securecodingguideline.com</code> (la versión bonita está tras registro a su newsletter; la versión sin registro es un PDF libre).</li>
+<li>Basada en su libro <em>Alice and Bob Learn Secure Coding</em> (el amarillo, para quien escribe código; el morado, <em>Application Security</em>, para quien construye programas de AppSec).</li>
+<li><strong>Plantilla de carta</strong> para contactar a tu representante + <strong>petición</strong> para buscar un MP que la patrocine: todo descargable, sin registro.</li>
+<li>Además: academia gratuita (~11 cursos: programa de AppSec, respuesta a incidentes, codificación segura) y newsletter mensual con todo su contenido no gated.</li>
+</ul>
+<h2>Qué puedes hacer tú, vivas donde vivas</h2>
+<ol>
+<li><strong>Contacta a tus responsables públicos</strong> y pregunta: ¿tenemos una política de código seguro para todo el gobierno? ¿Es buena? ¿En qué se basa? Usa la política de Tanya como plantilla ("te garantizo que la de tu gobierno no es tan estricta").</li>
+<li><strong>Empuja la reforma educativa</strong>: si tú o alguien de tu familia va a la universidad, llamad y preguntad por qué no hay curso de codificación segura ("imagina una escuela de electricistas que no enseña seguridad eléctrica"). Los motivos habituales —"caro", "no hay profesores"— se desmontan: pagan menos que un greeter de Walmart.</li>
+<li><strong>Presión pública</strong>: llama otra vez, llama a otra persona, usa redes sociales. El naming and shaming (de departamentos y de inacción, no de personas) resultó necesario.</li>
+</ol>
+<h2>Estado actual y esperanza</h2>
+<ul>
+<li>La estrategia inmediata: conseguir un <strong>Miembro del Parlamento</strong> que patrocine la petición; con 500 firmas (contando con las redes de capítulos OWASP de todo Canadá) se activa una House of Commons petition y el gobierno está obligado a recibirla: 20 minutos de audiencia en Ottawa.</li>
+<li>Progreso real: el CISO de British Columbia adoptará su política y se ha comprometido a sondear al resto de CISOs provinciales (BC suele ir a la cabeza); tiene contactos en Alberta. Plan: "avanzar provincia a provincia y avergonzar al servicio público hasta que actúe".</li>
+<li>Se siente <strong>más esperanzada</strong> que al principio: cuanto más ruido hace, más gente responde "esto no está bien" y más voluntarios llaman a sus representantes.</li>
+<li>Recursos citados: securecodingguideline.com (política, carta, petición), SheHacksPurple.ca, academia gratuita y newsletter.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

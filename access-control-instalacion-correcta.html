@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Access control bien hecho la primera vez — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Access control bien hecho la primera vez</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/6OFZjlym4r0">«DEF CON 33 - Physical Security Village - Tim Clevenger - Access Control Done Right The First Time»</a> · ver el <a class="nz-link" href="https://youtu.be/6OFZjlym4r0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Tim Clevenger —ingeniero de ciberseguridad de red y ex sysadmin de una empresa de alarmas que instalaba, mantenía y reparaba sistemas de control de acceso de muchas marcas— comparte lecciones de campo para que un sistema de control de acceso sea más mantenible, más confiable y más seguro, ya sea en una instalación nueva, un upgrade o mantenimiento. La premisa: los vendors trabjan a precio más bajo y venden un MVP que "abre las puertas" pero no es lo mejor para la seguridad a largo plazo. No aceptar los defaults.</p>
+<h2>Hardware: elegir las placas correctas</h2>
+<ul>
+<li><strong>Mercury Security</strong> fabrica la mayoría del equipo de la industria; muchos vendors le ponen su marca encima. Tiene almacenamiento local y procesamiento onboard: el panel de acceso decide si abre una puerta usando la base de datos de titulares de tarjetas, así que si se corta la luz la placa no pierde memoria ni necesita recargar la base.</li>
+<li><strong>Firmware reflashable</strong>: como casi todos usan las mismas placas, si se cambia de vendor (por ejemplo de Lenel a Genetec o Honeywell) se puede reflashear la mayoría de las placas existentes sin reponer todo el equipo.</li>
+<li><strong>Placa de acceso (access panel)</strong>: conectada por Ethernet al servidor, decide las habilitaciones, e incluye un controlador de dos puertas integrado.</li>
+<li><strong>Controlador de puerta (door controller)</strong>: más barato y más tonto; no guarda la base de titulares. Si pierde conexión entra en un modo tonto: se permite a todos, a nadie, o solo a quienes tengan cierto facility code (aunque hayan dejado la empresa hace 10 años y no hayan devuelto la tarjeta).</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    SRV[Servidor del sistema] -- Ethernet --> AP[Placa de acceso<br>decisión local]
+    AP -- RS-485 daisy chain --> DC1[Controlador puerta 1]
+    AP --> DC2[Controlador puerta 2]
+    AP --> DC3[Controlador puerta N]
+    DC1 --> R1[Lector + cerradura]
+    DC3 --> R3[Lector + cerradura]
+    AP -. alertas: tamper, AC fail, battery fail .-> SRV
+
+</pre>
+
+<h2>Dónde colocar el equipo</h2>
+<p>Consideraciones al planificar con el project manager o en el RFP:</p>
+<ol>
+<li><strong>Ambiente</strong>: calor, humedad y polvo. Caso real: una HOA puso la placa de la piscina común en el mismo cuarto que la filtración de agua salada; la placa quedó toda crusty, sin garantía.</li>
+<li><strong>Disponibilidad de energía</strong>: nada de enchufe suelto; circuito propio con breaker dedicado.</li>
+<li><strong>Seguridad física</strong>: si el gabinete queda en un pasillo o un closet accesible, poner cerradura y tamper switch para que no arraquen los cables.</li>
+<li><strong>Accesibilidad futura</strong>: no esconder equipo en el cielo raso que después se seca con durlock y papel tapiz; llegar después sale caro.</li>
+</ol>
+<h2>Cableado</h2>
+<ul>
+<li><strong>Panel → controladores</strong>: RS-485, protocolo de los '80, cable de 2 o 4 hilos blindado, drain del blindaje en un extremo y terminación al final de la string; hasta ~4000 pies teóricos. Pero es <strong>daisy chain</strong>: un corte en el medio, un controlador fallado o interferencia electromagnética (un transformador del otro lado de la pared) cae la string completa; hay que buscar el problema entre miles de pies de cable para recuperar 31 controladores.</li>
+<li><strong>Cable de calidad</strong>: no usar "el cable que había en la camioneta": calibre insuficiente, empalmes, cable sin blindaje (hace que el lector se cuelgue y haya que desconectarlo del panel para recuperarlo) o cable directamente inapropiado, como Ethernet.</li>
+<li><strong>Solución: composite access control cable</strong>: todos los conductores necesarios, blindados donde corresponde, con auxiliares y repuestos (para un push button, por ejemplo), chaqueta exterior gruesa. De un vistazo se sabe que el cable es adecuado.</li>
+<li><strong>Fuentes de poder remotas</strong>: los cerrojos hambrientos de energía (mag locks, crash bars motorizados) las exigen. Problema clásico: el instalador encuentra que la tirada quedó larga y esconde una fuente barata arriba del cielorraso, sin baterías, sin tamper y sin documentar. Planificarlas de antemano: modelo con baterías, documentadas y accesibles. Considerar 24 V en vez de 12 V para la misma tirada: casi el doble de potencia con el mismo cable.</li>
+</ul>
+<h2>Layout: clusterizar</h2>
+<p>El layout preferido: clusterizar el equipo en uno o dos gabinetes grandes cercanos por piso (placa de acceso arriba, controladores debajo, cableado de puertas saliendo de ahí). Ventajas: tiradas RS-485 cortas y pre-cableadas, y si algo falla todo está en un solo lugar para troubleshoot.</p>
+<ul>
+<li>En una oficina de piso alto: cluster cerca del centro del piso; no correr RS-485 a otro piso ("don't ask me how I know").</li>
+<li>Diseñar con flexibilidad futura: si una pandemia deja medio piso para subalquilar, dos clusters planeados de antemano permiten cortar un cable, poner puertas divisorias y separar la mitad; cuando el subalquiler termina, se vuelve a correr Ethernet al panel, se reprograma y queda el piso entero.</li>
+<li>Cuando RS-485 es la opción correcta: un almacén con 70-90 docks (Ethernet solo llega a ~328 pies) justifica un panel en un extremo y los controladores en línea sobre los muros; el cable queda expuesto, sin EMI ni ratas, y es fácil de diagnosticar. Ídem la tranquera al final del estacionamiento: una sola tirada RS-485 por conduit subterráneo hasta un controlador único es mucho más confiable que media docena de media converters.</li>
+</ul>
+<h2>Controles que casi nunca se ponen</h2>
+<ul>
+<li><strong>Tamper switches</strong>: en gabinetes, fuentes remotas, lectores y Knox box. Los ataques a lectores empiezan sacándolo de la pared y conectando algo a los cables; con tamper al menos se entera de que pasó y puede deshabilitar la tarjeta o rekeyear.</li>
+<li><strong>AC fail y battery fail contacts</strong>: enterarse de que se fue la energía de un panel sin esperar a que la puerta deje de funcionar. Pedirlo explícitamente en el RFP: los installers no lo conectan por defecto.</li>
+<li><strong>Supervision resistors</strong>: cuestan un dólar y medio. Puestas en línea lo más cerca posible del door contact, convierten abierto/cortocircuito en cuatro niveles de resistencia distintos (línea cortada, línea empalmada, puerta abierta, puerta cerrada) y permiten detectar cable cortado o contact caído. No ponerlas es pura pereza.</li>
+<li><strong>Alertas con destino</strong>: de nada sirve gastar en el sistema si genera alertas que nadie ve. Enviar email a varias personas si no hay guard; integrar con cámaras para que un evento de puerta levante la cámara exacta — vale la pena.</li>
+</ul>
+<h2>Cerraduras y seguridad de vida</h2>
+<ul>
+<li><strong>Fail safe vs fail secure</strong>: si el software se cae, ¿la puerta abre (fail safe, escape) o queda cerrada (fail secure)? Siempre configurar para que la gente pueda escapar: nunca vale la pena arriesgar vidas para proteger propiedades.</li>
+<li>Coordinar con el <strong>código de fuego local</strong> y la autoridad con jurisdicción (fire marshal o building inspector).</li>
+<li>En edificios altos: conectar el sistema con <strong>relays</strong> al alarma de incendio del edificio para que al sonar la alarma las puertas se desbloqueen automáticamente (parte del lease y del código).</li>
+<li><strong>Cerraduras</strong>: mag locks con mucho voltage drop se ven y suenan cerradas pero abren tirando fuerte; los solenoides estándar que quedan energizados 8-12 horas diarias calientan el manijón y fallan dejando la puerta imposibilitada de abrir: elegir hardware más adecuado para esas puertas.</li>
+<li><strong>Sensores de movimiento request-to-exit</strong>: requieren alimentación separada; el apuntado y el rango de detección importan para evitar bypasses (spray y apertura por debajo del manijón) y falsas alarmas, y para no molestar con clicks a todo el que pasa por el pasillo.</li>
+<li><strong>Door contacts y REX</strong>: detectan puerta abierta/cerrada y salida legítima; todos tienen bypasses, considerarlos al diseñar.</li>
+<li><strong>Knox box</strong>: la caja con llave para el departamento de bomberos (y "probablemente bad guys") afuera del edificio; ponerle tamper, porque no se sabe quién clonó esa llave.</li>
+</ul>
+<h2>Badges y lectores</h2>
+<ul>
+<li><strong>125 kHz prox</strong> (gimnasio, departamentos, garajes): trivial de clonar. <strong>iClass</strong>: también bastante roto. <strong>DESFire v2+</strong> e <strong>HID COS</strong>: todavía no rotos, con asterisco.</li>
+<li>El formato <strong>26-bit</strong> clásico usa facility code de 256 valores: las tarjetas se compran en eBay con el facility code que se quiera (código 1 y el 132 son los más comunes que se ven).</li>
+<li>Clonar y capturar es fácil: cualquier lector compatible de eBay lee la tarjeta; un lector portátil a pilas en un maletín captura tarjetas en la calle.</li>
+<li><strong>Mitigación: HID Corporate 1000</strong>: formato de 48 bits con facility code dedicado que solo empleados designados de la empresa pueden pedir al vendor; 8 millones de números de badge, se puede elegir un rango alto para no colisionar si se adquiere a un competidor. Importante: <strong>deshabilitar los formatos viejos</strong>, si no la prox vieja sigue abriendo.</li>
+<li><strong>Wiegand</strong> (protocolo de 1975) sigue siendo el estándar y es trivial de capturar con el lector desmontado y un dispositivo que transmite por Wi-Fi desde afuera de la propiedad.</li>
+<li><strong>Solución: OSDP (Open Supervised Device Protocol</strong>, de 2015): cifrado, enrolamiento (pairing) de lectores, sobre RS-485. No es perfecto (hay una ventana de compromiso posible durante el pairing si alguien está del otro lado) pero el problema principal es humano: <strong>84% de los installers</strong> hace un par de años nunca o casi nunca lo usaba. No hacer daisy chain de lectores salvo caso muy puntual.</li>
+<li><strong>PIN en puertas de alta seguridad</strong> (como el server room): evita que una tarjeta clonada o robada entre de inmediato (salvo que alguien escriba el PIN en la tarjeta).</li>
+</ul>
+<h2>Operación continua</h2>
+<ul>
+<li>Probar los lectores regularmente.</li>
+<li>Revisar y reemplazar baterías: cada ~5 años en cuarto climatizado, cada ~3 en cuarto caliente (son baterías de UPS baratas).</li>
+<li>Documentar: no solo dónde están los lectores, sino también las fuentes remotas de poder y las baterías.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Mercury Security / access panel / door controller</strong>: hardware de control de acceso con decisión local y firmware reflashable.</li>
+<li><strong>RS-485</strong>: bus serie daisy chain de los '80 para panel→controladores y lectores; 4000 pies teóricos, sensible a un solo punto de falla.</li>
+<li><strong>Composite access control cable</strong>: cableado todo-en-uno blindado para lectores, cerraduras y REX.</li>
+<li><strong>Data diode</strong>: no aplica aquí — es del mundo air gap; en control de acceso el análogo es el hardware no negociable: diodes no, pero supervision resistors sí.</li>
+<li><strong>Supervision resistors / tamper switches / AC &amp; battery fail</strong>: detección temprana de manipulación y fallas.</li>
+<li><strong>Fail safe vs fail secure, relays de alarma de incendio</strong>: seguridad de vida sobre seguridad de propiedad.</li>
+<li><strong>26-bit Wiegand, HID Corporate 1000, iClass, DESFire, COS</strong>: formatos de credenciales; prox/iClass clonables, Corporate 1000 con facility code dedicado.</li>
+<li><strong>OSDP</strong>: protocolo cifrado de 2015 que reemplaza Wiegand, con enrolamiento de lectores; subadoptado por la industria (84% de installers no lo usaba).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un sistema de control de acceso barato funciona, pero los defaults del vendor nunca son buenos: el RFP y la planificación temprana definen la seguridad a largo plazo.</li>
+<li>Placas con decisión local (Mercury) + clustering por piso + cable composite + fuentes planificadas = sistema mantenible, confiable y fácil de diagnosticar.</li>
+<li>Los controles baratos que nadie instala —tamper switches, supervision resistors, alertas con destino— son los que convierten un sistema decorativo en uno defendible.</li>
+<li>La seguridad de vida manda: fail safe, coordinación con código de fuego y relays de alarma no se negocian.</li>
+<li>En credenciales: salir de prox/iClass/Wiegand hacia Corporate 1000 + OSDP, y deshabilitar formatos viejos.</li>
+<li>El RFP de referencia está publicado en GitHub por el propio investigador: recortá lo que aplique y no aceptes los defaults.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/6OFZjlym4r0">«DEF CON 33 - Physical Security Village - Tim Clevenger - Access Control Done Right The First Time»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

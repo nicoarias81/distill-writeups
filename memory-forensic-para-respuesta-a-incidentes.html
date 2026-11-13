@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Análisis forense de memoria para responder a los internos: triage rápido en incidentes reales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Análisis forense de memoria para responder a los internos: triage rápido en incidentes reales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/QN8RMo57ohk">«Memory Forensic for Effective Insider Response - Manuel Moreno - Ekoparty 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/QN8RMo57ohk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando un ransomware golpea a las 7 de la tarde de un viernes —la hora preferida de los atacantes, con los administradores ya en casa—, el forense clásico de tres semanas no sirve. Manuel Moreno (Global Secure, Chile, más de 20 años en ciberseguridad y fundador de una academia con 4.000+ profesionales formados en 15 países) cuenta cómo su equipo aprendió eso en la guerra: el primer incidente grande, en un banco con 20.000 estaciones y 5.000 servidores, dejó claro que sacar copias full de disco equipo por equipo era imposible — el storage no alcanzaba y cada copia podía tomar 3 horas.</p>
+<p>La salida fue el análisis de memoria y los triages: una captura de RAM que se hace en minutos, herramientas open source (Volatility 2/3, MemprocFS) y de pago (Magnet AXIOM, CyberTriage), y un método para decidir en menos de una hora si una máquina merece investigación profunda. El recorrido incluye demo en vivo de cada herramienta y un caso real de Phobos con todo el arsenal del atacante en texto claro dentro de la RAM — incluida la búsqueda del comando <code>cmd</code> escrita en kanji ruso.</p>
+<h2>Respuesta ante incidentes: preparar, no solo detectar</h2>
+<p>La respuesta ante incidentes es un proceso organizado y estructurado para identificar, contener y erradicar incidentes de ciberseguridad. En la última actualización del NIST, las fases son preparación, identificación, contención, erradicación y recuperación — y la que mejoró muchísimo es la de preparación. El diagnóstico de Manuel: el 90% de las compañías enfoca sus esfuerzos en detección, algunas en responder, y casi nadie en prepararse. Y ya cuando el incidente ocurre, todos se quedan mirando por qué el SIEM no hizo tal cosa.</p>
+<p>Otra diferencia clave con el peritaje forense: la velocidad. El forense clásico (copia full de disco con bloqueador de escritura, copia de memoria, análisis de tres semanas) funciona para peritajes, no para un banco con 20.000 endpoints comprometidos. De ahí los triages: capturas puntuales y rápidas que permiten seguir operando.</p>
+<p>Sobre el equipo: dos personas no son un equipo de incident response. Se necesita gente de redes, de ingeniería reversa de malware, de firewalls, análisis forense… y un <strong>commander</strong>: alguien con mucha experiencia, que conozca la infraestructura enterprise (on-prem y cloud) y tenga la visión de alto nivel de todo el incidente. Manuel lo define como un director de orquesta: mientras en la empresa todos corren (y formatean equipos "por si acaso", con la reacción automática de quien acaba de ser asaltado), el commander decide la estrategia. Ejemplo de razonamiento: si la nota del atacante identifica a LockBit, que típicamente entra por RDP o VPN, se envía a alguien a buscar esos logs — y si el atacante explotó una VPN y los Active Directory están sincronizados con Azure, las cuentas creadas en AD aparecen en Azure con privilegios: hay que revisar ambos mundos, porque los incidentes cruzan la frontera on-prem/cloud.</p>
+<h2>¿Por qué memoria RAM? Lo que no está en disco</h2>
+<p>La RAM almacena muchísimo que no se ve a primera vista, y hay tres razones principales para capturarla en un incidente:</p>
+<ul>
+<li><strong>Ataques fileless</strong>: payloads que se ejecutan full en memoria sin dejar binarios en disco — el caso típico de las herramientas vía PowerShell. Hace unos años la mayoría de los EDR/XDR no las detectaba; hoy detectan algo, pero los atacantes escriben las secciones de memoria de forma distinta y las técnicas de detección se complican.</li>
+<li><strong>Datos en texto claro</strong>: todo lo que viaja cifrado (TLS incluido) está en claro en memoria. Perfecto para ver los C2 y cómo se comunican los componentes.</li>
+<li><strong>Recuperación de lo borrado</strong>: logs de Windows eliminados por los atacantes (el clásico clear event) pueden recuperarse desde la memoria si la máquina no fue reiniciada.</li>
+</ul>
+<h3>Qué NO hacer</h3>
+<ul>
+<li><strong>No apagar los sistemas</strong>: se pierde todo. Idealmente, tampoco desconectar el cable de red — aunque ante un ransomware replicándose, desconectar mínimo puede ser lo razonable para frenar la propagación; el costo es perder los network states, las conexiones vivas y los comandos que el atacante ejecuta en tiempo real.</li>
+<li><strong>No correr antivirus ni "dos antiviruses por si acaso"</strong>: destruyen evidencia y matan binarios que después habría que revisar. Caso real: una máquina con storage conectado para recuperación, "revisada" con dos antivirus que no encontraron nada, tenía más de 15 herramientas de control en ejecución — visibles solo con análisis de memoria. Los atacantes usan TeamViewer y AnyDesk trojanizados: el proceso legítimo que ningún XDR marca como malicioso, modificado para conexión persistente.</li>
+<li><strong>No correr herramientas que borren el registro</strong> ni nada destructivo.</li>
+</ul>
+<h3>Qué hacer: capturar, por orden de volatilidad</h3>
+<p>El flujo forense va de lo más volátil a lo menos volátil: memoria → network states → procesos en ejecución → … → disco (lo no volátil: si un archivo está en disco, ahí va a quedar). Recomendación práctica: tener listo un pendrive o SSD USB 3.0 rápido con el software de captura y el de triage, cargado. Herramientas de captura: <strong>DumpIt</strong>, <strong>Magnet RAM Capture</strong> (la preferida de Manuel) y <strong>Velociraptor RAM Capture</strong>. Hacer hashes idealmente (mini cadena de custodia), pero con 200 servidores a la vista: al menos nombrar cada dump con el nombre del servidor que le da origen.</p>
+<h2>Las herramientas open source, en vivo</h2>
+<h3>Volatility 2 (Python 2.7, con perfiles)</h3>
+<p>Antes de Volatility, el análisis era con <code>strings</code> y grep — rudimentario, aunque a veces aparecían URLs de bancos o patrones. El primer paso en Volatility 2 es <code>imageinfo</code>, que sugiere el <strong>perfil</strong> de memoria: cada versión de Windows (y cada service pack) tiene un perfil distinto, necesario para que las llamadas al kernel funcionen. Con el perfil cargado (<code>--profile=WinXPSP2x86</code>, por ejemplo), comandos clave:</p>
+<ul>
+<li><code>pslist</code>: lista procesos con su fecha de inicio (la demo usó una memoria vieja de un reto SANS de 2010 y otra de un banco con un PDF malicioso con keylogger).</li>
+<li><code>cmdline</code>: muestra los comandos ejecutados en CMD (en la demo apareció un binario raro, un explorer con un <code>.xmo</code> en mayúscula).</li>
+<li><code>connections</code>: conexiones con origen/destino y PID (solo XP/2003).</li>
+<li><code>netscan</code>: conexiones TCP/UDP con owner — en la demo, varios PowerShell escuchando sobre el puerto 80; los atacantes dejan procesos persistentes a la espera para volver a atacar tras una recuperación de red.</li>
+<li><code>consoles</code>: reconstruye lo escrito en consola — en la demo se veía un <code>ipconfig</code> ejecutado en pantalla, casi idéntico a como se vio en vivo.</li>
+<li><code>hashdump</code>: los hashes NT de Windows.</li>
+<li><code>mftparser</code> (MFT, Master File Table de NTFS): fechas de creación/modificación/acceso de archivos; con la fecha del incidente, filtrar archivos modificados en esa hora. En la demo, un grep de cmd.exe mostró cmd levantados vía PowerShell que calzaban con la fecha de ataque.</li>
+<li>Extras: dump de binarios en ejecución (para hacer reversing), llaves y passphrase de TrueCrypt, reglas <strong>YARA</strong> ejecutadas directamente sobre memoria — con un repositorio de reglas de malware, se puede scriptear todo el matching automático.</li>
+</ul>
+<h3>Volatility 3 (Python 3, modular, sistemas modernos)</h3>
+<p>Escrito en Python 3, pensado para Windows/Linux/Mac modernos. La gran ventaja: no hace falta <code>imageinfo</code>; hace un fingerprint rápido y descarga los símbolos del kernel desde Microsoft (50-100 MB la primera vez) para decodificar la memoria al instante. La sintaxis cambió a <code>windows.pslist</code>, <code>windows.&lt;comando&gt;</code> (por eso los comandos "tan largos": hay <code>linux.pslist</code>, <code>mac.*</code>, etc. en el mismo framework). En la demo, listar sesiones activas mostró una cuenta administrador con rdclip ejecutando algo sospechoso.</p>
+<h3>MemprocFS: la memoria como sistema de archivos</h3>
+<p>El más distinto: monta la memoria como un <strong>volumen virtual</strong>, como si fuera un disco duro. Se navega con el explorador:</p>
+<ul>
+<li><code>sys/</code>: certificados, drivers.</li>
+<li><code>net/netstat-v</code>: el equivalente exacto de un netstat -v capturado en caliente — en la demo, PowerShell conectándose.</li>
+<li><code>pid/</code>, <code>name/</code>: procesos con nombre, PID, usuario y ruta. Entrando al proceso sospechoso (el PowerShell de la demo): sus archivos, módulos, DLLs cargadas — oro para reversing — y posibilidad de copiar binarios directamente.</li>
+<li>Módulo <strong>forensic</strong>: se activa editando un archivo <code>forensic_enable</code> (de 0 a 1). Genera, entre otros: <code>files</code> (todos los archivos ejecutados), <code>findevil</code> (donde Manuel suele encontrar procesos hollow/inyectados — su metáfora: el explorer.exe "con el alien dentro", procesos zombie inyectados al estilo del migrate de Metasploit), la <strong>línea de tiempo NTFS</strong> (en servidores reales: archivos de 500-700 MB con absolutamente todos los archivos creados/modificados desde la instalación del SO — ideal para ir a la fecha del ataque, ajustando de UTC a hora local, y ver qué se alteró) y una reconstrucción del file system (<code>root/</code> con rutas completas de los archivos más importantes).</li>
+</ul>
+<h2>Herramientas de pago: velocidad en incidentes</h2>
+<p>La ventaja de las herramientas comerciales es la velocidad: cuando el cliente dice "estoy perdiendo mil millones diarios", no se puede tener la empresa caída una semana. El mayor desafío en un ransomware con miles de servidores: levantar la infra y los servicios asegurándose de que el atacante que sigue dentro no lo tumbe todo. Estrategias que funcionaron: redes separadas (red infectada / red nueva) con VLANs y equipos físicos de por medio, reconstruyendo Active Directory nuevo y pasando los equipos limpios por los software, mientras de la red infectada se va recuperando lo recuperable.</p>
+<p>En Global Secure usan <strong>Magnet AXIOM</strong> y <strong>CyberTriage</strong>.</p>
+<h3>Magnet AXIOM</h3>
+<p>Creación de casos por tipo (intrusión/respuesta ante incidentes es el que usan; también hay RRHH, vehículos inteligentes, cloud con verificación de autorización legal — que en la práctica con AWS/GCP "igual terminamos haciendo a mano" porque el ciclo de desarrollo de las herramientas es más lento que los cambios de los cloud —, móviles Android/iOS con SIM, WhatsApp, redes sociales, Chromebook/Linux/Mac/Windows). Para memoria: carga el dump y <strong>usa Volatility por debajo</strong>. Capacidades destacadas:</p>
+<ul>
+<li>Keywords, <strong>OCR</strong> sobre imágenes/PDF, búsqueda por hash en toda la evidencia.</li>
+<li>Reglas YARA precargadas de malware conocido, aplicadas sobre memoria <strong>y</strong> disco.</li>
+<li>Artefactos personalizables: almacenamiento cloud (Google Drive, iCloud, Dropbox, OneDrive), credenciales, llaves BitLocker, llavero de Apple, mensajería (hasta IRC), <strong>dispositivos USB conectados físicamente</strong> (disponible también en la versión gratis; a Manuel le encanta), correo electrónico, dispositivos conectados.</li>
+<li>Un tab específico de <strong>conexiones de escritorio remoto</strong>: el 90% de los atacantes usa RDP o herramientas tipo AnyDesk/TeamViewer; se filtra y se ve rapidísimo origen y cuentas.</li>
+<li>Línea de tiempo visual, marcado de artefactos como evidencia/interés, y reporte formal con hashes (lo usan los peritos y la policía; ellos no usan el reporte). En la demo, historial del navegador, búsquedas en Google, imágenes y PDF reconstruidos desde la RAM — especialmente rico en servidores Terminal Server, que quedan llenísimos de actividad.</li>
+</ul>
+<h3>CyberTriage y el concepto de triage</h3>
+<p>El <strong>triage</strong> es la forma rápida de responder: saca logs, eventos y artefactos puntuales del SO para decidir en una hora o menos si una máquina merece investigación forense profunda — adelanta el 70-80% del forense. En la demo, CyberTriage ingesta la memoria (elige MemprocFS para Windows 10+ o Volatility 2 para los más viejos, o autodetección) y levanta logins, artefactos de red y procesos sospechosos. Su feature distintiva: manda los procesos sospechosos a la <strong>nube</strong> y los pasa por <strong>sandbox</strong> automático (lo que uno haría a mano con VirusTotal/Joe Sandbox), ahorrando el recurso más escaso: tiempo. Existe alternativa open source (KAPE, que en el audio suena como "cape") con salida en CSVs para abrir en Excel, y funciones nuevas como telemetría de EDR.</p>
+<h2>Caso real: Phobos, el sysadmin equivocado y el cmd en ruso</h2>
+<p>El cierre con un incidente de <strong>Phobos</strong> en una empresa chica (unos 50 servidores):</p>
+<ul>
+<li>Al llegar, primero la copia de RAM (las herramientas de triage y captura siempre en el pendrive). Primer intento: la memoria salía "pura basura"; el Magnet RAM Capture generó 64 GB "en un segundo". Era una herramienta anti-forense montada por los atacantes en ese servidor — el único con ella — que estropeaba la captura. Solución: matar proceso por proceso hasta encontrar el que colgaba de <code>System</code>; recién ahí salió la copia íntegra. En ese servidor corrían, vía PowerShell, todos los movimientos laterales — todo el código del atacante en texto claro en memoria.</li>
+<li>La hipótesis del cliente: un proveedor recién despedido, "porque tiene cuentas en el servidor y vi conexiones". La evidencia dijo otra cosa (seguir la evidencia, no las hipótesis): en el keyword search de memoria apareció la búsqueda del menú inicio del atacante — escribió <strong>cmd en kanji ruso</strong>, obtuvo error, cambió el teclado a inglés y volvió a ejecutar. Mensajes del sistema en ruso ("debe iniciar sesión como administrador…"). Claramente, no era el proveedor chileno.</li>
+<li>El arsenal, todo en la carpeta <code>Music</code> del servidor (¿quién abre Music en un servidor?): <strong>Defender Control 2</strong> (desactivar Defender), McAfee desinstalado con <strong>Process Hacker</strong> y Revo Setup, una cuenta de servicio con privilegios de administrador iniciando a las <strong>5 de la mañana</strong> (nadie trabaja a esa hora), y <strong>AutoMin</strong>: suite automatizada de explotación con <strong>Mimikatz</strong> — roba hashes y credenciales en claro de usuarios logueados —, con listado de IPs y validación automática de credenciales contra RDP (3389). En el historial RDP: conexiones de los mismos usuarios antes desde Chile y después desde Francia, Países Bajos y Rusia.</li>
+<li>La nota del rescate: 50.000 dólares en Bitcoin "y como es año nuevo, un descuento de 5.000 si pagan pronto" (quedaba en 40.000). El cifrado usa esquema de llave pública/privada con certificado del atacante: sin la privada, no hay recuperación por fuerza.</li>
+<li>Anti-forenses del ransomware moderno contra los backups: hay grupos que se conectan a los <strong>storages</strong> con exploits privados, activan su cifrado, dejan que encripte parte de los volúmenes y los <strong>reforman a fábrica</strong> — el cifrado destruido hace imposible cualquier data recovery. Motivo de rediseño: los storages no deben vivir en la misma red que los servidores.</li>
+</ul>
+<h2>Recomendaciones finales</h2>
+<ul>
+<li><strong>Prepararse</strong> antes del incidente: es la fase más olvidada y la más importante. El servicio IRPS de Global Secure encarna esa idea: auditar la red antes, identificar cómo explotaría un atacante las vulnerabilidades y malas configuraciones (consolas de administración expuestas, sistemas legacy, storages al alcance), y plan de hardening/rediseño, incluida una red OOB (out-of-band) para administración que garantice poder recuperar.</li>
+<li><strong>SOC 24/7 que se pruebe</strong>: tener SOC no basta; hay que verificar que detecta de verdad con ejercicios red team contra el SOC. "Los chicos del red team le pegan al SOC y eso funciona súper bien."</li>
+<li><strong>Revisar los logs que ya se generan</strong>: ¿sirven para responder un incidente? Caso real: logs con fecha y acción pero sin IP de origen — "sé que me pegaron, pero no sé de dónde".</li>
+<li><strong>Entrenar a los equipos</strong> (el training de Ransomware Incident Response de la academia, nivel 4, cinco días: cuatro con las fases NIST y el último con un ataque de ransomware real en laboratorio).</li>
+<li>Escéptico declarado de la <strong>ISO 27001 como fórmula</strong>: auditor líder, pero anti-culto — la mitad de los clientes con ransomware la tenían certificada. Caso real de una empresa "primera certificada de Chile" que certificó… el proceso de llamadas al call center. La certificación de un proceso no hace más segura a la empresa entera.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Captura de memoria</strong>: DumpIt, Magnet RAM Capture, Velociraptor RAM Capture; captura por orden de volatilidad; pendrive/SSD USB 3.0 preparado; naming por servidor.</li>
+<li><strong>Volatility 2</strong>: perfiles, <code>imageinfo</code>, <code>pslist</code>, <code>cmdline</code>, <code>connections</code>, <code>netscan</code>, <code>consoles</code>, <code>hashdump</code>, <code>mftparser</code>, dump de binarios, TrueCrypt keys, YARA sobre memoria.</li>
+<li><strong>Volatility 3</strong>: Python 3, símbolos desde Microsoft, sintaxis <code>windows.*</code>.</li>
+<li><strong>MemprocFS</strong>: memoria como volumen virtual; módulo forensic (files, findevil, timeline NTFS, reconstrucción del file system).</li>
+<li><strong>Magnet AXIOM</strong>: keywords, OCR, búsqueda por hash, YARA, artefactos cloud/USB/RDP, timeline visual, reporte con hashes.</li>
+<li><strong>CyberTriage</strong>: triage en menos de una hora, sandbox automático de procesos sospechosos; alternativa open source KAPE.</li>
+<li><strong>Tácticas de atacante observadas</strong>: fileless/PowerShell, AnyDesk/TeamViewer trojanizados, procesos persistentes a la escucha, Anti-Forensics contra capturas de RAM, Mimikatz + AutoMin con validación automática contra RDP, cifrado de storages + reformateo a fábrica, ataques viernes 19:00.</li>
+<li><strong>Defensas</strong>: red infectada/red nueva con VLANs, Active Directory nuevo, red OOB de administración, revisión de logs (IP de origen), ejercicios red team vs SOC, IRPS.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El forense de memoria acelera drásticamente la respuesta a incidentes: valida cosas ocultas y en ejecución que las herramientas tradicionales no ven, y habilita el triage que decide en minutos qué máquinas investigar a fondo.</li>
+<li>Proteger la evidencia es la primera regla: no apagar, no desconectar sin evaluar, no correr antivirus, no formatear "por si acaso" — las malas decisiones en caliente destruyen lo que después haría falta.</li>
+<li>La RAM es el archivo más honesto del sistema: fileless, credenciales, C2 en claro, logs borrados y hasta la nacionalidad del atacante (kanji ruso en el menú inicio) viven ahí si la máquina no se reinició.</li>
+<li>Los atacantes también innovan en anti-forensics — herramientas que corrompen capturas de RAM y cifrado de storages seguido de reformateo —: la copia de memoria no siempre sale a la primera y hay que saber diagnosticar por qué.</li>
+<li>La preparación (IRPS, hardening, red OOB, logs con IP de origen, SOC probado con red team) vale más que cualquier certificación decorativa: cuando el ransomware llega, lo único que importa es detectar, contener y recuperar antes de que el atacante vuelva a tumbar lo reconstruido.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/QN8RMo57ohk">«Memory Forensic for Effective Insider Response - Manuel Moreno - Ekoparty 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

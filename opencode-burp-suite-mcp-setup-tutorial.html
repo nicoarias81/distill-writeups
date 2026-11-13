@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tutorial: conectar OpenCode con Burp Suite por MCP y resolver un lab con el agente — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Tutorial: conectar OpenCode con Burp Suite por MCP y resolver un lab con el agente</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/kuSMqDxRxdo">«AI-Powered Pentesting with OpenCode + Burp Suite MCP | Full Setup Tutorial»</a> · ver el <a class="nz-link" href="https://youtu.be/kuSMqDxRxdo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El objetivo del tutorial es concreto: que el agente de IA use Burp Suite por su cuenta —que "se meta a trabajar" en lugar de esperar instrucciones paso a paso— conectando OpenCode con Burp mediante MCP. La demo corre sobre Linux, con el entorno previamente probado en Windows.</p>
+<h2>Preparación del entorno</h2>
+<p>El punto de partida es tener OpenCode instalado. Si no existe, se instala primero con el comando correspondiente y se verifica arrancándolo: en la interfaz del agente debe figurar ya Burp conectado por MCP. Antes de vincular, se crea un directorio de trabajo (<code>mcp</code>) donde quedará el archivo de configuración de Burp que se va a exportar.</p>
+<h2>Configurar el lado de Burp: la extensión MCP</h2>
+<p>En Burp Suite, la pieza clave es la extensión llamada <strong>MCP</strong> (la primera que aparece al buscarla en el bazar de extensiones, instalable desde la pestaña de extensiones). Una vez instalada y activada, la extensión genera un archivo de configuración; se abre, y ahí se define la ruta de salida apuntando al directorio <code>mcp</code> recién creado. Al aplicar, cada componente queda en su lugar: el archivo exportado contiene todos los comandos disponibles que el agente podrá invocar.</p>
+<h2>Vincular OpenCode: dos caminos</h2>
+<p>Con el archivo generado, la forma directa es ejecutar OpenCode con el comando de vinculación del tutorial, sustituyendo la ruta por la ubicación real del archivo exportado. Puede pasar que la versión instalada de OpenCode no soporte ese método de registro; el plan B es manual y tan rápido como el primero: editar a mano el archivo de configuración de OpenCode y pegar el bloque de configuración de Burp tal cual viene del archivo exportado, sin más cambio que la ruta. Guardado el archivo, al abrir OpenCode y ejecutar el comando de MCP, Burp aparece conectado y todo funciona.</p>
+<h2>La prueba: resolver un lab de PortSwigger sin intervenir</h2>
+<p>La demo elige un laboratorio deliberadamente simple de PortSwigger. Se copia el enlace del lab y se le entrega al agente en la terminal con una instrucción directa: resolverlo. El agente lee la descripción del lab, prueba comandos, encuentra el vector y confirma. El veredicto del sistema: command injection detectada con éxito y el lab marcado como resuelto. Cero intervención humana en el proceso de explotación: solo el enlace y una frase.</p>
+<p>El mensaje de cierre del tutorial es de autonomía: no esperar a que alguien grabe un video con cada respuesta; con la documentación y las herramientas a mano, el esfuerzo de explorar es el que rinde.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OpenCode</strong>: agente de código open source en terminal, instalable por comando.</li>
+<li><strong>Burp Suite</strong>: plataforma de testing de aplicaciones web.</li>
+<li><strong>Extensión MCP de Burp</strong>: genera el archivo de configuración con los comandos disponibles para el agente.</li>
+<li><strong>MCP (Model Context Protocol)</strong>: protocolo de conexión agente-herramienta.</li>
+<li><strong>Registro automático vs. configuración manual</strong>: dos formas de vincular Burp en el archivo de OpenCode.</li>
+<li><strong>Laboratorios PortSwigger</strong>: banco de pruebas; en la demo, command injection.</li>
+<li><strong>Windows y Linux</strong>: entornos de verificación del setup.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La extensión MCP de Burp convierte la plataforma en un conjunto de herramientas invocables por un agente: el archivo exportado es el contrato entre ambos.</li>
+<li>Si el registro automático falla por versión del agente, la edición manual del archivo de configuración resuelve en minutos.</li>
+<li>Un agente con acceso a Burp resuelve un lab de command injection de forma autónoma: la brecha entre "IA que sugiere" e "IA que explota" ya es solo de configuración.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/kuSMqDxRxdo">«AI-Powered Pentesting with OpenCode + Burp Suite MCP | Full Setup Tutorial»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

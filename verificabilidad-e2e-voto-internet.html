@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Verificabilidad de extremo a extremo no convierte el voto por internet en seguro — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Verificabilidad de extremo a extremo no convierte el voto por internet en seguro</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gMvNKsl65NA">«DEF CON 33 - Talk[ing] to Policy Makers about Internet Voting: E2E Verifiability - John Carsley»</a> · ver el <a class="nz-link" href="https://youtu.be/gMvNKsl65NA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>John Carsley es funcionario electoral en Vermont (administró las elecciones municipales de su jurisdicción de 6.500 votantes con un solo centro de votación y máquinas sin red), candidato a Secretario de Estado del estado y certificado como ethical hacker. Su objetivo en el panel es táctico: enseñar a convencer a legisladores y hacedores de política de que la verificabilidad de extremo a extremo (E2EV) —el argumento estrella que los proveedores de voto por internet les venden como bala mágica— no resuelve los problemas fundamentales, y dar guiones concretos para esa conversación.</p>
+<p>El contexto: empresas como Voting Works/Votes, Democracy Live y el Mobile Voting Project de Bradley Tusk (millonario de Uber, autor de "Vote With Your Phone") presionan en los congresos estatales de EE. UU. para adoptar voto por internet, apoyándose en la idea de que si el sistema es E2E verificable, las objeciones de seguridad quedan resueltas. En Vermont una propuesta así ya llegó al sistema de estudio legislativo tras ser frenada una vez: va a volver.</p>
+<h2>Qué es la E2EV — y qué promete</h2>
+<p>La verificabilidad de extremo a extremo es un paradigma, no un esquema criptográfico concreto. Un sistema electoral es E2E verificable cuando se cumplen dos propiedades:</p>
+<ol>
+<li>Los votantes pueden confirmar que sus selecciones fueron registradas con exactitud.</li>
+<li>Cualquiera —votantes y observadores— puede confirmar que los votos registrados fueron escrutados con exactitud.</li>
+</ol>
+<p>En sistemas cerrados, sin internet, Carsley cree que puede ser una idea interesante (él mismo la probaría en su municipio si imprimiera respaldos en papel al momento). La E2EV aporta defensa real contra malware del lado del escrutado, si está bien implementada —lo cual no es fácil, y varios sistemas que la reclaman no la tienen—. Pero el propio creador de Helios, uno de los sistemas remotos E2EV de referencia, dijo que una elección gubernamental no es algo para hacer por internet: para eso sirven las votaciones de "America's Got Talent", no para algo con estas apuestas.</p>
+<h2>El consenso de expertos y el empuje comercial</h2>
+<p>Las citas del campo son unánimes: "poner un servidor online para el retorno de boletas por internet es como mandar a un chico a jugar en el tráfico"; "según consenso científico claro, no hay tecnología conocida que haga seguro el voto por internet" (Andrew Appel); y la lista de expertos en contra podría seguir. Los únicos tecnólogos a favor son quienes trabajan para los proveedores.</p>
+<p>Sobre el Mobile Voting Project: Tusk encargó un documento de "mejores prácticas" al Berkeley Center for Security and Politics, con unos 40 profesionales (criptógrafos, gente de seguridad, administradores electorales como él mismo). El resultado lo decepcionó: "cuando se emplea el retorno de boletas por internet, puede ser posible que un único atacante altere miles o incluso millones de votos". En su libro responde: "si queremos que la perfección sea el estándar, hay que eliminar todas las formas de votar". Carsley rechaza ese encuadre: empezar la conversación redefiniendo los estándares a la baja es perder de entrada. Un voto manipulado es siempre un voto de más; no hay "nivel aceptable de pérdida".</p>
+<p>El otro argumento repetido ante legisladores: "los bancos protegen nuestro dinero online, seguro podemos proteger los votos". La comparación es una trampa que conviene dejar que ellos mismos traigan: las apps bancarias no son anónimas —conectan cada operación con una persona y una cuenta—, y además son atacables: el 29% de los adultos estadounidenses sufrió algún ataque de toma de control de cuenta; el 42% de esos casos fueron cuentas bancarias, unos 8,5 millones de personas.</p>
+<h2>El argumento que sí entra: ingeniería social y smishing</h2>
+<p>A los legisladores no se los convence con criptografía, pero todos reciben capacitación constante en phishing: no hagas clic, no abras adjuntos. Por ahí hay que entrar. El malware del lado del cliente es, para Carsley, la mayor amenaza de un sistema E2EV de voto por internet —por encima de hackers del lado del servidor—: la mayor parte del voto se haría desde teléfonos y tablets.</p>
+<p>El ataque modelo: apps falsificadas; smishing tipo "confirmá tu voto acá", "no te olvides de votar, entrá acá" que redirige a sitios maliciosos; y el punto conceptual que pide martillar: el handshake criptográfico no existe en el vacío. Los dos trenes y las vías pueden ser tan seguros como se quiera, pero solo son tan seguros como los pueblos por los que pasan: lo que haya en el teléfono de la gente define el resultado.</p>
+<p>Y trae números, calculados de forma deliberadamente conservadora con New Hampshire como jurisdicción de prueba: ~1,2 millones de votantes registrados; una llamada a un proveedor comercial de datos bastó para conseguir 129.000 números de celular; asumiendo que solo el 70% corresponde a votantes registrados, quedan ~90.000 votantes alcanzables por una campaña de smishing. Con la tasa de clic de smishing más alta documentada (14,5%), eso compromete al 1,14% del electorado. El Senado de EE. UU. en New Hampshire 2016 se definió por un margen del 0,14%. Moraleja doble: no hace falta cambiar votos para cambiar el resultado de una elección, y destruir es siempre más fácil que crear —basta impedir que la gente vote.</p>
+<h2>Los otros problemas que los legisladores sí entienden</h2>
+<ul>
+<li><strong>La pendiente resbaladiza de los grupos "especiales".</strong> La propuesta típica es permitir el voto por internet solo a votantes con discapacidad, afectados por desastres naturales (las inundaciones recientes de Vermont), bomberos, militares y ciudadanos en el exterior (UOCAVA). El argumento de la pendiente: si le decís a ese grupo que su voto merece menos seguridad que el del resto, es un problema; si les das acceso, la lógica empuja a extenderlo a todos. Y la versión que más molesta a los proveedores: si un estado despliega esto solo para votantes con discapacidad o en el exterior, y esos colectivos —demográficamente identificables— son los que sufren las campañas de supresión, el estado se compró un problema de derechos civiles que pudo evitar no implementándolo.</li>
+<li><strong>DDoS.</strong> La respuesta de los vendedores es "no puede pasarnos, somos muy buenos" y palabrotas sobre balanceo de carga; la carrera de armas sigue subiendo (Amazon ya sufrió un DDoS sin precedentes en 2019), se compran botnets en la dark web, y hubo sitios web electorales caídos por estos ataques. Vale mencionar también las vulnerabilidades encontradas en todos los sistemas implementados —Estonia, el experimento australiano, el de Virginia Occidental— y los hacks de sistemas de gestión electoral, pero el foco debe quedarse en el phishing: eso lo entienden.</li>
+<li><strong>Recuperación.</strong> Carsley acaba de hacer un recuento de una elección definida por 4 votos. Con papel y respaldos (listas de chequeo de entrada, boletas), una elección arruinada se repara: toma tiempo, pero hay resultado. Si todos votaron por teléfono, lo único posible es una re-votación completa: otro deporte completamente distinto.</li>
+<li><strong>Confianza del electorado.</strong> Ya es frágil. Basta que una de estas cosas salga mal y aparezca en el diario para derrumbarla un poco más.</li>
+</ul>
+<h2>Guion de puntos para la conversación con legisladores</h2>
+<ol>
+<li>E2EV no es bala mágica; los propios creadores del voto E2E están en contra del voto por internet gubernamental (Josh Benaloh, referencia del campo, se ofreció a testificar contra el proyecto de ley de Vermont).</li>
+<li>Aunque el canal de transmisión sea seguro, nada evita los ataques por fuera del circuito: el tren y las vías pueden estar perfectos, pero el pueblo por donde pasa no lo está.</li>
+<li>Ningún sistema protege de todo el malware en computadoras y teléfonos domésticos; el click-through del phishing dirigido en computadoras hogar llega al 56%.</li>
+<li>Un voto manipulado es siempre un voto de más; y ni hace falta manipular: las estafas de phishing alrededor del voto por internet pueden simplemente impedir que alguien vote —o terminar en robo de identidad—.</li>
+<li>Las campañas pueden dirigirse demográficamente a comunidades históricamente marginadas; con el sistema desplegado, es responsabilidad del estado.</li>
+<li>El riesgo de DDoS es real por más veces que lo nieguen.</li>
+<li>Si te daría miedo implementarlo para todos los votantes, ¿aplicarlo solo a votantes en el exterior o con discapacidad no dice que su integridad electoral importa menos? (El reverso del argumento de la pendiente resbaladiza.)</li>
+<li>La confianza del votante es frágil y la vas a romper.</li>
+<li>Los bancos: no niegues el atractivo del voto por internet jamás —matar la credibilidad—, pero dejá que ellos mismos traigan la comparación bancaria: es la trampa de tu lado.</li>
+</ol>
+<pre class="mermaid">
+flowchart LR
+    A[Voto por internet + E2EV] --> B[Handshake criptografico seguro]
+    B --> C[Telefono del votante con malware / smishing]
+    C --> D[Clic en phishing: 14,5% de click-through]
+    D --> E[Voto bloqueado o suplantado]
+    E --> F[1,14% del electorado comprometido]
+    F --> G[Margen electoral tipico: 0,14%]
+    G --> H[Resultado alterado sin tocar un solo voto registrado]
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La E2EV resuelve la auditoría del circuito cerrado, no el mundo real.</strong> Confirmar que tu voto fue registrado y escrutado no protege el teléfono desde el que votás, y el eslabón débil está ahí.</li>
+<li><strong>No hay que cambiar votos para cambiar elecciones.</strong> Con tasas de clic de smishing verificables y datos comerciales de contacto al alcance de una llamada, impedir que la gente vote es más fácil y más rentable que alterar boletas.</li>
+<li><strong>La comparación bancaria es el argumento más repetido y el más débil.</strong> Sin anonimato, con 8,5 millones de cuentas tomadas, es una trampa que el defensor del voto seguro debe dejar que el otro lado traiga solo.</li>
+<li><strong>Nunca minimices las razones por las que el voto por internet atrae.</strong> Votantes con discapacidad, desastres, militares en el exterior: son necesidades reales, y negarlas pierde la conversación; la respuesta es política pública que amplíe el acceso (boletas con matasellos, plazos flexibles), no tecnología que baja el estándar.</li>
+<li><strong>La recuperación es el argumento olvidado.</strong> Un recuento con papel es lento pero posible; una re-votación masiva por fallo del sistema es un riesgo institucional sin precedente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gMvNKsl65NA">«DEF CON 33 - Talk[ing] to Policy Makers about Internet Voting: E2E Verifiability - John Carsley»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

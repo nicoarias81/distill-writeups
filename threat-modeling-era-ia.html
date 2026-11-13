@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat modeling en la era de la IA: las cuatro preguntas aplicadas a los LLM — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Threat modeling en la era de la IA: las cuatro preguntas aplicadas a los LLM</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/tYOJeChUM4M">«DEF CON 32 - Threat Modeling in the Age of AI  - Adam Shostack»</a> · ver el <a class="nz-link" href="https://youtu.be/tYOJeChUM4M">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La era de la IA que imaginábamos —Terminator, HAL 9000— llegó convertida en algo mucho menos cinematográfico: cuadros de texto que completan código y responden preguntas. Eso no la hace menos importante para la seguridad. El trabajo, presentado por uno de los referentes históricos del threat modeling, tiene dos objetivos simétricos: cómo aplicar las técnicas clásicas de threat modeling a sistemas con IA, y cómo usar los propios LLM para ayudar a asegurar sistemas.</p>
+<p>El punto de partida es la definición: el threat modeling es usar modelos para pensar en seguridad, abstrayendo detalles para ver el bosque y no los árboles. Es el "medí dos veces, cortá una" de la ciberseguridad: el material que se desperdicia al construir lo incorrecto es tiempo y energía humana —reescrituras, discusiones sobre si se envía el viernes o no— que se evitan anticipando los problemas cuando aún hay tiempo de hacer algo. La técnica se reduce a cuatro preguntas: ¿sobre qué estamos trabajando?, ¿qué puede salir mal?, ¿qué vamos a hacer al respecto?, ¿hicimos un buen trabajo? Los diagramas de flujo de datos responden la primera; metodologías como STRIDE y las kill chains estructuran la segunda, evitando el clásico "preguntale a dos expertos y obtené tres respuestas". Y una lección que el propio autor confiesa haber subestimado: las <strong>fronteras</strong>. Identificar dónde están las fronteras a defender y dónde conviene añadir más fronteras —más capas donde el sistema opere de forma más segura— es de lo que más le falta a la práctica habitual.</p>
+<h2>Los cuatro escenarios de la IA y los modelos de CISA</h2>
+<p>Las conversaciones sobre IA se dispersan en todas direcciones, así que conviene un modelo de cuatro escenarios: IA para la ofensiva (phishing automatizado, malware —interesante, pero afuera del alcance—), IA para la defensa (filtros de spam, copilotos de seguridad —también afuera—), IA para el negocio (desplegar un LLM en un producto) e IA para el desarrollo de software. Las dos últimas son las que se desarrollan.</p>
+<p>Para la primera, el punto de partida práctico son los diagramas STRIDE que publicó CISA, que cubren tres escenarios distintos: construcción y validación de un LLM, despliegue y entorno operativo. Cada escenario abre amenazas diferentes, y la recomendación es tomar el que más se parezca al propio caso y modificarlo para reflejar la realidad. El ejemplo de por qué importan estos diagramas: agregar un LLM a un producto de administración para ayudar al "entusiasta novato" y que sus comandos lleguen directo al sistema es una mala idea que cualquiera detecta al verla dibujada; hacer que el LLM sugiera el comando y que pase por el humano antes de ejecutarse es un patrón distinto y más seguro. No hay ingeniería más barata que garabatear diagramas: todo lo demás es más caro y lento.</p>
+<p>El otro insumo crítico de "¿sobre qué estamos trabajando?" son los datos de entrenamiento: ¿están preseleccionados y curados, o llegan en vivo de internet? Si vienen en vivo, basta recordar a Tay, el chatbot de Microsoft que se convirtió en una máquina de odio en menos de 24 horas en el viejo Twitter. Y el dato más inquietante es de proceso, no técnico: en incontables conversaciones, los responsables de los datos de entrenamiento literalmente no sabían de dónde venían. "Rastreamos internet" no es una respuesta; las amenazas que se derivan son completamente distintas según la respuesta real.</p>
+<h2>Catálogos de amenazas: qué usar y con escepticismo</h2>
+<p>Para responder "¿qué puede salir mal?", el recordatorio base es que un LLM es solo software: STRIDE y las kill chains siguen aplicando a todo lo que se despliega alrededor. Sobre los catálogos específicos, el análisis es francamente crítico:</p>
+<ul>
+<li><strong>OWASP Top 10 para LLM</strong>: mucho trabajo serio, pero varios slots sobran. El manejo inseguro de salidas es un problema de cualquier sistema; la denegación de servicio ya está en STRIDE; la vulnerabilidad de cadena de suministro también; y divulgación de información sensible y robo de modelo son casi lo mismo. Esos slots podrían ocuparse con cosas genuinas de LLM: alucinación, inexplicabilidad, sesgo, y envolver el resto en diseño y despliegue inseguros.</li>
+<li><strong>Las listas de Microsoft</strong>: contenido abundante y útil, pero sin explicar por qué el pensamiento evolucionó de una lista a la siguiente, sin marcar versiones viejas como obsoletas y sin aterrizar en trabajo de ingeniería aplicable.</li>
+<li><strong>Berryville Institute of Machine Learning</strong>: el más recomendado. Tres análisis sólidos —taxonomía de amenazas de IA, análisis de riesgo arquitectónico de un sistema genérico de ML, y el más reciente, un análisis de riesgo arquitectónico para LLMs—, profundos donde hace falta y breves donde puede. Como complemento lúdico, Elevation of Machine Learning: una adaptación del mazo de cartas Elevation of Privilege que vuelve digerible el contenido de los white papers.</li>
+</ul>
+<h2>LLMs para desarrollar y para asegurar software</h2>
+<p>Sobre usar LLMs en desarrollo de software: es un acelerador real, y a la vez profundamente inquietante. Hacia afuera, se le entregan datos, propiedad intelectual y secretos comerciales —los más graves, porque los secretos comerciales se pierden si se deja de protegerlos con diligencia, a diferencia del copyright o la marca—. Hacia adentro, vuelve código inseguro, código sin copyright posible, o peor: código con copyright de terceros integrado en el propio.</p>
+<p>Para el threat modeling asistido por LLM —pegarle a un modelo una user story y pedirle el modelo de amenazas—, las oportunidades son velocidad (un modelo de amenazas en un minuto en vez de una hora), escala (25.000 desarrolladores usándolo sin entrenarlos a todos) y cierta consistencia. Los límites son igual de claros: alucinaciones; la habituación (si el modelo acierta el 75-90% de las veces, la gente deja de mirar y un error se cuela); y la evidencia empírica desalentadora: en un experimento con código propio que dependía de un JWT en un archivo de caché que el autor no sabía que existía, ningún LLM —ni con las preguntas más dirigidas— logró señalar esa dependencia de seguridad. Los modelos crudos son mucho menos efectivos de lo deseable; prompt engineering, formatos de salida y RAG ayudan, pero ya exigen ingeniería. Faltan además tests para saber qué es una buena respuesta y poder comparar entre modelos —y un consejo específico: no pidas a Gemini que modele amenazas, todo activa sus filtros de seguridad y responde que no puede dar consejos de hacking—.</p>
+<p>La síntesis operativa: los LLM rinden mejor en tareas más chicas que el threat modeling completo. Para "¿sobre qué estamos trabajando?" son buenos generando diseños arquitectónicos, resumiendo y descubriendo qué hace código existente, y produciendo modelos de sistema simplificados. Para "¿qué puede salir mal?" se les puede preguntar por historia. Para "¿qué hacemos?", rinden con preguntas específicas de corrección y son pésimos con preguntas generales; también pueden escribir código de mitigación o tests. En cualquier caso, escribir tests que verifiquen si el modelo da buenas respuestas es prerrequisito para confiar en el flujo.</p>
+<h2>Problemas reales hoy, y uno estructural</h2>
+<p>Al margen del apocalipsis de IA —del que el autor desconfía—, hay problemas reales y presentes que esta comunidad debería atender: currículums que no llegan a ojos humanos sin pasar por filtros de IA, viajeros internacionales afectados, personas arrestadas en Estados Unidos porque un programa confundió su rostro, deepfakes pornográficos y el etiquetado de todo eso. Y el problema estructural que complica todo despliegue seguro: la mezcla intima de código y datos en el diseño mismo de los LLM, responsable de buena parte de sus fallos de seguridad, para la que hoy no existe remedio conocido.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El marco de las cuatro preguntas (¿qué trabajamos?, ¿qué puede salir mal?, ¿qué hacemos?, ¿lo hicimos bien?) aplica sin cambios a sistemas con LLM; lo que cambia son los diagramas y los catálogos.</li>
+<li>Poné especial atención a las fronteras: dónde defender, dónde añadir capas. Es la parte más descuidada del threat modeling actual.</li>
+<li>Para LLMs de negocio, partí de los diagramas STRIDE de CISA y sabé de dónde vienen tus datos de entrenamiento; "rastreamos internet" no es una respuesta.</li>
+<li>Preferí el análisis arquitectónico de Berryville (y su mazo de cartas Elevation of MLSEC) sobre catálogos que reciclan amenazas genéricas de software.</li>
+<li>Los LLM ayudan mejor en subtareas del threat modeling —resumir código, sugerir mitigaciones concretas— que en el modelo completo; probalos con tests, y contá con la habituación como riesgo humano.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/tYOJeChUM4M">«DEF CON 32 - Threat Modeling in the Age of AI  - Adam Shostack»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

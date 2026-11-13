@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El lado oscuro del bug bounty — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El lado oscuro del bug bounty</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/6SNy0u6pYOc">«DEF CON 32 - Jason Haddix - The Darkest Side of Bug Bounty»</a> · ver el <a class="nz-link" href="https://youtu.be/6SNy0u6pYOc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Jason Haddix (hacker #57 de Bug Crowd, ex head of operations de la plataforma durante seis años — cuatro gestionando el triage global —, CISO de una multinacional y comprador de programas de bug bounty) presenta una colección de los peores escenarios que ocurren en la industria del bug bounty: plataformas que entrenan IA con el tráfico de ataque de los hunters sin pagarles nada, vendors de WAF que espían a los 250 mejores hackers del mundo para vender protecciones, clientes que degradan severidades CVSS para no agotar el presupuesto, rangos de pago donde casi nadie cobra por encima del mínimo, bounties millonarios de web3 que son puro marketing, triagers que robaron research para reenviarlo a su nombre, y la disparidad de poder que crea la "celebridad" en la comunidad. Cierra con tips prácticos para que los hunters defiendan el valor de sus bugs y una tesis central: los hackers son el producto de las plataformas, y sin ellos son un "sistema de tickets glorificado".</p>
+<h2>Quién habla y por qué importa</h2>
+<p>Haddix es de los pocos que estuvo en los tres lados de la ecuación del bug bounty:</p>
+<ol>
+<li><strong>Hunter</strong>: rank #57 general en Bug Crowd, con rep creciente en Intigriti, eventos live de HackerOne y Bug Crowd.</li>
+<li><strong>Plataforma</strong>: seis años en Bug Crowd, cuatro como head of operations, manejando el equipo de triage global — vio pasar decenas de miles de bugs por la cola. No nombra plataformas concretas: "todas tienen los mismos problemas".</li>
+<li><strong>Dueño de programa</strong>: como CISO de una multinacional tuvo que comprar bug bounty, definir scope y lidiar con el presupuesto como cualquier cliente.</li>
+</ol>
+<h2>Lo que está podrido en la industria</h2>
+<h3>IA entrenada con trabajo no pagado</h3>
+<p>Las plataformas toman el tráfico de ataque de los hunters y entrenan modelos de IA con él: feeds de threat intel para program owners (web hacking, hardware hacking, etc.) y scanners de vulnerabilidades. Si mañana encontrás un 0-day en SAP y lo enviás a la plataforma, el attack string que usaste alimenta el modelo, el beneficio llega a miles de clientes... y vos cobrás una sola vez. "Me roban los datos de investigación y no me pagan nada." La mejora que propone: si la plataforma encuentra tu misma vulnerabilidad en otros 35 clientes, un kickback del 20% por ser tu research. Hoy no hay ninguna indicación de que eso vaya a pasar.</p>
+<h3>Los WAF cloud espiando a los mejores hunters</h3>
+<p>La anécdota disparadora: un amigo streamer mostraba una herramienta nueva en Twitch y un representante de un vendor escribió en el chat que iba a "construir una defensa contra eso y quedársela". Al comparar notas entre investigadores apareció el patrón:</p>
+<ul>
+<li>Los hunters suelen mandar un <strong>header único identificatorio</strong> con su tráfico de ataque (lo pide la plataforma para reconocer el reporte). Cualquiera entre tu máquina y el objetivo puede identificarte por ese header.</li>
+<li><strong>Akamai, Cloudflare y similares monitorean una lista de ~250 de los mejores bug bounty hunters del mundo</strong>: sus patrones de ataque, sus streams, sus commits de GitHub, sus charlas, sus chats de Discord y Slack de la comunidad.</li>
+<li>Con esos datos construyen protecciones just-in-time que venden como parte de su ruleset, sin dar crédito ni pago.</li>
+<li>Además hay <strong>acuerdos entre vendors para compartir datos de ataque</strong> entre sí.</li>
+<li>En los peores casos, presionaron a investigadores jóvenes para que <strong>retiraran herramientas ofensivas</strong> muy buenas del espacio público.</li>
+</ul>
+<p>La contrapropuesta de Haddix: en vez de vigilar, un header global que permita a hunters verificados (background check, reputación conocida) bypasear los WAF y trabajar con ellos. Porque, de paso: "los cloud WAF son security by obscurity — no me toma mucho tiempo bypasearlos; solo son una molestia".</p>
+<h2>Cómo funciona el negocio (y por qué explota)</h2>
+<h3>El flujo de un reporte</h3>
+<pre class="mermaid">
+flowchart TD
+    H[Hunter envía el reporte] --> T1[Triage de la plataforma<br>reescribe, valida, puntúa CVSS 4]
+    T1 --> C[Cliente recibe el bug<br>segunda ronda de triage]
+    C -->|acepta| P[Pago según tabla de recompensas]
+    C -->|degrada o discute| AR[Arbitraje<br>acá empieza lo feo]
+    AR -->|límite de comentarios| CIERRE[La puerta se cierra:<br>sin más recurso para el hunter]
+
+</pre>
+
+<h3>El modelo de compra</h3>
+<p>El cliente compra en un solo lump sum: la plataforma (ingesta de bugs), el triage, y la primera tanda del reward pool (que la plataforma retiene en escrow para pagar a los hunters). Motivo real: pagar bugs uno por uno implica papeleo fiscal por cada payout; el lump sum esconde todo del radar de finanzas. Contratos típicos de 1 o 3 años (con descuento en 3).</p>
+<h3>La explosión de presupuesto</h3>
+<p>El peor escenario clásico: el cliente subestima el castigo. Abre un programa público y le llegan 800, 1.000, 1.200 submissions de golpe — Haddix vio un programa recibir <strong>8.000 submissions en una semana</strong>. Presupuestos pensados en 80K anuales para realidad: <strong>300K–500K anuales</strong> en un programa grande que se mantiene abierto. El presupuesto se agota en un día y empiezan las maniobras para no pagar.</p>
+<h2>Las triquiñuelas de los clientes (de lo peor que vio)</h2>
+<h3>Degradar CVSS 4 con los diales</h3>
+<p>El CVSS 4 tiene cuatro dimensiones que mueven la severidad: access requirements, attack requirements, user interaction y privileges required. Dos modos de abuso:</p>
+<ul>
+<li><strong>Accidental</strong>: el cliente no entiende CVSS. Ejemplo típico: considera que "requiere estar autenticado" equivale a acceso de empleado, cuando el registro es gratis y abierto — eso es acceso sin restricción, y la severidad real sube.</li>
+<li><strong>Deliberado</strong>: degradar casos borde para que el bug caiga a un nivel de pago menor y quede presupuesto.</li>
+</ul>
+<h3>Rubricas caseras y excusas inverificables</h3>
+<p>Cuando el triage interno lo hace un security engineer quemado con 800 bugs en la cola, aparecen rubricas custom no basadas en datos: puntuar según <strong>cuánto tiempo toma explotar</strong> (irrelevante: el impacto manda — un panel DevSecOps con password por defecto que da acceso a todos los logs de clientes es crítico, sea trivial o no), invocar <strong>controles mitigantes</strong> que el hunter no puede verificar ("lo habríamos visto en los logs"), o alegar que el bug <strong>ya estaba en el backlog</strong> — a veces con mentira directa: "nos lo reportó un pentester hace dos años" que nunca existió.</p>
+<h3>Agrupar bugs para no pagarlos</h3>
+<p>"Vamos a pagar los primeros XSS y el resto los marcamos duplicados porque es un problema de framework" — cuando arreglan el framework, dicen, se arregla todo. Bullshit, dice Haddix. Y a veces lo sugiere la propia plataforma, lo que lo hace más feo.</p>
+<h3>Rangos de pago que pagan el mínimo</h3>
+<p>"Un crítico paga entre 10K y 40K según decidamos." Menos del <strong>15%</strong> de los clientes que usan rangos paga alguna vez por encima del mínimo. Las excepciones con golden star (Google, Meta) tienen un board interno de rating de vulnerabilidades; el resto paga lo justo.</p>
+<h3>Los millones de web3 que no se pagan</h3>
+<p>Programas de web3 que prometen "$1.000.000 si hackeás nuestro exchange" para hacer ruido en prensa. Hunters reales rompieron esos sistemas: acceso a datos de todos los clientes, capacidad de backdoor de algoritmos — pero como el bug era de web y no de smart contract, pagaron 20K en vez del millón. Los pagos millonarios son un ploy de marketing. La excepción real que vio: <strong>T-Mobile</strong>, con pagos muy altos por hallazgos muy específicos.</p>
+<h3>Live events: el desastre repetido</h3>
+<p>Los live events (Let's Hack, We Hack, etc.) vuelan a hunters top a un lugar, abren scope nuevo y suben recompensas. Patrón de fracaso: el cliente promete 20K por crítico, y en <strong>40 minutos</strong> recibe 40 críticos y agota todo el presupuesto del evento — dos semanas antes de pisar el sitio. Después vienen a "nickel and dime" a los hackers que ya volaron: degradaciones, bugs sacados de scope, combinaciones abusivas de reportes.</p>
+<h2>La relación plataformas-hunters</h2>
+<h3>Los hackers son el producto</h3>
+<p>En un panel del Bug Bounty Village, líderes de plataformas dijeron (parafraseado) que hacerse público o complicarles el trabajo les hace que no te inviten a programas. A Haddix eso lo enfureció: una plataforma no tiene forma propia de encontrar vulnerabilidades — "todo lo que tenés es una página web; <strong>los hackers son el producto</strong>; si no, sos un sistema de tickets glorificado". El equipo de triage (que procesa cientos de miles de bugs por semana y se quema) tiene como misión central defender a los hunters, porque si el hunter deja de trabajar en tu programa, no tenés nada que vender.</p>
+<h3>El peor caso documentado: triagers que robaron research</h3>
+<p>Triagers internos de una plataforma <strong>robaron la investigación de un hunter y la reenviaron a otros programas a su propio nombre</strong>. Se sabe de al menos un caso documentado y publicitado; Haddix sospecha que no fue el único. Los triagers ven todo el research y deberían estar sujetos a un estándar ético altísimo sobre la confidencialidad de los datos de vulnerabilidades.</p>
+<h3>La disparidad de poder de la celebridad</h3>
+<p>Haddix se confiesa culpable: 160K followers, veinte años de research ganados. Pero la celebridad compra trato preferencial: los grandes pueden DMear al CTO de la plataforma cuando sienten que los tratan mal, y algunos tienen <strong>CS rep asignado</strong> que empuja sus bugs fuera de banda. Mientras tanto, el novato sin nombre que encuentra un SSO misconfiguration espectacular (cuenta la historia de un developer que nunca había hecho bug bounty y reventó un programa logueándose como cualquiera en todo el SSO) puede quedarse sin trato justo porque nadie sabe quién es. "Cualquiera puede encontrar un bug — ese es el espíritu del bug bounty."</p>
+<h3>La puerta se cierra</h3>
+<p>Pasadas un par de rondas de discusión en un reporte, se acabó: podés comentar 50 veces más y la plataforma ve las alertas en el backend, pero <strong>no responde más</strong>. Sin recurso real cuando el hunter cree que fue tratado injustamente.</p>
+<h3>El VDP que farmea trabajo gratis</h3>
+<p>La peor forma de correr un programa, según Haddix: un <strong>VDP público</strong> (sin pagos) para recolectar bugs gratis, y un programa privado pagado al que se canaliza a la gente. Agricultura de trabajo gratuito. Y las plataformas, además, usan a los hunters como celebridades de marketing — rara vez pagando ese trabajo.</p>
+<h2>Tips para hunters</h2>
+<ul>
+<li><strong>Pre-justificá en CVSS 4 dentro de la submission original</strong>: escribí por qué cada dial (access, attack requirements, UI, privileges) está como está, para que el cliente no "se equivoque" bajándolo.</li>
+<li><strong>Investigá la compliance del cliente</strong> y escribí el escenario de impacto citando qué regulación viola el bug. "Asustalos si podés; usá ChatGPT si hace falta. Haciendo esto te pagan más consistentemente."</li>
+<li><strong>Stagger en plataformas multi-uso</strong>: si el mismo bug aplica a varios programas, no lo mandes todo junto — mandalo a uno, cobrá, esperá, mandalo al otro. Así detectás si comparten tus attack strings entre clientes, y te protege del clásico "un fix arregla todo" (después del fix, testeá bypasses y reVisitá tus viejos bugs).</li>
+<li><strong>Quemá una submission para preguntar</strong>: si encontrás algo posiblemente fuera de scope (ej.: 20 credenciales de empleados en GitHub), usá una submission para preguntarle al cliente si quiere pagarlas. Cuidado con la redacción — nunca al borde de la extorsión; si dicen que no, igual se las pasás.</li>
+<li><strong>Disclosure como último recurso</strong>: cuando estás locked out, sin comentarios posibles, y el bug marcado out of scope / not applicable / no security impact, podés pedir disclosure o hacer YOLO disclosure en blog/Twitter. El contrato de la plataforma le transfiere los datos al apretar submit, así que legalmente hoy no tenés derecho — pero Haddix defiende que sí debería existir ese derecho para el que investigó y quiso ayudar.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las plataformas no son nada sin su producto: los hackers. Cualquier modelo que los trate como materia prima gratis (IA, threat intel, marketing) socava la base del negocio.</li>
+<li>Hay que educar seriamente a los clientes sobre qué significa el contrato del bug bounty: el pago es por impacto, no por cuánto costó explotar el bug ni por qué controles creen tener detrás.</li>
+<li>Toda función del ciclo de triage y de creación de scope debería estar <strong>documentada y con historial de revisiones, como el código fuente</strong>, para mantener honestas a todas las partes.</li>
+<li>La industria está en su adultez y tiene los esqueletos a la vista: la pregunta es si los programas, plataformas y vendors eligen tratar a los hunters como socios o como recurso extractable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/6SNy0u6pYOc">«DEF CON 32 - Jason Haddix - The Darkest Side of Bug Bounty»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Control de acceso físico: hacerlo bien a la primera — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Control de acceso físico: hacerlo bien a la primera</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WscuQr5X1kc">«DEF CON 32 - Access Control Done Right the First Time - Tim Clevenger»</a> · ver el <a class="nz-link" href="https://youtu.be/WscuQr5X1kc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las licitaciones de seguridad física suelen terminarse en el postor más barato: el producto mínimamente viable que "funciona" pero no es mantenible, confiable ni seguro. Este recorrido cambia el enfoque habitual — no se trata de cómo saltarse un control de acceso, sino de cómo instalarlo para que los saltos no sean triviales. La perspectiva es la de un instalador certificado en plataformas como Lenel y S2, con años recorriendo instalaciones en el sur de California, activo en el Discord del Physical Security Village, y con un RFP modelo derivado de estas lecciones disponible para quien quiera exigirlo a sus proveedores.</p>
+<p>El énfasis está en instalaciones grandes (edificios de oficinas, almacenes, campus): si el caso es un gimnasio con una puerta, parte del consejo aplica igual, pero la escala cambia el juego.</p>
+<h2>Elegir el sistema: el gigante silencioso</h2>
+<p>La mayoría de los fabricantes grandes construyen sus equipos sobre hardware de Mercury Security, el "gorila" del sector, por dos buenas razones:</p>
+<ul>
+<li><strong>Almacenamiento y procesamiento locales</strong>: si el servidor o la red se caen, los paneles siguen decidiendo por sí mismos quién entra; no hace falta abrir la puerta del cuarto de servidores con una palanca porque el DNS murió.</li>
+<li><strong>Reflash de firmware y soporte multivendor</strong>: si un día se cansa de Lenel y quiere pasar a Genetec o Honeywell, la mayor parte del hardware existente se reflashea. Cambiar de proveedor deja de significar tirar todo y volver a comprar.</li>
+</ul>
+<h2>Diseño del layout: paneles, RS‑485 y el futuro</h2>
+<p>Un gabinete típico tiene el panel de acceso (el cerebro que decide si una tarjeta entra según sus derechos) y, debajo, controladores de puerta adicionales "más tontos": su decisión depende de comunicarse con el panel principal. Si se corta esa comunicación, esos controladores se bloquean cerrados, se bloquean abiertos o conceden acceso con el mero código de instalación — ninguna opción que favorezca la seguridad.</p>
+<p>De ahí tres consideraciones de ubicación:</p>
+<ul>
+<li><strong>Entorno y accesibilidad</strong>: calor, humedad, energía, seguridad física del gabinete (¿está en una pared por la que cualquiera puede pasar y hacer palanca?) y si las baterías serán alcanzables sin escalera de mano de tres metros — porque si no, simplemente no se cambian.</li>
+<li><strong>Cableado entre paneles</strong>: Ethernet hacia el servidor; RS‑485 hacia los controladores. RS‑485 es un protocolo de cuatro hilos, teóricamente válido hasta 4.000 pies, pero mucho más sensible a interferencias que Ethernet, con blindaje de lámina que hay que manejar y terminación al final de la cadena. Quien haya tenido que arrastrarse a un espacio cerrado a reemplazar cable lo sabe: es menos confiable a distancia.</li>
+<li><strong>Caída de tensión</strong>: los pestillos magnéticos y las barras motorizadas consumen mucha más corriente que un relé simple. Si la puerta queda lejos del panel, la tensión baja y el imán se debilita tanto que la puerta se puede abrir tirando — o directamente no abre cuando debe. El proveedor lo descubrirá después de instalar todo, y resolverá colgando la fuente de poder más barata en el cielo raso más cercano, sin baterías, sin decírselo a nadie y en un lugar que exigirá romper drywall para alcanzarla. La solución es planificarlo antes: identificar las puertas lejanas y exigir la fuente remota en la fase de diseño.</li>
+</ul>
+<p>Un caso concreto: un almacén con 65–70 puertas para camiones y puertas peatonales cada tres o cuatro, con 700–800 pies entre el extremo y el panel. Ahí RS‑485 expuesto (pero accesible para mantenimiento) resulta preferible a tirar Ethernet o fibra con convertidores hasta cada puerta. En cambio, en una planta de oficina Clase A conviene un panel centralizado cerca de los ascensores con distribución en abanico — pero pensando en el futuro: si la planta son dos medias oficinas con entradas y ascensores propios, poner un panel por lado permite, llegado el caso de reducir espacio, levantar un tabique y desconectar media instalación sin drama.</p>
+<h2>Cableado a las puertas: no deje decidir al proveedor</h2>
+<p>Cada puerta necesita: energía de mayor calibre para la cerradura, cable blindado para el lector (RS‑485 o Wiegand), contacto de puerta, request‑to‑exit, y conductores extra para interruptores de manipulación y E/S auxiliares.</p>
+<p>La manera incorrecta es dejar que el proveedor elija: usará el cable más barato que tenga en la camioneta, calibres insuficientes hacia puertas que cree que no los necesitan (riesgo de incendio además de puertas que no abren), cable sin blindaje, o cable Cat 3 de teléfono si es lo que encuentre — con problemas de comunicaciones garantizados. Y sin conductores de reserva: el día en que la recepcionista pida un botón para abrir la puerta sin levantarse, la obra será túnel bajo el concreto o techo.</p>
+<p>La manera correcta es especificar <strong>cable compuesto de control de acceso</strong>: todo en una sola fundación fabricada por especialistas, con las opciones adecuadas de conductores extra, blindaje correcto para el lector y una funda exterior gruesa (resiste rozaduras contra metal en el cielo raso). Además es distintivo: un cable grueso amarillo no se corta "por si acaso" como un manojo de cables blancos finos.</p>
+<h2>Energía, baterías y seguridad contra incendios</h2>
+<ul>
+<li><strong>Fuentes con cargador y baterías</strong>: sin baterías, un corte de luz lo deja afuera de su propio edificio. Verificar amperaje y rango térmico (crítico en cuartos calientes) y usar las salidas de <strong>AC fail</strong> y <strong>battery fail</strong> conectadas al panel para recibir alertas antes de que todo muera.</li>
+<li><strong>Gabinetes</strong>: con interruptor de manipulación, cerradura con llave — y si está en zona pública, cambiar la cerradura, porque todos los gabinetes del rubro traen la misma llave de fábrica. A la intemperie (un portón al fondo del predio sin caseta de guardia), gabinete weatherproof.</li>
+<li><strong>Fecha en las baterías</strong>: escribir la fecha de instalación en cada batería. Regla práctica: reemplazo cada 5 años en sala climatizada, cada 3 en un garaje caliente. Una batería moribunda se delata con el sonido de líquidos secos al agitarla.</li>
+<li><strong>Fuentes remotas</strong>: planificadas de antemano, con cargador y baterías propias. Una puerta exterior en una fuente sin baterías no sirve: es justo la puerta que se necesita en el corte de luz.</li>
+</ul>
+<p>Sobre seguridad de vida:</p>
+<ul>
+<li><strong>Fail safe vs fail secure</strong>: si el sistema se cae, ¿la puerta abre o queda cerrada? Elegir fail secure para proteger activos está bien — pero asegurar que quien esté dentro pueda salir en un incendio, un corte o un crash de software. Proteger activos a costa de vidas no es opción; hay otra forma.</li>
+<li><strong>Código de incendios y la autoridad jurisdiccional</strong> (bomberos o inspector): en edificios Clase A el contrato suele exigir amarrar el sistema a la alarma de incendios con un relé que libere las cerraduras al dispararse.</li>
+<li><strong>Knox box</strong>: la caja endurecida junto a la entrada que el cuerpo de bomberos abre con su llave maestra. Sin llaves mecánicas, suele depositarse una tarjeta de acceso ahí — y conviene instalar un interruptor de manipulación, porque las llaves comunes de Knox box no son ningún secreto.</li>
+</ul>
+<h2>Cerraduras y sensores: lo que ataca el atacante</h2>
+<ul>
+<li><strong>Pestillo eléctrico</strong>: el que zumba desagradablemente y jamás cierra del todo.</li>
+<li><strong>Solenoide</strong>: el estándar de oficina; si la puerta queda abierta 8–12 horas al día, el solenoide queda energizado todo ese tiempo y falla prematuramente — dejando la puerta que no abre.</li>
+<li><strong>Imán (mag lock)</strong>: consume más energía y siempre es fail safe; quizá no para la puerta principal si el corte de luz debe dejarla abierta.</li>
+<li><strong>Barra motorizada</strong>: cara, pero muy buena.</li>
+</ul>
+<p>Cada puerta lleva dos sensores: el <strong>contacto de puerta</strong> (abierto/cerrado, reed en el marco o integrado a la cerradura) y el <strong>request to exit</strong>, que le dice al sistema que la puerta abre legítimamente desde adentro y no con palanca desde afuera; en puertas magnéticas, además, es lo único que puede liberar el imán (botón, zumbador, detector de movimiento o interruptor en el picaporte).</p>
+<p><strong>Supervisión</strong>: un juego de resistencias en serie o paralelo lo más cerca posible de los contactos convierte una lectura binaria (circuito abierto/cerrado) en cuatro estados — puerta abierta, puerta cerrada, cable cortado, cable en corto.</p>
+<pre class="mermaid">
+flowchart LR
+    R[Resistencias EOL en el contacto] --> S{Estado de la línea}
+    S --> A[Normal: puerta cerrada]
+    S --> B[Alerta: puerta abierta]
+    S --> C[Tamper: cable cortado]
+    S --> D[Tamper: cable en corto]
+
+</pre>
+
+<p>Sin supervisión, un contacto que se cae del marco es una puerta que abre y cierra sin que nadie se entere. Los detectores de movimiento para liberar mag locks son otro blanco clásico: si se los bypasea, abren la puerta ellos mismos. Y los ataques a picaportes se mitigan con REX duales (movimiento + lectura de credencial o botón), siempre con el cubo de emergencia que se rompe y permite salir — y dispara la alarma — para el caso de incendio sin credencial a mano.</p>
+<h2>Credenciales y lectores: formatos que ya perdieron</h2>
+<ul>
+<li><strong>125 kHz prox</strong>: la tarjeta del gimnasio. Trivial de clonar.</li>
+<li><strong>iClass 13.56 MHz</strong>: el estándar de oficina. Trivialmente roto y clonable.</li>
+<li><strong>Mifare DESFire</strong>: no está rota directamente, pero sufre ataques de downgrate hacia los formatos anteriores — por eso hay que deshabilitar los formatos viejos en los lectores.</li>
+</ul>
+<p>El formato 26‑bit de prox/iClass es un desastre silencioso: lleva un código de instalación (0–255) y un número de tarjeta. Se compran tarjetas de cualquier código en eBay, y cualquier lector compatible las lee — un lector HID de eBay conectado a un ESP32 extrae código y número tocando la tarjeta. Dato empírico del rubro: el código 132 es, por alguna razón, el más común en instalaciones de Texas, California y Utah; comprar un lote de tarjetas con ese código y acercarse a un edificio cualquiera da chances reales de entrar. Los lectores portátiles — el clásico lector escondido en un portapapeles que "lee" las credenciales ajenas al pasar — completan el cuadro.</p>
+<p>La mitigación son credenciales con formato propio: <strong>HID Corporate 1000</strong> usa 48 bits, se protege contra lectura no autorizada y asigna un código de instalación dedicado y exclusivo por contrato (con 8,3 millones de números de tarjeta por código) — lo que además permite elegir números en un rango alto y no preocuparse por colisiones al adquirir otra empresa.</p>
+<h2>Comunicación de lectores: Wiegand vs OSDP</h2>
+<p>Wiegand es el protocolo de 1975 que aún domina; su reemplazo es <strong>OSDP</strong>, con muy pocos compromisos y fáciles de evitar. El problema es de mercado: un 84% de los instaladores nunca o casi nunca lo usa. Exigirlo en el RFP es parte de hacerlo bien a la primera.</p>
+<h2>Mantenimiento: la mitad olvidada</h2>
+<ul>
+<li>Probar los lectores con regularidad.</li>
+<li>Configurar alertas en el software de control (una cantidad enorme de instalaciones tiene software y jamás configuró una sola alerta).</li>
+<li>Documentar todo: una etiqueta numerada bajo cada lector, cruzada con el sistema, convierte "el lector 24 no funciona" en un arreglo de minutos.</li>
+<li>Revisar baterías (mueren sin que nadie se entere) y auditar la lista de usuarios periódicamente.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El control de acceso se gana o se pierde en la fase de diseño: paneles, distancias, fuentes remotas y cableado compuesto especificados de antemano cuestan una fracción de lo que cuesta remediarlos instalados.</li>
+<li>La supervisión con resistencias y las alertas de energía transforman un sistema mudo en uno que avisa: puerta forzada, cable cortado, batería muerta, corte de AC.</li>
+<li>Los formatos 26‑bit y las credenciales de códigos genéricos son puertas virtuales abiertas; formatos propietarios (HID Corporate 1000) y lectores sin downgrades cierran el vector barato.</li>
+<li>OSDP existe y es mejor que Wiegand; el cuello de botella no es técnico sino contractual — hay que exigirlo.</li>
+<li>Y sobre todo: ninguna decisión de fail secure debería comprometer la salida de emergencia. La seguridad de los activos nunca justifica arriesgar vidas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WscuQr5X1kc">«DEF CON 32 - Access Control Done Right the First Time - Tim Clevenger»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

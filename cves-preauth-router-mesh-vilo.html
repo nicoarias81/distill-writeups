@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De CTF al mundo real: nueve CVEs pre-auth en un router mesh Vilo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">De CTF al mundo real: nueve CVEs pre-auth en un router mesh Vilo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/IyInMgXj4k4">«DEF CON 33 - From CTF Skills to Real World Hacking - Springboarding from CTF to Firmware and CVE Discovery - Justin Applegate, Ava Peterson, Justin Mott, Wyatt Pangirl»</a> · ver el <a class="nz-link" href="https://youtu.be/IyInMgXj4k4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un equipo de estudiantes de BYU aplicó técnicas de CTF a un objetivo real: el router mesh doméstico Vilo. Sin investigación previa publicada, sin firmware descargable y sin vía directa al bug bounty del fabricante, el proyecto de un semestre culminó en nueve vulnerabilidades (seis críticas, tres medias), de las cuales cuatro son buffer overflows pre-autenticación con CVSS 9.6, además de una command injection autenticada que permite obtener shell como root. Los números CVE quedaron reservados ante MITRE.</p>
+<p>La ruta fue la clásica de investigación en hardware y firmware: extraer la flash por SPI, emular con QEMU, invertir el protocolo custom del servicio local y buscar bugs a mano en Ghidra — sin fuzzing. El resultado es también una demostración de que el salto de CTF a vulnerabilidades reales en IoT es corto: los dispositivos baratos comparten los mismos patrones de código inseguro, y la superficie sin auditar es enorme.</p>
+<h2>El objetivo y por qué fue elegido</h2>
+<p>Vilo Living es una startup de 2021 con solo dos productos, ambos routers mesh Wi-Fi (5 y 6). No había CVEs, ni análisis técnicos, ni siquiera reviews que documentaran las funciones internas. Sumado a un precio bajo (de los más baratos en Amazon), parecía el blanco ideal para aprender: terreno virgen y asequible.</p>
+<p>Tres particularidades definieron el enfoque. Primera: no hay interfaz web de administración (nada de <code>192.168.1.1</code>); todo se configura desde una app móvil. Segunda: el bug bounty requería firmar un NDA e ingresar al grupo de beta testers — el fabricante nunca respondió con el NDA, así que se investigó sin él. Tercera: el firmware no era descargable, había que extraerlo del dispositivo.</p>
+<p>Los objetivos del proyecto: obtener el firmware (para convertir el black box en white box y facilitar el exploit development), lograr shell en el dispositivo, y encontrar la máxima cantidad de RCE pre-autenticación.</p>
+<h2>Reconocimiento de hardware: dos routers muertos</h2>
+<p>La desmonta reveló pines UART. El primer intento de soldadura destruyó el primer router. El segundo router sobrevivió y mostró un login de Linux, pero la contraseña era desconocida y la interfaz UART moría 30 segundos después del boot, imprimiendo la cuenta regresiva cada segundo — imposible entrar por ahí.</p>
+<p>El resultado clave del reconocimiento vino de la app Android: junto con información de Firebase y servicios cloud, se identificó un servicio custom en TCP 5432, usado para la configuración inicial cuando el router no tiene acceso a internet.</p>
+<h2>Extracción del firmware por SPI</h2>
+<p>Un chip de memoria flash almacenaba el firmware. Las utilidades de software devolvían datos corruptos; la solución fue un analizador lógico Salae conectado al bus SPI: al encender el router, todo el tráfico SPI se capturó y decodificó directamente en el software del analizador, y scripts de Python lo convirtieron en el binario del firmware. Un mes de intentos fallidos, dos horas con la herramienta correcta.</p>
+<h2>Emulación con QEMU y toolchain MIPS</h2>
+<p>El SoC es MIPS 32-bit little-endian, imposible de ejecutar nativo en máquinas x86/ARM. La emulación combinó QEMU compilado estáticamente con chroot (para que los binarios encontraran sus librerías en las rutas hardcodeadas) y breakpoints de GDB calculados con ingeniería inversa en Ghidra. QEMU con <code>-g 1234</code> abre una sesión de debugging remoto en el puerto 1234, conectable con gdb-multiarch desde otra terminal.</p>
+<p>Para compilar binarios propios (el firmware carece incluso de <code>whoami</code> o netcat) se armó un toolchain con Buildroot y uClibc-ng — fork de uClibc, sin mantenimiento desde 2012. El bind shell compiló sin problemas; gdbserver conectaba pero hacía segfault. Esta emulación fue la base para fuzzing, testing y exploit development.</p>
+<h2>El protocolo custom del puerto 5432</h2>
+<p>El servicio usa un header de 15 bytes más payload, con mensajes diferenciados por opcodes. La "encriptación" es XXTEA más una capa de obfuscación custom: la app envía una key hardcodeada, el router responde con una nueva key cifrada — todo reversible. Con las claves derivadas desde la hardcodeada fue posible hablar el protocolo.</p>
+<p>El problema de diseño: el servicio no tiene autenticación real y <strong>permanece activo todo el tiempo que el router está encendido</strong>, aunque ya tenga internet. Cualquier cliente de la LAN que hable el protocolo puede controlar el router como si fuera el dueño: ver y cambiar SSID, contraseña Wi-Fi, credenciales PPPoE, reiniciar el dispositivo y explotar las demás vulnerabilidades. Esto convirtió varios buffer overflows autenticados en RCE no autenticados.</p>
+<h2>Las vulnerabilidades</h2>
+<p>De las nueve, destacan tres. Cuatro buffer overflows pre-auth en el servicio (CVSS 9.6), una fuga de información y una ausencia de autenticación completan la lista; los números están reservados ante MITRE en el orden de publicación del repositorio.</p>
+<p><strong>Falta de autenticación (CVE de información).</strong> Descrita arriba: sin autenticación en el servicio local, la frontera de seguridad es solo saber hablar el protocolo. Invitar un amigo a la red Wi-Fi equivale a darle control total del router.</p>
+<p><strong>Buffer overflow en <code>appSetRouterToken</code> (opcode 0x3e).</strong> El opcode actualiza un token y zona horaria recibidos como JSON cifrado. Un <code>sscanf</code> copia el token a un buffer fijo sin validar longitud: un token de 20 bytes en un buffer de 16 produce el overflow. Con canaries deshabilitados (versión antigua del firmware), se controla el registro <code>ra</code> (return address) y <code>s8</code>. La explotación en MIPS es incómoda: no hay instrucción <code>return</code>, lo que dificulta encadenar gadgets ROP. La estrategia fue un gadget "one-shot": con ASLR activo pero PIE deshabilitado, las variables globales tienen direcciones conocidas; apuntar <code>s8</code> a un comando controlado y el instruction pointer al gadget debía ejecutarlo. La prueba con <code>; reboot ;</code> no funcionó — y accidentalmente reinició el router de forma tal que quedó en un boot loop permanente, nunca más online (error propio, no del exploit). En la versión más reciente del firmware los canaries están habilitados y este overflow no es explotable tal cual.</p>
+<p><strong>Command injection autenticada en <code>sysconf</code> (el hallazgo accidental).</strong> Buscando el código responsable del boot loop, apareció el verdadero camino al shell: <code>sysconf</code>, que corre en el boot, arma un comando <code>udhcpc</code> con variables interpoladas — incluido el hostname del router — y lo pipea directo a <code>system()</code>. Como el hostname se configura desde la app, setearlo a un comando bash da RCE. Limitaciones: el comando corre una sola vez en el boot, y el hostname se limita a 30 caracteres.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Hostname = payload 1<br>30 bytes] --> B[Boot: sysconf ejecuta<br>el comando inyectado]
+    B --> C[Escribe script en /folly<br>directorio persistente]
+    C --> D[Espera 20s a que haya internet<br>descarga payload 2 con wget]
+    D --> E[Payload 2 descarga bind shell<br>compilado en C para MIPS]
+    E --> F[Conexión por netcat<br>shell como root]
+
+</pre>
+
+<p>La cadena encadena las restricciones: /folly es uno de los pocos directorios a la vez escribible y persistente; el router aún no tiene internet cuando corre el comando inyectado (por eso la espera de 20 segundos); y el shell final es un binario C compilado con el toolchain MIPS. Resultado: netcat al router y prompt de root.</p>
+<h2>Divulgación: un mes para encontrar al fabricante</h2>
+<p>Contactar a Vilo fue difícil: el email de security de los términos de servicio rebotaba, las direcciones web y redes sociales no respondieron, y los tickets de soporte tardaron un mes en derivar al equipo de desarrollo. Timeline: proyecto de enero a principios de abril, contacto a fin de abril con los detalles de las nueve vulnerabilidades y deadline de 90 días, seguimientos sin respuesta, registro de CVEs ante MITRE conforme a lo avisado, respuesta del fabricante recién cerca del vencimiento — con firmware nuevo publicado justo antes de DEF CON, pendiente de verificación. El canal de actualizaciones OTA corre por MQTT cifrado dentro del ecosistema AWS IoT; el endpoint HTTP que reportaba "último firmware" en realidad no lo servía (detalle que hizo que se analizara una versión más vieja que la instalada).</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>UART</strong> — interfaz serial de depuración; en este router moría 30 segundos tras el boot.</li>
+<li><strong>SPI + Saleae logic analyzer</strong> — captura del bus de la memoria flash para extraer el firmware binario.</li>
+<li><strong>QEMU (estático) + chroot</strong> — emulación del firmware MIPS en x86 con rutas de librerías respetadas.</li>
+<li><strong>QEMU <code>-g</code> + gdb-multiarch</strong> — debugging remoto del binario emulado en el puerto 1234.</li>
+<li><strong>Ghidra</strong> — ingeniería inversa del firmware MIPS (búsqueda de vulnerabilidades manual, sin fuzzing).</li>
+<li><strong>XXTEA + obfuscación custom</strong> — "cifrado" del protocolo del puerto 5432, reversible desde la key hardcodeada.</li>
+<li><strong>Buildroot + uClibc-ng</strong> — toolchain para compilar binarios MIPS (bind shell propio).</li>
+<li><strong>ROP en MIPS</strong> — sin instrucción <code>return</code>; gadget one-shot controlando <code>ra</code> y <code>s8</code>.</li>
+<li><strong>PIE deshabilitado + ASLR</strong> — variables globales en direcciones fijas para posicionar el comando.</li>
+<li><strong><code>sscanf</code> sin validación de longitud</strong> — origen del buffer overflow en <code>appSetRouterToken</code> (opcode 0x3e).</li>
+<li><strong>Command injection vía hostname → <code>system()</code></strong> — <code>sysconf</code> interpola el hostname en el comando <code>udhcpc</code> del boot.</li>
+<li><strong>Payload en stages</strong> — script en /folly → wget → bind shell C compilado para MIPS.</li>
+<li><strong>MQTT cifrado (AWS IoT)</strong> — canal real de distribución de actualizaciones OTA.</li>
+<li><strong>MITRE CVE</strong> — números reservados para las nueve vulnerabilidades.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El salto de CTF a vulnerabilidades reales es directo: el mismo kit (reversing en Ghidra, explotación de memory corruption, protocolos custom) funciona en IoT, solo cambia la fase de acceso al firmware.</li>
+<li>Los patrones inseguros se repiten en dispositivos baratos: claves hardcodeadas, servicios sin autenticación activos permanentemente, <code>sscanf</code> sin límites y comandos armados por interpolación de strings.</li>
+<li>La extracción de firmware por SPI con analizador lógico es rápida cuando las utilidades de software fallan; dos horas frente a un mes de intentos alternativos.</li>
+<li>La superficie de ataque quedó mayormente intacta: solo se examinó una fracción pequeña, y los autores dejaron el repositorio abierto para quien quiera continuar la búsqueda.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/IyInMgXj4k4">«DEF CON 33 - From CTF Skills to Real World Hacking - Springboarding from CTF to Firmware and CVE Discovery - Justin Applegate, Ava Peterson, Justin Mott, Wyatt Pangirl»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

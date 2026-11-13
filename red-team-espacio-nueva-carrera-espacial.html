@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red team en la frontera final: seguridad ofensiva contra sistemas espaciales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Red team en la frontera final: seguridad ofensiva contra sistemas espaciales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/KjDaPwtYte4">«DEF CON 33 - Red Teaming the Final Frontier: Offensive Security and the New Space Race - Tim Fowler»</a> · ver el <a class="nz-link" href="https://youtu.be/KjDaPwtYte4">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La industria espacial cambió de forma estructural. La "Space Race 1.0" fue un duelo de Estados-nación: Sputnik, el 4 de octubre de 1957, NASA, el DOD y sus equivalentes extranjeros. La Space Race 2.0 es la carrera de la democratización: la privatización y comercialización del espacio, con costos de lanzamiento desplomados (SpaceX, Rocket Lab y compañía elevando carga útil y eficiencia), CubeSats lanzables por menos de cien mil dólares y un ecosistema de operadores que va de YouTubers como Mark Rober hasta contratistas del DOD como Lockheed, Boeing o Raytheon. Hoy hay más de 11.000 satélites comerciales —excluyendo funciones DOD/IC/ISR— y más sistemas interconectados que nunca: el espacio se está convirtiendo en una extensión de internet, con todas las consecuencias que eso implica.</p>
+<p>El problema es que la superficie de ataque crece con cada nuevo actor, mientras la ciberseguridad espacial ya es difícil de por sí: el espacio intenta activamente destruir todo lo que se lanza a él. Una estadística citada de 2017: el 90% de los CubeSats lanzados nunca llegó a encender. Y las dependencias críticas son totales —cada transacción financiera (tarjeta, débito, bolsa) depende de sincronización de tiempo proveniente del espacio; en 2012 la Bolsa de Londres dejó de operar por un ataque localizado de jamming sobre GPS que impidió sincronizar transacciones—.</p>
+<h2>La superficie de ataque, de abajo hacia arriba</h2>
+<ul>
+<li><strong>Segmento terrestre</strong>: sistemas TT&amp;C (telemetría, tracking y control), software de misión. El punto número uno donde existirán las vulnerabilidades —y, sobre todo, las configuraciones incorrectas—. El mantra del red teaming aplica: no importa para qué se diseñó el sistema, importa qué se puede lograr que haga.</li>
+<li><strong>Enlaces de comunicación</strong>: no solo uplink y downlink, sino los cross-links laterales de constelaciones y mega-constelaciones (Starlink): hoy se puede rutear un paquete IP a través de múltiples nodos orbitales en un instante arbitrario, y la superficie sigue creciendo.</li>
+<li><strong>Sistemas a bordo</strong>: firmware, buses, sensores. Hay que diseñarlos pensando en cómo testearlos, porque mandar un técnico espacial a reinear un satélite en órbita no es una opción.</li>
+</ul>
+<h2>Qué significa red teaming en el espacio</h2>
+<p>Ofensiva contra sistemas espaciales, no guiada por vulnerabilidades: se explotan configuraciones e interconexiones abusables, simulando actores de Estado o criminales. La diferencia con el pentesting tradicional es la emulación de un adversario conocido; hacen falta ambos perfiles, pero sin simular una amenaza real no hay red teaming. La adaptación abarca técnicas cibernéticas, de RF y físicas —meterse a un satélite en órbita con ganzúas ya no es viable, aunque en la era del transbordador teóricamente lo era—. Y la atribución, que en ciberespacio terrestre ya es difícil, en el dominio espacial es mucho peor: el adversario más probable de un operador es su propia gente (amenazas internas).</p>
+<p>El estado del arte lo mide una anécdota: en junio de 2025, 6Gen en colaboración con Capella Space y CT Cubed realizó el primer ejercicio comercial de red team on-orbit del que se tenga registro (los ejercicios previos, vía Aerospace Corporation, estaban acotados al sector defensa). Se voló en el espacio desde 1958; esto recién se hizo en 2025, porque es caro, arriesgado y con responsabilidad enorme. Y tiene truco: el ejercicio pudo hacerse porque el satélite se degradaba más rápido de lo previsto y quedaban unos seis días antes de perder contacto para siempre —fin de misión—.</p>
+<h2>Restricciones que rompen la metodología tradicional</h2>
+<ul>
+<li><strong>Accesibilidad física</strong>: una vez integrado al cohete, el objetivo no se vuelve a tocar.</li>
+<li><strong>El dilema del parche</strong>: si el parche falla, se pierde el satélite (fin de misión); si no se parchea y lo explotan, también. La respuesta realista: casi nunca se parchea. Razonamiento análogo al de ICS/OT pero "con esteroides": no se puede tocar el objetivo, y entre operación de misión y ciberseguridad, con cientos de millones o miles de millones en juego, gana el negocio.</li>
+<li><strong>Ventanas de ataque mínimas</strong>: operación asimétrica con planificación y puesta a punto prolongadas y una sola oportunidad. En el ejercicio de 6Gen se perdieron tres pases orbitales porque la atmósfera se calentó y el satélite llegó cinco minutos tarde; el tasking de las antenas ya estaba agendado. Dónde el pentester tradicional programa sleeps de minutos, aquí se habla con el satélite una vez cada ~4 horas durante ~10 minutos, con ancho de banda limitadísimo.</li>
+<li><strong>Falta de herramientas</strong>: no existe un "Metasploit para el espacio". No todo es TCP/IP: hacen falta herramientas muy custom (CCSDS y protocolos a medida), análisis de RF para capturar y entender señales.</li>
+<li><strong>Falta de entornos de simulación</strong>: debería red-teamearse durante todo el desarrollo con digital twins, flat sats y cámaras de test RF, pero muchas veces no se hace.</li>
+<li><strong>Mecánica orbital</strong>: hay que calcular cuándo el satélite puede hablar, y atacar preferentemente cuando el operador no está comunicando —aunque a veces hay que estar físicamente cerca de donde el operador comunica, por los lockouts—.</li>
+<li><strong>Falta de expertise y marcos regulatorios</strong>: la expertise espacial-cyber es escasa y la regulación específica está en camino; cualquier cosa en RF debe hacerse con licencia, a menudo añadida a la licencia del operador del satélite, y eso lleva meses, no semanas.</li>
+</ul>
+<h2>El encadenamiento entre dominios</h2>
+<p>Si un operador low-cost lanza 60 CubeSats con flight software escrito por encargo en Fiverr por 300 dólares y toda la constelación es comprometida, el problema no es solo suyo: quien opera en el espacio tendrá una constelación controlada por un operador rogue —¿quién la maneja?, ¿con qué capacidades?, ¿qué significa para la seguridad de los demás?—. En el dominio espacial hay que ser consciente de todo el ecosistema, no solo del cliente propio: los ataques se encadenan de tierra a espacio, de espacio a tierra y de espacio a espacio.</p>
+<h2>Metodología y formación</h2>
+<ul>
+<li><strong>Objetivos, no vulnerabilidades</strong>: identificar los aspectos críticos de la misión, el impacto de negocio (cientos de millones o miles de millones, con efecto cascada sobre los usuarios) y el cumplimiento regulatorio.</li>
+<li><strong>Restricciones de tiempo como concepto central</strong>: 15 minutos en un pase, 7 en el siguiente, 12 en el otro, o el pase perdido por completo —cómo se maneja eso tanto defendiendo como atacando—.</li>
+<li><strong>Simulación pesada</strong>: digital twins, cámaras de test RF, ejercicios de mesa; y empezar desde el principio: cómo se va a parchear un satélite se decide en fase de diseño, porque después ya no se puede. Caso extremo de los CubeSats de entrenamiento propios: la única forma de parchear es explotar una vulnerabilidad para cerrarla.</li>
+<li><strong>Herramientas y bancos de prueba</strong>: análisis de RF, CCSDS y protocolos custom, NOS3 (NASA Operating System for Small Satellites) como testbed, modelos de constelación, estaciones terrena y software de planificación de misión.</li>
+<li><strong>Formación de doble vía</strong>: tres tipos de estudiantes —expertos en cyber que no entienden espacio, expertos en espacio que no entienden cyber, y curiosos—; el objetivo es llevar a ambos lados a mantener una conversación válida donde la decisión de ingeniería ("lo hicimos por X, Y, Z, es una restricción operativa") se traduzca en "cómo testeamos alrededor de eso". El cierre realista de todo operador espacial: "¿está volando? Sí. Entonces estamos bien" — exactamente lo que hay que evitar llegando a esa etapa—.</li>
+<li><strong>Ética</strong>: disclosure responsable de vulnerabilidades, coordinación con los cuerpos regulatorios, y no dejar el camino más difícil para los que vienen detrás.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La nueva carrera espacial trae velocidad y riesgo a la vez: se mueve más rápido que nunca y se pone más material en órbita, y la capacidad ofensiva/defensiva específica del dominio no existe todavía a escala.</li>
+<li>Defend before orbit: testear y pensar como atacante antes de llegar a órbita es lo único que baja el costo de todo lo demás —una vez integrado al cohete, ya es tarde—.</li>
+<li>El red teaming espacial exige dominar simultáneamente cyber, RF, mecánica orbital y las restricciones operativas del sector; la colaboración entre ingenieros espaciales y red teamers es el único camino para construir esa expertise.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/KjDaPwtYte4">«DEF CON 33 - Red Teaming the Final Frontier: Offensive Security and the New Space Race - Tim Fowler»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

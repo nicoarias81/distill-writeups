@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Glass Perimeter: bypasses sistemáticos de frameworks biométricos en banca móvil — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">The Glass Perimeter: bypasses sistemáticos de frameworks biométricos en banca móvil</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/1uCl7T8--i8">«The Glass Perimeter - Systematic Bypasses in Biometric Frameworks I Javier Bernardo y Dan Borgogno»</a> · ver el <a class="nz-link" href="https://youtu.be/1uCl7T8--i8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El escenario es inquietante: un atacante tiene la cara de la víctima —robada de redes sociales, de una filtración o por phishing— y un teléfono Android rooteado. Con eso, y sin dinero invertido en la investigación, se logró inyectar video en los procesos de validación facial (KYC) de aplicaciones bancarias reales de mercado, bypaseando los frameworks de protección que envuelven a cada una. La tesis: si el único factor de acceso a una cuenta es la cara, el perímetro es de vidrio.</p>
+<p>Javier Bernardo y Dan Borgogno recorren el pipeline de inyección, los seis puntos del sistema Android donde se puede colar video —de la capa de aplicación hasta el camera server del sistema operativo—, el trabajo de ingeniería inversa contra cuatro frameworks de protección con nombres ficticios, y cierran con el dilema de los CISOs y una recomendación central: la decisión final sobre la identidad no puede vivir en el cliente.</p>
+<h2>El escenario: la cara como único factor</h2>
+<p>La validación facial solía ser el segundo doble factor de autenticación; hoy, en muchos casos, es el único. En las demos quedó claro el impacto: con la validación facial pasando, hubo acceso directo a la cuenta <strong>sin credenciales ni doble factor</strong> —y en otra, cambio de contraseña con una cara generada 100% por IA—. La biometría como single point of failure de la seguridad es lo que justifica, según los investigadores, las cifras de fraude por identidad sintética alrededor del mundo.</p>
+<p>El atacante del escenario tiene tres cosas: la cara o el video de la víctima, un teléfono rooteado y control total del sistema operativo. Todo lo que sigue es, conceptualmente, la misma pregunta repetida: ¿dónde inyecto los frames para que la aplicación crea que ve una cámara real?</p>
+<h2>Cómo funciona la inyección de video</h2>
+<p>Primero, la arquitectura de Android (compartida con iOS): cada aplicación corre en un sandbox —el application layer— y solo entiende lo que hay dentro de su contexto. Interactúa con los periféricos a través de la framework API, debajo está la capa nativa (el sistema operativo, controlable en un teléfono rooteado) y debajo el hardware, que queda fuera de este research pero promete un proyecto futuro: una cámara emulada por hardware.</p>
+<pre class="mermaid">
+flowchart TB
+    A[Application layer<br/>sandbox de la app] <-->|framework API| B[Capa nativa<br/>sistema operativo rooteado]
+    B --> H[Hardware<br/>cámara]
+    T1[Inyección 1-5: la app puede notar] -.-> A
+    T2[Inyección 6: camera server<br/>el sweet spot, invisible] -.-> B
+
+</pre>
+
+<p>El proceso de inyección es un pipeline repetible: se genera un video (propio o con IA), se destripa en frames con formato, resolución y tamaño específicos, se pushea por ADB a una carpeta que todas las aplicaciones pueden leer, y Frida —cargado con la aplicación— los levanta a memoria y espera el comando. Cuando llega, reemplaza el mecanismo de la cámara y la aplicación cree que está viendo el video inyectado. La cámara, apuntan los investigadores, <strong>nunca se da cuenta</strong> de que está siendo inyectada.</p>
+<p>A medida que las aplicaciones se daban cuenta del ataque, la técnica bajaba de capa. Las primeras cinco técnicas pueden ser detectadas de alguna forma por la aplicación; la sexta —inyectar en el camera server, dentro del sistema operativo— es el sweet spot: la aplicación prácticamente no tiene forma de darse cuenta de que el envío no es válido.</p>
+<h2>Los seis puntos de inyección</h2>
+<ol>
+<li><strong>Bitmap swap</strong>: la aplicación valida liveness en el cliente, captura una imagen y la firma digitalmente antes de subirla al backend. La función <code>bitmap compress</code>, que corre justo antes de la firma, se hookeada para devolver la imagen de la víctima en lugar de la del atacante. La imagen firmada y subida pasa como válida. En una de las apps, con solo eso se accedió a la cuenta sin credenciales ni 2FA; en otra, la validación facial era requisito para ver datos de una tarjeta.</li>
+<li><strong>Cámara falsa en JavaScript (WebView)</strong>: cuando el KYC se renderiza en un WebView, el chequeo de identidad corre en el contexto de JavaScript. Ahí se inyecta un objeto que simula ser la cámara: cuando el JavaScript llama a <code>getUserMedia</code>, recibe el "media" del atacante. El detalle fino: el framework nativo que detecta Frida debajo no ve nada, porque el fraude ocurre en un contexto que no vigila.</li>
+<li><strong>Stream de video constante</strong>: si la validación no envía una imagen sino un stream continuo validado en backend, se inyecta un stream completo de frames. Resultado medido: match de cara del 94% y liveness score de 0.96 —el backend entendió que el video era verdadero—.</li>
+<li><strong>Formato NV21</strong>: si la aplicación lee los frames en el formato raw de la cámara (NV21) en vez del formato de la API, hay que adaptarse e inyectar en ese formato y resolución. Cada bajada de capa escapa un poco más del SDK.</li>
+<li><strong>Escritura en memoria read-only</strong>: algunas apps leen la imagen directamente de un buffer de memoria marcado como read-only por Java. La protección solo vale dentro del contexto de Java: desde el contexto del NDK se sobrescribe la memoria con los frames de la víctima, con formato, resolución y tamaño idénticos, y la aplicación lo toma sin chistar.</li>
+<li><strong>Camera server</strong>: el nivel más bajo. Cuando el framework Delta resultó inbypasseable —"hacía agua por todos lados": bypaseabas una parte y se rompía otra—, la pregunta cambió: ¿por qué inyectar en la aplicación si tengo el sistema operativo? El camera server es el proceso que provee las imágenes con un PID específico; inyectando los frames ahí, la aplicación habla por la API, toma los frames y no ve tampering ni inyección de ningún tipo. Como resumen los investigadores: no importa cuántos mecanismos de protección pongas en tu aplicación, si yo tengo acceso más abajo, puedo hacer lo que yo quiera.</li>
+</ol>
+<p>En todas las demos el formato importaba: inyectar el formato incorrecto en la capa incorrecta hace fallar todo. Y los videos de prueba incluyeron caras reales y caras generadas por IA —incluido un video con controles de play, stop y reverse para cumplir la instrucción de "acercarse más a la cámara"—.</p>
+<h2>Los frameworks de protección: cuatro mundos distintos</h2>
+<p>Antes de poder inyectar, había que pasar las protecciones. Los nombres son ficticios, los aprendizajes no:</p>
+<ul>
+<li><strong>Frida como base</strong>: permite reescribir en tiempo de ejecución lo que una función toma como parámetro y lo que retorna. El primer caso fue tan simple como hacer que <code>isRoot</code> devuelva false para todos los chequeos.</li>
+<li><strong>Framework Alpha</strong>: chequeo de licencia embebido en un NDK que intercambiaba valores criptográficos con un backend; ante cualquier tampering, la licencia "fallaba" y el flujo se cortaba. Después de muchas iteraciones leyendo el código smali compilado, la solución fue flippear un bit: la licencia válida no era lo que parecía —el 1 era 0 y el 0 era 1—. El speed bump más difícil fue darse cuenta de algo tan simple.</li>
+<li><strong>Framework Beta (QA flags)</strong>: un framework anti-Frida shippeado en tres aplicaciones traía funcionalidades pensadas para QA —funciones con nombres como <code>isHookDetectionDisabled</code>— que venían deshabilitadas. Basta con setearlas en true durante la instrumentación: el framework cree que está en un ambiente de QA, hace todos sus chequeos, detecta el root y el Frida... y sigue funcionando igual. La moraleja de los investigadores: no dejen las cosas de QA adecuadas en las aplicaciones.</li>
+<li><strong>Shield X</strong>: el más laborioso. Once chequeos constantes (root, Magisk, Xposed, modo debugger, emulador, Frida...), cada uno por separado y sin que la aplicación crashee: 70 iteraciones en TypeScript, con Logcat y con Frida usado en modo pasivo de loggeo para ver cómo y dónde crasheaba. Su defensa estrella era el envenenamiento de memoria: la librería JNI se cargaba y envenenaba la memoria apenas arrancaba, antes de que Frida inyectara, para detectar cualquier cambio posterior. La solución: dejar que el JNI se cargue y vaciar las funciones de detección al momento de llamarse —la memoria queda envenenada, pero el proceso nunca entrega el resultado a la aplicación—. Costo colateral: al vaciar todos los execute de los JNI, el propio KYC crasheaba al cargar su librería; unas iteraciones más hasta permitir arbitrariamente que ciertas librerías se carguen.</li>
+<li><strong>Framework Delta</strong>: no se pudo bypassear. Cualquier inyección al levantar la app funcionaba hermoso hasta llegar a la validación facial, donde crasheaba de forma impecable. Instrumentación pasiva, logs, modificaciones al smali: la aplicación detectaba todo. La respuesta fue no pelear con la aplicación sino con el sistema operativo (técnica 6).</li>
+</ul>
+<h2>El dilema de los CISOs y el mercado del fraude</h2>
+<p>El cierre pone el problema en perspectiva de negocio. Subir las perillas de detección al máximo —que solo pase la persona que dice ser, que no acepte inyecciones ni videos— deja afuera a usuarios legítimos: el abuelo con poca luz, la cámara sucia, el caso de uso real. Bajarlas crea un gap de fraude: basta un video con dos ojos y una nariz para pasar. Ese dilema no tiene solución client-side.</p>
+<p>Y el contexto económico explica la escala del problema: los exploit packs para fraude de identidad sintética se comercializan en el mercado gris y negro con un ROI ridículo para los atacantes —que puede ir de 200.000 a 800.000 dólares— y con revenue de 50.000 a 200.000 dólares por día en cuentas mulo y fraude de identidad sintética.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Frida</strong>: reescritura de funciones en runtime, inyección de frames, uso pasivo como logger para diagnóstico de crashes.</li>
+<li><strong>Pipeline de inyección</strong>: video → frames con formato/resolución específica → push por ADB a carpeta legible → carga a memoria con Frida → reemplazo de la cámara.</li>
+<li><strong>Seis técnicas de inyección</strong>: bitmap swap (<code>bitmap compress</code> pre-firma), objeto cámara falso en JavaScript/WebView, stream de video continuo (match 94%, liveness 0.96), inyección en formato NV21, escritura en memoria read-only desde el NDK, e inyección en el camera server del sistema operativo.</li>
+<li><strong>Bypass de frameworks</strong>: flip de licencia en NDK (Alpha), flags de QA (<code>isHookDetectionDisabled</code>), vaciado de funciones JNI contra el memory poisoning de Shield X (70 iteraciones), y salto al camera server ante Delta.</li>
+<li><strong>Formatos</strong>: bitmap (formato de imagen de la app) vs NV21 (formato raw de la cámara al sistema operativo).</li>
+<li><strong>Magisk, Xposed, Logcat, ADB, smali</strong>: herramientas y artefactos del entorno rooteado y del análisis.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La validación facial como único factor de autenticación es un single point of failure: el acceso a la cuenta se logró sin credenciales ni doble factor, incluso con caras generadas por IA.</li>
+<li>Todos los SDKs de protección fueron bypasseados, y las inyecciones de video fueron exitosas en todos los casos probados; lograr que el backend acepte el video es, en la práctica, cuestión de tiempo o de inversión.</li>
+<li>Cada aplicación es un mundo —frameworks, formatos y capas distintos— pero el concepto es el mismo: con control total del sistema operativo rooteado, la aplicación siempre pierde contra quien está más abajo en el stack.</li>
+<li>No confiar ciegamente en el client side para el veredicto final de identidad: verificar la evidencia server side, con análisis del lado del servidor, y dejar de dar la última palabra al dispositivo.</li>
+<li>Mantener siempre un segundo factor: hoy las fotos de cualquiera están prácticamente en todos lados, y la cara sola no puede ser la llave de la casa.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/1uCl7T8--i8">«The Glass Perimeter - Systematic Bypasses in Biometric Frameworks I Javier Bernardo y Dan Borgogno»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

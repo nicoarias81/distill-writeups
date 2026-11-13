@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GhostRedirector: fraude SEO sobre servidores Windows con exploits &quot;potato&quot; y un módulo IIS — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">GhostRedirector: fraude SEO sobre servidores Windows con exploits &quot;potato&quot; y un módulo IIS</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/dz2Nk3yCVhw">«Con ustedes GhostRedirector fraudes SEO, backdoors y de acompañamiento unas patatas-Fernando Tavella»</a> · ver el <a class="nz-link" href="https://youtu.be/dz2Nk3yCVhw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>GhostRedirector es un actor de amenazas que compromete servidores Windows para hacer fraude SEO: intercepta las respuestas que el servidor le devuelve al bot de Google y las reemplaza por contenido que mejora el posicionamiento de sitios de interés del atacante, como plataformas de apuestas. La campaña, documentada por ESET desde abril de 2025 pero activa por lo menos desde agosto de 2024 según muestras subidas a VirusTotal, dejó más de 65 víctimas a nivel mundial — Brasil y Tailandia como focos, con verticales de transporte, salud, educación, retail y aseguradoras.</p>
+<p>El nombre "fraude SEO" subestima el problema: no es solo la reputación del sitio comprometido, sino la distorsión de resultados de búsqueda en beneficio económico de terceros. El análisis técnico recorre el arsenal completo — exploits potato para escalar privilegios, un malware que despliega webshells, un backdoor pasivo que vive de las APIs HTTP de Windows y un módulo nativo de IIS que hace la manipulación en el pipeline de cada solicitud.</p>
+<h2>Conceptos base: el pipeline de IIS y la ventana de ataque del SEO</h2>
+<p>El terreno de juego es IIS, el servidor web de Microsoft para Windows, con arquitectura modular que soporta FTP, SMTP, HTTP y HTTPS. La clave está en los módulos nativos — DLLs en C++ — que se integran al pipeline de procesamiento de una solicitud HTTP: con métodos como <code>beginRequest</code> pueden abrir y manipular una request entrante, y con <code>onSendResponse</code> modificar la respuesta que el servidor está por devolver. IIS además agrupa aplicaciones en Application Pools, un detalle que el malware explota para decidir dónde instalar sus webshells.</p>
+<p>El fraude SEO entra cuando un componente malicioso intercepta la respuesta dirigida al motor de búsqueda y la altera. El esquema: llega una request de Googlebot al servidor comprometido, el malware consulta a su servidor de comando y control, obtiene el contenido a inyectar y lo mete en la respuesta oficial — o la reemplaza directamente. El efecto es quirúrgico: solo el bot de Google ve el cambio. Cualquier persona que escriba la URL directamente navega por el sitio limpio, sin sospechar nada.</p>
+<h2>Victimología: quién cae y cómo</h2>
+<p>Más de 65 víctimas — cada una un servidor — distribuidas mundialmente, con concentración en Brasil y Tailandia y presencia en Filipinas, India, Finlandia, Países Bajos, Portugal, Canadá y Estados Unidos. Un matiz interesante: varias víctimas estadounidenses son servidores físicos con sitios web en portugués o vietnamita, lo que sugiere que empresas de esos países contratan infraestructura en el norte.</p>
+<p>La puerta de entrada más frecuente en la telemetría es una vulnerabilidad de SQL Injection en el sitio web: input mal sanitizado que permite romper la sintaxis SQL y, en este caso, ejecutar comandos de PowerShell que descargan la batería de malware desde un sitio controlado por el actor.</p>
+<h2>El arsenal</h2>
+<pre class="mermaid">
+flowchart TB
+    A[SQL Injection en sitio web] --> B[PowerShell descarga arsenal desde sitio malicioso]
+    B --> C[Exploits Potato - Bad Potato / God Potato]
+    B --> D[Zoomput - instalador]
+    B --> E[Rungan - backdoor pasivo]
+    B --> F[Gamgen - módulo nativo IIS]
+    C --> G[Usuario malicioso en grupo administradores]
+    D --> H[Webshells en sitios activos + log de información]
+    E --> I[Comunicación via HTTP Server API, independiente de IIS]
+    F --> J[Fraude SEO contra Googlebot]
+
+</pre>
+
+<h3>Los exploits "potato"</h3>
+<p>Ocho ejecutables en .NET, con código fuertemente basado en dos exploits clásicos para escalar privilegios — Bad Potato y God Potato — que manipulan el token de acceso de Windows para ejecutar código con permisos de administrador. No son exploits nuevos, pero siguen funcionando. La comparación con la prueba de concepto pública es contundente: el malware conservó hasta los strings de inicialización y de explotación satisfactoria; solo agregaron la creación del usuario malicioso al final del flujo.</p>
+<p>Los usuarios creados respondían a tres nombres — MySQL ServiceX, X2 o Admin — y todos iban al grupo de administradores. En algunos casos la contraseña contenía el string "huang", palabra china que significa amarillo. Todo el código venía ofuscado con .NET Reactor (cifrado de strings, control flow flattening, renombrado de clases y métodos, carga dinámica de código invisible a dnSpy) y con anti-debugging y anti-disassembly. Y, detalle nada menor, las muestras estaban firmadas digitalmente con un certificado de la empresa china Trust Asia — segundo indicador de origen, aunque no se sabe si el certificado fue obtenido o robado.</p>
+<h3>Zoomput, el instalador</h3>
+<p>Malware en .NET, firmado con el mismo certificado, cuya función es recolectar información de los sitios web del servidor — nombre, ruta de instalación, bindings con IP — y guardarla en un archivo de log que deja en la misma ruta de ejecución, un comportamiento inusual ya que lo habitual es exfiltrar al C2 (con webshells o con Rungan activo hay vías para extraerlo después).</p>
+<p>Su lógica de despliegue usa los Application Pools: enumera todos los sitios registrados en IIS, verifica si la ruta física existe — un sitio puede estar frenado en IIS pero eliminado del disco, y en ese caso solo queda en el log — y sobre los sitios vivos instala webshells en PHP, ASP o JS, con nombres y extensiones tomados de una lista embebida y los archivos guardados sin cifrar en sus recursos. Un toque de evasión notable: al crear cada webshell copia la fecha de otro archivo del mismo directorio para sus campos de creación, modificación y último acceso, de modo que el administrador que revisa la carpeta no vea un archivo de 2025 entre archivos de 2017. Otro rastro de origen: el archivo de log usa como separador tres caracteres chinos que significan "línea divisoria".</p>
+<h3>Rungan, el backdoor pasivo</h3>
+<p>DLL en C++ para 64 bits con strings cifradas en AES modo CBC — código cuya implementación coincide con un repositorio público con README en chino. A diferencia de un RAT tradicional, no se comunica con ningún C2: queda loopeando a la espera de que el operador se conecte primero. Su truco técnico es la HTTP Server API de Windows, un conjunto de APIs para establecer comunicación HTTP que es independiente de IIS — funciona aunque el servidor corra Apache Tomcat.</p>
+<p>Rungan registra una URL hardcodeada (sin cifrar) en el listado de URLs del servidor — visible con <code>netsh</code> en PowerShell — y queda a la escucha. Cuando llega una request que coincide, valida parámetros hardcodeados y ejecuta: crear un usuario en el grupo de administradores (usuario, contraseña y grupo viajan en el body, y la respuesta es "success"), listar el contenido de una carpeta, registrar otra URL como listener adicional o ejecutar comandos arbitrarios — un parámetro <code>action</code> con valor CMD indica que el comando viene en el body.</p>
+<h3>Gamgen, el módulo que hace el fraude</h3>
+<p>DLL en C++ (versiones de 32 y 64 bits) que se integra como módulo nativo de IIS — el componente del título. Su lógica vive en <code>onBeginRequest</code> y aplica una cascada de validaciones antes de actuar: el user agent debe ser Googlebot o el referer google.com; la request no debe ser POST (busca GETs); no debe ser una imagen, hoja de estilos o JS, porque romper la parte gráfica del sitio no le interesa; y la URL debe contener el string "android" o coincidir con alguna de seis o siete expresiones regulares orientadas a contenido mobile — play, article, detail, iOS.</p>
+<p>Cumplidas las condiciones, hace una request al dominio del C2 hardcodeado con un user agent propio, recibe la respuesta en base64 y la inyecta en la respuesta legítima del servidor. El C2 estaba muerto durante la investigación, así que el contenido final se reconstruyó pivotando en VirusTotal: del dominio a IPs relacionadas, a otros dominios, más IPs, más dominios, hasta aparecer capturas de imágenes en portugués — "los mejores de Brasil, plataforma de apuestas online" — que delatan el objetivo del posicionamiento fraudulento.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>IIS y módulos nativos</strong> — DLLs en C++ integradas al pipeline HTTP con <code>beginRequest</code>/<code>onSendResponse</code>; Application Pools para agrupar aplicaciones.</li>
+<li><strong>Fraude SEO</strong> — inyección de contenido en respuestas dirigidas al bot de Google para mejorar el posicionamiento de sitios del atacante.</li>
+<li><strong>SQL Injection + PowerShell</strong> — vector de acceso inicial y descarga del arsenal.</li>
+<li><strong>Bad Potato / God Potato</strong> — exploits .NET de escalada de privilegios por manipulación de tokens de acceso.</li>
+<li><strong>.NET Reactor</strong> — ofuscación con cifrado de strings, control flow flattening, carga dinámica de código y anti-debugging.</li>
+<li><strong>Zoomput</strong> — instalador .NET que enumera sitios de IIS, instala webshells (PHP/ASP/JS) en sitios activos y genera un log de información; copia fechas de archivos vecinos como táctica de evasión.</li>
+<li><strong>Rungan</strong> — backdoor pasivo en C++ 64 bits; escucha en una URL registrada vía HTTP Server API de Windows; crea usuarios, lista carpetas, ejecuta comandos y registra URLs adicionales.</li>
+<li><strong>Gamgen</strong> — módulo nativo de IIS que filtra requests de Googlebot y les inyecta contenido del C2 en base64.</li>
+<li><strong>VirusTotal como herramienta de pivoting</strong> — reconstrucción del contenido objetivo del fraude a partir de relaciones de dominios e IPs.</li>
+<li><strong>Certificado digital Trust Asia</strong> — firma de las muestras, empresa china; indicador de alineación con China junto a strings y comentarios en chino.</li>
+<li><strong>DragonRank (Cisco Talos)</strong> — actor previo documentado en 2024 con la misma modalidad: fraude SEO alineado con China.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>GhostRedirector es un actor de amenazas con motivación financiera directa: comprometer servidores para boostear el posicionamiento SEO de sitios de apuestas, un fraude que distorsiona los resultados de búsqueda para los usuarios finales.</li>
+<li>El kit es pragmático, no sofisticado: exploits potato viejos y públicos que siguen funcionando, código reutilizado de repositorios públicos con sus strings intactos, y una cadena SQL Injection → PowerShell → arsenal.</li>
+<li>La evasión está en los detalles: malware firmado con un certificado de apariencia legítima, ofuscación con .NET Reactor, webshells que heredan las fechas de archivos vecinos, y manipulación visible solo para el bot de Google.</li>
+<li>La combinación de indicadores — contraseñas con "huang", strings y comentarios en chino, certificado de Trust Asia, paralelo con DragonRank — apunta a un ecosistema de amenazas de fraude SEO alineado con China que recién empieza a documentarse.</li>
+<li>Para los administradores de servidores Windows: parchear SQL Injection, revisar módulos nativos de IIS, auditar usuarios del grupo de administradores y verificar el listado de URLs registradas son verificaciones concretas y baratas frente a este actor.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/dz2Nk3yCVhw">«Con ustedes GhostRedirector fraudes SEO, backdoors y de acompañamiento unas patatas-Fernando Tavella»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

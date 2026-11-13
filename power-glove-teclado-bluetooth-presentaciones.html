@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El Power Glove de Nintendo como mando de presentaciones: del periférico de 1989 al teclado Bluetooth HID — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El Power Glove de Nintendo como mando de presentaciones: del periférico de 1989 al teclado Bluetooth HID</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SJ-kfVUoENk">«DEF CON 33 - The PowerPoint Glove - Parsia Hakimian»</a> · ver el <a class="nz-link" href="https://youtu.be/SJ-kfVUoENk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El Nintendo Power Glove (1989) es uno de los periféricos más recordados —y peor implementados— de la historia de los videojuegos: un guante que prometía controlar la NES con movimientos de la mano y que, en la práctica, apenas funcionaba. Décadas después, sigue siendo un objeto de culto para el hardware hacking. Este artículo recorre cómo convertir ese reliquia en un controlador de presentaciones por Bluetooth: un teclado HID que permite pasar diapositivas con un gesto de la mano, sin clicker ni teclado.</p>
+<p>El proyecto, además del valor nostálgico y del guiño escénico ("recordarán al de la Power Glove"), es una lección completa de electrónica aplicada: leer el protocolo de un gamepad de NES con un microcontrolador moderno, resolver el conflicto de tensiones entre un dispositivo de 5 voltios y un SoC de 3,3, alimentar todo con una batería 18650 y exponer el resultado como dispositivo HID estándar que cualquier máquina reconoce sin drivers.</p>
+<p>La contribución es doble: un dispositivo funcional construido con componentes baratos y accesibles, y un mapa de los obstáculos reales del camino (sensores muertos por la edad, pines quemados, firmware sin bibliotecas, rebotes de teclas) que sirve de guía para cualquiera que quiera revivir periféricos viejos con electrónica actual.</p>
+<h2>Un guante con ultrasonido, no giroscopios</h2>
+<p>La pregunta más frecuente sobre el Power Glove es si lleva algún acelerómetro o giroscopio. La respuesta es no: la tecnología es puramente acústica. El sistema incluye dos sensores que se colocan alrededor del televisor —esencialmente micrófonos ultrasonidos— conectados a una caja de empalme con dos conectores: un DB9 hacia el guante y un conector de 7 pines hacia la NES.</p>
+<p>El guante emite pulsos de ultrasonido (se puede oír un "tick, tick" agudo si se acerca el oído) y los sensores calculan la posición de la mano mediante el efecto Doppler, lo que permite detectar arriba/abajo, izquierda/derecha y adelante/atrás. Es un truco elegante para 1989, pero con una fiabilidad mediocre: el propio producto se vendió con la reputación de "funcionar a medias". A día de hoy, además, la edad no perdona: en los ejemplares probados los sensores ya no responden, probablemente por degradación de los componentes.</p>
+<p>El guante no lo diseñó Nintendo: la compañía quería entrar en el mercado estadounidense por la vía de los juguetes (los videojuegos tenían mala prensa), y el producto lo creó y fabricó Mattel. En Japón se vendió como PAX Famicom Glove. Su fama se consolidó con la película <em>The Wizard</em> —un anuncio de Nintendo de noventa minutos— y su frase icónica: "I love the Power Glove. It's so bad".</p>
+<p>Lo que sí funciona bien es el protocolo eléctrico del guante hacia la consola: es, en esencia, un gamepad de NES. Al conectarse a una consola con un juego compatible, envía cuatro bytes: X, Y, Z y el estado de los botones A y B. Ese detalle es la puerta de entrada de todo el proyecto: no hace falta descifrar los sensores, solo leer el bus del gamepad.</p>
+<h2>El camino de hardware: tensiones, soldaduras y baterías</h2>
+<p>Para sustituir la NES hace falta un microcontrolador con Bluetooth y tolerancia a 5 voltios, y ahí empiezan los problemas reales. La opción obvia, un ESP32 (SoC con Bluetooth, Wi-Fi y CPU de ~140 MHz con 8 MB de flash), trabaja a 3,3 voltios en sus pines —y internamente a menos—. Enviarle señales de 5 V tiene un abanico de consecuencias: con suerte nada, con mala suerte muere el pin, y con muy mala suerte muere el chip entero, con su humo mágico incluido. Varios dev boards murieron en el intento.</p>
+<p>El recorrido de alternativas es ilustrativo de cómo se resuelve esto en la práctica:</p>
+<ol>
+<li><strong>Arduino Uno R4 Wi-Fi</strong>: un "fenómeno de la naturaleza" que monta un ESP32 junto a un ARM Cortex-M a 41 MHz; los pines soportan 5 V, pero al ser muy reciente no había bibliotecas para el ESP32 interno, y el truco de puentear pines para flashearle firmware directamente no funcionó.</li>
+<li><strong>Level shifter</strong>: una placa conversora de niveles que traduce las señales digitales del dominio de 5 V al de 3,3 V. Funciona, pero exige soldar un montón de pines.</li>
+<li><strong>Placas de Tiida Electronics</strong>: un taller taiwanés popular en la comunidad de mandos arcade custom vende placas con ESP32, pines tolerantes a 5 V y hueco para batería 18650, por unos siete dólares. Esa fue la elección final.</li>
+</ol>
+<p>La alimentación portátil añadió otra capa de ingeniería barata: el pin de 5 V de la placa cae por debajo de 1 V cuando se alimenta por batería a través del micro USB, así que la solución fue tomar 3,3 V de un pin y elevarlos a 5 V con un módulo step-up, o directamente usar un power bank externo. El consumo es tan bajo que una 18650 de 2.300 mAh aguanta toda una noche de funcionamiento con los ultrasonidos activos.</p>
+<p>También hubo que resolver la capa física del conector: el pinout del DB9 (verdes para los sensores, 5 V, tierra, latch y reloj) se obtuvo del trabajo previo de otros hackers —Ben Heck con su intento de convertir el guante en ratón, y Dr. Benjamin Blundell, que construyó un joystick con cable—. En ambos casos el código publicado no funcionaba, pero la información del pinout ahorró el reverse engineering eléctrico.</p>
+<pre class="mermaid">
+flowchart LR
+    G[Power Glove<br/>ultrasonido + botones] -- DB9 5V --> LS[Level shifter<br/>5V → 3.3V]
+    LS -- GPIO --> E[ESP32<br/>teclado/mouse BT]
+    E -- Bluetooth HID --> PC[PC<br/>reconoce HID estándar]
+    B[18650 + step-up<br/>5V] -. alimentación .-> LS
+
+</pre>
+
+<h2>Leer el gamepad: el protocolo NES</h2>
+<p>Leer los botones es un protocolo documentado y sencillo, el mismo de cualquier mando de NES. Se pulsas el latch, se lee un bit del pin de datos (0 = botón presionado, 1 = libre; el primero es A) y luego se pulsan el reloj siete veces más, leyendo tras cada pulso: A, B, Start, Select y la cruceta. Al final queda un byte con el estado de todos los botones.</p>
+<p>Hay un detalle que estuvo a punto de terminar mal: la NES corre a 1,79 MHz y el guante no está diseñado para un polling agresivo —se estima que espera unas 20 lecturas por segundo—. Un ESP32 a 140 MHz sin pausas entre lecturas calienta el dispositivo de forma peligrosa; añadir un pequeño delay entre lecturas lo resolvió.</p>
+<p>Del byte leído a las acciones hay una capa de mapping: la cruceta pasa a las flechas del teclado (navegación de diapositivas), y otros botones a acciones como abrir una consola o lanzar un popover de demostración. Existe también una variante como ratón Bluetooth: se envían botones, delta X, delta Y y rueda, con un multiplicador de sensibilidad ("step") porque el movimiento crudo es lentísimo; el resultado es funcional pero torpe, con la cruceta como puntero y un botón como clic derecho.</p>
+<h2>Teclado HID: no se envía ASCII</h2>
+<p>La sorpresa conceptual del proyecto está en el reporte HID del teclado. Uno asume enviar códigos hexadecimales ASCII por Bluetooth, pero el protocolo manda 8 bytes de los que solo se usan dos: el byte 0 es el modificador y el byte 2 la tecla. La "A" no se envía como su ASCII, sino como el código 4; una "A" mayúscula se compone como al teclear de verdad: Shift como modificador más la tecla de la A, y el sistema operativo la interpreta. Con esto se construyen los mappings de flechas y teclas multimedia.</p>
+<p>Dos defensas resultaron imprescindibles frente a la electrónica envejecida del guante, que empezó a comportarse de forma errática (una Select fantasmeaba que lanzaba consolas una y otra vez):</p>
+<ul>
+<li><strong>Ignorar lecturas degeneradas</strong>: si todos los bits indican "nada presionado" (todo unos) o "todo presionado" a la vez —algo físicamente imposible y señal de fallo—, se descarta la lectura.</li>
+<li><strong>Debounce temporal</strong>: sin un delay tras registrar una pulsación, mantener presionada una tecla dispara la acción en bucle hasta el siguiente frame.</li>
+</ul>
+<p>Con ambas correcciones, el dispositivo se vuelve estable para el uso real: pasar diapositivas, abrir un shell o hacer demostraciones en vivo sin touchpad.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Nintendo Power Glove</strong>: periférico de 1989 fabricado por Mattel; control por ultrasonido y efecto Doppler; protocolo eléctrico equivalente a un gamepad de NES.</li>
+<li><strong>Protocolo NES gamepad</strong>: pulso de latch, bit de datos por pulso de clock (A, B, Start, Select, cruceta); un byte final con todo el estado.</li>
+<li><strong>ESP32</strong>: SoC con Bluetooth/Wi-Fi y CPU ~140 MHz; pines a 3,3 V, incompatibles con 5 V sin conversión.</li>
+<li><strong>Arduino Uno R4 Wi-Fi</strong>: placa con ARM Cortex + ESP32, tolerante a 5 V pero sin bibliotecas para el ESP32 en su lanzamiento.</li>
+<li><strong>Level shifter</strong>: placa conversora de niveles lógicos 5 V ↔ 3,3 V para señales digitales.</li>
+<li><strong>Placas ESP32 de Tiida Electronics</strong>: alternativa tolerante a 5 V con soporte de batería 18650, ~7 USD.</li>
+<li><strong>Batería 18650 + módulo step-up / TP456</strong>: alimentación portátil; conversión 3,3 V → 5 V cuando el pin de la placa no entrega tensión suficiente por batería.</li>
+<li><strong>Retro USB</strong>: adaptador NES→USB que expone el guante como joystick en Windows (solo uno de diez funcionó con el Power Glove).</li>
+<li><strong>HID over Bluetooth (ESP32)</strong>: reportes de teclado (8 bytes: modificador + tecla) y ratón (botones, X, Y, rueda) con multiplicador de sensibilidad.</li>
+<li><strong>Debounce y filtrado de lecturas degeneradas</strong>: defensas de software contra electrónica envejecida y rebotes.</li>
+<li><strong>Arduino IDE / PlatformIO / ESP-IDF</strong>: toolchains de desarrollo; el código oficial "unlicensed" de Espressif permite modificarlo libremente.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El Power Glove sigue siendo útil 35 años después porque su interfaz eléctrica es un gamepad de NES estándar: el trabajo duro no está en descifrar sensores antiguos sino en puentear mundos de tensión distintos (5 V ↔ 3,3 V) y en exponer el resultado como HID estándar.</li>
+<li>La regla práctica de hardware: verificar siempre la tolerancia de los pines antes de conectar nada; un nivel de 5 V sobre un pin de 3,3 V puede matar desde un pin hasta el SoC completo.</li>
+<li>La fiabilidad de un dispositivo viejo exige defensas de software: filtrar lecturas imposibles, ignorar estados degenerados y aplicar debounce; la electrónica envejecida produce errores que parecen ataques.</li>
+<li>El valor escénico de un periférico retro es real: en una sala de juntas o en una conferencia, pasar diapositivas con un guante de 1989 garantiza que se recuerde quién lo hizo — y el camino técnico completo es replicable con placas de siete dólares.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SJ-kfVUoENk">«DEF CON 33 - The PowerPoint Glove - Parsia Hakimian»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

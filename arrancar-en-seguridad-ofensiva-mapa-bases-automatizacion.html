@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arrancar en seguridad ofensiva: el mapa de especialidades, las bases y una automatización completa con IA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Arrancar en seguridad ofensiva: el mapa de especialidades, las bases y una automatización completa con IA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ebjHzhJ8Y7k">«Hackademy: Intro a Pentesting y Seguridad Ofensiva - Gabriel Franco»</a> · ver el <a class="nz-link" href="https://youtu.be/ebjHzhJ8Y7k">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Clase de presentación del curso de pentesting y seguridad ofensiva de Hackademy (Ekoparty/Faraday), pensada como puerta de entrada para quien quiere "romper cosas" pero no sabe por dónde empezar. La estructura va de lo conceptual a lo práctico: qué es la seguridad informática y su trinidad CIA, el mapa de especializaciones (de GRC a cripto y Web3), las cinco bases imprescindibles antes de anotarse, y una serie de demos en vivo que muestran cómo se ve el trabajo real — reconocimiento de red con MassScan, análisis web con BurpSuite y Nikto, análisis estático de APKs con MobSF, Google Dorks y threat intelligence con EmploLeaks.</p>
+<p>El cierre ata todo con una automatización que encadena Subfinder, MassScan, Nuclei y Faraday, y usa inteligencia artificial para traducir, describir y priorizar las vulnerabilidades en un reporte final. La tesis pedagógica: la seguridad es como la medicina — primero "quiero ser médico", después elegir la especialidad — y la mentalidad de hacker se define por querer conocer algo a fondo y cuestionar absolutamente todo.</p>
+<h2>Qué es la seguridad informática y su trinidad</h2>
+<p>La definición de arranque: un conjunto de prácticas, herramientas y medidas diseñadas para proteger sistemas, dispositivos, redes y datos digitales. Su objetivo se resume en la tríada CIA, ejemplificada siempre con home banking:</p>
+<ul>
+<li><strong>Confidencialidad</strong> — ver mis datos y que no sean públicos: nadie más puede ver mis cuentas ni hacer transferencias a mi nombre.</li>
+<li><strong>Integridad</strong> — los datos son reales: si aparece un saldo de cinco millones de pesos de la nada, algo falla; la aplicación dice la verdad en cada consulta y transacción.</li>
+<li><strong>Disponibilidad</strong> — garantizar (en el 99,99% del tiempo, porque el 100% no existe) que cada vez que se quiera usar la aplicación, esté accesible.</li>
+</ul>
+<h2>El mapa de especializaciones</h2>
+<p>Como en la medicina, "quiero trabajar en seguridad" es solo el primer paso. Las ramas principales del mercado actual:</p>
+<ol>
+<li><strong>Seguridad de la información (GRC)</strong> — políticas, procesos, normas y controles internos; orientado a cumplimiento (por ejemplo, bloquear pendrives para evitar fugas de datos).</li>
+<li><strong>Seguridad en redes e infraestructura</strong> — VLANs, VPNs, antivirus, EDR, IDS, IPS, hardening de workstations y datacenters.</li>
+<li><strong>Seguridad en la nube</strong> — configuración de servidores y bases de datos cloud, control de acceso, roles y grupos; surgió con la migración física → nube y avanza al ritmo de la explotación, que siempre va un paso (o varios) por delante.</li>
+<li><strong>Seguridad de aplicaciones</strong> — web y móviles, con sub-ramas en APIs, web services y microservicios; en móvil se separa en análisis dinámico (en ejecución) y estático (sobre el código fuente y lo que queda persistido en el teléfono).</li>
+<li><strong>Ciberinteligencia y threat hunting</strong> — detección proactiva: credenciales filtradas de empleados, malware indetectado por el antivirus, generación de nuevas reglas de detección.</li>
+<li><strong>Respuesta a incidentes</strong> — cuando el ataque ya sucedió: hoja de ruta del ataque, identificación del paciente cero, restauración y recuperación.</li>
+<li><strong>Seguridad ofensiva</strong> — pentesting y red teaming: simular el ataque antes de que lo encuentre un atacante real, con sub-especialidades en infraestructura interna/externa, redes, apps web y móviles, ingeniería social.</li>
+<li><strong>Defensiva (blue team / SOC)</strong> — el contrapunto del red team: entender las defensas, detectar, alertar y responder a tiempo.</li>
+<li><strong>Cripto y Web3</strong> — smart contracts, sistemas descentralizados, blockchain; un mundo enorme y con recursos para aprender rompiendo en ambientes controlados.</li>
+</ol>
+<h2>Las cinco bases antes de arrancar</h2>
+<ol>
+<li><strong>Fundamentos de redes</strong> — qué es una workstation, cómo se comunica un cliente con un servidor, TCP y UDP, cómo funciona el DNS, qué es un puerto y un servicio, y el versionado de todo lo que corre.</li>
+<li><strong>Herramientas de red</strong> — Wireshark, Nmap, MassScan: entender cómo viaja un paquete y qué pasa en cada etapa.</li>
+<li><strong>Sistemas operativos</strong> — procesos y permisos (por qué Windows niega ciertas tareas por falta de privilegios); migrar de Windows a Linux, idealmente vía Ubuntu y, para ofensiva, Kali Linux, la distribución dedicada de los red teamers. La terminal como atajo: más cómoda, más parametrizable y más compatible que el doble clic.</li>
+<li><strong>Programación básica y scripting</strong> — todo, por atrás, es código; entender lenguajes de alto, medio y bajo nivel ayuda a encontrar dónde está el problema y seguir el flujo de una aplicación.</li>
+<li><strong>Conceptos de ataques y defensas + mentalidad de hacker</strong> — saber qué es una vulnerabilidad, cómo explotarla y cómo identificarla; y la definición de fondo: conocer algo a fondo para entenderlo al máximo y hacer con él cosas para las que no estaba diseñado, cuestionando todo — ¿por qué funciona? ¿se puede hacer mejor? ¿es seguro?</li>
+</ol>
+<h2>Demos en vivo: las bases aplicadas</h2>
+<h3>Reconocimiento de red con MassScan</h3>
+<p>La pregunta doméstica: ¿hay alguien conectado a mi Wi-Fi consumiendo ancho de banda? MassScan escanea puertos — las entradas de un sistema, con un servicio y una versión detrás de cada uno. El comando de ejemplo barre 192.168.0.1/24 buscando solo los puertos 443, 22 y 445 abiertos. Resultado: el router (192.168.0.1) y un dispositivo en .198 que resultan ser las luces conectadas a Alexa, cada una con su aplicación web en el 443. La verificación es directa: abrir la IP en el navegador — el puerto 443 va implícito — confirma el hallazgo. El siguiente paso natural es buscar qué versión corre cada servicio, porque de ahí salen vulnerabilidades con parche o exploit público.</p>
+<h3>Aplicaciones web: BurpSuite y Nikto</h3>
+<p>¿Por dónde arranco con una aplicación web? Por el comienzo: usarla como un usuario común, autenticarse, recorrer pantallas y campos, identificar dónde hay una base de datos detrás de una búsqueda y dónde hay transacciones críticas como una transferencia. Después, dos herramientas:</p>
+<ul>
+<li><strong>BurpSuite</strong> — un proxy que se interpone entre la computadora y el servidor e intercepta todo el tráfico en ambas direcciones. Llenando un formulario pasan cosas invisibles: envíos de información, conexiones a servicios de terceros. Ver ese tráfico es donde aparecen vulnerabilidades que a simple vista no se ven.</li>
+<li><strong>Nikto</strong> — escáner automático de vulnerabilidades, gratuito, que corre en Docker. Contra testphp.vulnweb.com (un sitio a propósito vulnerable, ideal de práctica) revela, por ejemplo, PHP 5.6.40 — y ahí la jugada del versionado: buscar qué vulnerabilidades tiene esa versión y si hay exploit público. También encuentra un connection string de MySQL que probablemente contiene usuario y contraseña.</li>
+</ul>
+<p>La advertencia de fondo: sin conceptos, la salida de un scanner "parece chino"; con conceptos, cada línea apunta a un siguiente paso.</p>
+<h3>Aplicaciones móviles: análisis estático con MobSF</h3>
+<p>La app móvil comparte base con la web pero tiene la particularidad del binario: el equivalente del .exe es el APK en Android y el IPA en iOS. El análisis dinámico es como el web (usar la app, llenar formularios); el estático se concentra en qué deja guardado el teléfono: la funcionalidad "Recuérdame", por detrás, persiste la sesión — usuario, contraseña, cookie — y la pregunta es si lo hace de forma segura y en qué carpeta.</p>
+<p>MobSF (Mobile Security Framework), gratuita, toma un APK, lo decompila y genera un reporte: tipo de aplicación, certificados, permisos pedidos (location, cámara, autenticación de cuentas), código de las clases. Ahorra horas de decompilación manual, pero con letra chica: para analizar .ipa hace falta una Mac por cómo compila iOS, y las herramientas automáticas traen falsos positivos — el ejemplo en la demo: una supuesta dirección IP hardcodeada que en realidad era un string de versión del SDK. El juicio humano sigue siendo el filtro.</p>
+<p>Aclaración ética de la demo: el APK se descargó de apkcombo.com solo para el ejemplo — instalar APKs de fuentes no certificadas es mala idea, porque cualquiera puede reempaquetar Opera Mini con malware adentro.</p>
+<h3>Threat intelligence, ASM y Google Dorks</h3>
+<p>¿Ekoparty es solo ekoparty.org? No: Attack Surface Management es encontrar todo lo demás que está expuesto a internet y responde a la organización. Con <strong>Asset Finder</strong> sobre el dominio base aparecen subdominios que antes no existían en el mapa: cfp.ecoparty, mail.ecoparty, dev.ecoparty, eco13.ecoparty, blog.ecoparty. Cada subdominio es superficie nueva.</p>
+<p>Complemento con personas: detrás del dominio hay empleados, y con <strong>EmploLeaks</strong> (herramienta propia presentada el año anterior) se va del nombre de la empresa a las personas en LinkedIn, de ahí a sus correos y de ahí a contraseñas filtradas — un vector de acceso que nace de una filtración de un tercero.</p>
+<p>Y el clásico atajo: <strong>Google Dorks</strong>, que no es hackear Google sino usarlo mejor. Tres ejemplos en vivo:</p>
+<ul>
+<li><code>site:ekoparty.org</code> — solo resultados de ese sitio; aparece un subdominio nuevo, yo.ecoparty.org.</li>
+<li><code>filetype:html site:ekoparty.org</code> — archivos concretos alojados en el sitio.</li>
+<li><code>inurl:login site:gov</code> — pantallas de autenticación de sitios gubernamentales, incluida una de la NASA; y <code>intitle:"index of" site:gov.ar</code> — listados de directorios, esa vulnerabilidad donde una página mal desarrollada deja listar todo su contenido: planillas de Excel, documentos, RARs.</li>
+</ul>
+<h3>La automatización final: Subfinder + MassScan + Nuclei + Faraday + IA</h3>
+<p>Todo lo anterior encadenado. Security Automation, la herramienta armada para la demo, ejecuta el pipeline: Subfinder encuentra subdominios, toma capturas de pantalla de cada uno (con 500 subdominios, las capturas permiten decidir en cuál concentrarse — la que tiene pantalla de login, por ejemplo), MassScan determina qué aplicaciones viven de verdad, Nuclei escanea vulnerabilidades, y todo se carga en Faraday, donde la IA traduce los títulos al castellano, descarta lo informativo, completa las descripciones y genera un reporte PDF con hosts afectados, severidad y puntaje CVSS.</p>
+<p>El resultado en la demo: un diagnóstico de salud legible de una organización a partir de tareas que antes eran manuales y repetitivas. Y la reflexión que lo justifica: el valor no está en tener cinco herramientas, sino en saber en qué orden concatenarlas y automatizar el conjunto para concentrarse en lo que de verdad importa.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Subfinder: subdominios] --> B[Capturas de pantalla]
+    B --> C[MassScan: puertos y servicios vivos]
+    C --> D[Nuclei: escaneo de vulnerabilidades]
+    D --> E[Faraday: consolidación]
+    E --> F[IA: traducción, descripciones, priorización]
+    F --> G[Reporte PDF con severidad y CVSS]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Tríada CIA</strong> — confidencialidad, integridad, disponibilidad como objetivo primordial de la seguridad.</li>
+<li><strong>MassScan</strong> — escaneo masivo de puertos por rango de red (parámetros para velocidad y filtrado).</li>
+<li><strong>Nmap y Wireshark</strong> — fundamentos de análisis de red y tráfico.</li>
+<li><strong>BurpSuite</strong> — proxy de interceptación de tráfico web cliente-servidor.</li>
+<li><strong>Nikto</strong> — escáner automático de vulnerabilidades web, gratuito, corre en Docker.</li>
+<li><strong>Nuclei</strong> — escáner automático de vulnerabilidades, usado en la automatización final.</li>
+<li><strong>MobSF (Mobile Security Framework)</strong> — análisis estático y dinámico de APKs (IPA requiere Mac).</li>
+<li><strong>APK / IPA</strong> — formatos de instalación de Android/iOS, equivalentes al .exe de Windows.</li>
+<li><strong>Asset Finder</strong> — descubrimiento de subdominios a partir de un dominio base.</li>
+<li><strong>EmploLeaks</strong> — OSINT de empleados, correos y contraseñas filtradas a partir del nombre de una empresa.</li>
+<li><strong>Google Dorks</strong> — operadores site, filetype, inurl, intitle para refinar búsquedas (listados de directorios, paneles de login).</li>
+<li><strong>Subfinder</strong> — automatización del descubrimiento de subdominios.</li>
+<li><strong>Faraday</strong> — plataforma de consolidación de vulnerabilidades y reportería.</li>
+<li><strong>Cursor</strong> — editor basado en Visual Studio Code con IA, para desarrollar automatizaciones sin dominio profundo de código.</li>
+<li><strong>Sliver</strong> — alternativa open source a Cobalt Strike, usada en la cursada por la política de solo herramientas open source.</li>
+<li><strong>Python y Go</strong> — lenguajes recomendados para scripting y automatización; Python por sintaxis simple y excelente interconexión con el sistema operativo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La seguridad es un ecosistema de especialidades que crece más rápido de lo que se aprende: elegir rama exige conocer el mapa — GRC, redes, cloud, apps, inteligencia, respuesta a incidentes, ofensiva, defensiva, Web3.</li>
+<li>Las cinco bases (redes, herramientas, sistemas operativos, código y mentalidad de hacker) son el requisito real de entrada, y ninguna exige presupuesto: todas las herramientas del recorrido son open source o gratuitas.</li>
+<li>Las herramientas automáticas (Nikto, MobSF, Nuclei) ahorran tiempo pero traen falsos positivos; el criterio humano — saber qué es una versión de SDK y no una IP — sigue siendo el filtro decisivo.</li>
+<li>La superficie de ataque nunca es solo el dominio principal: subdominios, servicios asociados y credenciales filtradas de empleados amplían el terreno antes del primer escaneo.</li>
+<li>Automatizar el encadenamiento de herramientas y apoyarse en IA para el análisis y reporte convierte horas de trabajo repetitivo en un diagnóstico accionable — la competencia que diferencia a un pentester moderno.</li>
+<li>Para empezar: el curso es 100% virtual, no exige Linux (todo corre en Windows y Docker, aunque Kali es lo recomendado), acepta principiantes, y recomienda arrancar por el lado azul del socavón: entender la defensa primero hace mejor atacante después.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ebjHzhJ8Y7k">«Hackademy: Intro a Pentesting y Seguridad Ofensiva - Gabriel Franco»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

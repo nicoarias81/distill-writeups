@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AD CS: certificados mal configurados que entregan el dominio, y una herramienta para revelarlos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">AD CS: certificados mal configurados que entregan el dominio, y una herramienta para revelarlos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/EIt1WS_RfYI">«Hacking Windows: AD CS Enumeration and Exploitation - Eric Maldonado - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/EIt1WS_RfYI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un cliente llamó a Eric Maldonado —líder del equipo de red teaming en Devol Group, Guatemala— con un diagnóstico inquietante: los habían atacado y el atacante se creó un usuario de dominio a través de una plantilla. La causa no fue ningún exploit ni un CVE reventado: fue una mala configuración heredada del Active Directory Certificate Services (AD CS), la familia de vulnerabilidades conocida como ESC, documentada desde 2021 y con raíces que se arrastran desde Windows Server 2000.</p>
+<p>Del análisis a las 3 de la madrugada del paper oficial nació <strong>Exception</strong>, una herramienta interna del equipo escrita en Python que enumera plantillas de certificados, valida permisos y clasifica cada hallazgo con un nivel de riesgo, para terminar en un reporte HTML pensado no para pentesters, sino para CISOs y equipos azules: descripción, explotación paso a paso con comandos incluidos, y mitigación.</p>
+<h2>Qué es AD CS y por qué sus plantillas importan</h2>
+<p>Active Directory orquesta permisos y autenticación en la red; AD CS es el rol de servidor que emite certificados digitales: para autenticación, firma de correos, cifrado de discos y automatización de confianza de dispositivos. Es, en resumen, "el carnet digital" del entorno interno.</p>
+<p>Las <strong>plantillas</strong> son las rutinas que definen qué certificados se emiten y con qué permisos: una plantilla de contabilidad puede limitar al usuario a cierto espacio de red y ciertos permisos. El problema: si una plantilla está mal configurada, puede emitir certificados con mucho más poder del necesario. La analogía: la secretaria se sienta en la máquina del CEO desbloqueada y se emite un correo de recursos humanos con un aumento para ella.</p>
+<h2>Veinte años de herencia: de Windows 2000 a la actualidad</h2>
+<p>Los ESC no son nuevos. El paper oficial es de 2021, pero las condiciones que los habilitan vienen de atrás:</p>
+<ul>
+<li><strong>Windows Server 2000</strong>: nace Active Directory con su servicio de certificados, en un mundo on-premise donde se confiaba en que los usuarios no abusarían de los equipos.</li>
+<li><strong>Windows Server 2003</strong>: primeras plantillas; nace el primer vector — cualquier usuario puede pedir un certificado a nombre del administrador de dominio sin que este lo sepa, autenticarse y escalar privilegios.</li>
+<li><strong>Windows Server 2008</strong>: más plantillas, más malas configuraciones; los administradores de la era 2003 nunca arreglaron lo heredado.</li>
+<li><strong>Windows Server 2012</strong>: Kerberos para autenticación y Web Enrollment para pedir certificados por HTTP; la superficie de ataque se amplía hacia el abuso de políticas.</li>
+<li><strong>Windows Server 2016</strong>: soporte para ADFS y entornos híbridos; más vulnerabilidades, todas malas configuraciones heredadas.</li>
+<li><strong>Windows Server 2019 y 2022</strong>: permisos más adecuados y entornos Zero Trust; la superficie sigue creciendo.</li>
+</ul>
+<p>La actualidad: AD CS sigue siendo la raíz de confianza en la mayoría de las compañías, y existen 8 bugs conocidos y documentados que son, literalmente, 20 años de herencia. La frase que resume la tesis: <em>"AD CS no nació roto, solo nació en un mundo distinto"</em> — el de la confianza absoluta en el usuario local. Hoy se usan las mismas configuraciones y permisos en un mundo híbrido conectado a la nube.</p>
+<h2>Dónde está el riesgo</h2>
+<p>El esquema clásico de ataque coloca al atacante frente al servidor y al administrador de dominio; con AD CS, en cambio, el atacante pide un certificado malicioso para conectarse al Active Directory y escalar privilegios. El detalle que lo hace letal es la legitimidad aparente:</p>
+<ul>
+<li>Cualquier usuario solicita un certificado con privilegios elevados → escalación.</li>
+<li>Se suplanta la identidad de dominio <strong>de forma legal</strong>: si el atacante genera un certificado a nombre del administrador de dominio, ninguna alerta se dispara, porque es rutina normal que un administrador de dominio pida acceso a un recurso compartido.</li>
+<li>El acceso a recursos protegidos no levanta ningún tipo de alerta. Nadie se da cuenta.</li>
+</ul>
+<p>Los vectores están documentados en el write-up de SpecterOps. No hay exploits ni CBV: es puro abuso de plantillas, permisos y configuraciones — el típico administrador que instala con next, next, next sin leer el texto enorme.</p>
+<h2>Los vectores ESC, uno por uno</h2>
+<ul>
+<li><strong>ESC1 — "la firma ciega"</strong>: un usuario de contabilidad (o de marketing) pide un certificado diciendo que es el administrador de dominio que perdió el suyo; el servicio lo emite con todos los permisos. Requiere plantilla publicada, enrolamiento abierto (subject name controlable) y EKUs sensibles.</li>
+<li><strong>ESC2</strong>: parecido al ESC1, pero apoyado en CAs configuradas para no requerir aprobación manual; la solicitud se manda sin los EKUs específicos y el certificado vuelve igual de aprovechable. El EKU es, en esencia, el "payload" del certificado: define para qué sirve (correo, autenticación, etc.).</li>
+<li><strong>ESC3</strong>: plantillas donde un usuario normal tiene permisos de owner o edición sobre el certificado. Aunque no haya vulnerabilidad en la plantilla, el atacante la edita para hacerla vulnerable a ESC1 o ESC2 y recién ahí pide el certificado.</li>
+<li><strong>ESC4</strong>: si la plantilla o el propio CA permiten edición, el atacante puede generar un certificado peligroso o crearlo desde cero.</li>
+<li><strong>ESC5</strong>: configuraciones laxas que permiten exportar la clave privada del certificado o inyectar otro certificado sin validación.</li>
+<li><strong>ESC6</strong>: CA subordinada mal configurada que habilita la creación de plantillas abusables.</li>
+<li><strong>ESC7</strong>: el rol NT Authority Enterprise sobre el CA permite modificar la configuración del propio CA y generar certificados.</li>
+<li><strong>ESC8</strong>: todo lo anterior, pero por Web Enrollment: el atacante pide el certificado por un puerto web (80) y se autentica contra el servidor con acceso a toda la red.</li>
+</ul>
+<p>Cada vector exige condiciones específicas — plantilla publicada o no, quién puede enrolarse, qué EKUs trae — y hay muchas combinaciones posibles: con tiempo y las herramientas existentes, la enumeración es muy accesible.</p>
+<pre class="mermaid">
+flowchart TD
+    A["Atacante con\nusuario de dominio"] --> B["Enumera plantillas\nvia LDAP / NTLM"]
+    B --> C{"¿Plantilla vulnerable?\nESC1 / ESC2 / ESC3..."}
+    C -- Sí --> D["Solicita certificado\nsuplantando identidad"]
+    D --> E["CA emite certificado\ncon EKU de autenticación"]
+    E --> F["Autenticación Kerberos\ncomo admin de dominio"]
+    F --> G["Escalada de privilegios\nsin alertas"]
+    C -- No --> H["Plantilla segura\n(riesgo informativo/bajo)"]
+
+</pre>
+
+<h2>De Certify a Exception: el problema de la reportería</h2>
+<p>La herramienta de referencia del mercado es <strong>Certify</strong>, interactiva y precisa, pero técnica: escanea el dominio, encuentra las plantillas (en la demo: 38 certificados, un CA, hallazgos en varios) y devuelve un informe en JSON o TXT que hay que saber interpretar. Para un pentester, sin problema; para un CISO o un blue teamer, leer JSON no dice cuál es el riesgo, cómo lo explotarían ni cuánto dinero afecta.</p>
+<p>Ese fue el gatillo del proyecto, que pasó por tres etapas en las demos:</p>
+<ol>
+<li><strong>Certify en acción</strong>: conexión al dominio con usuario, contraseña y target; escaneo que encuentra 38 certificados y arroja un TXT que hay que leer e interpretar a mano.</li>
+<li><strong>Primer parser</strong>: un script que toma el JSON y lo convierte en un informe HTML con conteo de vulnerabilidades críticas y altas, descripción, explotación, recomendación y plantilla afectada.</li>
+<li><strong>Exception completo</strong>: la herramienta que hace todo — guía al usuario paso a paso (usuario, contraseña, dominio, IP, sin flags complejos), se conecta por LDAP y enumera 38 plantillas, 15 públicas en la demo, y clasifica cada una con una matriz de riesgo preconfigurada.</li>
+</ol>
+<h2>La demo: riesgo dinámico, no estático</h2>
+<p>El detalle más interesante de la demo fue ver el riesgo recalcularse en vivo. La plantilla "Thor" aparecía como <strong>riesgo bajo</strong>: vulnerable a ESC2 con EKU AnyPurpose ("todo lo que quieras con esta plantilla"), pero no pública — está ahí, sin fácil acceso, así que explotarla es un riesgo bajo. Entonces el expositor publicó la plantilla en el servidor, volvió a correr el script, y el ESC2 saltó a <strong>riesgo alto o crítico</strong>: la matriz detecta que ahora la plantilla es pública y explotable. La validación es dinámica, no una lista fija.</p>
+<p>El informe HTML final incluye: dominio, fecha, resumen (en la demo: 13 altas, 9 medias, 2 bajas, un CA vulnerable a ESC7), gráfico de torta, descripción de cada vulnerabilidad con contexto, explotación paso a paso hasta el comando (incluida la autenticación posterior con certificado, tipo Pass-the-Certificate), mitigación por vector (deshabilitar flags, restringir EKUs) y el detalle de por qué cada plantilla — "Zeus", "Thor" — es vulnerable.</p>
+<p>Otro punto fino: la consulta a AD CS por las vías por defecto dispara alertas ("¿por qué me estás pidiendo las plantillas?") que el blue team ve en los logs. Exception se conecta por NTLM, una conexión fidedigna que no levanta alertas — pensado para escaneos de validación sin ruido.</p>
+<h2>Arquitectura y mitigaciones</h2>
+<p><strong>Exception</strong> (Python) no explota por ahora — la explotación automatizada está en el roadmap, con microservicios en desarrollo —, pero sí detecta y reproduce las malas configuraciones. El flujo interno:</p>
+<ol>
+<li>Conexión válida al dominio por LDAP.</li>
+<li>Descubrimiento de CAs, plantillas y certificados; enumeración de atributos, EKUs, flags y ACLs.</li>
+<li>Validación con scripts internos que checan cada plantilla una por una.</li>
+<li>Simulación de la solicitud de enrolamiento para confirmar si la plantilla es explotable y asignar riesgo; si no, queda como plantilla segura con nota informativa o baja.</li>
+<li>Generación del reporte en JSON y HTML con la clasificación ESC correspondiente.</li>
+</ol>
+<p>Las recomendaciones de mitigación, para cerrar:</p>
+<ul>
+<li>Revisar los permisos de inscripción de <strong>todas</strong> las plantillas de certificados.</li>
+<li>Evitar el uso del subject name: que un usuario con pocos privilegios no pueda pedir certificados de un administrador.</li>
+<li>Eliminar EKUs innecesarios: si un certificado no se usa para autenticar, quitar el EKU de autenticación de su plantilla.</li>
+<li>Limitar el acceso a las plantillas sensibles a roles específicos.</li>
+<li>Monitorear periódicamente las configuraciones: un administrador puede clonar o tunear una plantilla y, sin darse cuenta, abrir la superficie de ataque.</li>
+</ul>
+<p>En las preguntas se aclaró que la herramienta se va a publicar en GitHub (aún no estaba al momento de la divulgación), que el análisis se puede programar de forma recurrente (el JSON generado puede exportarse a Wazuh, por ejemplo, para alertar en tiempo real), y que la explotación sin contraseña — usando el certificado directamente — es posible según la configuración de las ACLs, no solo de la plantilla.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los ESC no son exploits: son malas configuraciones heredadas durante 20 años de AD CS, que siguen siendo la raíz de confianza en la mayoría de las organizaciones.</li>
+<li>El riesgo central es la legitimidad aparente: un certificado a nombre del administrador de dominio no dispara alertas, porque ese comportamiento es rutinario en la red.</li>
+<li>La detección técnica (Certify) y la comunicación del riesgo (CISO, blue team) son dos problemas distintos; Exception apunta al segundo convirtiendo hallazgos en reportes con descripción, explotación paso a paso y mitigación.</li>
+<li>La matriz de riesgo debe ser dinámica: una plantilla vulnerable pero no pública es riesgo bajo; publicarla la vuelve crítica, y la herramienta lo detecta al vuelo.</li>
+<li>Mitigar exige higiene de plantillas: permisos de inscripción revisados, subject name controlado, EKUs mínimos, acceso restringido y auditoría periódica de la configuración.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/EIt1WS_RfYI">«Hacking Windows: AD CS Enumeration and Exploitation - Eric Maldonado - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

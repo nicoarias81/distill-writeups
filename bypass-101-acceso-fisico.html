@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bypass 101: entrar sin forzar la cerradura — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Bypass 101: entrar sin forzar la cerradura</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/rFug65vXkMs">«Bypass 101 - Terry Luan &amp; Karen Ng - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/rFug65vXkMs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El hackeo físico no empieza y termina en el picking. Buena parte del trabajo real de acceso a espacios restringidos consiste en lo contrario: no atacar la cerradura, sino rodearla. El bypass de puertas aprovecha errores de instalación, componentes genéricos, espacios entre hoja y marco, códigos por defecto y hasta la física del verano para abrir puertas casi tan rápido como con la llave legítima. Las técnicas se ordenan por blanco —picaporte, perilla, barra antipánico, candado, teclado, interfono, alarma— y comparten un patrón: casi siempre la vulnerabilidad nace de que nadie pensó en seguridad al instalar o usar el elemento.</p>
+<h2>Por qué el bypass gana al picking</h2>
+<p>La definición es sencilla: la puerta está cerrada con llave, y en lugar de forzar la cerradura se busca un camino alternativo para abrirla o para ignorar la puerta por completo. Estas técnicas suelen ser más rápidas y confiables que el picking, y por eso aparecen con mucha más frecuencia en pruebas de penetración físicas. El ejemplo clásico es el buzón de cartas ubicado en un lugar convenientísimo: la mano entra por la ranura y acciona la palanca desde el lado inseguro.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Puerta cerrada con llave] --> B{Por donde entrar}
+    B --> C[Picaporte de palanca: herramienta bajo la puerta con alambre y cordel]
+    B --> D[Perilla: alambre doblado mas cinta y soga]
+    B --> E[Barra antipanico: cuerda para accionarla desde adentro]
+    B --> F[Cerrojo de pestillo: carding o empujon con tarjeta]
+    B --> G[Teclado: tinta UV, codigos por defecto]
+    B --> H[Interfono: clave maestra o llaves iguales]
+    B --> I[Alarma: imanes, aire comprimido, corto de circuitos]
+    B --> J[Ni la puerta: bisagras, cielorraso, ventanas, rodeos]
+
+</pre>
+
+<h2>El pestillo, la traba muerta y la placa barata</h2>
+<p>El bypass dirigido al pestillo es el carding o empujón: una tarjeta —o una lámina metálica— se desliza entre el pestillo y la placa de embutir para liberar la puerta. La contrafigura es la traba muerta o deadlatch, esa pieza adicional que, al quedar presionada dentro de la puerta, impide que el pestillo se retraiga desde afuera. La trampa está en la instalación: la placa de embutir del marco está diseñada para bloquear la traba muerta y obligarla a quedar presionada, pero si el instalador ahorra y compra un lote genérico que "encaja", el agujero queda grande. Basta empujar la puerta hasta que el pestillo caiga en el hueco de la placa, y la protección desaparece.</p>
+<p>Con la dirección del pestillo a favor, la técnica se llama shoving; con la dirección inversa, carding o llave de tarjeta. La maniobra completa toma lo mismo que usar una llave, con una demostración hecha con un trozo de metal recogido del piso y un pequeño gancho: se empuja la traba, se abre, se repite. Esa velocidad la convierte en técnica utilizable durante una prueba de penetración con gente alrededor: hubo casos en los que un testigo preguntó directamente dónde habían conseguido la llave del local, y la respuesta fue dejar pasar la situación fingiendo que se tenía permiso.</p>
+<h2>Herramientas bajo la puerta: palancas, perillas y barras</h2>
+<p>Cuando la traba muerta funciona bien, el blanco pasa a ser el picaporte, imitando a una persona que abre desde adentro. La herramienta bajo la puerta no necesita más que un alambre un poco rígido pero flexible —doblado en forma de S o de Z invertida— y un cordel: el alambre se introduce por debajo de la puerta hasta quedar sobre el picaporte, y la soga permite jalar y accionar la palanca. Funciona con casi todo tipo de manijas de palanca; el estilo en Q es el más difícil porque la herramienta resbala, aunque sigue siendo posible.</p>
+<p>Las perillas redondas son más complicadas pero se puede: otro alambre doblado con soga, idealmente con cinta o un tubo de goma para mejorar el agarre. La herramienta se cuelga de la perilla desde el hueco entre hoja y marco, y luego la soga se tensa y se tira de ambos lados para girarla poco a poco. Cabe notar por qué las perillas están desapareciendo en edificios y oficinas: la ley de accesibilidad y la seguridad ante incendios favorecen la palanca, mucho más fácil de accionar con poca fuerza de agarre o en pánico. Para las barras antipánico la receta se repite con soga y alambre a través de la ranura de la puerta, accionando la barra como si el empuje viniera desde adentro; las barras de empuje simples son más difíciles porque hay poco donde enganchar, aunque si la puerta o las paredes tienen perforaciones, la cuerda pasa por arriba de la barra y se tira desde abajo.</p>
+<h2>Fuerza bruta legal: jalones fuertes y bisagras</h2>
+<p>Dos técnicas favoritas por su simplicidad desarmante. La primera es jalar con fuerza: hay un sinnúmero de puertas algo sueltas y elásticas en su marco que se abren sin técnica alguna con el brazo suficiente. El protocolo recomendado en edificios grandes con muchas puertas es dar una vuelta tironceteando cada una y quedarse con las más flojas; en instalaciones de varias hojas, al menos una suele ceder. Las instrucciones oficiales: se jala la puerta con fuerza, y si no abre, se vuelve a jalar hasta que abra.</p>
+<p>La segunda es quitar las bisagras, posible solo cuando están mal instaladas hacia el lado exterior. Con un destornillador se aflojan los tornillos, o se extraen los pasadores —a veces con tenaza o martillazos suaves— y la puerta sigue cerrada pero ya no está fija: se mueve con suavidad y sale del marco. La puerta sigue teniendo su cerradura intacta; da igual, porque la puerta entera es el elemento que se retira.</p>
+<h2>Candados, teclados e interfonos</h2>
+<p>Para candados existen los shims: láminas de metal o plástico —antes se recortaban de envases— que se insertan a los costados del arco y corren las piezas de retención para liberar el gancho sin llave. En los teclados de botones y cajas de llaves para Airbnb o aperturas de locales hay varias vías:</p>
+<ul>
+<li><strong>Clonación sin abrir la caja</strong>: muchas están sin blindar, y una llave o llavero de proximidad adentro puede copiarse con un Proxmark o Flipper Zero desde afuera.</li>
+<li><strong>Tinta UV</strong>: se marcan todos los botones, los usuarios legítimos borran la tinta de los que usan, y al volver bastan unos minutos de combinaciones para dar con el código —en lugar de semanas de fuerza bruta—. La transferencia de pigmento entre botones incluso revela el orden: si la tinta pasó del 1 al 4, el 4 va después del 1.</li>
+<li><strong>Códigos por defecto</strong>: los teclados Simplex salen de fábrica con el 2 y el 4 presionados a la vez y luego el 3, y la cantidad de instalaciones que nunca lo cambiaron sorprende. A veces la combinación está escrita en la propia ventana.</li>
+<li><strong>Interfonos</strong>: la clave maestra de configuración suele seguir siendo la de fábrica, documentada online. Además, los cuatro grandes fabricantes norteamericanos —DoorKing, DoorGuard, Lanier y Miracom— salen con cerraduras iguales: una sola llave abre todos. DoorKing intentó arreglarlo agregando tres llaves más, y el resultado fue que todos compraron las cuatro. Abrir el gabinete da acceso al circuito, y con pinzas cocodrilo se puentea el contacto de apertura hasta lograr el zumbido que libera la puerta.</li>
+</ul>
+<h2>Alarmas, sensores y puertas que nadie cierra</h2>
+<p>Las alarmas económicas sin mecanismos de protección se engañan detectando el estado del circuito y cortándolo o cortocircuitándolo. Los sensores de contacto usan un imán en la hoja y un sensor en el marco: con una sonda magnética o una brújula se localizan, se inserta un imán en el marco para simular que la puerta sigue cerrada y recién entonces se ejecuta el bypass real. Los sensores de solicitud de salida, pensados para abrir o destrabar desde el interior, se engañan con un soplido de aire comprimido en la parte alta del marco: el sensor cree que alguien sale y libera la puerta por conveniencia.</p>
+<p>El capítulo más humilde es también el más efectivo: las puertas abiertas o mal cerradas. Personal que apoya un objeto y olvida sacarlo, clavos y escombros entre hojas dobles que impiden el cierre, diferenciales de presión, marcos deformados —la madera se dilata con el calor del verano y la puerta no cierra del todo—, cerraduras rotas o candados retirados cuyo mecanismo interior sigue accesible con un destornillador. La pista de reconocimiento es la cartelería: un cartel de "mantenga esta puerta cerrada" delata un problema recurrente de puertas apoyadas, y vale la pena volver varias noches seguidas, porque casi siempre alguna queda abierta. Y si el sitio imprime sus carteles en papel de oficina con fuente Times New Roman tamaño 40, una réplica casera que diga "por favor mantenga esta puerta abierta" a veces también funciona.</p>
+<h2>Techo, ventanas y no usar la puerta</h2>
+<p>La última categoría es la más literal: a veces la forma más fácil de cruzar una puerta es no usarla. Escaleras protegidas con jaulas y candado se rodean con otra escalera cualquiera para trepar por detrás; árboles que tragaron la reja convierten el enrejado en escalera; rejillas de ventilación con paneles sueltos —que nunca fueron elemento de seguridad— dan a cielorrasos falsos desde los cuales las paredes suelen no llegar hasta arriba: se quita un panel del otro lado y se cae dentro del área segura, como demostró un colega bajando del techo. Hay huecos sobre puertas que superan el tamaño de una persona, accesibles con un destornillador y un poco de palanca.</p>
+<p>La advertencia de seguridad es real: los cielorrasos no están pensados para caminar sobre ellos, y la anécdota que lo prueba es el reporte policial de un ladrón que trepó al techo de una farmacia, no supo entrar por el cielorraso y se desplomó al interior. En pruebas de penetración profesionales, muchas de estas vías se señalan y documentan sin necesidad de demostrarlas físicamente: basta con mostrar la vulnerabilidad y recomendar corregirla.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Carding y shoving</strong>: tarjeta o lámina entre pestillo y placa; la traba muerta mal instalada anula la protección.</li>
+<li><strong>Herramienta bajo la puerta</strong>: alambre en S o Z invertida más cordel para palancas, perillas y barras antipánico.</li>
+<li><strong>Shims de candado</strong>: láminas metálicas o de plástico para liberar el arco.</li>
+<li><strong>Tinta UV y transferencia de pigmento</strong>: reducción de combinaciones de teclado de semanas a minutos.</li>
+<li><strong>Códigos por defecto</strong>: Simplex (2+4, luego 3), claves maestras de interfonos y cerraduras iguales por fabricante.</li>
+<li><strong>Sensores</strong>: imanes contra sensores de contacto, aire comprimido contra sensores de salida, cortos de circuito en alarmas.</li>
+<li><strong>Vías alternativas</strong>: bisagras exteriores, cielorrasos falsos, rejillas, huecos sobre puertas.</li>
+<li><strong>Proxmark y Flipper Zero</strong>: clonación de llaves de proximidad sin abrir cajas de llaves.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La mayoría de los bypass no explota la cerradura sino errores de instalación: placas genéricas, traba muerta desenganchada, bisagras del lado de afuera.</li>
+<li>Las técnicas de bypass son más rápidas y discretas que el picking, y varias se ejecutan con alambre, soga, cinta y una tarjeta.</li>
+<li>Los códigos por defecto —de teclados, interfonos y cajas de llaves— siguen siendo una mina de acceso en instalaciones reales.</li>
+<li>Las alarmas se rodean entendiendo el sensor: imanes para los de contacto, aire comprimido para los de salida.</li>
+<li>La puerta abierta por descuido, escombro o dilatación estacional sigue siendo el acceso más común; la cartelería del edificio delata dónde buscar.</li>
+<li>En una prueba de penetración profesional, documentar la vía suele bastar: no hace falta atravesar el cielorraso para demostrar que se puede.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/rFug65vXkMs">«Bypass 101 - Terry Luan &amp; Karen Ng - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

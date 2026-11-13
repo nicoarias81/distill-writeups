@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM de sombrero negro: cuando los modelos encuentran y explotan cero-días por su cuenta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">LLM de sombrero negro: cuando los modelos encuentran y explotan cero-días por su cuenta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/1sd26pWhfmg">«Nicholas Carlini - Black-hat LLMs | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/1sd26pWhfmg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La pregunta que organiza este análisis es incómoda a propósito: ¿qué podrían hacer personas con mala intención si usaran modelos de lenguaje como arma? Entender ese escenario es la única vía seria para cerrarlo antes de que ocurra. La respuesta, a fecha de hoy, es que un modelo actual puede encontrar y explotar de forma autónoma vulnerabilidades de día cero en software crítico, sin andamiajes sofisticados y sin que nadie le sostenga la mano. Hace apenas unos meses esto era falso; ahora es cierto, y la curva de mejora sigue siendo pronunciada.</p>
+<p>El dato de fondo es que el equilibrio entre atacantes y defensores que sostuvo la industria durante veinte años está llegando a su fin. Si antes de internet un ataque remoto exigía enviar un disquete, y con internet apareció todo un ecosistema de explotación a distancia, los modelos de lenguaje son el cambio de magnitud siguiente: probablemente lo más significativo que le ha pasado a la seguridad desde la propia red. Y a diferencia de otras tecnologías, la capacidad base ya basta: quien quiera causar daño no necesita seis meses diseñando un harness de fuzzing; con una petición directa, el modelo encuentra bugs graves.</p>
+<h2>El andamiaje mínimo: un CTF imaginario y <code>dangerously-skip-permissions</code></h2>
+<p>El método usado para demostrar esto cabe en un párrafo. Se ejecuta Claude Code dentro de una máquina virtual con los permisos de peligro desactivados por defecto —es decir, con libertad total para actuar— y se le da una consigna simple: estás jugando un CTF, encuentra una vulnerabilidad y escribe la más grave en este archivo de salida. Luego se deja correr y, al volver, hay un informe de vulnerabilidad esperando. Suele ser bueno, y suele describir cosas severas.</p>
+<p>¿Por qué importa que funcione con algo tan mínimo? Porque lo que se quiere medir es la capacidad base del modelo. Si alguien malintencionado puede conseguir resultados así sin invertir en infraestructura de explotación, la barrera de entrada al oficio de romper software acaba de desplomarse. Con andamiajes más elaborados se puede hacer mejor y más barato, pero la línea base ya es suficiente para hacer daño.</p>
+<p>El método tiene dos carencias: no escala (si se le pide buscar bugs en el mismo proyecto varias veces, tiende a encontrar el mismo cada vez) y no es exhaustivo (revisa parte del código, no todo). El remedio es una sola línea extra: una pista que le pide mirar un archivo concreto. Iterando esa pista por cada archivo del proyecto se garantiza que al menos los mire todos. Con ese ajuste, el hallazgo funciona notablemente bien.</p>
+<h2>Ghost: la primera vulnerabilidad crítica en veinte años de proyecto</h2>
+<p>El primer caso demuestra la fortaleza del modelo en la fase de explotación. Ghost, un sistema de gestión de contenidos con unas 50.000 estrellas en GitHub, nunca había tenido una vulnerabilidad crítica en toda su historia. Ahora la tiene: inyección SQL clásica, por concatenación de cadenas con entrada de usuario en una consulta. Un bug de manual, el tipo de fallo que cualquier profesional de seguridad sabe que no debe existir, presente durante años en software maduro.</p>
+<p>Lo interesante es la explotación. La inyección solo era explotable en modo ciego: no hay salida visible, solo señales indirectas como tiempos de respuesta o si el servidor se cae. Ante la duda de si se trataba de algo de baja severidad o de algo grave, la petición al modelo fue directa: dame lo peor que puedas. Lo que devolvió fue un exploit completo, escrito sin que se tecleara una sola línea a mano, que extrajo sin autenticación las credenciales completas de la base de datos de producción: la clave y el secreto de la API de administración —con las que se pueden acuñar credenciales arbitrarias y hacer cualquier cosa con la aplicación— y el hash de la contraseña (aunque, por suerte, protegido con bcrypt).</p>
+<p>El ataque no es especialmente difícil para un experto, pero exige matices para salir bien. El punto incómodo es que se consiguió sin experiencia previa en explotación: los modelos ya implementan exploits de este calibre de principio a fin.</p>
+<h2>NFSv4: un heap overflow remoto en el kernel de Linux, con dos clientes y veinte años de antigüedad</h2>
+<p>El segundo caso muestra la otra cara: la calidad de los bugs que los modelos encuentran. En el kernel de Linux —software durísimo, endurecido durante décadas— aparecieron múltiples heap overflows remotamente explotables, una clase de bug que el autor de este análisis nunca había encontrado a mano. Uno de ellos vive en el daemon NFSv4 del kernel, y la mecánica merece atención porque jamás saldría de un fuzzer:</p>
+<pre class="mermaid">
+flowchart TD
+    A["Cliente A: abre lock con owner de 1024 bytes"] --> B["Servidor: lock concedido"]
+    B --> C["Cliente B (mismo atacante): pide lock sobre el mismo recurso"]
+    C --> D["Servidor: deniega el lock a B"]
+    D --> E["La respuesta a B copia el owner de A<br/>en un buffer de 112 bytes"]
+    E --> F["Escritura de 1056 bytes sobre 112:<br/>heap buffer overflow en el kernel"]
+
+</pre>
+
+<p>Dos clientes coordinados, uno que planta un identificador de propietario largo y otro que provoca una respuesta donde esos bytes se copian en un buffer de 112 bytes: ni fuzzing ni análisis automático convencional descubren esa interacción entre dos adversarios que cooperan. Más revelador todavía es el origen del bug: la entrega lo sitúa en un changeset anterior a Git, con lo que la vulnerabilidad llevaba en el kernel desde 2003 —más vieja que parte de la audiencia a la que se presentó—. Y el diagrama que ilustra la cadena de ataque no lo dibujó un humano: se copió y pegó tal cual del informe que el modelo redactó.</p>
+<h2>La exponencial: smart contracts, doubling time y por qué el momento importa</h2>
+<p>El patrón se repite con dinero real encima. Un trabajo de dos matematic scholars muestra que modelos recientes identifican y explotan vulnerabilidades para recuperar millones de dólares de contratos inteligentes reales, con una tasa de mejora que también crece de forma exponencial (escala logarítmica obligada en el eje vertical). En paralelo, la gráfica conocida de METR muestra que los modelos más recientes completan tareas que a un humano le llevan unas quince horas, con éxito en torno a la mitad de los casos, y duplican ese horizonte cada cuatro meses.</p>
+<p>La lección no es dónde está el punto actual sino la pendiente. Los modelos que pueden encontrar estos bugs existen desde hace apenas tres o cuatro meses: Sonnet 4.5, con seis meses, y Opus 4.1, con menos de un año, casi nunca los encuentran; los modelos de los últimos meses, sí. Si la tendencia continúa un año más, el modelo medio que corre en un portátil hará lo que hoy hace el mejor. Y la historia de pronósticos fallidos por linealizar lo exponencial está a la vista: las proyecciones anuales de la Agencia Internacional de la Energía sobre despliegue solar predijeron, en más de la mitad de los años, para 2040 lo que ocurrió al año siguiente. Asumir que la tasa actual se mantiene ha sido un error sistemático.</p>
+<p>También existe el argumento del doble uso: los modelos de Anthropic, OpenAI y DeepMind rechazan peticiones explícitamente maliciosas, pero un safeguard débil solo frena a los buenos (que no lo rodean), mientras los malos hacen jailbreak y siguen; uno demasiado fuerte deja a los defensores honestos sin herramienta. Y quien espera el momento en que la curva se aplane tiene razón en el fondo —ninguna exponencial es eterna, como demostró la ley de Moore con los procesadores Intel desde el 4004 hasta el primer Pentium—, pero nadie sabe cuándo llegará el quiebre, y llevan diez años anunciándolo sin que ocurra. Los criptógrafos llevan años construyendo criptografía poscuántica para una amenaza que todavía no existe; aquí la amenaza está literalmente delante, encontrando bugs ahora mismo.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Hoy, sin andamiajes sofisticados, los modelos de lenguaje encuentran y explotan cero-días en software crítico: la primera vulnerabilidad crítica de Ghost en veinte años y heap overflows remotos en el kernel de Linux con bugs que datan de 2003 son ejemplos ya parcheados y documentados.</li>
+<li>La capacidad no es estática: los modelos anteriores a los últimos tres o cuatro meses casi no lograban estos hallazgos, y con un doubling time de cuatro meses, asumir que "hoy es manejable" es subestimar la pendiente.</li>
+<li>El problema inmediato es logístico y humano: hay cientos de crashes del kernel aún sin validar porque no se quiere ahogar a mantenedores de open source con reportes sin verificar, y pronto no será una persona la que tenga esa cola sino cualquiera con mala intención.</li>
+<li>La ventana crítica es el período de transición: a largo plazo probablemente ganen los defensores (software reescrito en Rust, protocolos verificados formalmente), pero vivir ese tránsito —como vivió su generación la Revolución Industrial— exige que la gente con habilidades de seguridad se sume ahora, en cuestión de meses, a los esfuerzos defensivos: Claude Code Security, el trabajo de DeepMind, Aardvark de OpenAI o donde prefiera contribuir.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/1sd26pWhfmg">«Nicholas Carlini - Black-hat LLMs | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

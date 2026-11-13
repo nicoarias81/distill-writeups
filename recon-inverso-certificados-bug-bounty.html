@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Recon inverso: descubrir subdominios sin preguntar por el dominio — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Recon inverso: descubrir subdominios sin preguntar por el dominio</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/QnG15-Ug0i0">«Recon Inverso: Bug Bounty Edition - debsec»</a> · ver el <a class="nz-link" href="https://youtu.be/QnG15-Ug0i0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La enumeración de subdominios clásica parte siempre del mismo supuesto: conocer el dominio principal. Se ataca paypal.com, se consultan fuentes pasivas, se fuerza bruta con wordlists y se espera encontrar la superficie de ataque. El "recon inverso" invierte esa lógica: en lugar de preguntar por dominios, se recorren segmentos de IP (bloques CIDR y ASN) y se extraen los FQDN directamente de los certificados digitales que responden en esos hosts.</p>
+<p>El enfoque importa por dos razones. Primero, en entornos cloud como AWS la infraestructura es completamente dinámica: una misma IP puede alojar hoy el servicio de una empresa y mañana el de otra, de modo que las fuentes pasivas —VirusTotal, crt.sh, Shodan— siempre llegan tarde, a veces por más de 24 horas. Segundo, la metodología está pensada como monitoreo continuo, no como escaneo puntual: ejecutada a diario sobre los segmentos correctos, entrega subdominios recién desplegados, antes de que cientos de hunters los hayan visto.</p>
+<h2>Del dominio al segmento de red</h2>
+<p>El punto de partida son los rangos de IP asociados a una organización, ya sea por ASN —mediante el nombre de la compañía o el número de ASN— o por bloques CIDR que están dentro del scope de un programa de bug bounty. Herramientas como <code>bbscope</code> permiten, con el token de la API de HackerOne, volcar los segmentos de IP de todos los programas públicos o privados (<code>-p</code>) donde participa el hunter, en cuestión de segundos.</p>
+<p>Una vez estructurados esos rangos, el pipeline tiene cuatro piezas:</p>
+<ol>
+<li>Un script que genera la estructura de directorios con las IP a atacar.</li>
+<li>Un escaneo masivo de puertos con masscan, elegido por su promesa de escanear internet en un día; funciona con cualquier puerto, no solo el 443.</li>
+<li>Un script que extrae los atributos de los certificados SSL/TLS de cada host con puerto abierto, rescatando FQDN, CNAMES y la riqueza que esconden los wildcard como <code>*.google.com</code>.</li>
+<li>Un script de scope match que cruza los subdominios encontrados con la lista de dominios de las plataformas donde se reporta.</li>
+</ol>
+<h2>La ventaja del descubrimiento activo</h2>
+<p>Los números del enfoque muestran por qué conviene. Un escaneo de 15.000 hosts toma 12 segundos y arroja 990 hosts con el 443 abierto; sobre los segmentos públicos de HackerOne se escanearon casi 500.000 hosts en 17 segundos, con 3.700 abiertos y 1.193 subdominios extraídos de certificados en 12 segundos más. Cuando el objetivo es una infraestructura cloud, la escala sube: una región de AWS con unos 30 millones de IPs se escaneó en 7 minutos, encontrando más de 4 millones de hosts con información SSL útil.</p>
+<p>La diferencia clave con las fuentes pasivas es la frescura. Comparando tres ejecuciones diarias sobre la misma infraestructura, cada día arrojó más de 40.000 URLs únicas y alrededor de 500 subdominios nuevos entre una corrida y la siguiente: servicios levantados por las organizaciones con menos de 24 horas, que aún no aparecían en crt.sh —cuyas bases de Certificate Transparency tardan cerca de un día— y que ninguna herramienta de fuerza bruta o enumeración pasiva puede descubrir. En los segmentos de empresas como PayPal o Yahoo, además, aparecen dominios que no están en el scope directo pero pertenecen a compañías adquiridas, terreno fértil para el autoscope que tanto pagan los programas.</p>
+<h2>AWS y el mundo cloud dinámico</h2>
+<p>La parte más novedosa de la metodología nace de la pregunta por el cloud. AWS —a diferencia de Azure y GCP— publica sus rangos de red en un JSON oficial, y un script adaptado filtra solo los prefijos de EC2, que son los que cambian constantemente, y soporta segmentar por región: si el programa de bounty opera en África, como Safari, tiene sentido atacar primero las regiones de esa zona. Con una infraestructura en un VPS de unos 100 dólares mensuales —el autor recomienda 8 GB de RAM, mucho disco para acumular historial y, sobre todo, ancho de banda, porque el flujo de tráfico se mide en terabytes— se ejecuta el monitoreo durante años, comparando corridas para quedar primero en encontrar cada servicio nuevo.</p>
+<p>Los grandes proveedores cloud no banean por este escaneo, aunque servicios menores sí, y conviene llevar registro de dónde se ha sido bloqueado. El truco manual complementario es simple: tomar subdominios de reportes antiguos de bounty, resolverlos con ping, identificar la subred y escanearla completa —raro es el caso donde no aparece un subdominio nuevo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Recon inverso</strong>: metodología de reconocimiento basada en segmentos de IP (ASN/CIDR) en lugar de dominios predefinidos.</li>
+<li><strong>masscan</strong>: escáner de puertos masivo, núcleo del escaneo de rangos completos.</li>
+<li><strong>Certificados SSL/TLS</strong>: fuente de FQDN y CNAMES; los wildcard delatan árboles enteros de subdominios.</li>
+<li><strong>bbscope</strong>: obtiene el scope de programas de HackerOne (públicos y privados) vía API.</li>
+<li><strong>crt.sh, Amass, assetfinder, dnsx</strong>: herramientas pasivas tradicionales, complementarias pero tardías frente al descubrimiento activo.</li>
+<li><strong>Nuclei</strong>: plantillas de ataque para lanzar contra los subdominios recién descubiertos.</li>
+<li><strong>Scope match</strong>: cruce automático de subdominios hallados con los dominios de los programas de bounty.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La superficie de ataque de una organización se puede descubrir desde su red, sin conocer sus dominios: los certificados entregan los nombres.</li>
+<li>En entornos cloud, las fuentes pasivas llegan tarde por diseño; solo el monitoreo activo continuo entrega subdominios con menos de 24 horas de vida.</li>
+<li>La metodología requiere infraestructura propia (VPS con disco y ancho de banda), pero se paga sola con los bounties de servicios críticos encontrados en primer lugar.</li>
+<li>El monitoreo, no el escaneo puntual, es la verdadera ventaja: las redes son vivas y la diferencia entre corridas consecutivas es la mina de oro.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/QnG15-Ug0i0">«Recon Inverso: Bug Bounty Edition - debsec»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

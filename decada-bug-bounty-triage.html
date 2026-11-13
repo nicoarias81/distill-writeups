@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una década de bug bounty: lo que aprende el cazador mirando desde el otro lado del triage — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Una década de bug bounty: lo que aprende el cazador mirando desde el otro lado del triage</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/h86p7pcZmL8">«DEF CON 32 - Reflections on a Decade in Bug Bounties - Nikhil Shrivastava &amp; Charlie Waterhouse»</a> · ver el <a class="nz-link" href="https://youtu.be/h86p7pcZmL8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Diez años de cazar bugs — primero como principiante que acumulaba rechazos, después como cazador a tiempo completo con lugar en el MSRC top 100 y reconocimiento de Synack Red Team Legend — dejan lecciones concretas sobre qué separa a quien vive del bug bounty de quien se frustra y abandona. Esta mirada tiene una particularidad: une las dos caras del mostrador. De un lado, el investigador que vivió del bounty; del otro, un triager con más de 2.400 assessments y alrededor de 40.000 reportes procesados, que sabe exactamente por qué se rechaza un reporte.</p>
+<p>El punto de partida de esa década es humilde: en 2013 casi solo Google y PayPal tenían programas públicos, y un año entero de reportes a Google produjo únicamente duplicados y rechazos. El aprendizaje — demostrar impacto real, especializarse, escribir reportes como historias, conocer las reglas de cada plataforma — convirtió esa racha de fracasos en una carrera sostenible.</p>
+<p>El mensaje de fondo es doble: el bug bounty es un espacio profundamente meritocrático donde las certificaciones no pesan frente al hallazgo, y al mismo tiempo es un juego mental donde la persistencia, el manejo del síndrome del impostor y la salud financiera pesan tanto como la técnica.</p>
+<h2>El rechazo como maestro</h2>
+<p>Los primeros meses en Google fueron un año de reportes sin lógica, enviados al azar, que terminaron en rechazos, "no impact", duplicados o Hall of Fame. El error de principiante clásico: ver algo, emocionarse y enviar sin preguntarse dos cosas.</p>
+<p>La primera: ¿es realmente un duplicado? Amazon no escribe el código de cada producto por separado; si el back-end es el mismo, esa "otra ruta" es el mismo bug. La segunda y más importante: ¿cuál es el caso de uso malicioso? Cerca del 80% de los rechazos son por bajo impacto. Un flag HSTS faltante o un XSS no autenticado no demuestran nada por sí solos; en cambio, un XSS que muestra <code>document.cookie</code> y <code>document.domain</code> con la explicación de que las credenciales se exfiltrarían a un servidor propio le da al triager exactamente lo que necesita para justificar ante el cliente el gasto de bounty más los ciclos de ingeniería de la corrección.</p>
+<p>Y no todo se arregla: algunas cosas son riesgo aceptable. Las Google API keys son el ejemplo citado — la corrección es carísima, el riesgo mínimo, y Google no la considera prioritaria. El triage no persigue perfección absoluta; persigue arreglar lo importante.</p>
+<h2>Especializarse hasta sentir el bug</h2>
+<p>El primer hallazgo real llegó fuera de Google: un programa de Nokia que pagaba smartphones por bugs críticos. En lugar de dispersarse, se listaron todos los activos y se atacó solo SQL injection, la especialidad de ese momento. Un error SQL en uno de los activos llevó a dos comandos más y a volcar la base completa; la recompensa fue un par de Lumia 820.</p>
+<p>La lección que repiten los cazadores top: elegir uno o dos tipos de vulnerabilidad — quizá la especialidad del trabajo diario, si se es DBA o diseñador web — y profundizar hasta el punto en que "se siente" dónde está el bug. Ese sexto sentido no es magia, es repetición. Recién cuando se domina un área conviene agregar otra.</p>
+<p>También importa la selección de objetivos: programas con menos ojos encima (recognition programs, programas de hardware) dan mejores probabilidades a un principiante que competir cabeza a cabeza contra los mejores del mundo en Google.</p>
+<h2>Escribir el reporte como una historia</h2>
+<p>El reporte breve de técnico a técnico no funciona, porque el destinatario final de la historia no es el triager: es el CISO o el CEO. A ese interlocutor no le importa qué es un IDOR o un SQLi; le importa que alguien descargó la base de datos de producción completa, que podría haberla borrado, y que sabe quiénes son todos los clientes. Eso es un titular de prensa.</p>
+<p>Los reportes que se aceptan hacen ese trabajo:</p>
+<ul>
+<li><strong>Pasos de reproducción extremadamente detallados.</strong> El triager llega en blanco a una aplicación que quizá nunca vio; si no puede reproducir, no puede evaluar impacto.</li>
+<li><strong>Impacto demostrado, no insinuado.</strong> "XSS persistente: extraigo document.cookie de cualquier usuario logueado y puedo obtener credenciales de leads e ingenieros" es una historia que viaja al cliente.</li>
+<li><strong>Sugerencias de corrección.</strong> El investigador a menudo entiende mejor el problema que el equipo que lo introdujo.</li>
+</ul>
+<p>Quienes hoy están entre los top reconocen que odiaron ese rigor al principio y después descubrieron que los hacía diez veces mejores escribiendo reportes en su trabajo diario. La prueba de que el punto es serio: hubo una plataforma que mantuvo durante años una "quality rule" que premiaba el mejor reporte escrito aunque llegara último — la calidad de la escritura llegó a ser política de plataforma.</p>
+<h2>Duplicados, plataformas y mentalidad</h2>
+<p>Los duplicados son parte del oficio: alguien con más automatización simplemente fue más rápido. En Bugcrowd, de 77 reportes iniciales, 29 fueron aceptados y 48 duplicados. Aprender del rechazo — preguntar al triager por qué y qué haría falta para aceptarlo — transforma cada "no" en formación gratuita; enviar el mismo bug una y otra vez sin leer el feedback, en cambio, destruye la motivación propia.</p>
+<p>Las plataformas existen por dos razones prácticas: consolidan objetivos en un solo lugar, y actúan como intermediario imparcial que protege tanto al investigador (que no queda a merced de un rechazo silencioso seguido de fix interno) como a la empresa (filtrando el ruido). El triager no gana nada reteniendo pagos — el dinero ni siquiera sale de su bolsillo y no hay bono por no pagar; hay bonus por pagar los válidos.</p>
+<p>Reglas prácticas de plataforma: leer todas las reglas antes de mandar tráfico de ataque (algunas plataformas, como Synack, corren sobre VPN y VM con IPs dedicadas; en otras conviene identificarse como investigador para no alarmar a un blue team que no sabe quién está atacando su target en producción). Y elegir plataforma según fortalezas propias: no hay una respuesta única.</p>
+<p>El bloqueo mental decide tanto como la técnica: quien entra buscando pagar el alquiler del viernes sufre; quien entra tratándolo como entrenamiento gratuito — mejor que miles de dólares en cursos — progresa y el dinero llega solo. La comunidad (Discord, Slack, CTF labs, blogs de otros investigadores) está para desatascarse, no para que regalen el payload.</p>
+<h2>De hobby a tiempo completo: la regla de las 40 horas</h2>
+<p>El primer bug promedio toma unas 20 horas de investigación; después baja a 10, a 5, a 2, a media hora. La recomendación explícita: dedicar 40 horas concentradas en uno o dos objetivos antes de decidir si esto es para uno. Cuatro horas dispersas un fin de semana tienen probabilidad de éxito casi nula.</p>
+<p>El salto a tiempo completo tampoco se improvisa: se construyó respaldo financiero con los ahorros del bounty antes de dejar el trabajo de 9 a 5, y el ejemplo citado es el de un analista senior que solo renunció cuando descubrió que ganaba más cazando que trabajando — y aun así esperó a tener el dinero en el banco. Con OSCP en mano y prisa por renunciar, la decisión puede ser financieramente ruinosa incluso para muy buenos técnicos. El ingreso del bounty es real pero también estresante: hay meses malos, burnout, frustración por duplicados.</p>
+<h2>Cuatro hallazgos que muestran el método</h2>
+<ul>
+<li><strong>SQLi en un marketplace de autos</strong> (uno de los mayores e-commerce): el brute force de directorios devolvía 302 en loop. En lugar de insistir, se identificó la solución de hosting de voz de terceros, se hizo subdomain brute force del proveedor y se encontró una instancia demo sin autenticación en los mismos paths. Con la estructura completa mapeada desde la demo, se cambió el dominio al target real, se fuzzearon todos los parámetros y un SQLi permitió volcar las bases de datos completas.</li>
+<li><strong>Path traversal a api.github.com en un banco</strong>: un archivo JavaScript servido por CDN tomaba el nombre de archivo por parámetro, y el contenido referenciaba api.github.com. Con <code>../</code> hasta la raíz y el dominio de la API de GitHub en la ruta, los eventos internos quedaron expuestos por el propio parámetro de la CDN.</li>
+<li><strong>Account takeover por parámetro desconocido</strong>: un subdominio con 403 llevó a una aplicación con un campo <code>dvn id</code> que no se encontraba documentado. Google Images sí: documentos publicados en yumpu.com exponían esos identificadores en sus metadatos. Con los IDs recolectados, el flujo de recuperación de contraseña devolvía la contraseña en texto plano en una sola petición, suficiente para entrar a las cuentas.</li>
+<li><strong>SSRF en una solución ASM sin bugs reportados</strong>: la aplicación hacía screenshots del dominio padre como parte de su recon. Redirigiendo dominios hacia un payload propio se extrajo información interna vía screenshot — vacío al principio, hasta descubrir que la infraestructura corría en Lambda y no en EC2. Un tuit sobre SSRF en Lambda dio la petición exacta, y una segunda redirección capturó como imagen los eventos internos de la función.</li>
+</ul>
+<p>El hilo común: curiosidad sistemática. Un 403 interesante, un parámetro con nombre raro, un silencio sospechoso de bugs — todo se investiga con Google y persistencia antes de decidir si importa. Muchos parámetros raros no llevan a nada; el que lleva, vale la sesión entera.</p>
+<h2>El juego mental</h2>
+<p>El síndrome del impostor no desaparece ni estando en el MSRC top 100. Ver en Twitter a alguien cobrando bounties enormes genera la sensación de estar perdiendo algo — pero ese hallazgo puede ser el fruto de cuatro meses de investigación sobre un solo objetivo, no un estándar diario. La anécdota que resume el mecanismo de coping: despertar preguntándose "¿esto de verdad es mi trabajo?", sentarse, empezar a tipear, y dejar que el ritmo del trabajo restaure la confianza hasta que al día siguiente vuelve la duda. Y así todos los días, también para los reconocidos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El bug bounty es meritocrático: al triage le da igual la hoja de vida; lo único que cuenta es el hallazgo y cómo se demuestra su impacto.</li>
+<li>Demostrar el caso de uso malicioso concreto es la diferencia entre el 80% de rechazos por bajo impacto y un pago; el reporte debe contar una historia que un CEO entienda.</li>
+<li>Especializarse en uno o dos tipos de bug hasta "sentirlos" rinde más que dispersarse; y las 40 horas dedicadas sobre uno o dos objetivos son el umbral realista para evaluar si esto es viable.</li>
+<li>El salto a tiempo completo exige respaldo financiero previo; el ingreso del bounty es real pero volátil y mentalmente exigente.</li>
+<li>Duplicados y rechazos son currículum, no derrota: cada rechazo explicado por el triager es formación gratuita — siempre que se lea y se actúe sobre él.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/h86p7pcZmL8">«DEF CON 32 - Reflections on a Decade in Bug Bounties - Nikhil Shrivastava &amp; Charlie Waterhouse»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

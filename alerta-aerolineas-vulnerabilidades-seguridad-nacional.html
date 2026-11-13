@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alerta aerolíneas: cuando las vulnerabilidades amenazan la seguridad nacional — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Alerta aerolíneas: cuando las vulnerabilidades amenazan la seguridad nacional</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/9GwnWajpsRM">«Alerta aerolíneas: cuando las vulnerabilidades amenazan la seguridad nacional - Paccella &amp; Laurence»</a> · ver el <a class="nz-link" href="https://youtu.be/9GwnWajpsRM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un bug bounty sobre una aerolínea terminó convertido en una investigación que abarcó 51 compañías aéreas. El hallazgo inicial —acceder a las reservas de otros pasajeros en minutos— fue calificado como duplicado de un informe descartado dos años antes, y esa respuesta motivó la pregunta que sostiene todo el trabajo: ¿será un problema de una aerolínea o algo que comparten casi todas?</p>
+<p>La respuesta es estructural. Las reservas de vuelos se autentican con el PNR y el apellido, un par de credenciales diseñado en los años sesenta, compartido entre decenas de actores y predecible por construcción. Combinado con ticket numbers secuenciales, ausencia de rate limit y datos expuestos en sitios públicos, el acceso a reservas de pasajeros —incluidos políticos y figuras de alto perfil— se reduce a un ejercicio de paciencia. Los investigadores demostraron el ataque en vivo contra Turkish y Avianca, midieron cuántas aerolíneas no tienen protección alguna, relevaron a las cuatro que sí lo resuelven y propusieron la mitigación que nadie implementa: un segundo factor derivado del PNR. El análisis cierra con la paradoja final: los mismos PNR que los gobiernos comparten desde 2001 para proteger la seguridad nacional son hoy una amenaza a esa misma seguridad.</p>
+<h2>La doble puerta que no cierra: GDS y PNR</h2>
+<p>Dos piezas explican el problema. El <strong>GDS</strong> (Global Distribution System) —Amadeus, Sabre, Travelport— es el sistema que conecta aerolíneas, hoteles y agencias de viajes para que la industria funcione: el agente que cotiza un vuelo o la aerolínea que arma una conexión con otra necesitan en tiempo real precios y disponibilidad. Esos sistemas nacieron en la década del 60, cuando ni la privacidad ni la ciberseguridad eran criterios de diseño. Actualizarlos hoy implica coordinar el cambio con todas las aerolíneas integradas: complejo y costoso, así que el diseño sesentista sobrevive intacto.</p>
+<p>El <strong>PNR</strong> (Passenger Name Record) es el código alfanumérico que se genera al emitir el billete y que, junto al apellido, funciona como método de autenticación para acceder a la reserva. Dentro viaja todo: datos personales de los pasajeros y acompañantes, datos de facturación y de compra, servicios adicionales y el itinerario completo, con el estado de la reserva y si puede modificarse o cancelarse.</p>
+<p>El problema de seguridad es doble:</p>
+<ul>
+<li><strong>Falta de privacidad del secreto.</strong> El PNR no es una contraseña que conozca una sola persona: lo manejan la agencia de viajes, su personal, la aerolínea y funcionarios públicos. Cuantas más manos, menor entropía.</li>
+<li><strong>Autenticación pobre.</strong> El código no distingue mayúsculas de minúsculas, no incluye caracteres especiales y muchas aerolíneas usan las primeras dos letras del PNR como identificador de empresa. El ticket number, por su parte, es secuencial: a las aerolíneas les basta con los primeros caracteres para identificarse —Turkish Airlines usa el 25—, lo que acota todavía más el espacio de búsqueda.</li>
+</ul>
+<p>Sin un rate limit robusto, la fuerza bruta sobre el par PNR-apellido deja de ser un ataque y se vuelve una espera.</p>
+<h2>Fuerza bruta en vivo: Turkish y Avianca</h2>
+<p>La materia prima del ataque sale de OSINT: en Scribd hay montones de boarding passes y reservas subidas a carpetas públicas. A partir de uno de esos documentos se toma un ticket number real y se arma el resto.</p>
+<p>Contra <strong>Turkish</strong>, el endpoint de gestión de reserva tiene un captcha que, al borrar el parámetro correspondiente, simplemente deja de importar. En Burp Intruder con ataque sniper sobre los últimos cuatro dígitos del ticket number, un delay prudente y un filtro de Content-Length superior a 8000, unas 3000 peticiones alcanzaron para machear cinco reservas en cuatro o cinco minutos. Nadie baneó nada.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Boarding pass público en Scribd] --> B[Ticket number real]
+    B --> C[Endpoint de reserva sin rate limit]
+    C --> D[Intruder: sniper sobre últimos 4 dígitos]
+    D --> E[Match por Content-Length]
+    E --> F[Reservas de terceros expuestas]
+
+</pre>
+
+<p>Contra <strong>Avianca</strong> el camino directo está defendido: la función "gestionar reserva" sí aplica rate limit y a los pocos intentos responde 403. Esa es la defensa correcta. El problema está en las funciones que nadie mira: "consultar estado de reembolso" pide únicamente el número de ticket —sin apellido, sin nada más— y ahí no hay barrera alguna. Todas las respuestas volvieron 200, y cada match devolvió reembolsos reales de personas con documentación y datos expuestos. La lección es simple: el rate limit que no cubre todas las funciones es decorativo. Consultas de reembolso, cambios de asiento, cambios de factura: cada endpoint olvidado es una puerta lateral.</p>
+<h2>El mapa de 51 aerolíneas</h2>
+<p>La auditoría cubrió 51 compañías y el panorama se ordena en cuatro franjas:</p>
+<ul>
+<li><strong>Sin protección alguna:</strong> Avianca, Azul, Turkish, Qatar Airways y Norwegian, entre las expuestas en la demostración. El problema sigue vivo y sin parche.</li>
+<li><strong>Rate limit o captcha:</strong> mitigan la automatización pero no el problema de fondo. Air China pide un captcha manual en cada intento, lo que solo obliga al atacante a tener paciencia.</li>
+<li><strong>Mitigaciones parciales:</strong> las que mejoran el panorama sin resolver la raíz, como veremos abajo.</li>
+<li><strong>Seguras:</strong> solo cuatro de 51.</li>
+</ul>
+<p>El podio de las que sí resuelven:</p>
+<ol>
+<li><strong>Pegasus Airlines</strong> (ganadora): la única de las 51 con un segundo factor real. PNR, apellido y, recién ahí, un OTP sin el cual no se muestra ningún dato.</li>
+<li><strong>Swiss Airlines:</strong> no mitiga la autenticación, pero tiene un monitoreo de amenazas en tiempo real excepcional. Un investigador atacó su propia reserva y dentro de la hora recibió el aviso del equipo de ciberseguridad, con el PNR rotado automáticamente.</li>
+<li><strong>Japan Airlines:</strong> exige campos adicionales —nombre, fecha de vuelo, número de vuelo, origen y destino— que multiplican la dificultad del ataque.</li>
+<li><strong>Air Koryo:</strong> la aerolínea de Corea del Norte no tiene gestión de reservas online; hay que iniciar sesión en una cuenta. Poco práctico, pero seguro.</li>
+</ol>
+<h2>El impacto: de las millas a la seguridad nacional</h2>
+<p>El impacto técnico es directo: el atacante ve datos de contacto, itinerario completo, facturación y montos pagados, servicios adicionales —mascotas, comidas especiales, hoteles—, números de documento y de viajero frecuente. Y no solo ve: puede modificar. Cambiar el número de viajero frecuente para robar millas, alterar datos personales, cancelar la reserva.</p>
+<p>El impacto legal encadena con el anterior. Acceder sin autorización a datos personales viola los regímenes de protección de datos. El marco más abarcativo es el RGPD europeo, que alcanza a cualquier empresa que opere en territorio de la Unión Europea o trate datos de sus ciudadanos, exige medidas activas proporcionales al riesgo, notificación a la autoridad de control en 72 horas —la CNIL en Francia, por ejemplo— e informa al afectado. Las multas llegan al 4% de la facturación global con un piso de 20 millones de euros: British Airways fue sancionada en 2019 con 400 millones de euros por una fuga de datos (apeló y terminó pagando 20 millones). La contradicción es evidente: negarse a arreglar el problema "por diseño" cuesta más que arreglarlo.</p>
+<p>Y está el impacto que da título a todo. Buscando apellidos de figuras públicas, los investigadores confirmaron que los actores de Hollywood viajan en vuelos comerciales —en business—, igual que jugadores de fútbol y empresarios. Faltaba la prueba mayor: un expresidente. Dieron con su reserva en vuelo comercial de primera clase, y sin entrar a los datos: solo confirmaron su existencia, que ya es demasiado. Una vulnerabilidad que permite targetear políticos y figuras de alto perfil facilita amenazas dirigidas, espionaje y manipulación de información. A escala, deja de ser un incidente de privacidad y pasa a ser un problema de seguridad nacional: si dos investigadores independientes llegaron ahí en días, queda la pregunta de cuántos jueces, políticos y presidentes están expuestos ahora mismo.</p>
+<h2>Las respuestas de la industria</h2>
+<p>Dos tercios de las aerolíneas notificadas respondieron negativamente o no respondieron. Las excusas se repiten: cuestiones de diseño, falta de impacto, improbabilidad del acceso. Las pruebas de concepto desmintieron la última. Solo un 19,6% está mitigando el problema.</p>
+<p>Las mitigaciones, ordenadas por valor real:</p>
+<ul>
+<li><strong>Rate limit y captcha:</strong> buena práctica, insuficiente; no resuelve la autenticación débil.</li>
+<li><strong>Campos adicionales</strong> (Japan Airlines): aceptable, aunque el problema de fondo sigue.</li>
+<li><strong>Monitoreo continuo</strong> (Swiss): la mitigación que todas deberían tener, rotación automática del PNR incluida.</li>
+<li><strong>Segundo factor derivado del PNR:</strong> la única solución de raíz. El flujo: el usuario envía PNR y apellido; la aerolínea valida contra su sistema o el GDS; extrae el mail o teléfono asociado al PNR; envía un OTP a ese contacto; el usuario ingresa el OTP y recién entonces accede a la reserva.</li>
+</ul>
+<pre class="mermaid">
+sequenceDiagram
+    actor U as Usuario
+    participant A as Aerolínea
+    participant G as GDS
+    U->>A: PNR + apellido
+    A->>G: Validación de credenciales
+    G-->>A: Válidas
+    A->>U: OTP al mail/teléfono del PNR
+    U->>A: OTP ingresado
+    A-->>U: Acceso a la reserva
+
+</pre>
+
+<p>Pegasus, una low cost, demostró que implementarlo es factible: la excusa del presupuesto cae sola cuando una low cost ya lo hizo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bug bounty:</strong> programas de pago por fallas de seguridad; plataformas HackerOne, YesWeHack y Bug Crowd; Village Bug Bounty Argentina.</li>
+<li><strong>GDS (Global Distribution System):</strong> sistemas que conectan aerolíneas, hoteles y agencias (Amadeus, Sabre, Travelport), herencia de diseño de los años sesenta.</li>
+<li><strong>PNR (Passenger Name Record):</strong> código alfanumérico + apellido como autenticación de reserva; compartido entre agencias, aerolíneas y funcionarios.</li>
+<li><strong>Ticket number secuencial:</strong> número de billete predecible cuyos primeros dígitos identifican a la aerolínea emisora (Turkish: 25).</li>
+<li><strong>Ataque de fuerza bruta:</strong> sobre el par PNR-apellido o sobre los dígitos restantes del ticket number, sin barreras de rate limit.</li>
+<li><strong>OSINT:</strong> recolección de boarding passes y reservas expuestas en Scribd como semilla del ataque; Village de OSINT.</li>
+<li><strong>Burp Suite Intruder:</strong> ataque sniper sobre los últimos cuatro dígitos del ticket number, con delay y filtro por Content-Length para detectar matches.</li>
+<li><strong>Rate limit parcial:</strong> el patrón de error más común —defensa en la función principal y endpoints olvidados (reembolsos, cambios de asiento) sin protección.</li>
+<li><strong>Monitoreo de amenazas en tiempo real:</strong> detección de fuerza bruta y rotación automática del PNR (caso Swiss).</li>
+<li><strong>RGPD:</strong> protección activa de datos, notificación en 72 horas, multas de hasta 4% de la facturación global o 20 millones de euros.</li>
+<li><strong>Segundo factor derivado del PNR:</strong> OTP enviado al contacto asociado a la reserva antes de mostrar cualquier dato (caso Pegasus).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La autenticación por PNR + apellido es un diseño de los años sesenta que sobrevivió a internet: pensado para consultas telefónicas donde la fuerza bruta era imposible, hoy es una credencial adivinable en minutos.</li>
+<li>El rate limit que no cubre todas las funciones es decorativo: los endpoints secundarios —reembolsos, cambios— son las puertas laterales por donde entra el ataque.</li>
+<li>La seguridad de los datos personales es una obligación activa, no un estándar de diseño: "así funciona el sistema" no exonera de las multas ni de la notificación a las autoridades.</li>
+<li>Solo 4 de 51 aerolíneas resuelven el problema y solo Pegasus implementa la solución de raíz; el argumento presupuestario no sostiene el escrutinio.</li>
+<li>La paradoja final: los PNR que los gobiernos comparten desde 2001 para proteger la seguridad nacional son hoy una vía de exposición de esa misma seguridad. Mientras ningún gobierno obligue al cambio, la industria espera el factor externo —y los datos siguen viajando por el aire.</li>
+</ul>
+<p><em>Contribuyeron a la investigación Alan Levy (El Mago) y Gabriel Tarcia (Trelo Boy).</em></p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/9GwnWajpsRM">«Alerta aerolíneas: cuando las vulnerabilidades amenazan la seguridad nacional - Paccella &amp; Laurence»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

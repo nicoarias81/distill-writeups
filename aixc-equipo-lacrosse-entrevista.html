@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Team Lacrosse: fuzzing masivo más LLMs en el AI Cyber Challenge — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Team Lacrosse: fuzzing masivo más LLMs en el AI Cyber Challenge</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YdJ6NoxzuKs">«DEF CON 33 Video Team - DEFCON AIxCC Lacrosse Team»</a> · ver el <a class="nz-link" href="https://youtu.be/YdJ6NoxzuKs">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En una entrevista grabada en DEF CON, el equipo Lacrosse —de la empresa SIFT (Smart Information Flow Technologies), unos 35 empleados de los cuales unos 15 trabajaron en el proyecto a lo largo de dos años— repasa su participación en el AI Cyber Challenge (AIxCC), la competencia de ciberseguridad con IA financiada por el gobierno. El sistema de Lacrosse encontraba y reparaba fallos de software de forma completamente autónoma durante unos seis días continuos, sin intervención humana. De unas 40 o 50 competidoras iniciales, el equipo llegó al conjunto finalista.</p>
+<h2>El desafío y el sistema</h2>
+<p>La consigna del AIxCC: encontrar y corregir vulnerabilidades en grandes proyectos open source —código de Apache, entre otros—, ya sean fallos introducidos artificialmente o bugs históricos reinyectados. El sistema tenía que hacer todo el ciclo solo: identificar el bug, lograr dispararlo, reportarlo, generar el parche como PR y crear un test case que verificara la corrección.</p>
+<p>La apuesta técnica combinó análisis de software tradicional con large language models. El equipo venía de años de fuzzing a gran escala, con una arquitectura propia capaz de coordinar cientos de nodos de cómputo, y la novedad del último bienio fue incorporar LLMs al repertorio para tres tareas: encontrar vulnerabilidades (pueden hacerlo por sí solos), generar inputs que las disparen (en palabras del equipo, no son muy buenos en eso) y parchear el código una vez que el debugger indica dónde crasheó el programa.</p>
+<p>El flujo general del sistema:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Repositorio entrante vía API Python] --> O[Optimus: agente primario]
+    O --> F[Agentes de fuzzing y análisis]
+    F --> L[Pipelines LLM: clasificación y descripción]
+    L --> T[Tests de verificación]
+    T -->|descripción confirmada| L
+    L --> P[Patch generado y validado]
+    P --> V[Build + tests + re-chequeo de la vulnerabilidad]
+
+</pre>
+
+<p>El orquestador central —bautizado Optimus— reparte el código entrante hacia los agentes que hacen fuzzing; los hallazgos se pasan a pipelines de LLM que clasifican la vulnerabilidad y describen el problema, se corren pruebas sobre esa descripción para confirmarla, y el resultado realimenta la consulta al modelo. Después del parche, el código debe compilar, pasar los tests existentes y dejar de ser vulnerable al input que lo crasheaba.</p>
+<h2>Modelos, presupuesto y portfolio de respuestas</h2>
+<p>La evolución de dos años marca dos cambios grandes. El primero fue el presupuesto: en semifinales solo hubo free tiers de OpenAI, Anthropic y Google; en la final se abrió a cualquier modelo de esos proveedores, más otros como xAI, y el equipo pasó a reorganizar constantemente su lista —¿O3 como primario, o Sonnet 3.7?— con mucha depuración y prueba para ver qué modelo era más preciso y para qué tarea. El segundo fue la escala de contexto: al empezar los límites de entrada eran de decenas de miles de tokens y había que elegir con muchísimo cuidado qué código alimentar —un solo archivo de Nginx ya era demasiado grande—; al final, con presupuestos pagos, se podían enviar cientos de miles de tokens y pasaba el archivo fuente entero para recibirlo modificado.</p>
+<p>Otra técnica central fue el portfolio query: enviar la misma consulta, o variaciones menores, a seis, siete u ocho LLMs distintos y buscar coincidencias entre las respuestas para podar alucinaciones. Mucho de lo demás se validaba con pruebas: un parche solo se aceptaba si construía, pasaba los tests y eliminaba la vulnerabilidad comprobada. No hubo fine-tuning de modelos propios; se usaron los modelos comerciales disponibles, y el sistema completo —bautizado Lacrosse— se publicaría como open source pocas semanas después, como exige el concurso. El código del orquestador, curiosamente, es Lisp: una adaptación de la arquitectura del Cyber Grand Challenge de DARPA hace unos diez años, que a su vez viene de sistemas autónomos de control de vehículos aéreos no tripulados. Sin software con licencia: todo el análisis estático probado fue open source.</p>
+<h2>Sorpresas y fracasos útiles</h2>
+<ul>
+<li><strong>Análisis estático: descartado.</strong> Fue la apuesta fuerte de las semifinales; nunca apareció una herramienta lo bastante buena para integrar, y en el diagrama del sistema quedó con una cruz roja.</li>
+<li><strong>El "junior developer" de los LLMs.</strong> Al pedirle al modelo que reintente un fix mal hecho y darle feedback manual, respondía arreglando el problema y, de paso, "corrigiendo" seis cosas más de estilo que nadie pidió —riesgo directo de romper el rendimiento del proyecto open source—. La regla que hubo que imponerle es la misma que a un pasante: no tocar nada que no deba cambiarse. El moderador lo resume: los modelos operan a nivel de intern, y ese habría sido despedido.</li>
+<li><strong>La infraestructura en la nube.</strong> El salto de semifinales a finales exigió correr todo de forma autónoma sobre Azure: migrar lo que vivía en Kubernetes y Docker a un sistema de múltiples máquinas virtuales fue uno de los trabajos más grandes del equipo.</li>
+<li><strong>La mejora real de los modelos.</strong> Hace dos años, una instrucción irrelevante ("me gustan los gatos") junto a la tarea de fix parecía ayudar; eso ya no es cierto. Lo que cambió dramáticamente es la capacidad de entender y reparar software, que es justo lo que el desafío necesitaba.</li>
+</ul>
+<h2>Lo que harían distinto</h2>
+<p>Con la retrospectiva completa, la lección principal es sobre personas y arquitectura: la infraestructura fue un desafío enorme, y con suficiente personal hubieran corrido dos vías en paralelo —un subequipo arrancando desde cero con una base 100% Python en lugar de arrastrar la arquitectura Lisp antigua, aunque ya adaptada a contenedores—. No lo hicieron por falta de tiempo de gente para atender ambas frentes. El detalle del pipeline de prompts: usaron un pipeline DSPy y ajustaban los prompts cada vez que un patch o un código de vuelta no cumplía el estándar esperado.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los LLMs no reemplazan al análisis tradicional: el sistema ganador-finalista combina fuzzing masivo, debuggers y pruebas automáticas con modelos usados como clasificadores y reparadores.</li>
+<li>La verificación automática es el filtro que hace utilizable a la IA: portfolio queries para podar alucinaciones, y build + tests + reproducción del crash antes de aceptar cualquier parche.</li>
+<li>El contexto ampliado cambió la estrategia de prompting: de fragmentos elegidos con lupa a archivos completos que entran y salen modificados.</li>
+<li>El código completo del sistema Lacrosse se libera como open source —incluido el orquestador Lisp heredado del Cyber Grand Challenge—, para que cualquier equipo examine, reutilice o supere el enfoque.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YdJ6NoxzuKs">«DEF CON 33 Video Team - DEFCON AIxCC Lacrosse Team»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

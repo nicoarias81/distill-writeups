@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ciberseguridad en entornos industriales: los retos de Industria 4.0 y tres aportes desde la academia — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Ciberseguridad en entornos industriales: los retos de Industria 4.0 y tres aportes desde la academia</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Ukw2KRfa3js">«Seguridad Industrial 4.0: Retos en la Ciberseguridad de los Sistemas de Control»</a> · ver el <a class="nz-link" href="https://youtu.be/Ukw2KRfa3js">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Industria 4.0 propone interconectar horizontal y verticalmente todos los sistemas de planta para revolucionar costos, tiempos de producción y calidad. El problema es que la tecnología operacional que hay que conectar nació para trabajar aislada, no se recambia nunca y lleva dentro una lista enorme de vulnerabilidades acumuladas. Este análisis —producto de un proyecto de investigación de doctorado radicado en la Universidad Abierta Interamericana— recorre el modelo Purdue y las tecnologías de los sistemas de control industrial, expone los desafíos de la hiperconectividad y presenta tres aportes con casi nulos antecedentes académicos: forense en vivo sobre SCADA, criptografía aplicada a PLCs y ciberdefensa desplegable con un escáner OT portable.</p>
+<h2>El mundo OT: ni mejor ni peor, diferente</h2>
+<p>La tentación es prejuzgar la tecnología industrial como vetusta y obsoleta. La analogía que mejor lo describe es Galápagos: no es peor ni mejor, evoluciona distinto, y hoy la necesidad es integrarla. Las razones de esa evolución distinta son duras:</p>
+<ul>
+<li>Se diseñó para funcionar <strong>en forma permanente sin parada</strong>: meses, años, 24x365.</li>
+<li>Resiste ambientes desfavorables: ruido magnético y eléctrico, rangos de temperatura, vibraciones.</li>
+<li>Tiene tiempos medios entre fallas altísimos: son equipos de calidad extrema que no se rompen.</li>
+</ul>
+<p>Y ahí está la vulnerabilidad: como no se recambian, mientras siguen funcionando perfectamente aparecen todos los días vulnerabilidades nuevas en el mundo, y un equipo de 10 años atrás acumula una lista enorme de agujeros. El problema de la obsolescencia no es que se rompa —no se rompen—, sino la seguridad.</p>
+<p>La cultura acompaña esa lógica: en OT la ciberseguridad no forma parte del día a día. La planta tiene que andar, tiene que producir y no puede parar; hay un virus, no importa, tiene que andar la planta. Si se apaga la planta al dueño —200 toneladas de acero incandescente tiradas— los millones por minuto de parada pesan más que cualquier control.</p>
+<h2>El modelo Purdue y la anatomía de una planta</h2>
+<p>El modelo Purdue separa dos zonas: la IT corporativa (niveles 5 y 4, planeamiento y gestión) y la planta, con tres niveles:</p>
+<ul>
+<li><strong>Nivel 1, campo</strong>: sensores (microswitches, caudalímetros) y actuadores (relés que activan motores o bombas, variadores de velocidad); entradas y salidas analógicas y digitales.</li>
+<li><strong>Nivel 2, control</strong>: los PLCs, computadores industriales hechos para funcionar sin parada y no romperse nunca.</li>
+<li><strong>Nivel 3, supervisión</strong>: el SCADA, una computadora con Windows conectada al PLC maestro, que a su vez se conecta con los demás PLCs. Una sala SCADA típica tiene servidor, standby, estación de ingeniería y clientes.</li>
+</ul>
+<p>Los SCADA grandes —como el de distribución de gas de Nueva York— manejan mimics enormes con miles de entradas y salidas y decenas de clientes conectados.</p>
+<h2>Los desafíos de Industria 4.0</h2>
+<p>El manual alemán de 2013 propone hiperconectividad horizontal (toda la planta, proveedores y clientes) y vertical (integración OT-IT). Dos desafíos concretos emergen:</p>
+<ol>
+<li><strong>Lo que se publica puede aparecer en Shodan</strong> sin que nadie lo sepa. Y más aún: el análisis de la base de incidentes del ICS-CERT de Estados Unidos muestra que en el 95–99% de los casos, entre las mitigaciones sugeridas, está el consejo opuesto: <strong>no conecte</strong>. Industria 4.0 dice hiperconectá; el organismo que asegura infraestructuras críticas dice no conectes. En el medio, las industrias haciendo el trade-off entre beneficio y seguridad.</li>
+<li><strong>La integración vertical OT-IT es culturalmente ajena</strong>: hasta hace poco, la sala de supervisión tenía dos computadoras sin cable que las uniera, y el mismo operador corría de un teclado a otro. Ese cable de integración aparece cuando hay inversión nueva; si la planta funciona, no es esperable que aparezca. Y cuando aparece, las vulnerabilidades que el mundo IT pelea todos los días golpean a un mundo OT totalmente indefenso.</li>
+</ol>
+<p>Los datos del ICS-CERT ayudan a dimensionar: el subsistema más comprometido es el software SCADA (Windows + computadora); las vulnerabilidades principales están en autenticación y en desbordamiento de pila o memoria. La hipótesis del proyecto —de que gran parte de los incidentes globales de sistemas de control se podían evitar cumpliendo buenas prácticas (62443, ISA99, NIST SP 800) — fue demostrada por un tesista que, ataque por ataque sobre infraestructuras críticas renombradas, listó qué controles de qué norma no se cumplieron.</p>
+<h2>Forense en vivo: la evidencia sin apagar la planta</h2>
+<p>La forense tradicional es en frío: apagar, copiar, analizar post-mortem para llevar evidencia a la justicia. En OT eso es inviable —la planta sigue andando durante y después del ataque—. La forense en vivo, probada sobre un banco SCADA con PLC Delta, permite obtener sin alterar el servicio:</p>
+<ul>
+<li>Tráfico de red y su contenido.</li>
+<li>Servicios activos, puertos abiertos, aplicaciones corriendo, fabricantes.</li>
+</ul>
+<p>El hallazgo más importante justifica todo lo demás: <strong>la información viaja en claro</strong>. Se mandó un ABC completo a un PLC, se capturó la trama y adentro estaba el ABC completo. Puesto en contexto: si el capturador es un competidor o un Estado con plan declarado de robo de secretos industriales, la trama contiene la fórmula —cuánto calentar el líquido, con qué mezclarlo, durante cuánto tiempo, cómo sacar el producto—. Además, en plantas donde nadie toca nada nunca (SCADA con XP o Windows 7 sin actualizar durante 5 o 10 años), la forense en vivo da un estado de situación sin tocar nada, algo que no se puede obtener desde adentro del sistema.</p>
+<h2>"Mini Stuxnet": inyectar tráfico Modbus a un pip install de distancia</h2>
+<p>Con Wireshark se ve que el protocolo Modbus TCP viaja en claro, incluido el Function Code (Write Single Register, Write Single Coil). La demostración es contundente: un insider o un atacante con acceso a la red industrial y conocimientos básicos de programación está a un <code>pip install pymodbus</code> y un script sencillo de interactuar con un PLC y modificar el proceso industrial. La prueba de concepto varió la velocidad de giro de una centrifugadora de uranio simulada —de ahí el apodo de mini Stuxnet—, sin necesidad del desarrollo que en 2010 requirió el original.</p>
+<h2>Criptografía sobre PLC: el plan de trabajo</h2>
+<p>La respuesta al tráfico en claro es cifrar, pero criptografía y PLC no se llevan bien. El mapeo sistemático de literatura encontrado incluye una librería china de criptografía que no se recomienda: se enmarca en un plan de espionaje industrial declarado y no es nada amigable de desplegar. Las propuestas propias:</p>
+<ol>
+<li><strong>Function block criptográfico</strong>: un bloque de función incluido en la lógica del PLC que cifre la carga útil del paquete, y que el receptor (PLC o SCADA) descifre. El Function Code queda en claro a propósito: el receptor necesita saber qué hacer con el mensaje.</li>
+<li><strong>Criptografía ligera</strong>: los algoritmos deben ser livianos, porque todo lo agregado añade latencia a sistemas de tiempo real.</li>
+<li><strong>PKI industrial (la versión TLS de Modbus)</strong>: investigada en lo académico y lo industrial, no se vio implementada. Y TLS tiene un problema: sus dos algoritmos no son postcuánticos, es decir, no resistirían el "día Q" de las computadoras cuánticas prácticas.</li>
+<li><strong>Intercambio de claves postcuántico</strong>: trabajar con estructuras matemáticas no conmutativas, donde cambiar el orden de los factores cambia el resultado, lo que complica la recuperación de la clave. Las pruebas iniciales se hicieron en Python y SageMath; el próximo paso es pasar a un lenguaje de más bajo nivel para ganar velocidad.</li>
+</ol>
+<h2>Ciberdefensa desplegable: un escáner OT portable</h2>
+<p>El tercer aporte traslada un concepto de doctrina militar a la academia. La ciberdefensa desplegable —nacida hacia 2010, consolidada en la guerra electrónica y visible en la guerra de Ucrania— es la capacidad de llevar equipos y personal operativos a donde se necesiten: unidades móviles, autónomas, flexibles. La Unión Europea ya despliega batallones cibernéticos entre aliados; los SOC móviles existentes dependen de conectividad externa, mucho personal y logística.</p>
+<p>La versión académica es un <strong>escáner OT en MVP</strong>, pensado para montarse en un dispositivo pequeño, de bajo costo y bajo cómputo, operable por el propio operador de planta:</p>
+<ul>
+<li>Escaneos pasivos y activos con interfaz intuitiva: conectarlo y recibir el estado de situación de la red.</li>
+<li>Base de vulnerabilidades <strong>local</strong>: no necesita conectarse hacia afuera, lo que responde al requisito frecuente (y a veces falso) de que las redes industriales no tienen internet.</li>
+<li>Chequeo de salida a internet: si la red que "no tiene internet" en realidad sale por alguna IP, consulta el API de Shodan y devuelve la postura de seguridad de esa IP.</li>
+</ul>
+<pre class="mermaid">
+flowchart TB
+    subgraph Desafios[Desafíos Industria 4.0]
+        H[Hiperconectividad] --> SH[Exposición en Shodan]
+        IT[Convergencia IT-OT] --> IN[Indefensión de OT]
+    end
+    subgraph Aportes
+        F[Forense en vivo: evidencia sin parar la planta] --> H1[Tráfico en claro demostrado]
+        C[Criptografía sobre PLC: function block + PKI postcuántica] --> H1
+        E[Escáner OT portable: ciberdefensa desplegable]
+    end
+    IN --> F
+    H1 --> C
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>La tecnología industrial no es de peor calidad sino de evolución distinta: su robustez y longevidad son exactamente lo que convierte la obsolescencia en riesgo de seguridad, porque los equipos no se recambian pero las vulnerabilidades sí se acumulan.</li>
+<li>La hiperconectividad que propone Industria 4.0 choca con la doctrina de los organismos de infraestructura crítica ("no conecte" en el 95–99% de los casos de mitigación del ICS-CERT) y con una cultura OT donde la producción pesa más que cualquier control.</li>
+<li>El tráfico Modbus TCP viaja en claro y la explotación está a un <code>pip install</code> de distancia: la seguridad por oscuridad ya no existe en redes industriales, y el robo de secretos de proceso por captura de tramas es un riesgo real y documentado.</li>
+<li>Los tres aportes presentados —forense en vivo, criptografía ligera con PKI postcuántica sobre PLC, y escáner OT desplegable— atacan vacíos con casi nulos antecedentes académicos; hay mucho por investigar y publicar.</li>
+<li>Implementar gestión de seguridad basada en buenas prácticas y conseguir inversión en networking sigue siendo el mayor obstáculo práctico: cualquier mejora requiere tocar sistemas diseñados para no detenerse jamás.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Ukw2KRfa3js">«Seguridad Industrial 4.0: Retos en la Ciberseguridad de los Sistemas de Control»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

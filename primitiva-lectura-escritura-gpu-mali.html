@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una primitiva genérica de lectura/escritura para GPUs Mali, sin OpenCL — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Una primitiva genérica de lectura/escritura para GPUs Mali, sin OpenCL</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/FWoCqjlsSTY">«DCSG1 - Finding a Generic Mali GPU Read:Write Primitive - Shuquan Zhou»</a> · ver el <a class="nz-link" href="https://youtu.be/FWoCqjlsSTY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los controladores de GPU móviles se han convertido en una de las superficies de ataque más productivas del kernel de Android: entre 2022 y 2024, siete de los diecisiete exploits de kernel documentados por Project Zero en esa plataforma abusaban de bugs de drivers de GPU. No es casualidad — la superficie es directamente alcanzable desde cualquier app sin privilegios especiales (la app puede abrir la interfaz del dispositivo GPU), y la gestión de memoria interna es compleja: el driver administra páginas físicas compartidas entre mapeos visibles para CPU y para GPU, y la sincronización entre ambas tablas de páginas multiplica los caminos donde aparecen estados inconsistentes y use-after-free.</p>
+<p>En ese contexto, una primitiva estable de lectura/escritura (RW) sobre memoria GPU es la diferencia entre una idea de exploit elegante y un exploit funcional. El trabajo de 360 Vulnerability Research (Zhou Shuquan, Guang Gong y Jun Yao) presenta <strong>Mali-RW</strong>: una primitiva de lectura/escritura para GPUs ARM Mali que depende únicamente de la interfaz CSF (Command Stream Frontend) y de sincronización nativa del driver, eliminando la dependencia frágil de OpenCL que caracteriza a las primitivas existentes. El resultado es library-independent, portable entre dispositivos Mali modernos y ya integrado en explotación real de CVE-2025-0072 con escalada a root.</p>
+<h2>El rol de la GPU-RW en explotación: requerida o potenciadora</h2>
+<p>El punto de partida es una taxonomía simple del papel que juega la primitiva GPU en un exploit de kernel Android:</p>
+<ul>
+<li><strong>GPU-required</strong>: el exploit depende de acceso al estado privado del lado GPU (por ejemplo, las tablas de páginas que la CPU no ve). Sin la primitiva RW, la cadena no continúa.</li>
+<li><strong>GPU-enhanced</strong>: el bug existe y es explotable sin GPU, pero la RW la hace más fiable, más estable y con un camino de explotación más limpio.</li>
+</ul>
+<p>El ejemplo paradigmático de caso requerido es <strong>CVE-2023-6241</strong>, un bug en el crecimiento de memoria JIT del driver Mali: una raza entre un hilo que ejecuta la ruta de crecimiento (que baja a ring-0 mientras el pool crece) y otro hilo que gestiona los GPU page faults produce un bookkeeping inconsistente. El estado inconsistente genera una cola sin mapear dentro de una región; al destruir esa región, el teardown libera rangos que siguen mapeados del lado GPU:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Raza en crecimiento JIT] --> B[Bookkeeping inconsistente<br/>cola sin mapear]
+    B --> C[Teardown libera páginas<br/>que la GPU aún mapea]
+    C --> D[Páginas liberadas reutilizadas<br/>como objetos de GPU page table]
+    D --> E[GPU-RW modifica la PTE<br/>hacia texto del kernel RWX]
+    E --> F[Escritura de shellcode<br/>en texto del kernel]
+
+</pre>
+
+<p>Desde la CPU las páginas están libres; desde la GPU siguen accesibles. Si el exploit recoloca un objeto de tabla de páginas GPU sobre esas páginas liberadas, la primitiva RW permite modificar la propia entrada de la tabla de páginas para apuntar al texto del kernel y ejecutar código. Sin acceso de memoria del lado GPU, la cadena no arranca: por eso el caso es "GPU-required". El segundo caso estudiado (una UAF por rebinding de queries que sobrevive al ciclo de vida del mapeo, dejando memoria liberada mapeada accesible desde user space) es del tipo "GPU-enhanced": la primitiva convierte un exploit frágil en uno reproducible y estable.</p>
+<h2>Por qué las primitivas existentes no escalan</h2>
+<p>Antes de Mali-RW había dos caminos conocidos, ambos con problemas serios de portabilidad:</p>
+<ol>
+<li><strong>Primitivas basadas en OpenCL.</strong> Funcionan en la práctica — OpenCL ofrece un modelo de programación estructurado (contexto, cola de kernels, buffers, envío de trabajo GPU) — pero el runtime es lo frágil. Las librerías OpenCL de los fabricantes están modificadas: en dispositivos Huawei la librería por defecto falla al cargar porque no encuentra el driver Mali y hay que parchear manualmente las rutas de la librería. A esto se suman cadenas de dependencias transitivas que rompen el bring-up en cada modelo. La consecuencia: explotar cada dispositivo cerrado se vuelve caro porque exige adaptación manual por modelo.</li>
+<li><strong>Primitivas basadas en el job manager legacy.</strong> Antes de CSF, todos los Mali usaban un job manager donde user space construía cadenas de jobs tipados y el driver las despachaba a los motores de la GPU. Ciertos tipos de job podían reutilizarse como primitivas — es la base del clásico <em>write-value</em> de Mali (construir el job header, elegir el tipo, empaquetar dirección y valor, enviar). Es un modelo más directo, pero está obsoleto: los Mali modernos migraron a CSF, el truco solo aplica a hardware legacy y no existe una primitiva de lectura pública equivalente, por lo que la lectura exige trucos extra para leer de vuelta y recuperar el contexto.</li>
+</ol>
+<p>La pregunta de investigación queda entonces planteada: ¿se puede conservar la utilidad de una primitiva GPU-RW eliminando la dependencia de OpenCL en dispositivos CSF?</p>
+<h2>Ingeniería inversa asistida: del trace a la construcción de comandos</h2>
+<p>La metodología fue <em>capturar, replicar</em>: un demo mínimo de OpenCL que dispara lectura y escritura GPU, instrumentado con <strong>Frida</strong> en el límite entre user space y el driver kernel, capturó configuración, mapeos de memoria, streams de comandos y argumentos. Reproducir ese tráfico con una app standalone sin OpenCL reveló dos problemas duros.</p>
+<p><strong>Problema 1: el formato de comandos es indocumentado.</strong> El replay parecía correcto — la secuencia de ioctls coincidía, la cola existía, el kick devolvía éxito — pero el efecto de lectura/escritura nunca aparecía, sin errores ni progreso. ARM no publica documentación para construir streams de comandos CSF desde cero: se podía reproducir un buffer capturado, pero no sintetizar uno nuevo con confianza. La solución vino de combinar dos ingredientes:</p>
+<ul>
+<li><strong>Mesa/Panfrost</strong> como fuente de conocimiento: Panfrost es el driver open source de Mali dentro del stack gráfico Mesa, con trabajo de ingeniería inversa comunitaria que cubre varias generaciones de hardware.</li>
+<li><strong>Un agente de IA (360 Vulnerability Agent)</strong> para automatizar el proceso: construir Mesa, localizar el directorio de código generado, extraer el mapa de opcodes CS (más de cincuenta entradas) y enfocarse en los opcodes de acceso a memoria: <strong>MOVE</strong>, <strong>LOAD</strong> y <strong>STORE</strong>.</li>
+</ul>
+<p>De las definiciones del fuente el agente derivó los layouts de campos y generó funciones emisoras reutilizables. Los comandos relevantes: <code>move32</code>/<code>move48</code> cargan inmediatos de 32 o 48 bits en un registro (los de 48 bits son ideales para direcciones), y LOAD/STORE usan cinco campos — address region, register (el registro que contiene la dirección objetivo), register base (desde dónde arranca el bloque de datos), mask (controla el largo de la transferencia) y opcode. Con eso, la construcción de comandos dejó de ser un replay a ciegas: <strong>move</strong> (preparar constantes y registros) + <strong>load</strong> (memoria→registro) + <strong>store</strong> (registro→memoria) son los tres bloques mínimos para una primitiva RW completa.</p>
+<h2>Sincronización nativa: cuando el kick miente</h2>
+<p><strong>Problema 2: sin feedback de ejecución.</strong> El demo standalone enviaba el stream y el driver aceptaba el kick, pero los logs del driver confirmaban que la GPU nunca ejecutó los comandos. La lección operativa es directa: <em>éxito del submit no significa éxito de la ejecución</em>, y user space no tenía señal visible de progreso.</p>
+<p>La pista estaba en dos rutas del driver Mali: <em>insert</em> y <em>extract</em> visibles en el user IO page. El experimento confirmó que la sincronización vive íntegramente en memoria compartida, sin APIs de kernel adicionales tras el kick:</p>
+<pre class="mermaid">
+flowchart LR
+    A[App: kick del stream] --> B[User space escribe<br/>sysinsert en memoria compartida]
+    B --> C[GPU lee sysinsert,<br/>ejecuta comandos]
+    C --> D[GPU escribe sysextract<br/>en la misma memoria]
+    D --> E{extract == insert?}
+    E -- sí --> F[Stream consumido: éxito]
+    E -- no --> G[Esperar y reintentar<br/>hasta timeout]
+
+</pre>
+
+<p>Al bindear la cola se obtiene un cookie que mapea una región compartida de tres páginas: una para <code>sysinsert</code> (hasta dónde avanzó la <em>submission</em>) y otra para <code>sysextract</code> (hasta dónde avanzó la <em>ejecución</em>). Cuando extract alcanza a insert, el stream fue consumido; si el extract se estanca, el stream está en espera, expiró o falló. Ese canal convierte el envío en un handshake verificable: enviar, actualizar insert, sondear extract, reintentar con timeout y tratar el timeout repetido como fallo. El submit deja de ser una apuesta y pasa a ser determinista.</p>
+<h2>Mali-RW: las primitivas ensambladas</h2>
+<p>La implementación final se organiza en tres fases, con la lógica específica de cada exploit separada de la infraestructura reutilizable:</p>
+<ol>
+<li><strong>Preparación del entorno CS</strong> (independiente del exploit): configurar memoria JIT, crear grupo y cola, bindear la cola y mapear el user IO page.</li>
+<li><strong>Construcción del stream de comandos</strong> con los wrappers MOVE/LOAD/STORE generados: <code>move48</code> elige el formato según si el valor cabe en 48 bits (típico para direcciones), y si no, se descompone en varios <code>move32</code>.</li>
+<li>
+<p><strong>Envío y sincronización</strong> con el handshake insert/extract.</p>
+</li>
+<li>
+<p><strong>WRITE</strong>: mover el valor a un registro, mover la dirección objetivo a otro, emitir STORE, enviar y esperar el sync. Escribir es un stream mínimo de move+store, determinista y sin librerías.</p>
+</li>
+<li><strong>READ</strong>, cuatro pasos: mover la dirección objetivo a un registro; inicializar a cero el registro destino; emitir LOAD y esperar a que termine (sin esa espera, el paso siguiente puede leer un valor desactualizado); y almacenar el valor cargado en un buffer compartido visible para CPU y GPU, desde donde la CPU lo lee de vuelta.</li>
+</ol>
+<p>Con las primitivas aprendidas, el mismo agente de IA migra exploits OpenCL-based existentes a la versión nativa CSF: identifica los helpers viejos de lectura/escritura y los flujos de buffers, inserta los wrappers move/load/store y la sincronización nativa, y deja intacta la lógica del trigger del bug. La migración de un exploit real de <strong>CVE-2025-0072</strong> es el caso concreto.</p>
+<h2>Demostración: root en SELinux enforcing, cero OpenCL</h2>
+<p>Dos verificaciones prácticas cierran el trabajo. La primera es funcional: un programa ejecuta cuatro rondas de escritura GPU de un valor aleatorio seguida de lectura de verificación — las cuatro pasan — mientras el monitoreo de <code>/proc/&lt;pid&gt;/maps</code> confirma que no hay ninguna librería OpenCL cargada en el proceso.</p>
+<p>La segunda es la explotación completa: en un dispositivo con SELinux enforcing y shell sin privilegios, el exploit de CVE-2025-0072 usa la primitiva de lectura para inspeccionar el texto del kernel, inyecta shellcode y usa la primitiva de escritura para sobrescribir el texto, ejecuta el shellcode con un trampoline que recupera el contexto, y obtiene <strong>root con cuatro shells</strong>. El monitoreo de librerías durante todo el proceso: ni OpenCL ni librerías vendor cargadas.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CSF (Command Stream Frontend)</strong>: interfaz de envío de comandos de los Mali modernos; base de la primitiva, reemplaza al job manager legacy.</li>
+<li><strong>Frida</strong>: instrumentación del límite user space/driver para capturar el trace de OpenCL a replicar.</li>
+<li><strong>Mesa / Panfrost</strong>: driver open source de Mali; fuente del mapa de opcodes CS para construir comandos sin documentación de ARM.</li>
+<li><strong>360 Vulnerability Agent</strong>: agente de IA que automatizó el build de Mesa, la extracción del mapa de opcodes y la generación de wrappers move/load/store.</li>
+<li><strong>User IO page / sysinsert-sysextract</strong>: canal de sincronización nativo por memoria compartida que da feedback de ejecución tras el kick.</li>
+<li><strong>CVE-2023-6241</strong>: bug Mali de crecimiento JIT (caso GPU-required); su cadena ilustra por qué la RW es prerrequisito.</li>
+<li><strong>CVE-2025-0072</strong>: exploit real migrado a la primitiva nativa y usado en la demo de escalada a root.</li>
+<li><strong>Job manager legacy / write-value</strong>: técnica clásica de escritura en Mali pre-CSF, hoy limitada a hardware antiguo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>En explotación de kernel Android vía drivers GPU, la pregunta correcta no es solo "¿hay un bug?" sino "¿dónde juega la GPU en la explotación del bug?": hay cadenas donde la primitiva RW es prerrequisito y otras donde es el multiplicador de fiabilidad.</li>
+<li>Las primitivas basadas en OpenCL funcionan pero no son portables: librerías vendor modificadas y dependencias transitivas convierten cada dispositivo en un proyecto de adaptación manual; el job manager legacy murió con CSF.</li>
+<li>Mesa/Panfrost es una fuente explotable de conocimiento de formatos indocumentados, y un agente de IA puede cerrar el ciclo completo — build, análisis de código generado, derivación de layouts y generación de emisores — reduciendo la ingeniería inversa a supervisión.</li>
+<li>Éxito del kick no es éxito de ejecución: la sincronización nativa por memoria compartida (insert/extract) es el ingrediente que convierte un envío esperanzador en un handshake determinista, y es lo que hace a la primitiva usable en exploits reales como CVE-2025-0072 hasta root en SELinux enforcing.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/FWoCqjlsSTY">«DCSG1 - Finding a Generic Mali GPU Read:Write Primitive - Shuquan Zhou»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

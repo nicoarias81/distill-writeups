@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Finch: el proxy inverso que lee las huellas de los bots — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Finch: el proxy inverso que lee las huellas de los bots</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/G7twgn-gi9k">«DEF CON 33 - Fingerprint-Based Bot Blocking &amp; Dynamic Deception - Adel Karimi»</a> · ver el <a class="nz-link" href="https://youtu.be/G7twgn-gi9k">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las IP rotan cien veces por minuto y el user-agent es un campo de texto editable: construir detección sobre esos datos es jugar al whack-a-mole. La alternativa está más abajo en la pila, donde el atacante tiene menos margen de manipulación: el ClientHello de TLS (versión, cipher suites y extensiones en el orden que impone la biblioteca subyacente), el orden de los cabeceras HTTP, y en HTTP/2 la combinación de frames <code>SETTINGS</code>, <code>WINDOW_UPDATE</code> y <code>PRIORITY</code>. Sobre esas señales se construye Finch, un proxy inverso TLS fingerprint-aware que permite <strong>negar, enrutar, tarpitar o engañar</strong> según la huella del cliente, con configuración HCL, módulo de reglas Suricata integrado y una API de administración programática.</p>
+<p>El valor no es solo el bloqueo. En datos de su antiguo proyecto HoneyTLS (TLS + HTTP capturados a nivel de proxy en lugar de ensamblados a mano desde Zeek + Nginx), la visualización en grafos de IP → huella destapó un patrón invisible con logs clásicos: cuatro actores con IP en ASNs distintos y una misma conducta —un solo origen generando cientos de JA3 distintos, quitando un algoritmo por petición para rotar la huella—. Precisamente ese intento de evasión los delató: los cuatro clústeres quedaron conectados porque compartían por descuido dos o tres huellas idénticas, el nexo que ninguna correlación por IP podía establecer.</p>
+<h2>Fingerprinting 101</h2>
+<pre class="mermaid">
+flowchart LR
+    subgraph TLS
+        A[ClientHello en claro<br/>versiones · ciphers · extensiones] --> F1[JA3: hash MD5]
+        A --> F2[JA4: ordenado, legible,<br/>resistente a GREASE]
+    end
+    subgraph HTTP
+        B[Headers + su orden] --> F3[JA4H: añade cookies y referrer]
+    end
+    subgraph HTTP2
+        C[SETTINGS + WINDOW_UPDATE<br/>+ PRIORITY] --> F4[Huella estilo Akamai]
+    end
+    subgraph QUIC
+        D[ClientHello protegido<br/>pero descifrable por estándar] --> F5[JA3/JA4 sobre HTTP/3<br/>soporte experimental]
+    end
+
+</pre>
+
+<p>Puntos clave del enfoque:</p>
+<ul>
+<li><strong>JA3</strong> (hash MD5 de parámetros concatenados) funciona bien, pero GREASE de Chrome genera veinte huellas distintas para el mismo navegador y el hash oculta el contenido. <strong>JA4</strong> ordena los algoritmos antes de hashear, es legible y permite reglas con prefijos y comodines (QUIC se ve a simple vista en la cadena).</li>
+<li><strong>La huella no es firma de detección.</strong> Sirve para implantes C2 con configuraciones TLS muy peculiares, pero como señal única genera falsos positivos y negativos; su lugar es junto al user-agent y el resto de metadatos.</li>
+<li><strong>La correlación cruzada es el truco:</strong> el user-agent dice Chrome y el JA3 dice curl. Cotejar capa HTTP con capa TLS en el mismo proxy delata la suplantación que un atacante descuidado no replica en todas las capas.</li>
+<li><strong>La evasión crece con la adopción.</strong> Con JA3/JA4 ya soportados por AWS, Cloudflare, Suricata y Zeek, aparecieron decenas de herramientas de mimetización (antes solo existía uTLS), incluso un módulo de Burp para falsificar su huella TLS. Apilar capas HTTP+TLS+HTTP/2 encarece el engaño; la mayoría de atacantes ni siquiera conoce JA3, y buena parte de defensores tampoco lo colecciona.</li>
+</ul>
+<h2>Cinco acciones contra el atacante</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Acción</th>
+<th>Efecto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>allow</code></td>
+<td>Tráfico normal hacia la aplicación</td>
+</tr>
+<tr>
+<td><code>deny</code></td>
+<td>Bots y crawlers indeseados fuera, por huella</td>
+</tr>
+<tr>
+<td><code>route</code></td>
+<td>Tráfico que matchea reglas Suricata → honeypot, sin tocar producción</td>
+</tr>
+<tr>
+<td><code>tarpit</code></td>
+<td>Ralentización deliberada: un escaneo de ZAP de ~20 s pasa a más de 10 min (con límites de conexiones simultáneas para no agotar recursos propios)</td>
+</tr>
+<tr>
+<td><code>deceive</code></td>
+<td>Respuestas HTTP generadas al vuelo por un LLM</td>
+</tr>
+</tbody>
+</table></div>
+<p>La acción <code>deceive</code> reutiliza su honeypot web basado en LLM: ante una ruta desconocida o un exploit posiblemente zero-day, un modelo barato y con caché fabrica la respuesta convincente en menos de un segundo. Extremo demostrado sin coste: una clave de API falsa sembrada en Pastebin con un endpoint OpenAI inventado fue recogida por un bot minutos después, y el proxy respondió con un generador de basura basado en cadenas de Markov. Bonus involuntario de ese honeypot LLM: sus respuestas convencieron a un actor de que había encontrado un proxy abierto y le hizo quemar el presupuesto mensual de $20 de API en cinco minutos — cien mil peticiones de fraude publicitario dirigidas a un honeypot.</p>
+<h2>El agente que escribe sus propias reglas</h2>
+<p>Finch expone una API de administración y un stream SSE de eventos. Encima, un agente experimental —LLM + herramientas + instrucciones, en bucle observar-actuar— monitoriza los logs y aplica reglas de bloqueo automáticamente: el escenario del presupuesto devorado ya no puede repetirse, porque el patrón dispara la regla por sí solo.</p>
+<p>La lección metodológica pesa tanto como la herramienta: lanzar un log de 10 MB a un LLM y esperar análisis es recibir mentiras ("lo hice" sin haber hecho nada). La clave es darle <strong>uso de intérprete Python</strong>: el agente de la demo ejecutó 40-50 consultas y agregaciones sobre 10-20 MB de logs y redescubrió en un minuto, sin contexto adicional, el patrón de rotación de JA3 que siete años atrás costó días de scroll manual. Con un subagente dedicado, tradujo los hallazgos en reglas de bloqueo y las aplicó vía API de administración.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Coleccionar huellas cambia el análisis.</strong> Patrones de rotación de JA3, vínculos entre ASNs y attribution por comportamiento solo emergen con esos metadatos; el bloqueo es casi un efecto secundario.</li>
+<li><strong>Defensa en profundidad también en el fingerprinting:</strong> apilar TLS, HTTP, HTTP/2 y QUIC hace la suplantación integral impracticable para el atacante medio.</li>
+<li><strong>El proxy como punto de control único:</strong> instrumentar honeypots uno a uno no escala; hacerlo en el punto donde ya pasa todo el tráfico da TLS+HTTP+HTTP/2 y las acciones (negar/enrutar/tarpitar/engañar) de forma centralizada.</li>
+<li><strong>Herramienta:</strong> Finch está en GitHub (<code>0x4D31/finch</code>), con huellas reales de ZAP, Nmap y Burp Suite para probar, modo <code>echo</code> con UI y endpoint JSON para construir datasets de huellas automáticamente contenerizando bibliotecas TLS.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/G7twgn-gi9k">«DEF CON 33 - Fingerprint-Based Bot Blocking &amp; Dynamic Deception - Adel Karimi»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

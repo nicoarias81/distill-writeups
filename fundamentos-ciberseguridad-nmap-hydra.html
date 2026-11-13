@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundamentos de ciberseguridad en vivo: de Nmap a Hydra sobre un servidor real — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Fundamentos de ciberseguridad en vivo: de Nmap a Hydra sobre un servidor real</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ba3ky5AMqkU">«Ekoparty Hackademy | Clase abierta: Cybersecurity Basics I Matias Armandola»</a> · ver el <a class="nz-link" href="https://youtu.be/ba3ky5AMqkU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Esta clase abierta de la Hackademy de Ekoparty condensa el espíritu del curso Cybersecurity Basics de Matías Armándola: tomar los conceptos que se enseñan a lo largo de las semanas (redes, Windows, Linux, virtualización, criptografía) y aplicarlos sobre un servidor real, paso a paso, desde el primer escaneo de puertos hasta obtener usuario y contraseña válidos.</p>
+<p>El recorrido completo —Nmap sobre una IP pública, acceso anónimo por FTP, un hash MD5 crackeado con Crackstation y una fuerza bruta de diccionario con Hydra contra Telnet— sirve como demostración práctica de por qué los fundamentos importan: cada técnica del ataque se apoya en una pieza teórica explicada antes. Y el marco ético queda claro desde el arranque: el servidor escaneado es propiedad del propio docente.</p>
+<h2>El mapa del curso y la meta de la clase</h2>
+<p>El curso está pensado para gente que quiere entrar al mundo de la seguridad sin conocimientos previos: arranca con dos clases de redes, sigue con Windows, Linux y virtualización, agrega criptografía y cierra con un módulo de pentesting. La clase abierta es una muestra de ese cierre: la meta declarada es llegar con credenciales válidas —usuario y contraseña— a un servidor colgado en internet, propiedad del docente.</p>
+<h2>Paso 1: reconocimiento con Nmap</h2>
+<pre class="mermaid">
+flowchart TD
+    A[Escaneo de puertos con Nmap] --> B[FTP 21: acceso anónimo]
+    A --> C[Telnet 23: página de login]
+    B --> D[Hash MD5 en la página /admin]
+    D --> E[Crackstation: usuario admin123]
+    C --> F[Hydra + rockyou]
+    E --> F
+    F --> G[Credenciales válidas: acceso al shell]
+
+</pre>
+
+<p>El punto de partida es un escaneo completo de los 65535 puertos de una IP pública propia. Aparecen abiertos los clásicos: FTP (21), SSH (22), Telnet (23) y un servicio web. Los puertos se explican como puertas de entrada y salida de los protocolos: HTTPS viaja por el 443, HTTP por el 80, y detrás de cada número hay un servicio que responde de determinada manera.</p>
+<p>Dos aclaraciones del vivo marcan el marco legal: escanear puertos es completamente legal —uno puede escanear lo que guste porque está expuesto en internet—, pero tomar acción sobre lo que se encuentra sin autorización es ilegal. Y para atacar, el docente usa Kali Linux dentro de una máquina virtual, porque reúne herramientas de distintos sistemas operativos; en el curso también se aprende a aislar esas máquinas (cortar la red para armar una sandbox y analizar malware sin riesgo).</p>
+<h2>Paso 2: la puerta trasera del FTP y el hash sin sal</h2>
+<p>Con el mapa de puertos, la primera vía es el FTP en el puerto 21, que acepta login anónimo. Dentro se encuentran archivos del sitio, y una página de administración almacena credenciales hasheadas en MD5. Ahí entra Crackstation, un servicio que busca el hash en bases de datos precalculadas de contraseñas ya vulneradas: en segundos devuelve el usuario <code>admin123</code>. Falta la contraseña.</p>
+<p>El detalle técnico que la clase subraya: el hash es precario. MD5 sin sal está vencido —se aprende en el módulo de criptografía qué hashes son robustos, cuáles ya no y por qué—. Pero para el atacante, un hash viejo en una página pública es una invitación.</p>
+<h2>Paso 3: Hydra y rockyou contra Telnet</h2>
+<p>Con el usuario conocido, la fuerza bruta de diccionario apunta al Telnet del puerto 23 —otro servicio que la clase señala como inseguro por transmitir todo en texto plano—. El combo:</p>
+<ul>
+<li><strong>rockyou</strong>: lista de unas 14.000 contraseñas más usadas (Flores, Tenis, Star Wars, nombres propios...), ya incluida en Kali.</li>
+<li><strong>Hydra</strong>: automatiza el proxy de usuario y contraseña contra Telnet con 64 conexiones paralelas (el máximo permitido por la herramienta).</li>
+</ul>
+<p>Mientras Hydra prueba combinaciones, la clase destapa tres lecciones de defensa que suelen salir en las consultas del vivo:</p>
+<ul>
+<li><strong>Mover servicios a puertos no estándar</strong> ayuda poco por sí solo: lo que importa no es el número sino qué hay detrás. Un atacante que busca vulnerabilidades web se encuentra con un FTP, pero herramientas de identificación de servicio revelan la verdad; el administrador puede en cambio ocultar la huella del fabricante (IIS, Apache o Nginx) configurando el firewall, como hace el propio Clarín, cuyo fingerprint responde con porcentajes ambiguos de Windows y Ubuntu.</li>
+<li><strong>La velocidad delata al atacante</strong>: un ethical hacking profesional no corre Hydra a 64 conexiones sino a 2 o 3, tardando mucho más pero volviéndose casi invisible.</li>
+<li><strong>La contraseña débil termina pagando</strong>: la clave del servidor de demo, "New Jersey", está en rockyou, así que Hydra la encuentra y el acceso por Telnet es inmediato. Con credenciales válidas y la versión de Ubuntu identificada, el siguiente paso es ataques específicos para esa versión.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Nmap</strong> — escaneo completo de 65535 puertos; identificación de servicios abiertos (FTP, SSH, Telnet, web).</li>
+<li><strong>FTP anónimo</strong> — acceso sin credenciales que expone archivos internos del sitio.</li>
+<li><strong>MD5 / hashes precarios</strong> — algoritmo vencido sin sal, crackeable desde bases precalculadas.</li>
+<li><strong>Crackstation</strong> — búsqueda de hashes contra contraseñas ya filtradas; devuelve el usuario <code>admin123</code>.</li>
+<li><strong>Kali Linux</strong> — distribución de pentesting, usada desde máquina virtual; en el curso también como sandbox para malware.</li>
+<li><strong>rockyou</strong> — wordlist con las contraseñas más comunes de usuarios reales.</li>
+<li><strong>Hydra</strong> — fuerza bruta de diccionario por Telnet con 64 conexiones en paralelo (o t2/t3 para sigilo).</li>
+<li><strong>crunch</strong> — generación de diccionarios propios de longitud acotada.</li>
+<li><strong>Malwarebytes</strong> — recomendación antimalware para chequear una máquina sospechada de infección.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La cadena completa de un ataque básico (reconocimiento → exposición anónima → credenciales filtradas → fuerza bruta → acceso) se sostiene sobre fundamentos: redes, criptografía y sistemas; por eso el curso los enseña antes de tocar herramientas.</li>
+<li>Escanear es legal; actuar sin autorización no. El laboratorio funciona porque el servidor es propio o hay autorización firmada.</li>
+<li>Telnet y MD5 siguen apareciendo en servidores reales: los servicios inseguros y los hashes vencidos siguen siendo la puerta de entrada más común.</li>
+<li>La defensa no es un solo parche: VPN, firewall bien configurado (ocultando el fingerprint), contraseñas fuertes y fuera de diccionarios, y sandbox para analizar archivos sospechosos.</li>
+<li>El sigilo del atacante es una decisión de rendimiento: pocas conexiones lentas pasan desapercibidas; 64 conexiones simultáneas son fáciles de detectar.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ba3ky5AMqkU">«Ekoparty Hackademy | Clase abierta: Cybersecurity Basics I Matias Armandola»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

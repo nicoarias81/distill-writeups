@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Self-hosting de modelos abiertos a escala bancaria: cómo Revolut cortó 90% sus costos de IA en código — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aiecode.html">AIE CODE Summit</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · AIE CODE Summit</p>
+<h1 class="nz-h2">Self-hosting de modelos abiertos a escala bancaria: cómo Revolut cortó 90% sus costos de IA en código</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">«How Revolut Cut AI Coding Costs 90% With Self-Hosted Open Models - David Abitbol, Revolut»</a> · ver el <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>El contexto: un banco que navega como startup de producto</h2>
+<p>Revolut es un banco digital europeo con 80 millones de clientes, presencia en 45 mercados y la app financiera más descargada de Europa. Desde julio, además, es la compañía privada más grande del continente. Esa escala descansa sobre una cultura de envío de producto intensivo, lo que convierte a la ingeniería en el motor del negocio — y en el lugar donde cualquier multiplicador de productividad se paga con interés compuesto.</p>
+<p>El equipo de AI operations de la empresa presentó en el AIE CODE summit lo que quizás sea el dataset más honesto publicado hasta ahora sobre IA en ingeniería: un año de métricas de 2.000 ingenieros, con dos curvas sobre el mismo eje temporal — lead time (desde que alguien toma una feature hasta que está mergeada y deployable, medido en días) y coding time (medido en horas).</p>
+<h2>La línea de tiempo de la adopción</h2>
+<p>La historia arranca en enero de 2025 con Gemini: la primera vez que los ingenieros podían usar datos privados dentro de una herramienta de IA. El impacto fue real pero modesto: 10% de mejora en lead time y 20% en coding time — esencialmente, la gente dejó de escarbar en Stack Overflow y documentación.</p>
+<p>En febrero de 2025 aparece Claude Code (la era Sonnet 3.7, la versión que "te borraba la base de datos de producción", no los asistentes domesticados actuales). El lanzamiento a escala llegó recién a comienzos de 2026, y la razón del retraso dice más del negocio que de la tecnología: escepticismo puro sobre los costos. Los ingenieros estaban gastando entre 1.000 y 10.000 dólares mensuales con ROI difuso, así que el rollout salió con límites de presupuesto estrictos.</p>
+<p>El verdadero punto de inflexión fue abril de 2026: self-hosting de modelos abiertos con GLM 5.1 como caballo de batalla para código. Los números se movieron de forma dramática: <strong>60% de mejora en coding time y 70% en lead time</strong>.</p>
+<pre class="mermaid">
+timeline
+    title Adopción de IA en ingeniería (Revolut)
+    Enero 2025 : Gemini — primeros datos privados en IA (10% lead time, 20% coding time)
+    Febrero 2025 : Claude Code en pruebas — escepticismo por costos ($1k-$10k/mes por ingeniero)
+    Comienzos de 2026 : Claude Code a escala, con límites de presupuesto
+    Abril 2026 : Self-hosting GLM 5.1 — 60% coding time, 70% lead time
+    Agosto 2026 : Tuning — TTFT 1,6s con +76% de demanda, misma flota de GPUs
+
+</pre>
+
+<h2>El hallazgo que importa más que el ahorro: el cuello de botella no es el código</h2>
+<p>La asimetría entre las dos mejoras — 60% en coding time contra 70% en lead time — esconde la lección estratégica. El lead time se mide en días y el coding time en horas; que el porcentaje mayor caiga sobre la métrica más grande significa que la ganancia real está fuera del editor. El trabajo de ingeniería no es solo escribir código: es digerir el inbox, pelear con Jira y Confluence, y navegar documentación interna. Un modelo con tokens ilimitados y sin culpa se usa para todo eso, no solo para el código difícil.</p>
+<p>Bajo el régimen de facturación por consumo, el presupuesto de IA se comportaba como un recurso escaso que había que racionar: guardar tokens para fin de trimestre, reservarlos para las tareas "que lo merecían". Con costo plano y capacidad propia, esa psicología desaparece — y con ella, una fricción organizacional que ninguna métrica de tokens capturaba.</p>
+<h2>La economía: facturas planas contra bill shock</h2>
+<p>El costo mezclado del token self-hosteado quedó en <strong>30 centavos por millón</strong>. La factura total equivale a <strong>una décima parte</strong> de lo que la empresa pagaba a Anthropic y OpenAI. Más importante que el ahorro absoluto es la forma del gasto:billing plano, sin sorpresas de fin de mes — el tipo de previsibilidad que un CFO puede firmar.</p>
+<p>Los modelos frontier no desaparecieron: Codex, Claude Code y Gemini siguen en el stack como <strong>excepción, no regla</strong>. Los modelos más recientes son excelentes, pero el volumen del trabajo diario corre sobre pesos abiertos.</p>
+<h2>Infraestructura: 56 GPUs para 2.000 ingenieros</h2>
+<p>Servir GLM 5.3 — un modelo de 800 mil millones de parámetros — para 2.000 ingenieros requiere aproximadamente <strong>56 GPUs B200</strong>. Las métricas objetivo, con evidencia empírica detrás:</p>
+<ul>
+<li><strong>Time-to-first-token bajo 3 segundos.</strong> El umbral exacto está documentado por la vía más confiable: pasado los 5 segundos, el inbox de Slack del responsable se llena de quejas. La latencia de primer token es la métrica que gobierna la percepción de calidad del servicio.</li>
+<li><strong>Throughput interactivo: 200 TPS.</strong> Más no aporta nada, porque el patrón de uso cambió: nadie mira ya el stream de tokens de razonamiento — la gente lanza tareas en paralelo y vuelve cuando terminan.</li>
+<li><strong>Modo nocturno: 800 TPS.</strong> Conectándose después de las 17:00, cuando las GPUs están ociosas, el throughput disponible se dispara. La infraestructura tiene capacidad de sobra fuera del horario pico.</li>
+</ul>
+<h2>El tuning: 88% de mejora sin comprar una GPU más</h2>
+<p>La parte contraintuitiva del relato: subir pesos a GPUs y arrancar a inferir da un rendimiento terrible. El mismo hardware rindió radicalmente distinto según los parámetros, y la curva de optimización es demoledora: en abril, con 3 req/s de demanda, el TTFT superaba los 10 segundos. En agosto, la misma flota de 56 GPUs absorbía más de 7 req/s con TTFT de 1,6 segundos. <strong>88% de mejora de latencia absorbiendo 76% más demanda, sin escalar el hardware.</strong></p>
+<pre class="mermaid">
+xychart-beta
+    title "TTFT vs demanda (56 B200, misma flota)"
+    x-axis ["Abril", "Agosto"]
+    y-axis "Valor" 0 --> 12
+    line "TTFT (segundos)" [10, 1.6]
+    line "Req/s" [3, 7]
+
+</pre>
+
+<p>La caja de herramientas del tuning, sin receta secreta pero con jerarquía clara:</p>
+<ol>
+<li><strong>El contexto largo es una trampa ("a scam").</strong> Aunque el modelo pueda servir 1 millón de tokens, 256K es lo que el trabajo real necesita. Pagar footprint de GPU por contexto teórico sobrante es regalar silicio.</li>
+<li><strong>Cuantización NVFP4 en Blackwell.</strong> En GPUs de generación Blackwell no conviene correr nada por encima de FP4, y NVFP4 es el formato óptimo: saltar de FP8 a FP4 recorta ~40% del footprint de GPU con pérdida de precisión nula.</li>
+<li><strong>Tensor parallelism con ojo en el KV cache.</strong> Aunque el modelo entra en TP4, el KV cache puede quedar corto según el workload; TP8 rinde mejor cuando la demanda lo justifica.</li>
+<li><strong>Cache hit &gt;90%</strong> como requisito para workloads de código — el caching de prefijos es donde vive gran parte del rendimiento percibido.</li>
+<li><strong>Las técnicas finas:</strong> speculative decoding optimizado, pre-fill secuencial, desagregación prefill/decode (PDD). El último 20% de rendimiento está aquí, no en el hardware.</li>
+</ol>
+<p>La moraleja operativa: antes de escalar comprando GPUs, resistir la tentación y afinar parámetros. La mejora del 88% no costó capital, costó ingeniería.</p>
+<h2>Producción: modelo texto-only, router y arnés compatible</h2>
+<p>GLM es un modelo de solo texto, y la respuesta a esa limitación es un trade-off explícito que repetirían siempre: <strong>prefieren el modelo más inteligente para el código y resuelven la visión por otra vía</strong>. Un router local despacha la reconocición de imágenes a modelos frontier (Gemini y compañía) y conserva GLM para la tarea principal. Cuando se necesita visión nativa, Gemini Flash cumple bien — el turnaround del equipo de diseño de UI mejoró sustancialmente usándolo.</p>
+<p>Todo endpoint se expone como <strong>API compatible con OpenAI (incluida la Responses API)</strong>, con lo cual cualquier arnés del mercado — OpenCode, Codex, la app de Codex — funciona sin modificaciones. La lección de integración: el valor del self-hosting no está solo en el costo sino en que el endpoint propio es indistinguible, desde el cliente, del servicio comercial.</p>
+<h2>El memo para el CIO: compliance sin excusas</h2>
+<p>El prejuicio contra el open source chino se desarma en un argumento de arquitectura: usar los pesos no implica usar el endpoint de inferencia que va a China. Se descargan los pesos y corren en infraestructura propia (o de un proveedor US/EU) — el plano de datos nunca sale del perímetro.</p>
+<p>Como banco regulado por la UE, Revolut opera bajo el régimen de compliance más estricto que existe, y el esquema que les funcionó tiene cinco piezas:</p>
+<ol>
+<li><strong>Human-in-the-loop garantizado por diseño.</strong> Las tareas de código nunca son agentes autónomos: siempre hay aprobación humana. Un sandbox que lo garantice — con reglas granulares del estilo "permitir grep, no permitir gradle" — le da al regulador la evidencia de que no se trata de un agente autónomo que exija supervisión de otra categoría.</li>
+<li><strong>El sandbox también frena el uso interno malicioso.</strong> En una empresa grande, los actores internos de pruebas existen; el perímetro de permisos los contiene.</li>
+<li><strong>Prompt injection: riesgo residual, no eliminado.</strong> Menos frecuente con los modelos actuales, pero siempre en la lista.</li>
+<li><strong>Datos dentro del framework de equivalencia</strong> (US, EU, UK, Israel) y <strong>zero data retention por defecto</strong> en los proveedores de inferencia.</li>
+<li><strong>Telemetría abierta y profunda.</strong> Cuando ocurre un incidente, hay que poder bajar hasta los logs — y de paso, la misma instrumentación da analytics de uso.</li>
+</ol>
+<h2>Síntesis: el caso de negocio completo</h2>
+<p>Lo que este caso demuestra es una secuencia replicable, no un truco:</p>
+<ul>
+<li><strong>Medir antes de decidir</strong> — lead time y coding time de 2.000 ingenieros convertidos en el juez de cada herramienta, no las demos.</li>
+<li><strong>El volumen al open source, la excepción al frontier</strong> — el 90% de ahorro viene de mover el grueso del workload, no de reemplazar todo.</li>
+<li><strong>La latencia manda, el throughput sobra</strong> — TTFT &lt;3s como contrato de servicio, 200 TPS como lujo suficiente.</li>
+<li><strong>Tunear antes que escalar</strong> — 88% de mejora sobre el mismo hardware es el argumento definitivo contra comprar GPUs por reflejo.</li>
+<li><strong>La compliance es un problema de arquitectura, no de proveedor</strong> — pesos propios, sandbox con humano en el loop, telemetría profunda.</li>
+</ul>
+<p>El resultado combinado — 60-70% de mejora en los tiempos que definen el negocio, a una décima del costo, dentro del régimen regulatorio más exigente del mundo — convierte el self-hosting de modelos abiertos de experimento de infraestructura en política de empresa.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Ok6QdZHCcI8">«How Revolut Cut AI Coding Costs 90% With Self-Hosted Open Models - David Abitbol, Revolut»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

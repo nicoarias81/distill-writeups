@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detrás del bounty: la comunidad que convirtió el bug hunting en evento masivo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Detrás del bounty: la comunidad que convirtió el bug hunting en evento masivo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/d9I3nnFGlDY">«Lado B I Comité Bug Bounty Village &amp; Live Hacking Event I Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/d9I3nnFGlDY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El Bug Bounty Village cumplió cinco ediciones dentro de Ekoparty en su año aniversario, y lo celebró llenando su auditorio por primera vez con speakers internacionales: Tom Nom Nom, Blumens (YesWeHack), un representante de Meta y Kona, el creador de ffuf. Detrás de la convocatoria hay una tesis simple: el bug bounty es una puerta de entrada, tanto para quien reporta vulnerabilidades como para la comunidad que aprende a mirar el software con ojos ofensivos.</p>
+<p>La otra gran novedad fue el primer Live Hacking Event de la historia de la conferencia, organizado junto a YesWeHack y con Banco Galicia como scope: hunters en vivo reportando contra objetivos reales, con triage y pago de bounties a cargo de la plataforma durante dos jornadas.</p>
+<p>Más allá de la agenda, el relato del comité — cinco organizadores, como los fundadores originales de Ekoparty — deja varias lecciones operativas sobre cómo funciona el triage de un programa de bounty por dentro: qué hace bien un hunter, qué hace mal, y por qué cada reporte recibido vale más que el bug que describe.</p>
+<h2>Cinco años de village: de la planilla vacía al auditorio lleno</h2>
+<p>El origen es el de casi toda comunidad técnica de la región: personas que se conocieron por internet y después en la vida real, a cinco cuadras de distancia, compartiendo idioma y cultura. Cinco organizadores levantaron el village, y la primera edición atrajo a un asistente que venía de soporte de servidores — sin pasar por seguridad — y que dieciséis años después organiza, expone y forma parte del comité.</p>
+<p>El crecimiento se midió en detalles concretos: la primera Ekoparty de ese trayecto fue la edición espacial de 2010; hoy llegan participantes de otros países — un asistente de Honduras llevó regalos a quien lo ayudó a empezar — y el CFP nacional recibió por primera vez varias submissions espontáneas, señal de que el formato ya se conoce y la gente se anima. Los speakers internacionales, en cambio, hubo que irlos a buscar: la estrategia fue elegir perfiles con equilibrio entre rigor técnico y reconocimiento — alguien buenísimo pero desconocido no convoca, y alguien famoso sin profundidad técnica tampoco llena una agenda de village. Tom Nom Nom aceptó la invitación sin tener charla preparada y la armó sobre sus propias herramientas, las mismas que la comunidad usa hace años sin pensarlas.</p>
+<p>El financiamiento también dejó una lección de logística: entre iluminación, escenografía, pasajes, hotel, remeras y stickers, todo sale de sponsors — seis o siete en la edición aniversario — con propuestas de renovación llegando antes de que arrancara el evento siguiente.</p>
+<h2>El Live Hacking Event: primer premio histórico con scope bancario</h2>
+<p>Por primera vez en la historia de la conferencia se montó un Live Hacking Event, fruto del partnership entre YesWeHack y Banco Galicia. El banco definió el scope; YesWeHack hizo el triaging, aportó la plataforma de reportes y pagó los bounties. La actividad arrancó a las 10 de la mañana del jueves con reportes habilitados hasta las 22, se reanudó el viernes y cerró al mediodía, con anuncio de ganadores y entrega de premios en el cierre de la conferencia.</p>
+<p>El formato responde a una pregunta que el público repite — "¿cómo es un Live Hacking Event, qué se hace, qué se puede hacer?" — y de la que poco se ve desde afuera: un espacio cerrado, hunters concentrados en sus equipos, y contenidos en pantalla que no siempre pueden mostrarse. Abrir una ventana, aunque sea con cámara, fue la apuesta del village para acercar el formato a quienes nunca lo vieron por dentro.</p>
+<h2>El detrás de escena del triage: qué pasa entre el reporte y el bounty</h2>
+<p>Una de las charlas del village abrió la caja negra del otro lado del formulario: el trabajo de triage desde hace cinco años para Rappi. Cuando llega un reporte se activa una cadena interna que el hunter nunca ve — conversaciones con desarrolladores, coordinación con el equipo de seguridad, reproducción de las pruebas de concepto, gestión de SLAs de fix — hasta que el bounty llega a destino.</p>
+<p>Del lado del triager, la experiencia es un mix:</p>
+<ul>
+<li><strong>Sorpresas buenas:</strong> reportes donde la idea del hunter sorprende por creatividad, por el ángulo de ataque o por cómo se encaró la vulnerabilidad.</li>
+<li><strong>Frustraciones recurrentes:</strong> pruebas de concepto que no funcionan, reportes sin PoC, o directamente hallazgos sin forma de explotar. Ese "qué no hacer" fue parte central de la divulgación.</li>
+<li><strong>Presión de métricas:</strong> el equipo de triage corre su propia "fórmula 1" — qué tan rápido responde, cuántos bounties puede pagar, cuántos fixes cierra dentro del SLA.</li>
+</ul>
+<p>Y hay una dinámica estructural que los programas maduros explotan: quien reporta un bug está escarbando, porque intuye que ahí hay más. Para el programa, cada reporte es semilla: se pregunta si la vulnerabilidad se replica en otros assets y se automatiza su detección para encontrar más bugs del mismo estilo. El bounty individual paga un hallazgo; el proceso que lo rodea multiplica el retorno.</p>
+<h2>La comunidad como producto</h2>
+<p>El hilo conductor del village es que el bug bounty funciona como puerta de entrada a la seguridad: el hunter que entra por un programa termina metido en el ecosistema, y el triager que empezó como asistente termina exponiendo. Los speakers internacionales lo dijeron a su manera: venían por segunda o primera vez y se llevaban la misma impresión — la cultura y la unión de la comunidad local los sorprendió.</p>
+<p>El mensaje implícito para quien mira de afuera: hay que preguntar. Los speakers se traen preguntando — incluso con presupuestos ajustados y "no te puedo pagar, pero le puedo preguntar a mi empleador" — y la persona al otro lado del mail está en la misma posición que el que pregunta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bug Bounty Village</strong> — espacio comunitario dentro de Ekoparty, en su quinta edición, con 10 charlas y un panel en el día pleno.</li>
+<li><strong>Live Hacking Event</strong> — competencia de hunting en vivo contra un scope real, con triage y pagos en el lugar.</li>
+<li><strong>YesWeHack</strong> — plataforma de bug bounty que hizo el triaging y pagó los bounties del evento.</li>
+<li><strong>Banco Galicia</strong> — definió el scope del Live Hacking Event.</li>
+<li><strong>ffuf</strong> — herramienta de fuzzing web creada por Kona, uno de los speakers internacionales.</li>
+<li><strong>Tom Nom Nom</strong> — referente del ecosistema bounty y autor de múltiples herramientas de reconocimiento.</li>
+<li><strong>Triage de reportes</strong> — validación de PoCs, coordinación con desarrolladores y gestión de SLAs antes del pago.</li>
+<li><strong>SLA de fix</strong> — métrica interna de tiempo de resolución que mide la performance del equipo de seguridad.</li>
+<li><strong>Automatización de hallazgos</strong> — replicar y detectar en otros assets las vulnerabilidades reportadas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El bug bounty es una vía de entrada real a la seguridad: programas bien armados convierten hunters en comunidad y reportes en automatización interna.</li>
+<li>El triage es la parte invisible del bounty y define su calidad: PoC reproducible y contexto claro valen tanto como el hallazgo.</li>
+<li>Para el programa, cada reporte es una oportunidad de escalar: replicar la vulnerabilidad en otros assets y automatizar su detección rinde más que el fix puntual.</li>
+<li>Los Live Hacking Events funcionan con un esquema claro — scope del cliente, plataforma y triage del proveedor, bounties pagados en el evento — y pueden montarse en mercados que recién los estrenan.</li>
+<li>Las comunidades técnicas crecen por contacto directo: CFP accesible, speakers que convocan y respuestas concretas a quien pregunta.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/d9I3nnFGlDY">«Lado B I Comité Bug Bounty Village &amp; Live Hacking Event I Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

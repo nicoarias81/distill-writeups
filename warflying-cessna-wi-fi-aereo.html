@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Warflying en Cessna: cartografiar el Wi-Fi desde el aire — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Warflying en Cessna: cartografiar el Wi-Fi desde el aire</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/KwI2daso3ug">«DEF CON 33 - RF Village - Warflying in a Cessna, Part II - Matthew Thomassen, Sean McKeever»</a> · ver el <a class="nz-link" href="https://youtu.be/KwI2daso3ug">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Del war dialing al war driving y de ahí a todos los "modos de transporte de guerra": este proyecto lleva la recolección de puntos de acceso Wi-Fi al aire, desde una Cessna 172 a 1.500 pies de altura. La segunda parte del proyecto —tras la primera fase, divulgada en DEF CON el año anterior— deja de ser una validación de concepto para convertirse en un ejercicio de medición: cuantificar qué ve el equipo, comparar antenas, comparar avión contra coche contra teléfono, y documentar los errores cometidos por el camino.</p>
+<p>La conclusión de fondo es doble: el fuselaje de aluminio del avión bloquea gran parte de la señal (lo que hace crítica la colocación de antenas), y war driving recolecta más puntos de acceso pero war flying los recolecta más rápido. El trabajo, con datos y scripts publicados en GitHub, es un informe de progreso, no un manual definitivo.</p>
+<h2>Por qué se ve un punto de acceso desde el aire</h2>
+<p>Los AP domésticos emiten beacon packets aproximadamente cada 102,4 ms (una décima de segundo) en un canal concreto. Capturar uno exige tres cosas simultáneas: una antena dentro del alcance de radio, un radio sintonizado a la frecuencia del beacon en el momento exacto de su emisión, y algo que procese el paquete.</p>
+<p>Wi-Fi de 2,4 GHz tiene 14 canales (11 utilizables en EE. UU.). Hay dos estrategias:</p>
+<ul>
+<li>Un solo radio saltando canales lo más rápido posible — con lag inherente, problema bien documentado por los white papers del proyecto Kismet.</li>
+<li>Un radio dedicado por canal. Para eso existe el <strong>Wi-Fi Coconut</strong>: 14 radios de 2,4 GHz en un dispositivo. El proyecto recibió de la comunidad (RF Hacker Sanctuary Discord) una de las pocas unidades del mundo modificadas con puerto de antena externa, lo que permitió además comparar antenas.</li>
+</ul>
+<p>La altura elegida, ~1.500 pies, es un punto dulce: bastante más alto que un coche, bastante más bajo que un avión de línea, y suficiente para eliminar obstáculos de línea de vista, que en Wi-Fi lo son todo.</p>
+<h2>El setup aéreo</h2>
+<p>Plataforma: Cessna 172 (~120 mph, ~176 pies/segundo, ala alta, fuselaje de aluminio). El ala alta ayuda a que las alas no bloqueen señal; el aluminio, como se vería después, bloquea mucho lo que queda al otro lado.</p>
+<ul>
+<li><strong>Coconut + Kismet</strong> con el overlay de wardriving, USB-C para alimentación y datos, conectado al portátil con cinta de gaffer.</li>
+<li><strong>GPS</strong> sobre el glare shield, con vista directa al cielo.</li>
+<li><strong>Antena whip</strong> en el asiento delantero derecho junto al parabrisas: más larga que un cuarto de onda (algo de ganancia), orientada verticalmente esperando polarización vertical, patrón omnidireccional en donut.</li>
+<li><strong>Antena panel</strong> pegada a la ventana delantera derecha (con gaffer de calidad sobre el plexiglás: las ventanas de avión cuestan una fortuna). Patrón direccional hacia el frente de la antena — y, error reconocido, estaba montada al revés, irradiando gran parte hacia dentro del avión.</li>
+<li><strong>Control de referencia</strong>: un teléfono con Wigle en el lado izquierdo.</li>
+<li>Una <strong>antena Yagi</strong> recibida como donación que aún no han logrado hacer funcionar con el Coconut.</li>
+</ul>
+<p>Sobre montar antenas fuera del avión: cualquier objeto externo debe soportar vientos sostenidos de 150 mph, el papeleo se dispara y la guía regulatoria es escasa. El riesgo de perder una antena —inspección FOD de pista, impacto en alguien, ingestión en superficies de control— mantiene el setup en el interior.</p>
+<h2>Medición y visualización</h2>
+<p>El flujo de datos es CSV exportado por Wigle (Kismet también exporta a ese formato), procesado con scripts de Python generados para visualizar:</p>
+<ul>
+<li><strong>Máximos por minuto</strong> (métrica introducida el año anterior): 441 total / 106 únicos como mejor registro; 278/min en la mejor pasada con panel.</li>
+<li><strong>Categorías de detección</strong>: cuántas veces se vio cada AP (1, 2, 3, 4, 5+) — proxy de cuánto tiempo se está a la vista de un AP pasando a 176 pies por segundo.</li>
+<li><strong>Distancias</strong>: máxima distancia entre detecciones del mismo MAC. Solo 34 APs se detectaron a más de dos millas de separación con el teléfono — y conviene recordar que se conoce la posición propia, no la del AP.</li>
+</ul>
+<p>Patrones de vuelo progresivamente más informativos: primero líneas rectas, luego <strong>vueltas cerradas a la derecha</strong> (el panel mira a la derecha y al alabeo el lóbulo apunta más hacia el suelo) que empiezan a dar bidimensionalidad al mapa, círculos en vuelo solitario sobre Lake Orion, Michigan, y finalmente una <strong>rejilla</strong> sobre el norte de Metro Detroit: patas este-oeste de ~10 millas separadas ~1 milla (la separación que produce un viraje suave de 172), repetidas con panel, whip y teléfono, conversando con Detroit Approach para obtener traffic advisories y vigilando ADS-B — terrible para privacidad y seguridad, excelente para evitar colisiones.</p>
+<h2>Hallazgos por comparación</h2>
+<ul>
+<li><strong>Panel vs whip (ambas con Coconut):</strong> mucho solape (puntos vistos por ambas). Contra el teléfono: solape casi nulo. El fuselaje bloquea la recepción del lado opuesto — confirmación empírica de lo esperado.</li>
+<li><strong>Teléfono:</strong> recoge mucho menos, pero resulta usable para warflying. Y de rebote: el archivo CSV mostraba números de canal altísimos — estaba capturando también 5 GHz, con <strong>cinco veces más APs que en 2,4 GHz</strong>. La banda de 5 GHz está llena.</li>
+<li><strong>War flying desde un avión de línea:</strong> con el teléfono en modo avión (GPS sí, Wi-Fi sí), ventanilla, filtrando los APs del propio avión: se puede. Rinde poco, pero es accesible para cualquiera con ventana.</li>
+<li><strong>OID 000D97:</strong> los APs con este prefijo de fabricante aparecían persistentemente en los máximos de distancia. Mapeados en conjunto: hay muchísimos. Identidad sin confirmar.</li>
+<li><strong>War driving vs war flying (misma ruta, mismo Coconut + whip, el coche un Honda Civic por Woodward Avenue):</strong> war driving recolecta más APs; war flying los recolecta más rápido; solape considerable entre ambos.</li>
+<li><strong>Panel (vuelo) vs whip (coche):</strong> solape casi nulo — el lóbulo del panel apunta lateralmente hacia el horizonte y desde 1.500 pies alcanza APs mucho más lejanos que el whip a nivel de calle.</li>
+<li><strong>Panel vs whip en vuelo:</strong> mejor rendimiento general de la whip, sorprendente pero coherente con la orientación (el panel estaba montado al revés). La orientación de la antena importa, y las siguientes pruebas deben explorar ángulos del panel para bajar el lóbulo hacia el suelo.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Warflying</strong>: recolección de APs Wi-Fi desde una aeronave; variante aérea del wardriving.</li>
+<li><strong>Beacon packets</strong>: tramas de difusión de los AP cada ~102,4 ms; la base de la detección pasiva.</li>
+<li><strong>Wi-Fi Coconut</strong>: dispositivo con 14 radios 2,4 GHz dedicados (uno por canal), versión modificada con antena externa.</li>
+<li><strong>Kismet</strong>: herramienta de detección Wi-Fi con overlay de wardriving.</li>
+<li><strong>Wigle / Wigle CSV</strong>: app móvil de wardriving y formato de exportación común con Kismet.</li>
+<li><strong>Antenas whip, panel y Yagi</strong>: patrones de radiación omnidireccional, direccional y de alta ganancia comparados en vuelo.</li>
+<li><strong>Cessna 172</strong>: plataforma de vuelo (~120 mph, ala alta, fuselaje de aluminio).</li>
+<li><strong>ADS-B</strong>: vigilancia de tráfico aéreo; excelente para seguridad de vuelo, deficiente en privacidad.</li>
+<li><strong>Vibe coding</strong>: scripts de Python para métricas y mapas de detección.</li>
+<li><strong>RF Hacker Sanctuary Discord</strong>: comunidad de la que llegó el Coconut y parte del feedback.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El teléfono es una plataforma de warflying perfectamente viable: no hace falta un rig dedicado para empezar a colectar datos desde el aire.</li>
+<li>El fuselaje de aluminio bloquea la señal del lado opuesto; la colocación y orientación de las antenas dentro de la cabina es la variable dominante del rendimiento, más que la antena en sí.</li>
+<li>War driving ve más; war flying ve más rápido. El panel apuntando lateralmente desde 1.500 pies alcanza APs que el whip a ras de suelo no alcanza, con solape casi nulo entre ambos.</li>
+<li>Hay cinco veces más APs en 5 GHz de los que se asume; ignorar esa banda subestima gravemente el panorama.</li>
+<li>Las reglas no negociables: volar el avión primero (la recolección es deporte de equipo por algo), gaffer de calidad sobre plexiglás carísimo, y nada montado fuera del fuselaje sin resolver el papeleo y la seguridad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/KwI2daso3ug">«DEF CON 33 - RF Village - Warflying in a Cessna, Part II - Matthew Thomassen, Sean McKeever»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

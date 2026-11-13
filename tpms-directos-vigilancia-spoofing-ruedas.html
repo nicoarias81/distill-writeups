@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TPMS directos sin cifrar: vigilancia pasiva de coches y suplantación de ruedas por radio — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">TPMS directos sin cifrar: vigilancia pasiva de coches y suplantación de ruedas por radio</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/K5Kltw5kQpM">«DEF CON 33 - Uncovering the Secrets of Tire Pressure Monitoring Systems - Yago Lizarribar»</a> · ver el <a class="nz-link" href="https://youtu.be/K5Kltw5kQpM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los TPMS (Tire Pressure Monitoring Systems) miden la presión de las ruedas —el componente en contacto con la carretera y uno de los más críticos para la seguridad— y son obligatorios desde 2007 en EE.UU. y 2010 en Europa. La paradoja regulatoria: desde julio de 2022 Europa exige a los coches fabricados un certificado de ciberseguridad que proteja identidad y ubicación de los propietarios, pero los TPMS no están incluidos. La transición de un investigador de Suiza trabajando en la intersección de seguridad y aprendizaje automático arrancó por accidente: midiendo espectro unrelated, detectó que podía seguir las ruedas del Toyota de un director de TI y, con el tiempo, aprender sus ausencias, horarios de trabajo y vacaciones —con su permiso, como todos los datos de los estudios presentados—.</p>
+<p>Existen tres familias de TPMS. Los indirectos estiman la presión a partir de los sensores de rotación ya presentes (menos precisos, favorecidos por el grupo Volkswagen, GM y otros). Los Bluetooth, populares en Tesla y fabricantes como Pirelli. Y los directos: sensores dentro de la rueda que miden presión y temperatura directamente (Toyota, Ford, Honda, Renault), el objetivo de este trabajo. El interior del sensor es un dispositivo a batería con MCU, sensor de movimiento, presión y temperatura, y cadena de RF; transmite por protocolos propietarios sin cifrar ni autenticar (modulaciones triviales ASK/FSK en la banda ISM de 433 MHz en Europa, 915 en EE.UU.), de modo que bibliotecas como rtl_433 hacen casi todo el trabajo de reversión. Un detalle menos conocido: el sensor tiene también un receptor a 125 kHz que espera una señal de activación que dispara la transmisión inmediata —hoy hay transmisores portátiles capaces de activar cualquier sensor cercano—.</p>
+<h2>Vigilancia pasiva: seguir coches sin línea de visión</h2>
+<p>Un frame típico lleva temperatura, presión y un ID de sensor de 32 bits (cerca de 4.000 millones de identificadores únicos), todo en claro. Construir infraestructura de tracking es trivial: unos 100 dólares —un RTL-SDR, una antena de 433 MHz, una Raspberry Pi, internet y energía—, el software rtl_433 y componentes open source estándar (InfluxDB, Grafana). En pocas semanas se capturan millones de IDs únicos de las carreteras cercanas.</p>
+<p>Los cuatro sensores de un coche transmiten en momentos correlacionados, lo que permite agruparlos por vehículo: correlación cruzada de series temporales, índice de Jaccard con matching robusto, y un truco adicional —muchos fabricantes programan los cuatro IDs compartiendo los primeros 26 bits y variando solo los últimos. Con los grupos formados, el análisis de patrones de largo plazo es revelador: horarios laborales de un estudiante a tiempo parcial, una llegada anómala en festivo de madrugada (en realidad pasaba por una carretera cercana camino de un curso), semanas completas de ausencia, incluso la salida a comer al mediodía de un trabajador a jornada completa. La conclusión incómoda: es información que emiten las ruedas y sobre la que el propietario no tiene control alguno, ni siquiera con el coche aparcado.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Sensores TPMS transmiten en claro] --> B[Receptor RTL-SDR + rtl_433
+~100 USD por nodo]
+    B --> C[(Base de datos de series temporales)]
+    C --> D{Agrupación por vehículo}
+    D -- Correlación temporal / Jaccard --> E[4 IDs = 1 coche]
+    D -- Primeros 26 bits compartidos --> E
+    E --> F[Patrones de vida:
+horarios, ausencias, vacaciones]
+
+</pre>
+
+<p>Marca a marca, el comportamiento varía mucho. Toyota es la más locuaz: su proveedor PMV transmite presión e ID cada 15 minutos, aparcado o en marcha, y con potencia alta —se detectaron Toyotas a 200 metros. Renault o Hyundai respetan el principio de diseño (transmitir solo en movimiento). Los límites del sistema, medidos y estimados: un único nodo trackea hasta 200 coches en ventanas de 30 segundos con buena fiabilidad; sin línea de visión (con muros de por medio) se capturan mensajes hasta 60 metros; en movimiento se decodifica bien hasta 50 km/h —en pruebas con un coche dando vueltas al barrio, todas las vueltas menos una rindieron al menos un ID—. En autovía probablemente ya no. Y a diferencia de una cámara, no hace falta apuntar a la carretera: el nodo puede estar escondido.</p>
+<h2>Ataque activo: spoofing de frames TPMS</h2>
+<p>Como el canal no tiene autenticación ni cifrado, la tubería de recepción se invierte y se convierte en tubería de transmisión. El caso Renault documentado en detalle: 433 MHz, 2-FSK más pulse width modulation, codificación Manchester, bits de 52 microsegundos, preámbulo fijo, inversión de secuencia dependiente del fabricante, y un frame con flags, ID de 3 bytes, presión, temperatura, voltaje de batería y parámetros de desinflado, rematado con un CRC que verifica la decodificación. El hardware necesario: un SDR con transmisión —un HackRF o similar por unos 300 dólares, o un Flipper Zero más barato—. El ECU recibe el frame spoofed y lo trata como si viniera de su propio sensor.</p>
+<p>La consecuencia práctica más incómoda es el falso "Reifendruck" (presión defectuosa, el aviso en alemán de las pruebas en Suiza): el panel de instrumentos grita un desinflado que no existe, con el ruido y el susto consiguientes. Combinado con el seguimiento pasivo, el ataque se afina: trackear un coche a lo largo del tiempo y elegir el momento y lugar concretos para inyectar un mensaje de presión defectuosa y provocar una parada —relevante si el objetivo es una empresa de logística o un convoy vigilado. Como el mismo sensor portátil de 125 kHz sirve para activar los TPMS de a pie, la misma infraestructura sirve para refinar los spoofers contra el vehículo que se quiera suplantar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>TPMS directo</strong>: sensor dentro de la rueda (presión + temperatura), protocolos propietarios sin cifrar ni autenticar.</li>
+<li><strong>rtl_433</strong>: biblioteca open source que decodifica la mayoría de los frames TPMS del mercado.</li>
+<li><strong>RTL-SDR + antena 433 MHz + Raspberry Pi</strong>: estación de vigilancia pasiva de ~100 USD; SDR con TX (HackRF, Flipper Zero) para el spoofing.</li>
+<li><strong>Activación a 125 kHz</strong>: canal de despertar del sensor que un atacante cercano puede disparar a voluntad.</li>
+<li><strong>Correlación de series temporales e índice de Jaccard</strong>: agrupación de los 4 IDs de un mismo coche; primeros 26 bits compartidos como heurística de fabricante.</li>
+<li><strong>2-FSK + PWM + Manchester + CRC</strong>: cadena de decodificación Renault, invertida para transmitir frames falsos.</li>
+<li><strong>InfluxDB + Grafana</strong>: almacenamiento y visualización de las capturas masivas de IDs.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los TPMS directos siguen siendo vulnerables tanto a vigilancia pasiva como a suplantación activa; en 15 años el hardware del sensor no cambió —lo que cambió es que los SDR se abarataron y mejoraron.</li>
+<li>La vigilancia pasiva golpea de forma desigual: Toyota (transmisión cada 15 minutos incluso aparcado, alta potencia, 200 m de alcance) frente a marcas que solo transmiten en movimiento.</li>
+<li>La combinación pasiva + activa convierte el rastreo en arma: elegir lugar y momento para inyectar un desinflado falso y forzar una parada.</li>
+<li>No hay remedio para los coches con TPMS directo ya en circulación: el ECU espera mensajes en claro; las propuestas de cifrado de la literatura se quedaron en investigación, y quien compra un coche nuevo y le preocupe el tracking puede mirar si usa TPMS indirecto.</li>
+<li>Los dos repositorios open source (análisis pasivo y herramientas de spoofing) permiten replicar la investigación completa.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/K5Kltw5kQpM">«DEF CON 33 - Uncovering the Secrets of Tire Pressure Monitoring Systems - Yago Lizarribar»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

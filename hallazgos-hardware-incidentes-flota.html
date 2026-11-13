@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De los pads de prueba al abuso del cloud: cuando un hallazgo de hardware escala a toda una flota — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">De los pads de prueba al abuso del cloud: cuando un hallazgo de hardware escala a toda una flota</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/czINrR2KeRY">«DCSG1 - Probe Pads to Cloud Abuse: How Hardware Findings Become Fleet Scale Incidents - Caleb Davis»</a> · ver el <a class="nz-link" href="https://youtu.be/czINrR2KeRY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El acceso físico no es el fin del juego: es el principio. Un hallazgo de hardware —credenciales grabadas en firmware, una interfaz de debug sin autenticar, una clave de API volcada desde memoria no volátil— se convierte en minutos en un compromiso remoto, y de ahí en la caída de una flota entera de dispositivos o de un ecosistema completo de cloud. Esa tesis estructura este recorrido por el hacking de hardware aplicado: los mitos que impiden modelar la amenaza correctamente, los puntos del ciclo de vida del producto donde el dispositivo queda expuesto, tres casos reales (dispositivo médico, OT y IoT de consumo) y una guía práctica para convencer a quien controla el presupuesto de que las pruebas de hardware son imprescindibles.</p>
+<p>Quien lo desarrolla es un hardware hacker con pasado de ingeniero eléctrico y desarrollador de software embebido, dedicado hoy a atacar de todo, incluidos dispositivos médicos.</p>
+<h2>Tres mitos que arruinan el modelo de amenaza</h2>
+<p>El primero: que un exploit con acceso físico se queda confinado al acceso físico. Es exactamente al revés —el objetivo declarado de todo atacante con acceso físico es convertirlo en un compromiso remoto, y lo consigue de forma consistente—. El segundo: que un dispositivo comprometido es un dispositivo perdido. Las credenciales hard-coded y las interfaces propietarias reversibles permiten explotar remotamente toda una flota a partir de un solo dispositivo físico. El tercero: que el atacante necesita manipular el equipo en el campo, algo especialmente arraigado en el mundo médico (la fantasía del quirófano con controles de acceso que vencer). No hace falta: envío, servicio de campo, almacenamiento en un estante y, sobre todo, el resto del ciclo de vida del producto son puntos de exposición equivalentes.</p>
+<p>Ese ciclo de vida es el mapa de la amenaza. En diseño y prototipo, las filtraciones ya duele: el incidente reciente de Stryker, con cerca de 50 terabytes de datos reclamados, contiene casi con seguridad documentación de diseño, manuales e ingeniería que facilitan compromisos posteriores. En fabricación existe una interfaz de programación para flashear los sistemas; si queda accesible en productos de campo —encontrada así en un dispositivo médico— abre configuración y opciones extra. En envío y logística, dispositivos desarmados permiten atacar superficies que no deberían existir en producción. En despliegue y servicio de campo, un usuario de mayor privilegio puede desplegar firmware malicioso. Y en RMA, reacondicionamiento y disposición final: qué pasa con la PHI que sigue en el dispositivo, con claves hard-coded que duran años, o con firmware alterado que vuelve a meterse en el ecosistema.</p>
+<h2>La pila embebida moderna y el modelo de amenaza completo</h2>
+<p>La pila típica de un dispositivo embebido va del hardware (señales electrónicas, bits) por las interfaces (JTAG, SWD, tarjetas SD), al software del dispositivo (firmware, lógica de aplicación), de ahí a las comunicaciones de red (apps móviles, clientes gruesos, web) y termina en un ecosistema de cloud vía API. El modelo de amenaza de un dispositivo en producción tiene que cubrir esa pila entera: el pentesting debe ocurrir desde la cima (cloud) hasta la base (señales), porque cada hueco entre capas es información y datos que se procesan sin supervisión. Probar solo una capa produce ataques teóricos; probar el ecosistema completo reproduce lo que haría un adversario real.</p>
+<h2>Tres casos reales: de un dispositivo a toda una flota</h2>
+<p>El primero es un dispositivo médico. Con acceso físico se extrajeron los datos del disco del equipo, se hizo ingeniería inversa del mecanismo de actualización de firmware y aparecieron claves de cifrado hard-coded. Resultado: capacidad de desplegar actualizaciones de firmware a cualquier dispositivo en el campo —compromiso total de la flota— sin remedio posible, porque la falla está en la base del hardware. El arreglo es conocido y sencillo: claves y credenciales por dispositivo; aun así, aparece en una de cada dos pruebas de penetración, también en dispositivos médicos.</p>
+<p>El segundo es industrial. El acceso físico a un PLC sin controles permitió habilitar el acceso remoto, alcanzable vía FTP o HTTP anónimos, y desde ahí pivotar a la red OT completa: con la compromisión física inicial bastó para atacar toda la planta de manufactura. La lección es doble —segmentación, siempre— y conceptual: las compromisiones físicas escalan a explotación remota por muchas vías, incluso alterando la forma en que corre el host o las interfaces de manufactura y servicio.</p>
+<p>El tercero es IoT de consumo, con el enfoque del "ataque de basura": leer claves de cifrado desde la RAM no volátil por una interfaz serie, usar la API key encontrada contra la API del fabricante y abusar de un IDOR/BOLA para dirigirse a todos los dispositivos conectados al cloud. Un dispositivo descartado llevó al compromiso del ecosistema completo. El patrón se repite en medical, automotive y cualquier flota con un sistema central de gestión cloud.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Acceso físico<br>a un dispositivo] --> B[Extracción de datos,<br>claves o firmware]
+    B --> C[Reversing de interfaces<br>y mecanismos de update]
+    C --> D[Compromiso remoto<br>vía API / FTP / OTA]
+    D --> E[Flota o ecosistema<br>completo comprometido]
+
+</pre>
+
+<h2>Cuándo hace falta una prueba de hardware</h2>
+<p>La lista de disparadores: funcionalidad sensible (riesgo inmediato en medical, integridad y disponibilidad críticas en automotive e industrial), conectividad —la FDA redefinió el dispositivo conectado para incluir sub-gigahertz, Bluetooth, NFC y redes PAN, no solo TCP/IP—, datos sensibles (volcar SPI flash y encontrar credenciales de administrador local de Windows es más común de lo que debería), actualizaciones OTA de firmware como superficie de ataque mayor, secure boot, flotas grandes gestionadas por cloud, y secretos de larga vida, que simplemente no deberían existir: rotación de claves, tokens de refresco, secretos de meses en lugar de la década que acepta la normativa vigente.</p>
+<h2>Ganar la discusión interna: cada audiencia, su idioma</h2>
+<p>El problema del buy-in es de traducción. Para gestión de producto, los hallazgos de hardware son defectos pre-lanzamiento: corregirlos después cuesta sistemáticamente más. Para liderazgo de ingeniería, tocan varios niveles de la pila a la vez: adelantarlos ahorra tiempo de desarrollo y análisis de causa raíz. Para cumplimiento y regulación, son el palo —los estándares obligan—. Para riesgo y GRC, un solo bug de hardware es un punto único de falla que compromete una flota entera. Para privacidad y legal, el conocimiento de la falla —o el haberla dejado fuera del alcance deliberadamente— es material de litigio. Y para éxito de cliente: cada vez más clientes preguntan qué es ese módulo, por qué está en su red, por qué habla en 2,4 GHz.</p>
+<h2>Metodología y hallazgos recurrentes</h2>
+<p>El método no difiere mucho del de cualquier prueba: preparación y alcance, revisión exhaustiva de documentación (el whitebox ayuda), inspección del dispositivo, prueba de interfaces, extracción y manipulación de datos, alteración y despliegue de firmware, y reporte. Lo que aparece una y otra vez: credenciales hard-coded (solución: provisión de claves únicas por dispositivo), interfaces de debug expuestas —una apareció en un monitor de glucosa minutos antes de esta presentación— que deberían deshabilitarse de serie en fabricación, interfaces físicas e inalámbricas sin autenticación (un Raspberry Pi Pico conectado físicamente basta para puentear hacia el atacante de forma inalámbrica), ausencia de raíz de confianza en hardware —sin secure element o TPM sólido, el análisis de canales laterales y la inyección de fallas, cada vez más accesibles, terminan ganando— y datos sensibles almacenados, una batalla todavía en curso ante la FCC para que se limpien de información sensible las memorias flash externas.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El acceso físico es el punto de entrada, no el fin: duplica la superficie de ataque y habilita el compromiso remoto de flotas completas.</li>
+<li>Claves por dispositivo y rotación de secretos son el contrarremedio más simple y más ignorado frente a credenciales hard-coded.</li>
+<li>El ciclo de vida completo —diseño, fabricación, envío, campo, RMA y disposición— es superficie de ataque, no solo el producto encendido en el cliente.</li>
+<li>La prueba de hardware gana argumentos traducidos: defectos pre-lanzamiento para producto, dev time para ingeniería, el palo regulatorio para cumplimiento, punto único de falla para riesgo y litigios para legal.</li>
+<li>La evaluación fragmentada por proveedores ("solo web", "solo móvil", "solo hardware") deja huecos: lo ideal es un proveedor full-stack, o como mínimo compartir todo el contexto de pruebas previas entre los elegidos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/czINrR2KeRY">«DCSG1 - Probe Pads to Cloud Abuse: How Hardware Findings Become Fleet Scale Incidents - Caleb Davis»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

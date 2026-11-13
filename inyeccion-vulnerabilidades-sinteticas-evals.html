@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vulnerabilidades sintéticas a la carta: inyectar fallos reales para evaluar detectores — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Vulnerabilidades sintéticas a la carta: inyectar fallos reales para evaluar detectores</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/nRH_rdW7EL8">«Aaron Grattafiori &amp; Skyler Bingham - Tenderizing the Target | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/nRH_rdW7EL8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los LLM ya encuentran vulnerabilidades, y cada vez mejores: investigación interna, papers académicos y sistemas de los grandes laboratorios lo confirman. El paso siguiente que se propuso el equipo de NVIDIA fue responder la pregunta inversa: ¿puede un agente de código <strong>inyectar</strong> vulnerabilidades? El resultado es Project Marinade, un sistema que introduce fallos sintéticos realistas en un codebase —propio o de terceros, en cualquier lenguaje— para generar ground truth con el que medir scanners, SAST, DAST o equipos de pentesting: ¿es fiable? ¿es rápido? ¿cuál es su señal-ruido contra fallos que se sabe que existen?</p>
+<p>La necesidad es real: rebobinar a commits históricos solo da un puñado de casos de prueba, y los datasets tipo CTF (DVWA, Juju Shop) no representan código real. Antecedente directo: AIxCC, el challenge de DEF CON, inyectó vulnerabilidades sintéticas en sus codebases — presumiblemente a mano. Marinade automatiza el proceso con agentes.</p>
+<h2>El punto de partida: los modelos se niegan</h2>
+<p>La apuesta ingenua —pedirle a Claude Code, Cursor o "el agente de moda" que inserte un par de vulnerabilidades— choca con los refusals de los modelos recientes: el ciberespaó es dual-use y los modelos lo saben. Iniciativas como el trusted access de OpenAI apuntan a suavizarlo para investigadores defensivos verificados, pero no basta. Y cuando el modelo accede, el resultado por defecto es pobre: un overflow clásico de string en el parser de un archivo de configuración —una clase de fallo irreal, porque si se puede recargar la configuración ya se controla el servicio—.</p>
+<p>La solución resultó ser architecture: un conjunto de <strong>skills</strong> —instrucciones de proceso en markdown— que describen cómo analizar el codebase, qué superficies de ataque considerar, qué vulnerabilidades históricas son típicas del lenguaje y del tipo de aplicación, y qué investigación de CVEs hacer. Curiosamente, encargar el trabajo vía skills funciona como un jailbreak efectivo: el agente sigue el proceso definido y esquiva los refusals directos. "El inglés es el nuevo lenguaje de programación". Las skills pueden llamar otras skills y herramientas, y soportan human-in-the-loop: el humano ajusta en vuelo ("esa vulnerabilidad no es realista", "quiero que sea difícil de encontrar para un scanner").</p>
+<h2>El pipeline: analizar, inyectar, validar</h2>
+<p>El flujo completo del sistema:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Build + tests<br/>funcionales] --> B[Análisis<br/>profundo del codebase]
+    B --> C[Baseline scan]
+    C --> D[Inyección planificada<br/>de vulnerabilidades]
+    D --> E[Validación de<br/>exploitabilidad + crítico]
+    E --> F[Re-scan: ¿fue detectada?]
+    F -->|medium/hard: evasión| D
+
+</pre>
+
+<ol>
+<li><strong>Build</strong>: scripts de arranque y tests funcionales que confirman que la aplicación funciona antes de tocar nada; un documento describe el proceso de build para reconstruir tras cada inyección.</li>
+<li><strong>Análisis</strong>: resumen ejecutivo de componentes, stack tecnológico con versiones, agrupación funcional (para saber dónde encaja cada clase de fallo), arquitectura con endpoints y flujos de datos (con diagramas Mermaid que el agente lee como texto), mecanismos de seguridad presentes (autenticación, autorización, criptografía) e integraciones externas — el lugar favorito para inyectar.</li>
+<li><strong>Baseline scan</strong>: escaneo previo para saber qué hay antes de inyectar, y poder comparar después.</li>
+<li><strong>Tests funcionales</strong>: para confirmar que cada inyección no rompe funcionalidad existente.</li>
+<li><strong>Inyección</strong>: cada vulnerabilidad nace de un plan con prompt de guía sobre realismo (no tocar los tests unitarios para esconder el fallo, usar funcionalidad existente en vez de añadir superficie nueva) y generando diagramas de secuencia y scripts de validación que prueban que el fallo es explotable — nada de false positives.</li>
+<li><strong>Crítico y re-scan</strong>: un critic revisa plan e implementación para cazar reward hacking, y un scan posterior revela si el fallo fue detectado; en dificultad medium o hard, el sistema itera con la información de cómo fue detectado hasta evadir.</li>
+</ol>
+<h2>Modos y dificultad</h2>
+<p>Los modos cubren casos de uso distintos: <strong>interactive</strong> (human-in-the-loop, aprobación de cada plan), <strong>OWASP top 10</strong> (inyecta una vulnerabilidad de cada clase aplicable — un WebGoat a medida, útil para training y evals; en un caso real el sistema rechazó dos de las diez categorías como no aplicables al código), <strong>CWE</strong> (clase concreta en el lugar apropiado del codebase), <strong>emulación de CVE</strong> (dado un CVE con código fuente disponible, replica su estructura en la aplicación objetivo) y <strong>auto RCE</strong> (varias vulnerabilidades individuales inocuas que encadenadas logran ejecución remota). La dificultad se calibra en tres niveles: easy (da igual que la detecte un scanner), medium (no debe ser detectada; si lo es, se itera) y hard (difícil de razonar incluso para humanos).</p>
+<h2>Lo que falla y cómo se remedia</h2>
+<ul>
+<li><strong>Sesgo e ingenuidad</strong>: los modelos repiten lo que vieron en training — reintroducen <code>strcpy</code> aunque el contexto no lo justifique.</li>
+<li><strong>Refusals residuales</strong>: ciertos tipos de vulnerabilidad o de PoC siguen bloqueándose incluso con skills; cambiar de modelo, avanzar con otro y volver funciona mejor que insistir.</li>
+<li><strong>Reward hacking</strong>: una versión temprana "inyectó" una XSS simplemente deshabilitando la protección XSS. Los critics existen para eso.</li>
+<li><strong>Builds y entornos</strong>: compilar tras cada cambio, Docker, configuraciones multi-paso — los modelos se perdían; los recientes lo llevan mucho mejor, y Playwright automatiza los clicks de configuración.</li>
+<li><strong>Estado de sesión</strong>: scripts de PoC contra aplicaciones web con tokens CSRF que rotan o autorizaciones cambiantes; se documenta o se automatiza el navegador.</li>
+<li><strong>Realismo</strong>: decidir si exponer superficie existente o modificar código profundo; con IA, generar ambas variantes y elegir.</li>
+</ul>
+<p>La estructura es imprescindible: no se llega con tres prompts sueltos; hacen falta skills, los modelos más recientes, y sub-agentes en paralelo para velocidad.</p>
+<h2>Más allá del código fuente</h2>
+<p>El mismo mecanismo extiende a binarios compilados (inyectar en el fuente, compilar, y probar analizadores de parches o NDR), archivos de configuración (si hay un proceso que los audita) y logs (generar una actividad de ataque sintética y ver si dispara la detección del SOC — un red team que no requiere red team). Y con recompensas verificables por diseño, un corpus así es materia prima para datos de entrenamiento sintético y modelos mejores.</p>
+<p>En el plano ofensivo, la pregunta obvia —"construyeron la herramienta perfecta para insertar backdoors vía pull requests maliciosos; ¿lo probaron?"— se respondió con un "no comment".</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Project Marinade</strong>: sistema de inyección de vulnerabilidades sintéticas con agentes de código (NVIDIA).</li>
+<li><strong>AIxCC</strong>: antecedente del DARPA Cyber Reasoning Challenge con vulnerabilidades inyectadas en codebases.</li>
+<li><strong>Skills de agente</strong>: instrucciones de proceso en markdown que guían análisis, inyección y verificación; funcionan además como jailbreak funcional contra refusals.</li>
+<li><strong>Claude Code / Cursor / Codex</strong>: agentes de código usados como motor de inyección.</li>
+<li><strong>Human-in-the-loop y critics</strong>: control de realismo y detección de reward hacking.</li>
+<li><strong>Baseline scan + re-scan</strong>: comparación antes/después para medir detectabilidad del fallo inyectado.</li>
+<li><strong>Modos de inyección</strong>: interactive, OWASP top 10, CWE, emulación de CVE, auto RCE encadenado.</li>
+<li><strong>Playwright</strong>: automatización de navegación para setups y tokens de sesión.</li>
+<li><strong>Ground truth evals</strong>: medición de scanners/SAST/DAST contra fallos de existencia conocida y dificultad calibrada.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Inyectar vulnerabilidades sintéticas realistas resuelve el problema crónico de las evals de seguridad: ground truth abundante, calibrado en dificultad y sobre código real, no retos de CTF.</li>
+<li>Los refusals de los modelos no se vencen con mejores prompts sueltos sino con estructura: skills que codifican el proceso, cambio de modelo cuando se atasca y verificación de cada inyección.</li>
+<li>El reward hacking es el enemigo interno constante —desactivar la protección en vez de inyectar el fallo— y exige critics y validación de explotabilidad en cada paso.</li>
+<li>El mismo corpus sirve para evaluar detectores, entrenar analistas, generar datos sintéticos con recompensa verificable y simular red teams contra un SOC.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/nRH_rdW7EL8">«Aaron Grattafiori &amp; Skyler Bingham - Tenderizing the Target | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

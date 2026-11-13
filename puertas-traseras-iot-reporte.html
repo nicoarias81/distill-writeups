@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puertas traseras IoT: del firmware al reporte frustrado — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Puertas traseras IoT: del firmware al reporte frustrado</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/L4cMPw2uDtc">«DEF CON 33 - IoT Village - Unlurking IoT Vulnerability from Backdoor to Blueprint - Steven, Kenny Wong»</a> · ver el <a class="nz-link" href="https://youtu.be/L4cMPw2uDtc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>La seguridad IoT suele narrarse como la carrera entre atacantes y fabricantes. El punto ciego está en otra parte: las <strong>puertas traseras construidas por el propio fabricante</strong>. No hace falta ningún hack para entrar a muchos dispositivos — basta con enchufarlos. Dos investigadores que acumulan más de 30 dispositivos probados y más de 50 CVEs publicados recorren cómo se obtiene el firmware, qué formas adoptan esas puertas traseras (cuentas ocultas, Telnet "para control remoto", CGI escondidos, rutas API no documentadas, credenciales MQTT hardcodeadas) y, sobre todo, qué pasa cuando se reporta: ignorancia, retrasos, negativas por "end of life" y, en el peor caso, un NDA que sirve para ocultar problemas en vez de arreglarlos.</p>
+<h2>Obtener el firmware: cinco vías</h2>
+<p>Para investigar IoT hay que mirarlo todo — dispositivo, sistema y firmware — y el primer paso es siempre conseguir el firmware:</p>
+<ol>
+<li><strong>Descarga oficial.</strong> Algunos fabricantes publican las actualizaciones en su web. Cuando están "protegidas", a veces basta mirar el padding: un archivo lleno de <code>0x31</code> delata un XOR con la clave <code>0x31</code>.</li>
+<li><strong>Captura de la actualización OTA.</strong> Los dispositivos pueden pasar años sin actualizarse y el certificado del servidor caduca, así que los fabricantes suelen desactivar la verificación. Con una herramienta de intercepción TLS la actualización se ve entera, y el man-in-the-middle sigue funcionando durante años.</li>
+<li><strong>Desde el propio dispositivo.</strong> Buscar el puerto serie (U-Boot); algunas placas marcan los pines TX/RX. Truco: enviar el equipo a reparación oficial y revisar si el técnico dejó marcas de soldadura de depuración que ayudan a conectar.</li>
+<li><strong>Funciones de import/export.</strong> La misma característica útil para el usuario sirve para extraer datos.</li>
+<li><strong>RCE.</strong> Con ejecución remota de código, herramientas como <code>binwalk</code>/Netcat sacan el firmware o suben scripts propios. La vía hacia ese RCE puede ser tan simple como un punto y coma: la inyección de comandos "clásica" sigue viva en 2025.</li>
+</ol>
+<h2>La taxonomía de puertas traseras</h2>
+<pre class="mermaid">
+flowchart TD
+    A[Puerta trasera del fabricante] --> B[Cuenta oculta<br/>hardcodeada e inmodificable]
+    A --> C[Servicio olvidado<br/>Telnet / ADB / UPnP]
+    A --> D[Endpoint escondido<br/>CGI o ruta API sin documentar]
+    A --> E[Credenciales en el ecosistema<br/>MQTT hardcodeado, app con password en claro]
+    A --> F[Telemetria silenciosa<br/>datos sensibles al fabricante]
+
+</pre>
+
+<ul>
+<li><strong>Cuentas ocultas.</strong> En un dispositivo apareció una cuenta extraña en el archivo de contraseñas llamada con el nombre de la sede central del fabricante. La lógica de "solo el fabricante la conoce, así que es segura" cae al reversear el <strong>algoritmo de generación de contraseñas</strong> en el firmware: no hace falta fuerza bruta. En otro equipo, la clave de cifrado hardcodeada resultó ser un eslogan de una serie de televisión taiwanesa — evidencia de por qué nadie debe elegir la contraseña que mejor recuerda.</li>
+<li><strong>Servicios olvidados.</strong> UPnP compartiendo más información de la debida con puertos abiertos a internet sin autenticación; ADB sin apagar antes de la venta; y el caso paradigmático: el fabricante aseguraba "no hay Telnet", estaba habilitado, y la contraseña estaba <strong>hardcodeada en texto plano dentro de la app móvil</strong>. Además, un servicio de Telnet no abierto se puede reactivar mediante una <strong>API oculta</strong> que lo enciende de nuevo: si se cierra una puerta, queda otra abierta.</li>
+<li><strong>Endpoints escondidos.</strong> Una puerta trasera no necesita puerto: un script CGI oculto con contraseña en un archivo "oculto" cumple la misma función. Y rutas API que no aparecen en la documentación — sin enlaces, pero existentes — permitieron descargar el archivo de configuración completo con usuarios y contraseñas. Un equipo llegó a tener una ruta literalmente llamada <code>backdoor</code> en texto plano.</li>
+<li><strong>El ecosistema, no solo el dispositivo.</strong> Muchos dispositivos se controlan por la nube vía <strong>MQTT</strong> con usuario y contraseña hardcodeados (a veces en texto plano) dentro del firmware. Una vez dentro, la suscripción a todos los topics abre el acceso a dispositivos de otros usuarios por todo el mundo. Otros equipos envían en secreto datos sensibles al fabricante — invisible salvo que se analice el tráfico de red.</li>
+</ul>
+<p>Patrón transversal: las puertas traseras aparecen en productos de cualquier país o empresa, con motivos que van del mantenimiento legítimo al código reutilizado de otros fabricantes — a veces reversear una puerta trasera revela quién fabrica realmente los dispositivos.</p>
+<h2>El informe: cuando avisar es lo difícil</h2>
+<p>Encontrar la vulnerabilidad es la parte fácil. Los casos de coordinación ilustran el estado real del disclosure en IoT:</p>
+<ul>
+<li><strong>"End of life".</strong> Un RCE crítico en un dispositivo usado en redes de gobierno de Taiwán, reportado en septiembre de 2024. Meses después, la respuesta fue que el producto estaba fuera de soporte y no se arreglaría. El advisory del fabricante salió solo cuando el hallazgo se hizo público. Con el mismo modelo en producción: unas <strong>60.000 unidades siguen conectadas y en riesgo</strong>. Peor: meses después apareció otro modelo con el mismo firmware y los mismos bugs, y el fabricante solo incluyó el modelo original en el advisory — su "gemelo" no existe para ellos.</li>
+<li><strong>El CNA que no asigna.</strong> Otro fabricante (también CNA, con autoridad para gestionar sus propios CVEs) respondió "end of life, no fix" e ignoró el reporte, bloqueando la asignación del número. La vía alternativa fue pedirlo directamente a MITRE, que terminó emitiéndolo tras una larga discusión. Y como el fabricante solo listó el modelo reportado, hubo que <strong>abrir un CVE nuevo para los modelos restantes</strong> con el mismo bug: si la empresa no avisa a los usuarios, lo hará el investigador.</li>
+<li><strong>Contradicciones.</strong> "No creemos que sea una vulnerabilidad real, pero por favor no la hagas pública." O el reporte de 2024 respondido en 2025 con "ya está arreglado", fix dentro de una nota interna que nunca se publicará. O casi un año de silencio — tiempo en que el problema fue, de facto, un zero-day con usuarios expuestos. Las vulnerabilidades no mejoran con la edad.</li>
+<li><strong>Tres años sin respuesta.</strong> Sin respuesta no hay pago de bounty, ni advisory, ni nada; la publicación era posible pero siempre se dio primero la oportunidad al fabricante.</li>
+<li><strong>El NDA como muro.</strong> Un fabricante pidió que se probaran sus productos firmar un NDA amplísimo: "encuentren bugs, no se lo digan a nadie". Con un NDA así, los problemas se esconden en lugar de arreglarse.</li>
+</ul>
+<h2>Recomendaciones por actor</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Actor</th>
+<th>Acciones</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Fabricantes</td>
+<td>Sin puertas traseras ni contraseñas hardcodeadas; proteger y documentar el acceso remoto; proceso claro de manejo de bugs con respuesta rápida; trabajar con investigadores, no contra ellos; la seguridad como hábito, no como feature</td>
+</tr>
+<tr>
+<td>Gobiernos</td>
+<td>Exigir inventario de servicios y puertos de depuración; normas contra puertas traseras y parcheo lento; vías buenas de reporte; alfabetización de desarrolladores y directivos; cooperación internacional (el IoT es global)</td>
+</tr>
+<tr>
+<td>Usuarios</td>
+<td>Asumir que el dispositivo puede tener funcionalidades ocultas; comprar a fabricantes que se preocupan por seguridad; actualizar firmware; reportar comportamientos extraños</td>
+</tr>
+<tr>
+<td>Investigadores</td>
+<td>Buscar puertas traseras y canales ocultos; reportar y no explotar; documentar el riesgo del mal mantenimiento; priorizar la seguridad y privacidad del usuario al publicar</td>
+</tr>
+</tbody>
+</table></div>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Extracción de firmware</strong>: descarga oficial (XOR con padding detectable), captura OTA con intercepción TLS, puerto serie/U-Boot, import/export, RCE + Netcat.</li>
+<li><strong>Reverse engineering del algoritmo de contraseñas</strong>: evita la fuerza bruta contra cuentas ocultas.</li>
+<li><strong>Telnet/ADB/UPnP</strong>: servicios que deben apagarse antes de la venta y no se apagan.</li>
+<li><strong>CGI y rutas API no documentadas</strong>: puertas traseras sin puerto abierto.</li>
+<li><strong>MQTT hardcodeado</strong>: suscripción a todos los topics de la nube del fabricante.</li>
+<li><strong>Análisis de tráfico de red</strong>: única forma de detectar la telemetría silenciosa al fabricante.</li>
+<li><strong>Proceso CVE</strong>: CNA propio del fabricante vs asignación vía MITRE cuando el CNA bloquea.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las puertas traseras del fabricante son el problema IoT más ignorado: no requieren hacking, aparecen en cualquier país y empresa, y abarcan cuentas, servicios, endpoints y el ecosistema de nube completo.</li>
+<li>El disclosure IoT está estructuralmente roto: "end of life" deja decenas de miles de dispositivos en riesgo, los CNAs pueden bloquear la asignación de CVEs, y los NDAs amplísimos sirven para ocultar, no para arreglar.</li>
+<li>La investigación de un dispositivo IoT debe ser sistémica: la contraseña en texto plano estaba en la app, la puerta reactivable estaba en una API oculta, y los datos sensibles viajaban por un canal que solo se ve analizando tráfico.</li>
+<li>Si el fabricante no va a avisar a los usuarios, el trabajo del investigador incluye hacerlo público — con el trabajo extra que eso implica (CVEs adicionales, presión pública).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/L4cMPw2uDtc">«DEF CON 33 - IoT Village - Unlurking IoT Vulnerability from Backdoor to Blueprint - Steven, Kenny Wong»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

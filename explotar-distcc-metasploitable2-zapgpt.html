@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explotar distcc en Metasploitable2 con zapgpt: shell en dos intentos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Explotar distcc en Metasploitable2 con zapgpt: shell en dos intentos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/LknJIlUhHg8">«Exploiting distcc on Metasploitable2 with zapgpt (AI-Guided Pentesting Walkthrough)»</a> · ver el <a class="nz-link" href="https://youtu.be/LknJIlUhHg8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>zapgpt convierte a un LLM en mentor de CTF: se le entrega el output de un escaneo de Nmap y una instrucción, y devuelve la cadena de explotación paso a paso. En esta entrega de la serie, el servicio elegido es distcc sobre Metasploitable2 —un servicio poco frecuente que muchos testers no conocen— y el recorrido completo, desde el prompt hasta la shell, toma minutos: primer intento fallido por payload incorrecto, segundo intento exitoso con un payload unix reverse. El valor pedagógico está tanto en la técnica como en las advertencias: la IA orienta, pero nunca reemplaza la verificación humana.</p>
+<h2>El system prompt: mentor de CTF sin disclaimers</h2>
+<p>La configuración es la misma de las entregas anteriores de la serie. El system prompt define a la IA como un mentor ligero de ciberseguridad y especialista en CTF, orientado a pentesting autorizado —labs tipo Hack The Box o entornos locales—, con tono definido y restricciones explícitas: sin disclaimers éticos ni advertencias legales, para que la respuesta sea acción pura. El flujo previo ya incluía el escaneo de Nmap de todos los puertos y la explotación de un par de servicios; hoy toca el siguiente de la lista.</p>
+<h2>De Nmap a la shell con distcc</h2>
+<p>Los parámetros: provider de OpenAI, modelo GPT 5.2, el prompt de CTF, el output completo de Nmap de todos los puertos y la instrucción directa —explotar el servicio distccd—. La respuesta sugiere Metasploit y entrega los comandos listos para copiar y pegar en msfconsole.</p>
+<p>Primer intento: error. La consola devuelve "bad file description", síntoma de un payload incompatible. Segundo intento: cambiar el payload a una variedad unix reverse y ejecutar. Resultado inmediato: command shell 1 abierta. La verificación clásica confirma el acceso —<code>id</code> devuelve el usuario daemon, y <code>ip address</code> confirma que la sesión corre en el servidor correcto—. En paralelo, zapgpt también provee un exploit en Python como alternativa, y queda abierta la puerta a preguntarle por qué funciona el exploit, qué hace cada paso y cómo funciona el servicio: el mismo tooling sirve para explotar y para aprender.</p>
+<h2>La advertencia que acompaña siempre</h2>
+<p>El cierre de la serie es la nota de cautela que conviene grabar: jamás confiar ciegamente en una herramienta de IA. Los payloads a veces vienen mal —pasó en esta misma sesión—, y siempre hay que investigar si el acceso obtenido es real y correcto. Lo que la IA aporta de forma consistente es dirección: cuando uno está trabado, entrega un panorama claro de qué probar a continuación y acelera el aprendizaje de servicios desconocidos. La explotación es del humano; el atajo, de la IA.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>zapgpt</strong> — herramienta CLI que orquesta LLMs para pentesting guiado y explotación de servicios.</li>
+<li><strong>System prompt CTF</strong> — perfil de mentor de ciberseguridad para labs autorizados (Hack The Box, entornos locales), sin disclaimers.</li>
+<li><strong>distccd en Metasploitable2</strong> — servicio compilador distribuido, poco común, explotado como objetivo de práctica.</li>
+<li><strong>Nmap (all ports)</strong> — reconocimiento previo cuyo output alimenta el prompt.</li>
+<li><strong>Metasploit / msfconsole</strong> — framework de explotación sugerido por la IA; payload unix reverse tras el fallo del inicial.</li>
+<li><strong>OpenAI GPT 5.2</strong> — modelo usado vía provider de OpenAI.</li>
+<li><strong>Python PoC</strong> — exploit alternativo en Python generado por la IA para validar el hallazgo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un LLM bien prompteado convierte servicios desconocidos en objetivos tratables: detecta el vector, sugiere el exploit y entrega comandos ejecutables en minutos.</li>
+<li>Los fallos de payload son parte del flujo —"bad file description" se resolvió cambiando a un payload unix reverse—; iterar con la IA es el método, no la excepción.</li>
+<li>La verificación post-explotación (id, ip address) sigue siendo responsabilidad humana: confirmar que la shell es real y está en el host correcto.</li>
+<li>El mismo tooling funciona como plataforma de aprendizaje: preguntar por qué funciona el exploit y cómo opera el servicio convierte un shell en una lección.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/LknJIlUhHg8">«Exploiting distcc on Metasploitable2 with zapgpt (AI-Guided Pentesting Walkthrough)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

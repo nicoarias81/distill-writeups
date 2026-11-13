@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 cero-días en OpenSSL: lo que importa no es el hallazgo, es el motor que lo encontró — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">12 cero-días en OpenSSL: lo que importa no es el hallazgo, es el motor que lo encontró</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/IjL2qN1KDe8">«Adam Krivka &amp; Ondrej Vlcek - AI Found 12 Zero-Days in OpenSSL | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/IjL2qN1KDe8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El formato clásico de investigación de vulnerabilidades es predecible: el investigador sube al escenario, muestra lo que encontró, explica el truco ingenioso que usó, aplausos y hasta el año próximo. Este relato invierte el orden: los hallazgos son reales —12 cero-días en OpenSSL, vulnerabilidades en los tres motores de navegador, bugs en Kubernetes, OpenClaw y OpenEMR—, pero el protagonista es el motor agéntico que los produjo. La tesis que atraviesa todo el trabajo: la IA ya encuentra vulnerabilidades de seguridad profundas, incluso en código auditado y endurecido durante décadas, y el equilibrio entre ataque y defensa es frágil porque los malos tienen acceso a la misma tecnología —o mejor, con recursos casi ilimitados en el caso de los actores estatales—.</p>
+<p>El contexto competitivo lo confirma: en el AI Cyber Challenge de DARPA, solo un 35% de las vulnerabilidades plantadas se encontraron en las semifinales de 2024; un año después, en la final, el 87%. Y en los últimos seis meses, el motor de la compañía acumuló 500 vulnerabilidades confirmadas por maintainers de open source —el mismo número que Anthropic, por coincidencia—, con unos 130 CVEs emitidos y subiendo, porque los CVEs son una métrica rezagada que tarda meses.</p>
+<h2>De herramienta de remediación a descubridor accidental</h2>
+<p>La tesis original de la compañía era distinta: no escanear, no descubrir; solo ingerir outputs de escáneres existentes y remediar de forma agéntica. Para eso había que saber qué escáneres valían, y el benchmark fue demoledor: correr escáneres comerciales de pattern matching sobre unos 100.000 CVEs históricos de open source —vulnerabilidades ya conocidas, sobre las que los escáneres podrían haberse entrenado— arrojó tasas de éxito de dígito único bajo. Prácticamente cero de eficacia.</p>
+<p>Al construir su propio escáner basado en LLMs pasó algo notable: no solo encontraba las vulnerabilidades históricas "doradas" que buscaba, sino que empezó a identificar vulnerabilidades nuevas. Ese accidente —hace unos seis meses— abrió el programa de reportes que hoy suma 500 hallazgos confirmados.</p>
+<h2>Los hallazgos: lo que un escáner de patrones no verá jamás</h2>
+<p>El más serio en OpenSSL es un stack overflow en un componente usado típicamente por clientes de correo: el atacante controla la longitud de un campo en una notación de datos y provoca un desbordamiento de buffer en pila. Las mitigaciones habituales hacen que la ejecución remota de código no sea trivial, pero la ubicuidad de OpenSSL lo mantiene en severidad alta. Hay también una vulnerabilidad en cada motor de navegador (Chromium, Firefox, WebKit).</p>
+<p>El ejemplo pedagógico viene de Traefik, como ingress controller en un despliegue de Kubernetes: un flag que se supone activa la autenticación TLS del backend la desactiva en realidad. El código dice algo así como "insecure skip verify" con una condición que evalúa si el flag <code>proxy_ssl_verify</code> está activado —y entonces el verify se salta—. Es exactamente el tipo de error semántico que ningún matching de patrones detecta: el flag existe, la lógica compila, los tests pasan; lo que está mal es el significado. Y en OpenClaw, proyecto nuevo al que se sumaron, ya van más de 34 vulnerabilidades, lo que los convierte en uno de los contribuidores de seguridad más activos del proyecto.</p>
+<h2>El trato con los maintainers: ni un gramo de AI slop</h2>
+<p>La lección aprendida a las duras es el equilibrio entre ser útil y no agregar trabajo a gente que mantiene código en su tiempo libre o con presupuestos mínimos. El "AI slop" —reportes con falsos positivos o, peor, con verdaderos que obligan a triage, fix y testing— es el enemigo. La política: entregar al maintainer toda la información contextual que necesita, incluido el fix. El caso emblemático es Daniel Stenberg, autor original de curl y crítico público feroz del slop de IA, que en seis meses pasó de escéptico total a fan que habla en FOSDEM de que la experiencia "se siente como magia". Que los ingenieros hardcore que pasaron la vida haciendo triage manual de vulnerabilidades terminen predicando las capacidades de los LLMs es, quizá, la señal más fuerte de madurez del enfoque.</p>
+<h2>El motor: refinamiento progresivo multi-etapa</h2>
+<p>El pipeline es un diseño de refinamiento progresivo donde cada etapa actúa como tamiz que solo deja pasar hallazgos de grado CVE, capaces de causar daño real. La estructura general tiene dos fases: primero una de amplitud —generar tantas hipótesis e ideas como sea posible sobre qué puede estar mal en el código—, y luego una de enfoque —exploración agéntica de cada pista: correr el código, construir un PoC, fuzzing cuando aplica—. En la fase crítica se usan múltiples modelos que se evalúan entre sí, proponen explicaciones distintas y miran el problema desde ángulos diferentes, emulando un equipo de ingenieros de seguridad con perfiles diversos que llega a un consenso informado. Es el mecanismo anti-alucinación y anti-sycophancy.</p>
+<p>Los trucos de ingeniería que hacen que funcione, compuestos:</p>
+<ul>
+<li><strong>Paralelismo masivo.</strong> Los humanos son single-threaded; los agentes no. Muchas hipótesis en paralelo, simultáneamente.</li>
+<li><strong>Construcción cuidadosa del contexto.</strong> Tirar cosas random a la inferencia no funciona; cada fase recibe un contexto cada vez mejor optimizado del code base. La apuesta declarada es LLM-heavy —al contrario del énfasis en verificación de otros equipos—: los modelos seguirán mejorando y sus ventanas de contexto creciendo, pero mientras los code bases más grandes no quepan en contexto, queda mucho alpha en hacer context engineering bien, combinado con verificaciones duras y blandas.</li>
+<li><strong>Humano en el circuito</strong> en la fase final de reporte, cada vez más como check formal, pero útil para detectar mejoras y alinear el sistema a necesidades humanas.</li>
+<li><strong>Experimentación</strong> con modelos fine-tuned especializados y en la frontera de interpretabilidad, robustez y aprendizaje continuo.</li>
+<li><strong>Plataforma agéntica seria</strong>: sandboxes seguros, ejecución durable, evals, observabilidad y tests.</li>
+</ul>
+<h2>Producto: el bot de GitHub y la doble misión</h2>
+<p>El trabajo se materializa en dos frentes. El deep scan del code base existente —vulnerabilidades enterradas durante años o décadas en código legado—, que es donde viven los 500 hallazgos y sus CVEs. Y la protección del código nuevo, un juego distinto y urgente en la era del código generado por IA: revisar cada cambio antes de que llegue a producción. El UX principal es un bot de GitHub en uso activo por proyectos de altísimo perfil —el propio OpenSSL, OpenClaw, donde cada PR ya pasa por el motor, OpenEMR en salud, el ecosistema de Apache—, con feedback fuerte de maintainers como Matt Caswell, CEO de la OpenSSL Foundation. A partir del día del evento, el bot está disponible al público general.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La IA ya encuentra vulnerabilidades profundas en el código más auditado del mundo —OpenSSL incluida—, y los escáneres de firmas tienen una eficacia cercana a cero incluso ante CVEs históricos que podrían haber "aprendido".</li>
+<li>El diseño que funciona es amplitud primero, enfoque después: muchas hipótesis en paralelo, exploración agéntica de cada pista con PoC y fuzzing, y consenso multi-modelo para matar alucinaciones y sycophancy.</li>
+<li>El respeto a los maintainers no es decorativo: reportes con contexto completo y fix incluido convirtieron al crítico más feroz del AI slop (curl) en un predicador público del enfoque.</li>
+<li>El equilibrio ofensivo-defensivo es frágil y corre contra reloj: los actores estatales tienen recursos ilimitados y la tecnología ya está weaponizada; la única salida a la vuln-pocalypse es máxima urgencia en encontrar y parchear antes que los malos.</li>
+<li>Sobre el futuro del scoring: probablemente habrá CNA propio para agilizar el volumen, CVSS 4 se mantiene como estándar común pese a sus deficiencias porque incorpora contexto de despliegue, y hay ideas para enriquecerlo si la comunidad encuentra impulso colectivo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/IjL2qN1KDe8">«Adam Krivka &amp; Ondrej Vlcek - AI Found 12 Zero-Days in OpenSSL | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Criptografía rota en teclados chinos: cualquier ojo de red puede leer tus pulsaciones — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Criptografía rota en teclados chinos: cualquier ojo de red puede leer tus pulsaciones</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/RgCI3GOXLr0">«DEF CON 32 - Breaking network crypto in popular Chinese keyboard apps - Jeffrey Knockel, Mona Wang»</a> · ver el <a class="nz-link" href="https://youtu.be/RgCI3GOXLr0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los teclados con IME (input method editor) chinos dependen de predicción en la nube: las pulsaciones viajan a un servidor que devuelve los caracteres sugeridos, porque calcular sobre más de 10.000 caracteres es caro para un móvil a batería y porque el diccionario de predicción es propiedad intelectual que se protege en el servidor. Esos mismos teclados son masivos: tres desarrolladores dominan el mercado, con bases de usuarios que duplican la población de Estados Unidos, y suelen venir preinstalados en los teléfonos vendidos en China.</p>
+<p>La pregunta obvia es si esto convierte al teclado en un keylogger. La respuesta es sí — pero el trabajo no va por ahí, sino por algo peor: la criptografía propietaria con la que esos teclados protegen sus pulsaciones en tránsito es insuficiente, y en varios casos se puede descifrar desde la red. Sobre esa base, el análisis desmonta cuatro sistemas (Sogou, iFlytek, Baidu y Samsung IME), mide el ecosistema completo de apps chinas, y cierra con una petición concreta: las pulsaciones merecen al menos TLS.</p>
+<h2>Modelo de amenaza: vigilar sin ser visto</h2>
+<p>El modelo de amenaza distingue dos niveles. El ataque a Sogou exige un adversario activo de red: hay que enviar peticiones al servidor para descifrar, con el riesgo de que alguien observe. Todos los demás ataques funcionan con un adversario puramente pasivo, que recolecta tráfico silenciosamente y descifra cuando quiera: la persona en la sala, el ISP propio o el del servidor, cada red intermedia y cada actor estatal en el camino.</p>
+<p>Los hallazgos de Snowden hacen esa hipótesis concreta: el programa XKeyscore recolecta tráfico global, y entre los plugins filtrados hay uno contra una app china con criptografía de red insuficiente — exactamente el perfil de estos teclados, con datos aún más interesantes. Una VPN no salva: solo traslada la lectura al operador de la VPN, que con una base de clientes es un negocio tentador.</p>
+<p>El estándar de comparación es simple: TLS o algo equivalente. Por ese rasero, Huawei fue la excepción entre los fabricantes — su teclado propietario preinstalado usaba TLS de fábrica.</p>
+<h2>Sogou: padding oracle y claves recicladas</h2>
+<p>Sogou llama a su sistema "EncryptWall", y la primera víctima fue la versión de Windows. Al escribir "ni hao", las peticiones van por HTTP en claro, pero el cuerpo lleva cinco parámetros de alta entropía: la clave AES, el IV, y los parámetros túnel (URL, GET y POST). La clave AES está cifrada con RSA; el IV también, lo cual no es necesario pero complica el ataque; y los parámetros se cifran con AES-CBC usando esa clave y ese IV. Es el aspecto clásico de un sistema criptográfico casero, con la vulnerabilidad clásica: ataque de padding oracle CBC, descrito hace veinte años.</p>
+<p>El mecanismo: en CBC, el último bloque de texto plano sale de XOR entre el penúltimo bloque cifrado y la salida del descifrado del último bloque. El servidor responde con un código HTTP distinto según el padding sea válido, y eso es un oráculo byte a byte. Se prueban valores hasta que el XOR da 1 (un byte de padding), se rearranca el álgebra XOR — conmutativa y autoinversa, así que la ecuación se manipula como una suma sin signos — y el byte de texto plano cae: penúltimo bloque cifrado, XOR B, XOR 1. Se repite con 2, con 3, y así bloque a bloque.</p>
+<p>Habría un problema: el IV estaba cifrado, y el texto plano venía comprimido con zlib, así que el primer bloque (el diccionario de compresión) era imprescindible. El truco: el endpoint de la API es siempre el mismo al escribir, o sea que el primer bloque de texto plano es predecible. Se ejecuta el ataque normal, se obtiene "texto plano XOR IV", se XOR con el texto conocido, y aparece el IV. Con el IV, el resto cae normal.</p>
+<p>En Android el IV ya viajaba en claro, pero la criptografía casera se complicaba: una nueva clave AES "R" se XOR-eaba con "K", y los parámetros S, E y F se cifraban con "R" y un IV fijo incrustado en el código, para luego XOR con "K" otra vez — con K de 256 bits partiendo en mitades K1/K2 por bloque. De nuevo el primer bloque era el problema, y de nuevo la solución fue que S (la versión de Sogou) era predecible y, de hecho, viajaba en claro en un header HTTP. Con S recuperado se obtiene K2, y con K2 caen E, F y la mitad de R2. El resultado es notable: el padding oracle no solo revela el texto plano, también mitades de las claves AES. Y el descifrado muestra no solo qué se escribe, sino <strong>en qué app</strong>: quien recolecta globalmente puede filtrar por apps de salud o de citas. Si el mensajero es Signal, no importa el extremo a extremo — las pulsaciones se transmiten con criptografía rota.</p>
+<p>En iOS el descifrado era trivial por otra vía: reinicializaban el generador aleatorio con el tiempo Unix en segundos inmediatamente antes de generar clave e IV, y lo volvían a reinicializar antes del IV — así que IV y clave solían ser el mismo valor, transmitido en claro. Curiosamente, la versión iOS iba envuelta en TLS al momento del análisis; el tráfico histórico recolectado antes de ese cambio probablemente sigue descifrable.</p>
+<h2>iFlytek: la clave es el reloj</h2>
+<p>El teclado de iFlytek en Android enviaba el tiempo en milisegundos desde la época Unix junto al tráfico, cifrado con DES en modo ECB. La clave se derivaba directamente de ese mismo tiempo en milisegundos con algo de manipulación de bits, impreso como cadena hexadecimal. Consecuencia: si conocés el tiempo, conocés la clave — y el propio paquete te lo dice, así que ni reloj hace falta. Todo recolectable de forma pasiva, sin enviar una sola petición. Las versiones de iOS y Windows tenían los mismos problemas, pero envueltos en TLS al momento del estudio.</p>
+<h2>Baidu: AES "modificado" y claves efectivamente fijas</h2>
+<p>Baidu sobre Samsung usaba UDP con tráfico de alta entropía. Al revertirlo aparecía un diseño laberíntico: se genera una clave AES K1, se genera una clave K2, se cifra K1 con K2, se cifra el mensaje con K1, y se transmiten ambas cifradas. El problema está en "generar": la función que produce K2 tiene como única entrada un booleano — o sea, K2 es una clave fija incrustada. Como AES es simétrico, quien revierte la app obtiene la clave que cifra todo el tráfico del mundo y la misma clave descifra.</p>
+<p>¿Por qué las comillas en "AES"? Porque además modificaron el algoritmo, agregando permutaciones extra que obligaron a reimplementar AES bug por bug para atacarlo. ¿Hizo la app más segura? No. ¿Hizo al investigador más enojado y motivado? Sí. La versión de Windows llevaba otra variante casera que <strong>eliminaba una ronda</strong> del cifrado — estrictamente menos seguro. En Android e iOS ya usaban un protocolo actualizado, no trivialmente roto pero igualmente malo:</p>
+<pre class="mermaid">
+flowchart TD
+    A["Tráfico del teclado<br/>UDP, byte de versión"] --> B["AES-CTR modificado:<br/>XOR de IV y texto ANTES de cifrar"]
+    B --> C["Sin difusión criptográfica:<br/>mismo resultado si se incrementa IV o texto"]
+    B --> D["Clave e IV idénticos y fijos<br/>cifrado determinista"]
+    A --> E["Diffie-Hellman estático<br/>clave pública del servidor fijada en la app"]
+    E --> F["Sin forward secrecy<br/>sin integridad: solo CRC32"]
+
+</pre>
+
+<p>El XOR previo al cifrado rompe la difusión criptográfica: incrementar el IV o incrementar el texto produce el mismo bloque de entrada al cifrador y, por tanto, el mismo texto cifrado. El uso de la misma clave y el mismo IV hace el cifrado determinista: ver dos textos cifrados iguales en el sniffing significa que la persona tecleó lo mismo dos veces. Y Diffie-Hellman estático significa que una única clave privada del servidor comprometida descifraría todo lo que cualquier persona tecleó alguna vez en Baidu IME — la clave más valiosa imaginable. La integridad era un checksum CRC32, falsificable trivialmente. La respuesta de Baidu al reporte: seguir usando su protocolo. Ese protocolo protege las pulsaciones de hasta 600 millones de personas.</p>
+<h2>Samsung IME: texto plano y discusión sobre si cuenta</h2>
+<p>El teclado por defecto de los Samsung con ROM china tiene una opción, "sugerir palabras raras", que activa el envío de pulsaciones a internet. Sin cifrado alguno: en Wireshark se lee la palabra tecleada, sin intento de ocultarla. La broma recurrente del equipo de investigación — ¿cuenta como "criptografía deficiente" si no hay criptografía? — resume el nivel del hallazgo.</p>
+<h2>Después de la divulgación: quién corrigió y quién no</h2>
+<ul>
+<li><strong>Tencent</strong> (Sogou): primera respuesta pasivo-agresiva ("esperamos tu próximo reporte más emocionante"), seguida en 24 horas de una corrección seria y rápida — arreglo en días, despliegue en semanas.</li>
+<li><strong>iFlytek y Samsung</strong>: migraron a TLS casi inmediatamente tras el reporte.</li>
+<li><strong>Baidu</strong>: rechazó TLS y desplegó en todas sus apps el protocolo propietario "mejorado" descrito arriba.</li>
+<li><strong>Huawei y Vivo</strong>: ya usaban TLS con sus teclados propios.</li>
+<li><strong>Honor</strong>: el peor caso residual — el teclado no tiene mecanismo de actualización, ni siquiera actualizando el sistema operativo. A quien use un dispositivo Honor: instalar otro teclado.</li>
+</ul>
+<p>El detalle de iOS tiene explicación: App Transport Security obliga a TLS desde iOS 9 (2015), pero solo a través de las APIs de alto nivel — por eso Baidu en iOS hacía UDP crudo vía la API de sockets C, código portable enlazado con libcurl que sortea la política. Android tiene una política similar con la misma limitación.</p>
+<h2>El problema sistémico: no es solo teclados</h2>
+<p>El sesgo de la comunidad de seguridad anglófona queda en evidencia con un dato banal: las listas de "apps más descargadas del mundo en 2023" coronan a Instagram mientras, unas líneas abajo, citan mil millones de descargas de WeChat — "global" quiere decir "global salvo China". El punto no es menor: se da por universal el TLS (80% de las páginas en Firefox sobre HTTPS), pero al analizar las apps top, todas las desarrolladas fuera de China usaban exclusivamente cifrado estándar (HTTPS/TLS/QUIC), y las chinas no — sin enviar todo en claro, sino con criptografía propietaria como la descrita.</p>
+<p>La medición sistemática empezó con un pipeline sobre 100 apps: descarga e instalación en teléfono emulado o rooteado, simulación de usuario con un robot que toca la pantalla al azar y acepta diálogos de permisos, aislamiento del tráfico no-TLS, y análisis de entropía con alineamiento a tamaños de bloque AES/DES. Resultado: en el top 45 de Google Play, 91% usaba cifrado estándar exclusivamente; en la tienda de Baidu, solo 2 de 45 — más de la mitad con criptografía casera.</p>
+<p>¿Son puertas traseras? No: no hace falta puerta trasera cuando el cripto roto entrega los datos a cualquiera, incluida la NSA, que según los documentos de Snowden ya explotó criptografía propietaria deficiente con un plugin de XKeyscore. Las hipótesis sobre el porqué incluyen la herencia pre-TLS (cuando SSL era el estándar y el ecosistema de CAs era un desastre), la desconfianza mutua entre gobiernos, y el uso de cripto a medida como valla contra interoperabilidad de terceros y scraping — mala solución para un problema real. También hay think tanks chinos que ya cuestionan públicamente por qué las apps bancarias no usan HTTPS.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La predicción en la nube convierte a los teclados chinos más populares en keyloggers estructurales; la criptografía propietaria que los "protege" convierte ese flujo en legible para cualquier adversario de red, pasivo en la mayoría de los casos.</li>
+<li>Cuatro sistemas, cuatro fallas distintas: padding oracle en Sogou (que además filtró mitades de claves AES), claves derivadas del reloj en iFlytek, claves fijas y AES mutado en Baidu, y texto plano en Samsung IME.</li>
+<li>Ninguno de los protocolos tiene integridad criptográfica: además de leer, un atacante activo puede <strong>modificar</strong> en el vuelo — simular que alguien escribió lo que no escribió, o inyectar sugerencias falsas desde el servidor.</li>
+<li>La divulgación funciona: Tencent, iFlytek y Samsung migraron a TLS casi de inmediato; Baidu es la excepción que prefirió su protocolo casero, y Honor ni siquiera permite actualizar el teclado.</li>
+<li>El problema es sistémico y medible: en las tiendas chinas la criptografía propietaria es la norma, no la excepción, y hace falta medición a escala, presión de reportes y controles de plataforma (como la opción de iOS que impide al teclado acceder a la red).</li>
+<li>El mensaje es el de siempre, ahora con datos: no inventes criptografía propia. Nunca funcionó y sigue sin funcionar.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/RgCI3GOXLr0">«DEF CON 32 - Breaking network crypto in popular Chinese keyboard apps - Jeffrey Knockel, Mona Wang»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

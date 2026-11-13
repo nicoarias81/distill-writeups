@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSINT y recon moderno: de una apuesta a una cadena RCE sobre OpenVPN — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">OSINT y recon moderno: de una apuesta a una cadena RCE sobre OpenVPN</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un investigador senior de Microsoft (Vladimir) cuenta cómo una apuesta entre amigos por las bondades de una VPN de consumo terminó en una cadena de ataque completa contra <strong>OpenVPN</strong> — el motor que usan ExpressVPN, NordVPN, CyberGhost, ProtonVPN y miles de routers — combinando OSINT/recon (YARA, VirusTotal, búsqueda de repos), un desbordamiento de entero en drivers Windows, escalada de privilegios local vía named pipes, robo y crackeo de hashes NTLMv2 en GPU alquiladas en la nube, y ejecución remota de código vía plugin malicioso cargado desde un share SMB del atacante.</p>
+<h2>La apuesta y el primer bug: overflow en el driver de la VPN</h2>
+<ul>
+<li>Todo empezó jugando a Deep Rock Galactic: un amigo instaló ExpressVPN, el autor le dijo que no valía para nada, y le retaron a demostrarlo. Primera parada: el driver TAP de Windows (la "tarjeta de red virtual" que envuelve el tráfico).</li>
+<li>En la función de transmisión del miniport NDIS, el buffer se asigna con <code>data_length + 18</code> para el offset y otros 18 bytes de overhead — con un paquete lo bastante grande, <strong>integer overflow en asignación de kernel</strong> seguido de un copy mucho mayor que el buffer. Kernel heap overflow clásico, pero muy difícil de explotar hoy: HVCI, Device Guard y demás mitigaciones lo hacen casi impracticable, así que lo dejó reposar.</li>
+<li>El punto de inflexión: en el driver de <strong>ProtonVPN encontró el mismo bug</strong>. ¿Caso aislado o patrón sistémico? Escribió <strong>reglas YARA</strong> para buscar el patrón de asignación (identificable por el pool tag) en binarios de 32 y 64 bits, las corrió sobre VirusTotal y encontró <strong>50 matches</strong>: muchos drivers de VPN compartían el código defectuoso.</li>
+</ul>
+<h2>OpenVPN: recon sobre el motor común</h2>
+<ul>
+<li>Preguntarle a ChatGPT "¿cuál es la VPN más popular?" apuntó a OpenVPN, base de la mayoría de VPNs comerciales y presente en routers de todo el mundo (Windows, Linux, macOS, iOS, Android). Recon sobre el org de GitHub: repos <code>openvpn3</code>, <code>easy-rsa</code>, la GUI de Windows y <strong><code>tap-windows6</code></strong>, donde el mismo patrón de asignación defectuosa aparecía en código fuente.</li>
+<li>Arquitectura relevante: cliente/servidor con TLS/mTLS, protocolo propio sobre TCP/UDP (longitud de 16 bits, key ID + opcode, payload), y en Windows el <strong>OpenVPN Interactive Service</strong>: un servicio SYSTEM con named pipe <code>openvpn\service</code> que recibe "startup data" (directorio, config y log), suplanta al cliente conectado, valida que pertenece al grupo OpenVPN y lanza el proceso daemon, que se comunica de vuelta por otra named pipe por la que los clientes poco privilegiados pueden pedir al servicio que cambie rutas o configuración DNS en su nombre.</li>
+</ul>
+<h2>Escalada local: named pipes y potatoes</h2>
+<ul>
+<li>Sobre la lógica que maneja los mensajes del pipe interior: se lee una cantidad fija de bytes sobre una estructura en el <strong>stack</strong> dimensionada para el mensaje más largo de la unión — enviar un tipo con más datos de los esperados es un <strong>stack overflow</strong>. El stack cookie lo frena (crash en lugar de control), y la cookie se deriva de entropy del sistema, así que sin un read primitive no hay bypass.</li>
+<li>Combinación con problemas clásicos de named pipes (race de creación de instancias y superfluous pipe connectivity — el cliente no sabe con quién habla): la cadena de LPE es (1) cargar una DLL maliciosa como <strong>plugin de OpenVPN</strong> en el daemon, (2) usar el pipe interior para desbordar y <strong>matar el servicio</strong>, (3) el exploit recréa la named pipe con el mismo nombre y suplanta al próximo cliente que conecte — si ese cliente es un proceso potente (la GUI corre elevada), se ejecuta en su nombre. Demo: de usuario normal a SYSTEM.</li>
+</ul>
+<h2>De local a remoto: hashes, nube y el plugin malicioso</h2>
+<ul>
+<li>Named pipes se pueden alcanzar remotamente por SMB/IPC (<code>net use \\host\IPC$</code>), pero por defecto Windows bloquea el acceso anónimo. Solución del atacante: <strong>recon de red</strong> — esperar hashes NTLMv2 con Responder, capturarlos y crackearlos.</li>
+<li>El crackeo no necesita granja de GPUs propia: con la RTX 3070 del portátil (~6.000 CUDA cores, ~2.800 M hash/s) una contraseña corta cae al instante pero una larga tarda años; alquilando en <strong>Vast.ai</strong> una máquina con 18 RTX 4090 por ~8,50 USD/hora, una contraseña de 9 caracteres cayó en <strong>menos de 3 minutos</strong>.</li>
+<li>Cadena RCE completa: recoger hashes → crackear → <code>net use</code> con las credenciales → conectar a la named pipe del servicio OpenVPN remoto → pasarle startup data con configuración y log en un <strong>share SMB controlado por el atacante</strong> (con acceso anónimo habilitado para Everyone) → la config carga el <strong>plugin malicioso desde ese share</strong> → código ejecutado en la víctima. Demo: volcado masivo de archivos en el escritorio remoto.</li>
+</ul>
+<h2>La cadena completa y el final del juego</h2>
+<ul>
+<li>RCE + LPE se montan juntas: el plugin remoto ejecuta a su vez la lógica de escalada local. Con SYSTEM, el vector clásico de APT: <strong>bring your own vulnerable driver</strong> (crear un servicio con un driver con primitivas read/write de kernel) o living off the land (MSI firmados); el autor explotó un bug en <strong>AppID.sys</strong> para conseguir arbitrary kernel read/write.</li>
+<li>Cereza: con primitivas de kernel se sobrescribe el campo <strong>PS_PROTECTION</strong> para quitar la protección PPL de WinInit (proceso firmado de nivel WinSystem que ni SYSTEM puede matar) y tumbarlo — vía para desactivar antivirus/EDR, ocultar rootkits y moverse en silencio. Cadena final: RCE por plugin → LPE → kernel R/W → de-PPL de WinInit.</li>
+<li>Lecciones: <strong>un solo vector de extensión mal diseñado (el mecanismo de plugins) vale por toda una cadena</strong>; ya no hace falta hardware propio para crackear a escala (la nube lo pone barato y disponible para cualquiera); y las herramientas de recon/OSINT (VirusTotal + YARA, búsqueda de repos, Meddle/Hunt — "showdown in Zoom" en el transcript) son parte del arsenal habitual del investigador de seguridad, no solo del analista de inteligencia.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

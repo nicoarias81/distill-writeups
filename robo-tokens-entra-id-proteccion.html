@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robo de tokens en Entra ID: el perímetro ya no está en la contraseña — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Robo de tokens en Entra ID: el perímetro ya no está en la contraseña</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/v1jIFfdRueU">«Deep-dive to Entra ID Token Theft Protection - Nestori Syynimaa - Ekoparty 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/v1jIFfdRueU">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En la nube, la autenticación no termina con la contraseña: termina en un token. Una vez emitido, ese token <em>es</em> la identidad — el proveedor de servicios no sabe nada del usuario más allá de lo que dice el token. Por eso los atacantes dejaron de descifrar sistemas y empezaron a robar tokens: como resume el dicho, "los hackers ya no se mueven lateralmente, se desbloquean". El Microsoft Digital Defense Report de 2024 lo cuantifica: más del 97% de los ataques de identidad son password spray o fuerza bruta, y del restante menos del 3%, la mayor categoría es justamente el robo de tokens.</p>
+<p>Este artículo recorre el mapa completo del token-based attack en Entra ID: cómo se roban tokens vía adversary-in-the-middle y desde el endpoint, qué se puede extraer según el nivel de privilegio (cookies SSO, PRT, llaves de sesión, tokens de acceso), y qué mitigan —y qué no— las tres contramedidas de Microsoft: Conditional Access, token binding/protection y Continuous Access Evaluation (CAE).</p>
+<h2>Los tres roles del cloud y por qué el token lo es todo</h2>
+<p>Todo flujo de autenticación cloud involucra tres actores: el <strong>usuario</strong> que consume servicios, el <strong>proveedor de servicios</strong> (por ejemplo Exchange Online) y el <strong>proveedor de identidad</strong> (Entra ID). Cuando el usuario quiere acceder a Exchange Online, primero demuestra su identidad ante Entra ID — con contraseña, llave FIDO o certificado, según la configuración — y recibe a cambio un token de acceso que declara quién es, desde qué dispositivo, a qué recurso puede entrar y con qué cliente. Con ese token consume el servicio. Es exactamente el modelo de la credencial de un evento: te autenticás una vez y la pulsera te da acceso durante tres días; nadie vuelve a preguntarte quién sos.</p>
+<p>La consecuencia defensiva es incómoda: toda la sofisticación del MFA, las passkeys y las llaves FIDO protege el momento de la autenticación, pero el token resultante se puede robar <em>después</em>, sin importar qué método se usó para obtenerlo. Como advierte la cita de John Lambert que enmarca el problema: los atacantes piensan en grafos (todas las rutas hacia el objetivo); los defensores pensamos en listas (cinco reglas que aplicar y listo). Mientras eso siga así, ganan ellos.</p>
+<p>El mapa de ataques se divide en dos ramas según el acceso del atacante. Si tiene acceso a los <strong>secretos de firma</strong> de tokens — el escenario del robo de la clave de firma de Microsoft de hace unos años, que permitió forjar tokens por una misconfiguración — puede falsificarlos directamente; terreno de actores estado-nación (y de excepciones recientes como la técnica de forja de tokens de Dirk-jan Mollema sin acceso a claves). Sin acceso a secretos, el camino es robar tokens ya emitidos y reproducirlos: ese es el eje central.</p>
+<h2>Adversary-in-the-middle: el phishing que también roba el token</h2>
+<p>El primer vector no requiere tocar el endpoint. El usuario es dirigido a una URL visualmente idéntica a <code>login.microsoftonline.com</code> — en la demo, con una "o" que es en realidad un cero — que apunta a un proxy (Evilginx). El proxy reenvía la página de login real, captura usuario y contraseña, y lo más importante: captura también los tokens y cookies que la sesión produce, incluidos los que quedan protegidos detrás del MFA. Desde el navegador de la víctima la experiencia es indistinguible del login legítimo.</p>
+<p>La defensa clásica es Conditional Access: exigir dispositivos compliant y redes de confianza. Como la máquina del atacante no cumple las políticas, la autenticación a través del proxy falla — y eso es verificable en tiempo real: con la política de dispositivo compliant habilitada, el intento vía Evilginx es rechazado aunque las credenciales sean correctas. Las passkeys añaden otra capa: solo se entregan a la URL legítima, así que el proxy no puede capturarlas.</p>
+<h2>Del endpoint al token: qué se roba según el privilegio</h2>
+<p>Con acceso al endpoint el menú depende del nivel de privilegio:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Privilegio</th>
+<th>Qué se puede robar</th>
+<th>Qué habilita</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Usuario estándar</td>
+<td>Tokens de acceso/ID del navegador, cookies</td>
+<td>Suplantar al usuario en ese servicio y cliente</td>
+</tr>
+<tr>
+<td>Admin local, sin TPM</td>
+<td>PRT + llave de sesión, claves de identidad del dispositivo</td>
+<td>Emitir tokens como el usuario <strong>y</strong> el dispositivo desde otra máquina</td>
+</tr>
+<tr>
+<td>Malware instalado</td>
+<td>Todo lo anterior</td>
+<td>Persistencia y emisión de tokens a demanda</td>
+</tr>
+</tbody>
+</table></div>
+<p>Sin permisos de administrador, basta con F12 en el navegador ("el botón de hackeo"), buscar <code>Bearer</code> en el registro de red y copiar el header <code>Authorization</code>: el token en claro, decodificable en jwt.ms, revela el usuario, el ID de dispositivo, el recurso (Graph) y el cliente (Outlook Web). Mientras sea válido, cualquiera puede usarlo desde cualquier máquina.</p>
+<p>Con admin local y sin TPM, el botín es el <strong>PRT (Primary Refresh Token)</strong>: el artefacto que provee simultáneamente identidad de usuario y de dispositivo, guardado en disco por CloudAP. Sin TPM protegiéndolo, se extrae junto con su llave de sesión — necesaria para descifrar y usar el PRT — y desde una máquina completamente ajena se reconstruye el token y se piden tokens de acceso para cualquier recurso (Teams, Graph) como ese usuario y ese dispositivo. La moraleja operativa es directa: usar máquinas con TPM, y no dar permisos de administrador local a usuarios finales.</p>
+<h2>Las tres defensas — y su límite común</h2>
+<p><strong>Conditional Access.</strong> Evalúa en el momento de emisión: dispositivo compliant, red específica, cliente permitido, MFA o métodos fuertes. Un matiz crítico: el token emitido <em>incorpora</em> lo que la política exigió. Si el token declara "adquirido con MFA", el servicio lo acepta sin volver a preguntar — el MFA quedó congelado dentro del token. Requiere licencia Entra ID P1.</p>
+<p><strong>Token Protection.</strong> Los tokens de acceso y refresh viajan en un contenedor cifrado que solo el dispositivo que los solicitó puede descifrar con su llave de sesión. El flujo: el cliente declara que quiere token protection, la petición se firma con la llave de sesión (probando a Entra que el dispositivo es el que dice ser), y los tokens vuelven cifrados. Esto neutraliza el replay desde otra máquina — un token robado en tránsito no sirve — pero no protege del acceso local al endpoint: desde el propio dispositivo, el token puede copiarse o pedirse directamente. Solo lo soportan ciertos clientes (OneDrive, Teams, Outlook) sobre Windows 10 o superior, y se exige vía Conditional Access.</p>
+<p><strong>Continuous Access Evaluation (CAE).</strong> Invierte el modelo de vida útil. El cliente declara su capacidad con el claim <code>xms_cc: cp1</code>, y a cambio recibe un token válido hasta 28 horas en lugar de una. ¿Por qué alargar el tiempo de vida de algo robable? Porque con CAE el servicio queda suscrito a eventos de Entra ID: si la contraseña se resetea o la cuenta se deshabilita, Exchange Online lo sabe y <strong>rechaza</strong> el token en la siguiente petición, aunque formalmente le queden 26 horas. Un token sin CAE, en cambio, sigue funcionando hasta expirar sin importar lo que pase con la cuenta.</p>
+<p>El detalle fino que conviene conocer como defensor: los tokens CAE pueden solicitarse <em>aunque la organización no tenga la licencia P1</em> — el claim CP1 basta para que un atacante reciba un token de 28 horas. Chequear en los logs (KQL) la emisión de tokens con claim CP1 en tenants sin licencia es un indicador de compromiso barato y eficaz.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Ataque AITM<br/>(proxy de login)"] -->|"Conditional Access:<br/>dispositivo compliant + red<br/>+ passkeys"| D1["Mitigado"]
+    B["Robo de PRT/llave<br/>(admin local, sin TPM)"] -->|"TPM + token protection"| D2["Mitigado"]
+    C["Replay de token<br/>robado"] -->|"CAE: eventos de<br/>reset/bloqueo"| D3["Mitigado"]
+    C -.->|"si hay acceso al endpoint:<br/>token pedido en el propio<br/>dispositivo"| X["NO mitigado"]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Token-based attack</strong> — familia de ataques que roba o falsifica tokens en lugar de credenciales; &gt;97% de los ataques de identidad son password spray, y el robo de tokens encabeza el resto.</li>
+<li><strong>Adversary-in-the-middle (Evilginx)</strong> — proxy de phishing que captura credenciales y tokens de sesión en tiempo real.</li>
+<li><strong>PRT (Primary Refresh Token)</strong> — token que acredita identidad de usuario y dispositivo; robable con admin local si no hay TPM.</li>
+<li><strong>Llave de sesión (session key)</strong> — secreto necesario para cifrar/usar el PRT; sin ella el PRT robado es inútil.</li>
+<li><strong>CloudAP</strong> — componente de Windows que gestiona el PRT en disco.</li>
+<li><strong>AADInternals</strong> — toolkit de PowerShell para adquirir PRT y tokens como usuario/dispositivo arbitrarios.</li>
+<li><strong>Conditional Access</strong> — políticas de emisión: dispositivo, red, cliente, MFA (requiere Entra ID P1).</li>
+<li><strong>Token Protection</strong> — cifrado de tokens ligado al dispositivo emisor; neutraliza replay externo.</li>
+<li><strong>Continuous Access Evaluation (CAE)</strong> — tokens de hasta 28 horas invalidables por eventos en tiempo real; claim <code>xms_cc: cp1</code>.</li>
+<li><strong>jwt.ms</strong> — decodificación de JWT para inspeccionar claims.</li>
+<li><strong>Microsoft Digital Defense Report 2024</strong> — fuente de la estadística de ataques de identidad.</li>
+<li><strong>AADInternals / KQL</strong> — detección de tokens CAE solicitados sin licencia.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El token es la identidad en el cloud: proteger la autenticación sin proteger el token deja abierta la vía que hoy encabeza los ataques de identidad reales.</li>
+<li>Conditional Access y passkeys frenan el AITM; Token Protection frena el replay desde otras máquinas; CAE frena el uso de tokens robados tras un evento de cuenta. Ninguna de las tres frena a quien ya tiene acceso al endpoint: la protección del endpoint es la condición previa de todas.</li>
+<li>TPM y la revocación de permisos de administrador local son decisiones de arquitectura, no opciones: sin TPM, el PRT y su llave de sesión salen del disco.</li>
+<li>Monitorear la solicitud de tokens con claim CP1 en tenants sin licencia CAE es una señal de compromiso de bajo costo que muchas organizaciones no están mirando.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/v1jIFfdRueU">«Deep-dive to Entra ID Token Theft Protection - Nestori Syynimaa - Ekoparty 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

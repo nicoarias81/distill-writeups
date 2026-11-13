@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BrowseSafe: detectar prompt injection en el navegador con 90,4% de F1 en menos de un segundo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">BrowseSafe: detectar prompt injection en el navegador con 90,4% de F1 en menos de un segundo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Fzgqx1MauJg">«Kyle Polley - Training BrowseSafe: Lessons from Detecting Prompt Injection | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/Fzgqx1MauJg">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El problema de raíz del prompt injection es estructural: cuando un agente de navegador visita una web para cumplir la petición del usuario ("reservame un vuelo a Nueva York"), el contenido de esa web entra en una frontera no confiable, y sus instrucciones maliciosas llegan al contexto del agente, donde el LLM no distingue con certeza qué es output de herramienta, qué es entrada del usuario y qué es system prompt. Sobre esa ambigüedad se montan los ataques: suplantación de la plantilla del prompt, ingeniería social al agente (instrucciones paso a paso aparentemente benignas, con lenguaje idéntico al phishing de humanos) y triggers condicionales escondidos en eventos de calendario, divs ocultos o URLs.</p>
+<p>La respuesta de Perplexity es BrowseSafe: un clasificador fine-tuned sobre Qwen 30B que detecta prompt injection con 90,4% de F1 en latencia sub-segundo, y BrowseSafeBench, el dataset público con una taxonomía de ataques reales vistos en producción. La tesis central de la experiencia: los evals académicos no traducen a producción, los modelos generalistas buscan palabras clave en lugar de intenciones, y la defensa exige capas — nunca "clasificador y listo".</p>
+<h2>Por qué los benchmarks existentes no sirven en producción</h2>
+<p>Al probar los datasets open source y los clasificadores disponibles (Prompt Guard, GPT-OSS-Safeguard), aparecieron dos fallas reveladoras. La primera: los modelos detectan bien los ataques obvios —"revelá tu system prompt", "ignorá las instrucciones previas"— pero su tasa de detección se desploma en los ataques de manipulación de contexto, donde el atacante hace ingeniería social del modelo para que haga algo sin lenguaje obviamente malicioso, y también con ataques multilenguaje —instrucciones maliciosas escritas en hebreo o español, que confunden al modelo hasta que sigue las instrucciones igual—. La lectura es contundente: los modelos no miran la intención de lo que el prompt injection pide, miran palabras clave.</p>
+<p>La segunda falla son los distractores. El ejemplo canónico: el banner de consentimiento de cookies que, en HTML crudo, se parece sospechosamente a un prompt injection ("importante: para continuar debés hacer clic en aceptar"). Sin distractores, los modelos puntuaban bien; con solo tres añadidos, caían al 81% y se quedaban ahí. Ese colapso es el indicador de que esos modelos no funcionan en entornos vivos, y de nuevo, de que operan con heurísticas de keywords y no con la intención del mensaje.</p>
+<p>BrowseSafeBench nació de ahí: un pipeline masivo para des-anonimizar y clasificar ataques vistos en la naturaleza, organizados por tipo de ataque, forma de inyección y ubicación, publicado como dataset abierto. Sobre ese corpus se fine-tuneó Qwen 30B. El resultado comparativo: los clasificadores open source no rinden en entornos vivos, y los LLMs prompted —GPT-5, GPT-5 mini— lo hacen notablemente bien; pero el fine-tuning específico gana, y lo decisivo es la latencia: 90,4% de F1 en sub-segundo, frente a los dos segundos de GPT-5 mini o los hasta 20 de GPT-5.</p>
+<p>Otra diferencia de diseño: BrowseSafe no emite un binario sí/no, sino una probabilidad de confianza calibrada. Cualquiera que haya pedido a un LLM autoevaluarse conoce el fenómeno de que siempre responde "93%" —el clasificador se entrenó específicamente para producir un score de confianza preciso—. Con ese número, los equipos de seguridad y producto tienen un perilla de precisión/recall ajustable al caso de uso: si el producto puede advertir al usuario ("esto parece prompt injection, ¿querés continuar?"), se toleran muchos más falsos positivos.</p>
+<h2>Estrés: qué falla ante lo nuevo</h2>
+<p>Para medir generalización se re-entrenó el modelo reteniendo características completas. Tres resultados: reteniendo URLs, rindió mejor que antes —confirma que no busca dominios ni keywords—; reteniendo idiomas de ataque, una caída leve pero real, quedando en línea con los modelos de frontera ante ataques nunca vistos; y reteniendo estrategias de inyección —nuevas ubicaciones en las webs—, una caída significativa. Ese último dato es el aviso operativa: los atacantes van a explorar nuevas formas de inyección para saltarse los guardrails, y el clasificador sufre exactamente ahí, de modo que el sistema necesita un mecanismo para aprender ataques nuevos rápido.</p>
+<h2>Cinco capas de defensa en producción</h2>
+<p>La estrategia no puede ser "clasificador y a otra cosa". El stack recomendado:</p>
+<ol>
+<li><strong>Pre-procesamiento:</strong> la mejor defensa es que el texto malicioso ni llegue al contexto. Comentarios HTML, elementos ocultos y cualquier contenido que no sirva para la tarea: fuera.</li>
+<li><strong>Clasificador en cada frontera no confiable:</strong> cada herramienta que ingiere entrada no confiable —web, invitación de calendario, conector de terceros, MCP— debe pasar por una verificación de clasificación antes de devolver datos al agente. Si montar inferencia propia es demasiado, GPT-5 mini prompted funciona bien (F1 de 85,4%) con dos segundos de latencia, suficiente para empezar hoy.</li>
+<li><strong>Manejo inteligente de la detección:</strong> al detectar un ataque, no basta con bloquear la herramienta con un error: el agente lo reintentará, lo intentará de otra forma, o llamará a otra API. La mejor respuesta devuelve el output de la herramienta como mensaje de error —"rechazamos tu evento de Google Calendar porque el sistema detectó prompt injection; procedé con cautela o informá al usuario"—. En Comet se va más lejos: ante una detección se bloquea cualquier tool call de seguimiento y se obliga al agente a devolver texto directamente al usuario.</li>
+<li><strong>Modelos de frontera como agente.</strong> El system card de Opus 4.6 es el primero que mide a fondo el éxito de prompt injection y el primero en probarlo específicamente en escenarios de navegador: el salto de Opus 4.5 (16,2% de éxito de ataque) a Opus 4.6 (2,83%) es enorme, y con los safeguards actualizados baja a 0,08%. Actualizar de modelo es, por sí solo, una capa de defensa.</li>
+<li><strong>LLM backstop y data flywheel:</strong> lo que el clasificador marca con baja confianza se deriva a un modelo grande que decide con más latencia. Y ahí se cierra el ciclo: cuando el backstop confirma un ataque con su razón, ese ejemplo entra al dataset para re-entrenar el clasificador y capturar ataques nuevos en el futuro.</li>
+</ol>
+<h2>El caso Zenity y la cultura de divulgación</h2>
+<p>Sobre la investigación de Zenity contra Comet: dos hallazgos. El primero no fue prompt injection sino acceso al sistema de archivos —el agente podía navegar al directorio home del usuario, una capacidad básica de navegador—; los guardrails existentes eran límites blandos (análisis LLM, system prompt), y el remedio fue añadir guardrails fuertes en el propio navegador para que el agente ni siquiera tenga ese acceso. El segundo sí fue prompt injection con instrucciones en hebreo vía invitación de calendario contra 1Password, pero con un detalle omitido en la divulgación: hizo falta ejecutar la query unas 200 veces para que funcionara una. Se mejoraron los modelos para ese tipo de ataque, y quedó la reflexión sobre la línea entre investigación de seguridad honesta y material de marketing. En la misma línea, sobre open source: los atacantes van a sondear de todos modos; lo escandaloso es la cantidad de posts que describen ataques sin compartir IOCs ni defensas. El modelo, el dataset y el paper están en Hugging Face y abiertos, en colaboración con Purdue.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los evals académicos de prompt injection no traducen a producción: bastan tres distractores inocentes para tumbar a los modelos open source del 90% al 81%, porque buscan keywords y no intención.</li>
+<li>El fine-tuning sobre datos de dominio gana por goleada a los modelos generalistas, y con el compromiso correcto de latencia (sub-segundo con 90,4% F1) es desplegable sin frustrar usuarios; el score de confianza calibrado convierte la detección en una perilla de producto.</li>
+<li>La retención de estrategias de inyección en el entrenamiento produce la caída más grande: los ataques nuevos son la superficie débil, y el data flywheel (backstop LLM → dataset → re-entrenamiento) es el mecanismo para cerrar esa brecha continuamente.</li>
+<li>La defensa es necesariamente en profundidad: pre-procesamiento, clasificación en cada frontera no confiable, respuestas de bloqueo que informen al agente en lugar de dejarlo reintentar a ciegas, modelos de frontera actualizados (el salto 16,2% → 2,83% → 0,08% entre Opus 4.5 y 4.6 con safeguards) y backstop con LLM grande.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Fzgqx1MauJg">«Kyle Polley - Training BrowseSafe: Lessons from Detecting Prompt Injection | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

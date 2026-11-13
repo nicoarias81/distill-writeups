@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>0days en baby monitors y cámaras Wi-Fi: del UART al cloud — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">0days en baby monitors y cámaras Wi-Fi: del UART al cloud</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/caY7ls4G460">«DEF CON 32 - What To Expect When You’re Exploiting: 0Days Baby Monitors &amp; Wi-Fi Cams - Mager, Forte»</a> · ver el <a class="nz-link" href="https://youtu.be/caY7ls4G460">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las cámaras Wi-Fi y los baby monitors de bajo costo son el mismo producto con dos etiquetas de marketing: mismas funciones (pan, tilt, zoom, detección de movimiento) y la misma dependencia del cloud del fabricante. Casi 125 millones de hogares en el mundo tienen una instalada. Dos investigadores de seguridad de Elastic —uno con trayectoria en malware de Windows e ingeniería inversa, el otro en sistemas IoT y del sector aeroespacial civil— analizaron a fondo dos de las cámaras más vendidas y terminaron con control total de dispositivos ajenos, un protocolo de conectividad vulnerable que afecta a al menos siete fabricantes y una lista de aciertos y errores que sirve de guía para todo el segmento.</p>
+<h2>Los objetivos: Wansview Q5 y Q6 sobre la plataforma AJ Cloud</h2>
+<p>Las cámaras elegidas fueron las Wansview Q5 y Q6, controladas por la plataforma de nube AJ Cloud, que también sirve a otras marcas (Sonato, entre otras). La pista inicial vino de las reseñas de Amazon: cameras lo bastante "fáciles de hackear" como para que los compradores lo contaran. El plan de ataque cubrió cuatro frentes: acceso remoto vía apps, reconocimiento de red local, manipulación física y hardware (obtención de firmware, comunicaciones serie).</p>
+<p>El laboratorio quedó aislado por diseño: hotspot móvil barato como red, máquinas Windows y Linux, apps iOS y Android en teléfonos y VMs, Wireshark, decompilación de APKs y Elastic Stack para parsear los protocolos observados. En hardware: kit de desmontaje, adaptador USB-TTY, un GreatFET One como analizador lógico, Raspberry Pi para cross-compilación y una NIC Wi-Fi en modo monitor activo para capturar todo el tráfico, incluidos protocolos no estándar.</p>
+<h2>Reconocimiento: superficie cerrada por software, abierta por física</h2>
+<p>El ataque remoto y el reconocimiento local dieron poco: tráfico cifrado sobre websockets, apps firmadas y ofuscadas con ProGuard, difícil de debuggear. La superficie física, en cambio, está abierta de par en par. El botón de reset expuesto permite robar una cámara en plena calle: reset + QR code del proceso de configuración y el dispositivo pasa a ser del atacante, sin verificación posterior. La ranura SD admite firmware alternativo: una tarjeta maliciosa da control completo al insertarla.</p>
+<p>El hardware completa el mapa: un SoC T31 con procesador MIPS y coprocesador RISC-V, buses I2C y UART, soporte de secure boot (que la cámara no usa) y watchdog de kernel. El teardown reveló pads de UART accesibles; el GreatFET confirmó los niveles de señal y el protocolo, y una conexión serie a la tasa por defecto mostró U-Boot en el arranque. Como secure boot no está habilitado, basta editar las variables de entorno de U-Boot para arrancar en modo monousuario y obtener un shell root. Para persistencia: los puntos de montaje en fstab son particiones tmpfs, así que se monta tmpfs en lectura-escritura, se hace /etc escribible y el acceso sobrevive a los reinicios. El hash del usuario root se puede volcar y romper con John the Ripper, y el firmware completo se extrae por la conexión serie (binwalk y volcado de bytes), junto con la partición de logs.</p>
+<h2>El atajo por la app de Windows: credenciales y tráfico en claro</h2>
+<p>Los APKs no cedieron, pero el sitio de Wansview hospeda una versión de Wansview Cloud para versiones viejas de Windows (7). Esa app sigue siendo compatible con todos los dispositivos, genera mucho menos tráfico, no está empaquetada y —el regalo— escribe un log de debug verbosísimo. En ese log, las credenciales de usuario se guardan en texto claro y se registran todas las peticiones y respuestas POST: no hace falta un man-in-the-middle cuando el tráfico va a un archivo en disco.</p>
+<p>De ahí salió la anatomía completa del flujo de login: endpoint de inicio de app, verificación de cuenta, generación de tokens e intercambio de claves, contraseña salteada y hasheada (un acierto), lista de dispositivos asociados con sus URIs de endpoint, y la llamada de configuración de dispositivo —donde el ID de dispositivo viaja por primera vez de la app al cloud—. La llamada fetch infos devuelve la ficha entera del dispositivo: versión de firmware actual y siguiente, SSID de la red, MAC, zona horaria y geolocalización, y una URL de snapshot de acceso público que muestra el interior del hogar (en la demo, una cocina).</p>
+<h2>Control de cámaras ajenas y derribo del protocolo P2P</h2>
+<p>Con el ID de dispositivo visible en la petición de configuración, el primer experimento fue trivial: sustituirlo por el de otra cámara. Se localizó el punto exacto en la app de Windows cruzando el log con el desensamblado en IDA, se puso un breakpoint antes de que el JSON se forme, se reemplazó el ID en memoria y se reanudó. Una imagen de 60 líneas de Python automatiza la secuencia; el resultado es acceso total —pan, tilt, todo— a una cámara no asociada a la cuenta: una falla de control de acceso severa, sin autenticación.</p>
+<pre class="mermaid">
+flowchart TD
+    A[UART + GreatFET] --> B[U-Boot]
+    B -->|single-user mode<br>sin secure boot| C[Shell root]
+    C --> D[Persistencia tmpfs<br>y volcado de firmware]
+    E[Log de la app de Windows] --> F[API y device ID<br>en claro]
+    F -->|device ID en memoria| G[Control de cámara ajena]
+    D --> H[Cliente P2P propio]
+    H --> I[Overwrite del INI:<br>bricking y DoS]
+
+</pre>
+
+<p>El tráfico UDP masivo de fondo resultó ser PPPP, el protocolo IoT peer-to-peer presente en cientos de fabricantes desde hace una década, desmontado públicamente en la DEF CON 28 de 2020. Referencias y rutas de PDB dentro del binario de Wansview Cloud lo confirmaron, y un dissector de GitHub convirtió el ruido UDP en una secuencia de mensajes reconocible. PPPP usa UDP hole punching para conectar las apps a las cámaras desde cualquier lugar del mundo, directamente o vía relay.</p>
+<p>Para atacar el protocolo se construyó un cliente P2P propio. El flujo: hello al servidor, query del device ID (que es también el número de serie impreso en el equipo), respuesta del servidor con la IP y puerto para el hole punching, y conexión al relay o directamente a la cámara. Al controlar ese canal apareció el hallazgo más severo: la cámara guarda su número de serie en un archivo INI y ese archivo es la única forma que tiene de saber su propio ID; el protocolo P2P incluye un comando que sobrescribe su contenido. Sobrescribir el serial con basura deja la cámara inservible y sin acceso a internet: un bricking sin remedio salvo acceso físico, más un comando adicional que fuerza crash y reinicio con peticiones curl corruptas hacia el cloud.</p>
+<p>El radio de impacto abarca a todos los dispositivos Wansview (cámaras interiores y exteriores, comederos de mascotas, bombillas), a Galiu, Sonato y Falimi, y en general a quien corra firmware sobre la plataforma AJ Cloud: al menos siete fabricantes afectados, posiblemente más.</p>
+<h2>El duelo con el watchdog</h2>
+<p>Para auditar la app principal de la cámara (InitApp, que maneja la conexión al cloud, el streaming y el control), hubo que domesticar el watchdog de kernel, que reinicia el dispositivo si nadie lo alimenta. InitApp reporta al watchdog y un script demon.sh lo relanza en bucle si muere, con reinicio de fábrica como último recurso. Alimentar el watchdog desde un proceso propio era posible pero torpe: InitApp notaría la apropiación y cambiaría su comportamiento. La vía elegida fue la característica "magic close" de la API de watchdog del kernel de Linux: escribir el carácter mágico "V" en /dev/watchdog, continuamente (por si otro proceso lo reactiva), para deshabilitarlo limpiamente. Con binarios compilados para little-endian MIPS y un gdbserver sobre red, se conectó GDB multiarquitectura y se sobrescribieron con NOPs las llamadas de InitApp al watchdog, dejando el entorno estable para el reversing.</p>
+<h2>Lo que hicieron bien y lo que no</h2>
+<p>Del lado de los aciertos: autenticación web basada en certificados, que frenó los intentos de man-in-the-middle; APKs firmados y ofuscados; y un sistema local mínimamente recortado y de solo lectura en apariencia, que obliga a trabajar incluso con acceso físico. Del lado de los errores: acceso cloud sin la autenticación que corresponde (el control de cámaras ajenas no requirió credenciales), debug logs verbosos con credenciales y tráfico en claro, el canal P2P sin protección adecuada y secure boot no habilitado pese al soporte del SoC.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Wansview Q5/Q6 + AJ Cloud</strong> — cámaras y plataforma objetivo; marcas asociadas: Sonato, Galiu, Falimi.</li>
+<li><strong>GreatFET One</strong> — analizador lógico para identificar y confirmar UART.</li>
+<li><strong>U-Boot / modo monousuario</strong> — obtención de shell root al no estar habilitado secure boot.</li>
+<li><strong>tmpfs en fstab</strong> — persistencia sobre sistema de archivos "de solo lectura".</li>
+<li><strong>John the Ripper</strong> — crackeo del hash de root.</li>
+<li><strong>binwalk + volcado serie</strong> — extracción del firmware.</li>
+<li><strong>IDA / breakpoints</strong> — localización del device ID en la app de Windows para el IDOR en memoria.</li>
+<li><strong>PPPP (protocolo P2P IoT)</strong> — UDP hole punching; disector público y cliente propio.</li>
+<li><strong>Nmap / Masscan</strong> — descubrimiento de servidores P2P.</li>
+<li><strong>Overwrite del INI por P2P</strong> — bricking remoto mediante corrupción del número de serie.</li>
+<li><strong>Watchdog magic close ("V") + NOPs</strong> — neutralización del watchdog de kernel para debuggear InitApp.</li>
+<li><strong>GDB multiarquitectura + gdbserver (MIPS LE)</strong> — debugging remoto de la cámara.</li>
+<li><strong>OpenIPC</strong> — firmware alternativo de reemplazo, con soporte directo para la Q5.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La superficie de entrada más barata no es la red sino la física: reset + QR roba la cámara, una SD maliciosa la compromete, y el UART sin secure boot entrega root.</li>
+<li>La app de Windows heredada fue la llave maestra del cloud: logs verbosos con credenciales y tráfico POST en claro convirtieron el reversing en lectura de archivos.</li>
+<li>El ID de dispositivo es el único secreto de la arquitectura, y no es secreto: está impreso en el dispositivo, viaja sin autenticación y hasta la cámara lo guarda en un INI sobrescribible por el propio protocolo P2P.</li>
+<li>Las mitigaciones para el usuario son concluyentes: segmentar o no usar estas cámaras; el riesgo de las fallas de la plataforma de cloud no se mitiga desde el router.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/caY7ls4G460">«DEF CON 32 - What To Expect When You’re Exploiting: 0Days Baby Monitors &amp; Wi-Fi Cams - Mager, Forte»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

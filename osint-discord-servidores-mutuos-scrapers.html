@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSINT en Discord: servidores mutuos, scrapers masivos y tu privacidad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">OSINT en Discord: servidores mutuos, scrapers masivos y tu privacidad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Xp4lWpD20Mo">«DEF CON 33 Recon Village - Discord OSINT - Zach Malinich»</a> · ver el <a class="nz-link" href="https://youtu.be/Xp4lWpD20Mo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Discord es una plataforma subexplotada como fuente de inteligencia de fuentes abiertas: alberga historiales de conversación, cuentas vinculadas, apodos por servidor y — sobre todo — la pestaña de servidores en común, que permite perfilar a una persona con precisión inesperada. El recorrido combina técnicas artesanales (búsqueda con operadores, análisis de servidores compartidos) con la era de los scrapers masivos: SpyPet (600.000 usuarios y 4.000 millones de mensajes registrados antes de caer), el conjunto de investigación Discord Unveiled (2.000 millones de mensajes en 3.000 servidores) y Searchcord (cerca de 64.000 millones de mensajes y 285 terabytes de adjuntos), más un scraper activo no público que sigue creciendo. La tesis de cierre: la recolección a escala de los canales públicos de Discord es un abuso de funcionalidad legítima que va a persistir, y la defensa se juega en dos niveles — el perfil del usuario y la configuración del servidor.</p>
+<h2>Las cuatro palancas del OSINT artesanal</h2>
+<ul>
+<li><strong>Búsqueda interna con operadores:</strong> como el Google dorking, pero dentro de cada servidor. Los operadores clave son <code>from:</code> (acotar a un usuario), <code>has:</code> (enlaces, archivos), <code>in:</code> (canal específico cuando el servidor tiene decenas), más <code>mentions:</code>, ventanas temporales (<code>before:</code>/<code>after:</code>/<code>during:</code>) y <code>pinned:</code>. Un ejemplo ilustrativo: buscar la palabra "password" y revisar cada coincidencia — con suerte de Pascua incluidas, como la de un usuario cuyo avatar era un banana empático.</li>
+<li><strong>Cuentas vinculadas:</strong> el perfil de Discord puede exponer conexiones externas con nombres reales — GitHub y Spotify son las más reveladoras — lo que permite encadenar tres o cuatro alias distintos de una misma persona hacia identidades verificables.</li>
+<li><strong>Apodos por servidor:</strong> el clásico caso de los servidores de gaming, donde alguien se pone el nick de su cuenta de Xbox o PlayStation para que sea fácil sumarlo. En la pestaña de servidores en común a veces se ven a la vez el nombre real y el apodo por servidor.</li>
+<li><strong>Servidores en común:</strong> la joya de la corona. Si los tres o cuatro servidores que comparte alguien con el analista son plataformas de entrenamiento defensivo para principiantes, la persona es probablemente un perfil junior enfocado en blue team; si son comunidades de bug bounty, laboratorios de aplicaciones web y una herramienta nicho escrita en Rust, probablemente es un profesional de ofensiva web. Las inferencias no prueban nada hasta confirmarlas con historial y cuentas vinculadas, y el mismo método se aplica a geografía (comunidades locales, B-Sides) — con un extra de deanonimización disponible vía caching de CDN de Cloudflare que acota la ubicación aproximada.</li>
+</ul>
+<p>El atajo para ganar acceso de vista a los servidores en común son los student hubs de las universidades: bastó estar en el hub de una universidad (acceso con correo .edu) para obtener vista de lista de comunidades por materia y club. La generalización es directa: replicar la lógica del hub — mapear el ecosistema, unirse a los servidores relevantes, analizar con las cinco W quién lo crea, por qué y para quién — sobre cualquier vertical, ciberseguridad incluida.</p>
+<h2>El problema de escala: límite de servidores y el ecosistema de scrapers</h2>
+<p>Escalar el método manual choca con el límite de servidores por cuenta (100 gratis, 200 con Nitro) y con la exigencia de unirse a mano (los bots no ven la pestaña de servidores en común igual que un usuario). La solución de los recolectores industriales son las self-bots: cuentas reales automatizadas, contra los términos de servicio y con riesgo de baneo — un juego de visibilidad con matemática de fake accounts incluida.</p>
+<pre class="mermaid">
+flowchart TD
+    S[Scrapers de Discord] --> B[Modelo botnet<br/>cuentas reales automatizadas]
+    S --> D[Modelo discovery<br/>modo vista previa de servidores públicos]
+    B --> SP[SpyPet: 14.000 servidores, 600k usuarios,<br/>4.000M de mensajes, captura de mensajes borrados]
+    D --> SC[Searchcord: ~64.000M de mensajes, 285 TB de adjuntos,<br/>95.000 servidores, mensajes desde 2015]
+    B --> N[Scraper activo no público: 6.000 servidores,<br/>42 TB, alojado tras DDoS-Guard]
+    D --> U[Discord Unveiled: 2.000M de mensajes,<br/>3.000 servidores, dataset publicado y retirado]
+
+</pre>
+
+<h2>Tres estudios de caso, tres lecciones</h2>
+<ul>
+<li><strong>SpyPet:</strong> apareció en titulares en abril de 2024, vendía acceso por tokens, y su principal gancho era capturar mensajes borrados (demostrado en vivo: un mensaje eliminado a los cinco segundos de enviarlo quedó registrado). Rastreaba servidores, usuarios, apodos históricos, cuentas vinculadas y hasta qué servidores abandonaba cada persona. Cayó a los nueve días de la publicidad. Lecciones: su dueño fue deanonymizado en días por OPSEC pésimo (publicaba una y otra vez las mismas fotos de su gato, que permitieron atar GitHub, Mastodon y Discord); el servicio violaba los términos de Discord y el GDPR — potencialmente almacenando historial de menores sin consentimiento —; y su intención original era el acoso a personas trans y de disidencias políticas usando sus mensajes borrados en contra, hasta que el modelo de negocio viró a monetizar.</li>
+<li><strong>Discord Unveiled (21 de mayo de 2025):</strong> investigadores brasileños recolectaron 2.000 millones de mensajes de 3.000 servidores con unos 4 millones de usuarios únicos y publicaron el dataset "anonimizado"; Discord lo retiró de internet. El artículo mencionó apenas de pasada a la siguiente pieza del rompecabezas.</li>
+<li><strong>Searchcord:</strong> dos órdenes de magnitud mayor — cerca de 64.000 millones de mensajes, 285 TB de adjuntos, 95.000 servidores, imágenes y videos desde 2015, con réplicas de la vista previa de los servidores y estadísticas por canal (archivos, extensiones, usuarios activos). No cobraba: nació de la idea de reemplazar foros y del contenido generado por IA en la web, haciendo público lo que hay en canales públicos de servidores en Discovery. Limitación notable: no permitía buscar un usuario de forma global, solo dentro de un servidor — bloqueando el encadenado de servidores mutuos (el dueño consideró injusto que un dueño de servidor decidiera la visibilidad de los mensajes de todos sus miembros). Operó pocos días antes de cerrar por la presión pública, con dos o tres años de construcción previa que quedaron documentados en Wayback Machine y en el postmortem del propio autor.</li>
+</ul>
+<p>Y la nota más inquietante: el creador de Searchcord confirmó la existencia de scrapers privados no anunciados, incluidos algunos ofrecidos a grupos de ciberdelincuencia — por ejemplo, recolección enfocada en servidores de salud mental con fines de extorsión, potencialmente involucrando a menores. Independientemente de eso, un scraper activo no público (rastreado desde julio de 2025) pasó en semanas de 800.000 a 1,5 millones de mensajes, 5.000 a 6.000 servidores y 20 a 42 terabytes, opera en servidores de juegos online, se anuncia en YouTube, está en Discord Discovery y se refugió en DDoS-Guard tras los reportes a Cloudflare — el mismo hosting que Krebs documentó como refugio de phishing y ciberdelito. Al menos tres personas vinculadas fueron doxxeadas, una de ellas por reportar el sitio (su correo de reporte contenía su identidad real).</p>
+<h2>Conclusiones</h2>
+<p>A nivel de usuario: eliminar las cuentas vinculadas del perfil (sección Connections) y ser consciente de que todo lo publicado en canales públicos puede estar siendo cosechado. A nivel de servidor: subir el nivel de verificación de ingreso al máximo (teléfono obligatorio) y no aparecer en Discord Discovery — si el servidor es descubrible, los scrapers de vista previa se llevan todos los canales públicos sin unirse. Opcional para los paranoicos: desactivar mensajes directos y solicitudes de mensaje, porque quien conoce tu usuario puede enviarte un mensaje y ver tus servidores en común en la ventana que se abre.</p>
+<p>En síntesis: el OSINT en Discord es viable y barato de empezar (historial, cuentas vinculadas, apodos, servidores mutuos) pero caro de escalar — y escalarlo con self-bots es ilegal y detectable. Los scrapers no son un episodio cerrado: abusar de la vista previa de Discovery y de cuentas automatizadas es persistente por diseño, SpyPet ni siquiera fue el primero (Discoil ya hacía algo similar en 2020), hay datasets privados sin anunciar, y el mismo patrón se está replicando en plataformas alternativas como Guilded. La regla práctica queda en una línea: lo que escribís en un canal público de una comunidad de Discord debería considerarse potencialmente público para siempre; lo privado (canales privados, grupos y servidores privados) sigue estando fuera del alcance de estos recolectores.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li>Discord: historiales de conversación, cuentas vinculadas, apodos por servidor y servidores en común</li>
+<li>Búsqueda artesanal con operadores sobre plataformas y motores de búsqueda</li>
+<li>SpyPet (600.000 usuarios, 4.000 millones de mensajes)</li>
+<li>Discord Unveiled (2.000 millones de mensajes, 3.000 servidores)</li>
+<li>Searchcord (cerca de 64.000 millones de mensajes, 285 TB de adjuntos)</li>
+<li>Scrapers masivos de canales públicos como abuso de funcionalidad legítima</li>
+<li>Endurecimiento del perfil de usuario y de la configuración del servidor</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Xp4lWpD20Mo">«DEF CON 33 Recon Village - Discord OSINT - Zach Malinich»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

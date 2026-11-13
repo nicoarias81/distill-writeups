@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rompiendo repositorios Maven corporativos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Rompiendo repositorios Maven corporativos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/0Z_QXtk0Z54">«Breaking corporate Maven repositories - Michael Stepankin - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/0Z_QXtk0Z54">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Maven Central es el depósito donde las empresas que desarrollan en Java —Google, Amazon, Apple, casi todas— descargan sus dependencias. Si alguien logra publicar una dependencia maliciosa o sustituir una librería conocida ahí, el impacto se propaga en cadena a todas las compañías que la consumen. Ese es el punto de partida de una investigación que empezó hace cinco años, con un hallazgo casual de lectura arbitraria de archivos en search.maven.org mientras se cazaban zero-days de Apache Solr, y que terminó con siete CVEs de severidad alta y crítica en los productos que sostienen esa infraestructura: Sonatype Nexus 2, Nexus 3, JFrog Artifactory y Reposalite.</p>
+<p>La idea central que atraviesa todo el recorrido es incómoda: el modo proxy —la configuración más común en las empresas— amplifica drásticamente la superficie de ataque y habilita vulnerabilidades explotables sin autenticación, porque permite que cualquier usuario externo suba un artefacto a Maven Central y lo haga descargar dentro de la red corporativa.</p>
+<h2>Cómo funciona el ecosistema</h2>
+<p>Para desarrollar en Java se declaran las librerías externas en un archivo <code>pom.xml</code>, cada una con su group ID, artifact ID y versión. Al ejecutar <code>mvn compile</code>, Maven resuelve todas las dependencias, las traduce en pedidos HTTP contra repo.maven.apache.org —el repositorio central, administrado por la empresa Sonatype— y descarga los JAR ejecutables junto con los <code>.pom</code> que declaran más dependencias, recursivamente. Todo queda cacheado en la carpeta <code>.m2/repository</code>, compartida entre todos los proyectos locales.</p>
+<p>La infraestructura tiene capas: Maven Central corre sobre Amazon S3 detrás del CDN de Fastly, y se alimenta de un producto open source, Sonatype Nexus 2, donde desarrolladores externos suben sus artefactos antes de que se copien al central. El otro gigante del rubro es JFrog Artifactory, también open source. Y aquí está el detalle decisivo: la mayoría de las empresas no descarga dependencias directamente de Maven Central, sino que tiene repositorios internos —instalados dentro de la red corporativa— que guardan los artefactos privados y hacen de proxy hacia el exterior. Todas las máquinas de desarrollo apuntan a ese servidor interno.</p>
+<h2>El proxy como multiplicador de superficie de ataque</h2>
+<p>Un repositorio en modo proxy no solo reenvía pedidos: al recibir un artefacto desde afuera dispara funcionalidad interna pesada —expande archivos comprimidos, parsea estructuras XML, muestra el contenido del artefacto en la consola de administración—. Con un simple GET sin credenciales se pueden ejecutar operaciones complejas del lado del servidor. Eso abre una lista de vectores clásicos: path traversal en los nombres de artefactos, zip slip al expandir archivos, inyecciones en el <code>pom.xml</code> y XSS, porque el mismo contenido de los artefactos termina renderizado en la UI de administración.</p>
+<ul>
+<li><strong>XSS almacenado en Reposalite y Nexus.</strong> El contenido de un artefacto puede ser arbitrario, así que meter JavaScript dentro de un <code>pom.xml</code> y hacerlo descargar a un repositorio interno genera XSS persistente. En Reposalite el impacto fue total: el token de administrador se guarda en el localStorage del navegador, a un robo de distancia. La defensa elegante acá no es escapar contenido —imposible, porque es arbitrario por diseño— sino cabeceras CSP y COOP, que hacen que el navegador trate el origen del artefacto como nulo y le niegue el acceso al área de administración.</li>
+<li><strong>Zip slip con RCE en Reposalite.</strong> Al subir un archivo comprimido, Reposalite lo expande solo, y los nombres internos pueden traer caracteres de path traversal. Con un archivo especialmente armado se escribe un JAR controlado por el atacante dentro del directorio de plugins; en el próximo reinicio del servicio, ese JAR se ejecuta: ejecución remota de código sin autenticación.</li>
+<li><strong>Path traversal en la descarga de Javadoc.</strong> La ruta del archivo pedido se concatena directamente al directorio destino, así que jugando con la codificación de URL se baja cualquier archivo fuera del directorio esperado. Como Reposalite guarda usuarios y hashes de contraseñas en una base SQLite, basta pedir esa base por HTTP y llevarse todas las credenciales.</li>
+</ul>
+<h2>El ataque de confusión de nombres</h2>
+<p>La familia de bugs más potente no es ninguna de las anteriores: es cómo cada producto parsea la URL de un artefacto. Mapear un path a group ID, artifact ID y versión parece un problema de regex trivial, pero no lo es. El hallazgo clave fue una URL que combina un punto y coma seguido de caracteres de path traversal entre el nombre de dos artefactos —y los tres productos lo interpretan de forma distinta—:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante pide a JFrog:<br/>artefacto1 ; ../artefacto2] --> B[JFrog: todo tras el punto y coma<br/>son parámetros → pide artefacto1]
+    B --> C[Upstream con normalización<br/>Nexus 3, Apache, JITPack]
+    C --> D[Upstream resuelve artefacto2<br/>y devuelve su contenido]
+    D --> E[JFrog guarda ese contenido<br/>como artefacto1 en su caché]
+    E --> F[Usuarios legítimos descargan<br/>artefacto1 = código del atacante]
+
+</pre>
+
+<p>El resultado rompe la promesa fundacional de Maven Central —cualquiera puede publicar un paquete propio, nadie puede reemplazar el de otro—. El atacante publica su propio paquete en el central y, mediante la confusión de nombres, hace que un Artifactory interno lo guarde como si fuera un paquete ajeno y popular. Cada usuario legítimo que pida ese paquete recibe el del atacante.</p>
+<p>La demostración de impacto fue un paquete NPM llamado <code>is-even</code> —100.000 descargas semanales, una función que devuelve true si el número es par— envenenado con su gemelo <code>is-odd</code>, que devuelve exactamente lo contrario. El detalle escalofriante: el cliente de npm no verifica que el nombre del paquete coincida con el contenido descargado; lo baja, lo guarda y lo ejecuta. El reporte a JFrog, presentado con el título "¿Es par o es impar?", subió de severidad alta a crítica con una recompensa de 5.000 dólares —donada íntegra a Cancer Research UK—. Y el problema no es exclusivo de Maven: Docker Registry, RubyGems y los paquetes de Go, todos soportados por Artifactory, comparten la misma clase de ataque.</p>
+<h2>Quirks de URL y metadatos internos</h2>
+<p>El parsing de URLs de JFrog escondía más sorpresas: sufijos especiales que fuerzan redirects locales, sufijos para extraer archivos dentro de comprimidos, y —lo más grave— parámetros de query internos que permiten sobrescribir el host del repositorio upstream. Si un atacante consigue smugglear ese parámetro en el pedido interno, todo el proxy pasa a descargar dependencias desde un repositorio malicioso controlado por él. Nexus tiene sus propios parámetros mágicos para saltarse la caché local y alterar cómo se devuelven los artefactos.</p>
+<p>La última pieza fue abusar de los metadatos internos. Nexus 2, a diferencia de JFrog y Nexus 3, guarda los artefactos directamente en el sistema de archivos, acompañados de archivos de metadatos que no deberían ser accesibles ni modificables desde afuera. Combinando trucos de acceso se logró sobrescribirlos y convertir eso en ejecución remota de código completa. Ese detalle permaneció en reserva seis meses —el parche llegó la víspera de la divulgación—; la mitigación inmediata para quien no pueda parchear es bloquear en los pedidos la doble barra inclinada (<code>//</code>).</p>
+<h2>Lecciones</h2>
+<ul>
+<li><strong>El modo proxy convierte el central en arma.</strong> Los repositorios internos que proxyan hacia Maven Central heredan todo lo que cualquiera pueda publicar ahí. Pre-autenticación + contenido controlado por terceros = superficie de ataque enorme.</li>
+<li><strong>El parsing de URLs es un campo de minas.</strong> Punto y coma, hash, codificación y dobles barras se interpretan distinto en cada producto; esas diferencias, encadenadas con un upstream que normaliza rutas, bastan para envenenar cachés de dependencias.</li>
+<li><strong>La verificación del cliente no existe.</strong> npm confía ciegamente en la URL: ni chequea que el contenido coincida con el paquete pedido. La cadena de suministro depende de supuestos que el cliente no valida.</li>
+<li><strong>Leer el código paga.</strong> Los siete CVEs de severidad alta y crítica salieron de descargar las imágenes Docker, leer el código fuente open source y entender cómo funcionaba cada producto. El XXE en el manejo de <code>pom.xml</code>, por su parte, resultó estar correctamente asegurado: los equipos de seguridad de estas empresas tienen presupuesto y programas de bug bounty privados, y se nota.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/0Z_QXtk0Z54">«Breaking corporate Maven repositories - Michael Stepankin - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

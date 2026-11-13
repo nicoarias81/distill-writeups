@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Volando a ciegas: instrumentación, hackathons y política para que los aviones se defiendan — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Volando a ciegas: instrumentación, hackathons y política para que los aviones se defiendan</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bLgQNSQANx0">«Flying Blind: Instrumenting Data-Driven Defense on Fighter Jets and Commercial Aviation»</a> · ver el <a class="nz-link" href="https://youtu.be/bLgQNSQANx0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>No existe hoy ningún avión comercial volando con antivirus, detección de intrusos o prevención sobre su aviónica, y tampoco hay ninguna luz de advertencia para la tripulación que diga "algo raro pasa en el bus de datos". La combinación de dos experiencias — un emprendedor que construyó protección para aeronaves y el ex Chief Digital Transformation Officer de la Fuerza Aérea que dirigió hackathons contra cazas — permite mapear el problema completo: qué regulatorio está cambiando ahora, qué se aprendió inyectando datos en jets de combate, y cómo cualquier persona de este entorno puede meterse en la discusión de política que definirá la próxima década.</p>
+<h2>El estado del arte (y por qué incomoda)</h2>
+<p>Los aviones comerciales son cada vez más fly-by-wire y dependientes de software, con gente con acceso físico a la aviónica en todo el planeta. Pero el software de aeronavegable es viejo: ni entrega criptográficamente firmada, ni cadena de suministro cuidada, ni ninguna de las comodidades de seguridad que damos por sentadas en un móvil. Todavía no hay un ejemplo público de avión hackeado en vuelo — y el objetivo declarado de todo esto es que nunca lo haya: no reaccionar a tragedias. La historia de la política de seguridad aeronáutica está escrita por fatalidades; el proyecto explícito de ambos es invertir ese paradigma.</p>
+<h2>La jugada regulatoria: FAA Reauthorization Act</h2>
+<p>Cada cuatro años el Congreso reautoriza la FAA — sin esa ley no hay controladores de tráfico aéreo pagos. La reautorización de este año trajo la pieza que más entusiasmo generó: una sección que <strong>ordena</strong> al administrador cambiar el proceso de type certification para exigir ciberseguridad y monitoreo continuo de aviónica en cualquier diseño de aeronave nuevo aprobado. Antes era una sugerencia; ahora es requisito. Se suman un estudio del GAO para justificar el personal y financiamiento necesarios, y un comité para que industria, OEMs, aerolíneas, operadores, sindicatos y tecnólogos tengan voz en la implementación. La expectativa: hacia el fin de la década, airliners con monitoreo continuo real a bordo. Europa avanza aún más rápido por el lado de EASA, y los dos grandes reguladores del mundo están convergiendo.</p>
+<h2>Lecciones de la Fuerza Aérea: bits to effect</h2>
+<p>El trasfondo de Stuart es la ingeniería de telemetría en Microsoft: cada crash de un dispositivo Windows genera logs que vuelven a casa para medir la salud del sistema y decidir qué arreglar. La tesis que llevó al DOD: <strong>toda</strong> gran empresa tecnológica se sostiene sobre datos recolectados automáticamente. Tesla para su automatización; SpaceX para resiliencia electrónica — el detalle subestimado del parche de Starlink contra jamming no es el parche sino cómo supieron qué estaba siendo interferido; Google Trends predijo la propagación de la gripe mejor que el CDC usando solo términos de búsqueda.</p>
+<p>Sobre datos de sistemas operativos hay cuatro cosas que adaptar: el sistema mismo, las tácticas técnicas y procedimientos con que se usa, la estrategia, y el modo de entrenar y ejercitar. En el DOD el ciclo se llama <em>bits to effect</em>:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Misión captura datos<br/>bits del jet] --> B[Pipear los datos fuera<br/>del sistema operativo]
+    B --> C[Clasificar y controlar acceso<br/>los datos pueden upclasificar]
+    C --> D[Ambiente permisivo:<br/>humanos y máquinas aprenden]
+    D --> E[Emplear efectos / cambios]
+    E -->|producen nuevos bits| A
+
+</pre>
+
+<p>El matiz que más sorprende a civiles: la clasificación. Si un F-16 recolecta datos cerca de algo más protegido — un F-22 — esos datos heredan esa clasificación; al combinar fuentes, los datos pueden upclasificar, y a veces hay que aprender en niveles más altos. Un dato relevante también para aviación civil: el equivalente existe y se llama <strong>datos propietarios</strong>.</p>
+<h2>La fallacia de "ya tenemos más datos de los que sabemos usar"</h2>
+<p>Contra el argumento estándar de la industria aeroespacial — recolectar todo es caro y no sabemos qué hacer con tanto dato — la respuesta es doble. Primera: otras industrias ya resolvieron el problema de orden de magnitud, y los beneficios en seguridad, confiabilidad y eficiencia económica pagan la factura. Segunda: los silos de datos están quebrando la conversación de seguridad — operadores y OEMs tienen insights que no comparten entre sí, y los reguladores son casi los últimos en enterarse. Romper esos silos es, en sí mismo, una mejora de seguridad y de política.</p>
+<h2>El choque estructural: certificación vs. patching</h2>
+<p>Aquí está el nudo de política más duro. Para construir sistemas seguros de vuelo, la industria desarrolló procesos estrictos de desarrollo, testing y aprobación de software (DO-178, niveles DAL, con máxima atención a los computadores DAL-A). Todo ese rigor hace lento y caro cambiar software importante — y choca de frente con un proceso de parchado que <strong>fundamentalmente no existe</strong>: nadie ha descubierto todavía qué hacer si aparece un zero-day en un computador de aviónica crítico. ¿Se arma un fix rápido y se propaga, se aterriza la flota mientras tanto, o se ignora y se actualiza por el proceso normal — meses — mientras nadie sabe del riesgo? No hay respuesta establecida, y las nuevas leyes empiezan a forzar el tema con el comité de implementación.</p>
+<h2>Hackathons contra jets</h2>
+<p>La metodología de la Fuerza Aérea para demostrar el potencial: hackathones reales sobre cazas, con los datos instrumentados de esas defensas alimentando el ciclo. Los hackathons suelen confundirse con ciberseguridad; pueden ser eso, pero también desarrollo de capacidades — lo importante es la demostración con bits reales de sistemas operativos. Esa instrumentación es la misma que, según la nueva regulación, los airliners nuevos tendrán que incorporar.</p>
+<h2>Cómo meterse en la conversación</h2>
+<p>La vía concreta para cualquiera: los períodos de <em>request for comment</em> del proceso regulatorio. Están subutilizados, y los comentarios que llegan suelen ser pobres técnicamente — con lo cual un comentario tecnicamente rico y con soluciones concretas sobresale: hay ejemplos de comentarios individuales que llegaron hasta los comités que escriben las reglas. El mapa institucional: por un lado los comités del RTCA (mayormente industria, con representación gubernamental), por el otro el lado gubernamental; se cruzan en niveles altos de política y conviene trabajar ambos frentes.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Type certification con ciberseguridad obligatoria</strong>: la reforma de la FAA Reauthorization Act que convierte el monitoreo continuo de aviónica en requisito para nuevos diseños.</li>
+<li><strong>Bits to effect</strong>: ciclo de la Fuerza Aérea — instrumentar, extraer datos, clasificar/acceder, aprender en ambiente permisivo, emplear efectos.</li>
+<li><strong>Telemetría tipo Microsoft WER</strong>: logs de crash que vuelven a casa para medir salud del sistema y priorizar fixes.</li>
+<li><strong>Google Trends vs. CDC</strong>: predicción de gripe por términos de búsqueda, ejemplo de aprendizaje crowdsourced no planificado.</li>
+<li><strong>Resiliencia electrónica de Starlink</strong>: detección de jamming basada en recolección automática de datos, no solo el parche posterior.</li>
+<li><strong>DO-178 / DAL-A</strong>: niveles de design assurance que hacen lento y caro modificar software certificado — el obstáculo estructural del patching.</li>
+<li><strong>Upclassification</strong>: datos que heredan clasificación por proximidad o combinación de fuentes; análogo civil, datos propietarios.</li>
+<li><strong>RTCA y requests for comment</strong>: los dos canales institucionales (comités industriales y gubernamentales) donde un comentario técnico individual puede moldear la regulación.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La aviación civil vuela hoy sin detección ni prevención de intrusiones en aviónica; la nueva ley de reautorización de la FAA convierte el monitoreo continuo en requisito de certificación para diseños nuevos, con implementación en curso hacia fin de década.</li>
+<li>El modelo que funciona viene de big tech: recolección automática de datos → aprendizaje → efecto. La Fuerza Aérea lo formalizó como bits to effect y lo probó con hackathons sobre cazas reales.</li>
+<li>El mayor obstáculo no es tecnológico sino de proceso: los niveles de design assurance que hacen seguro el software certificado hacen imposible un patching ágil, y nadie resolvió aún el flujo para un zero-day de aviónica.</li>
+<li>Los silos de datos entre operadores, OEMs y reguladores son en sí mismos un problema de seguridad; romperlos es condición para la conversación de política.</li>
+<li>La participación individual importa: un comentario técnicamente rico en un request for comment llega a los comités que escriben las reglas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bLgQNSQANx0">«Flying Blind: Instrumenting Data-Driven Defense on Fighter Jets and Commercial Aviation»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

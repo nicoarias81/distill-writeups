@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cifrado de vectores: frenando los ataques de inversión RAG — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cifrado de vectores: frenando los ataques de inversión RAG</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Lxg9YyFJ8s0">«DEF CON 33 - Attacks on GenAI Data and Using Vector Encryption to Stop Them - Patrick Walsh, Bob Wall (IronCore Labs)»</a> · ver el <a class="nz-link" href="https://youtu.be/Lxg9YyFJ8s0">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Los LLM tienen tres limitaciones estructurales — inventan plausibilidades, entrenan con datos ya caducos y no conocen tus datos privados — y RAG (Retrieval Augmented Generation) es la respuesta universal: buscar documentos relevantes y meterlos en el prompt. Esa búsqueda requiere búsqueda semántica, y la técnica dominante es el <strong>vector search</strong>. La consecuencia menos visible: cada sistema que hace RAG está <strong>rociando copias del dato privado</strong> por todo el stack, y las bases de datos vectoriales donde viven esas copias son vulnerables a los <strong>modelos de inversión</strong>, que reconstruyen el texto original a partir del vector con fidelidad altísima y esfuerzo de script kiddie.</p>
+<p>La propuesta aquí es un cifrado de vectores con preservación de comparación de distancias (basado en el algoritmo <em>scale and perturb</em> de un paper académico), implementado en la librería open source <strong>IronCore Alloy</strong>: la base de datos vectorial sigue funcionando igual sobre vectores cifrados, la precisión de búsqueda apenas cambia, y los vectores filtrados quedan en gran medida irreversibles.</p>
+<h2>De RAG a vectores</h2>
+<p>RAG en esencia: el usuario pregunta → el sistema busca documentos relacionados con la consulta → pregunta + historia del chat + documentos se amontonan en el prompt → el LLM responde sobre datos privados (ejemplo canónico: "¿qué dice el borrador del 10-Q?", un documento no público).</p>
+<p>El vector search funciona así:</p>
+<ol>
+<li>El documento se trocea (<em>chunking</em>: por frases, por bloques de ~30 palabras, con solapamiento).</li>
+<li>Cada trozo pasa por un <strong>modelo de embeddings</strong> (parecido a un LLM pero distinto) que produce un <strong>vector embedding</strong>: una lista de cientos o miles de números pequeños.</li>
+<li>El vector codifica el <em>significado</em>. Una consulta se convierte también en vector y se buscan los vecinos más cercanos (distancia euclídea u otras métricas): A y B cerca (2,2), A y C lejos (5,6) → devuelve B, no C.</li>
+<li>Las <strong>bases de datos vectoriales</strong> optimizan esa búsqueda de vecinos (aproximados) a gran escala. Pinecone, Weaviate, Qdrant levantaron cientos de millones de VC; mientras, Mongo, Postgres y Oracle incorporan capacidades vectoriales nativas y la categoría se disuelve.</li>
+</ol>
+<h2>Los vectores sí se invierten</h2>
+<p>La intuición contraria — "un vector es como un hash, es solo un montón de números sin sentido" (dicho por el CEO de una vector DB financiado con decenas de millones) — es falsa en ambos sentidos: la gente abusa de hashes, y los vectores <strong>no</strong> son irreversibles.</p>
+<ul>
+<li>Un <strong>modelo de inversión</strong> se entrena sobre pares vector → frase y reconstruye el texto original. El ejemplo recuperaba "our income is down" desde un vector de "our earnings is down": significado 100%, palabras casi exactas.</li>
+<li>El mejor paper visto recupera <strong>el 92% de palabras exactas</strong> — nombres completos incluidos — y el 8% restante es en la práctica equivalente. Hay decenas de miles de papers sobre esto; es terreno muy estudiado en academia y desconocido en la práctica.</li>
+<li>La barrera de entrada es <strong>ejecutar el software open source que acompaña a esos papers</strong>, no construirlo: nivel script kiddie.</li>
+<li>No solo texto: los vectores representan también imágenes, rostros, voces. Los autores ejecutaron los ataques y publicaron los resultados — inversión de texto con resultados muy buenos y un ataque contra reconocimiento facial (técnicamente distinto: sin modelo de inversión).</li>
+</ul>
+<h2>El estado de la superficie de ataque</h2>
+<ul>
+<li><strong>Vector DBs inmaduras en seguridad</strong>: dos sin autenticación por defecto (repitiendo el error histórico de Elasticsearch y MongoDB), servicios internos sin protección que exponen los datos si el firewall deja pasar un puerto, dos declarando "cifrado extremo a extremo" cuando solo tienen TLS en tránsito.</li>
+<li><strong>Ataque en lenguaje natural</strong>: en un escenario CTF clásico hay que comprometer la máquina, entrar a la base, invertir el esquema y escribir la consulta. Contra un sistema RAG basta pedir los datos en lenguaje natural. Es ordene des magnitudes más fácil.</li>
+<li><strong>El dato se multiplica</strong>: prompt injections envenenando los documentos que la búsqueda arrastra al prompt, logs del propio LLM, logs de los prompt firewalls (que registran los prompts con el dato privado dentro), y agentes generando código contra bases de datos. Copias del dato privado por todas partes.</li>
+<li>Y el golpe retórico relevante: <strong>el 100% de las top 10 SaaS y el 100% de las empresas de seguridad</strong> encuestadas informalmente añaden capacidades LLM sobre datos privados — es decir, todas hacen RAG y todas están rociando copias.</li>
+</ul>
+<h2>Cifrado que preserva la comparación de distancias</h2>
+<p>Dos rutas académicas para proteger los vectores:</p>
+<ul>
+<li><strong>Fully homomorphic encryption (FHE)</strong>: varios papers, enfoques variados; pero lentos, y obligarían a construir una vector DB propia para competir en todo lo demás.</li>
+<li><strong>Partially homomorphic</strong>: solo debe sobrevivir <em>una</em> operación — la comparación de distancias para vecinos cercanos. Suficiente y práctica.</li>
+</ul>
+<p>La base es el paper <strong>"Approximate Distance Comparison Preserving Symmetric Encryption"</strong>, un cifrado de propiedad preservada (familia del order-preserving y el deterministic encryption; la propiedad aquí es la distancia). Como toda esa familia, impone un trade-off: más seguridad = propiedad menos exacta = consultas algo menos precisas. La decisión de configuración es exactamente esa.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Documento] --> B[Chunking] --> C[Modelo de embeddings]
+    C --> D[Vector]
+    D --> E[Cifrado scale-and-perturb<br/>clave secreta + IV]
+    E --> F[(Vector DB<br/>vectores cifrados)]
+    Q[Consulta] --> G[Modelo de embeddings] --> H[Cifrado con misma clave]
+    H --> F
+    F --> I[Vecinos mas cercanos<br/>en el dominio cifrado]
+    I --> J[Mismos resultados<br/>que sin cifrar]
+
+</pre>
+
+<h3>El algoritmo (scale and perturb)</h3>
+<ol>
+<li><strong>Scale factor aleatorio</strong> elegido al inicializar, junto con la clave secreta.</li>
+<li><strong>Perturbación</strong>: por cada vector, un IV (como en cifrado simétrico convencional) que, con la clave, desplaza aleatoriamente cada elemento. La magnitud del desplazamiento queda acotada por <strong>β</strong> (el factor de aproximación).</li>
+<li><strong>Shuffle determinista por clave</strong> de los elementos del vector: aunque el atacante conozca el modelo de embeddings, los elementos ya no están donde estaban, lo que impide correlacionar vector cifrado con original. (El paper proponía barajar el <em>orden de los vectores</em> al ingerirlos; los autores lo encontraron innecesario para un algoritmo en línea y barajan en su lugar los <em>elementos</em> de cada vector.)</li>
+</ol>
+<p>La intuición geométrica: un vector es una línea del origen a un punto definido por sus elementos; β define una <strong>esfera en espacio n-dimensional</strong> alrededor de ese punto, y el punto perturbado queda dentro. Si dos puntos se mueven a lo sumo dentro de sus esferas, la distancia entre ellos queda acotada — eso preserva la comparación de distancias, y con ella toda la búsqueda de vecinos.</p>
+<h3>Propiedades de seguridad</h3>
+<ul>
+<li>Sin la clave, las consultas cifradas no son interpretables y los vectores almacenados no se pueden invertir (incluso con la base exfiltrada entera).</li>
+<li>Ataque black-box con pares plaintext/ciphertext (conocer el modelo de embeddings, generar vectores propios, entrenar un modelo de inversión propio sobre los cifrados): la aleatoriedad degrada el resultado a gabizarras — algo de significado, cero palabras exactas, dependiendo de β.</li>
+<li>Recuperar la clave conociendo plaintext y ciphertext no es viable: el mecanismo se apoya en una función aleatoria probabilística equivalente a un <strong>hash con clave de 256 bits</strong>.</li>
+</ul>
+<h2>Implementación y resultados</h2>
+<ul>
+<li><strong>IronCore Alloy</strong>: librería open source (AGPL) en GitHub, escrita en Rust con bindings para Java, Kotlin y Python (más lenguajes en camino), con código de ejemplo para varias vector databases — la integración es una llamada tras generar el embedding, y el vector cifrado es lo bastante parecido para que la base lo acepte sin cambios.</li>
+<li><strong>Rendimiento</strong>: penalización despreciable; el cifrado es rápido y la latencia apenas se mueve.</li>
+<li><strong>Precisión</strong>: con β = 1,5 (moderado), sin impacto medible en búsqueda — se midió pérdida de precision y recall sobre embeddings de LLMs open source. Resultados visualmente idénticos; benchmarks con diferencias de unos pocos puntos porcentuales.</li>
+<li>Los <strong>metadatos</strong> que acompañan a los vectores en muchas bases pueden contener datos sensibles y merecen su propio tratamiento (fuera del alcance del algoritmo).</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>RAG (Retrieval Augmented Generation)</strong>: enriquecimiento del prompt con documentos recuperados por búsqueda.</li>
+<li><strong>Vector embeddings / vector search / vector database</strong>: representación semántica y búsqueda de vecinos (aproximados); Pinecone, Weaviate, Qdrant, y capacidades vectoriales en Postgres/Mongo/Oracle.</li>
+<li><strong>Modelos de inversión</strong>: reconstrucción de texto desde vectores (92% de palabras exactas en el mejor paper); software open source público.</li>
+<li><strong>Ataques a reconocimiento facial por vectores</strong>: técnica distinta, demostrada por los autores.</li>
+<li><strong>Approximate Distance Comparison Preserving Symmetric Encryption</strong>: cifrado de propiedad preservada (scale and perturb, factor β).</li>
+<li><strong>IronCore Alloy</strong>: librería Rust/AGPL con bindings Java/Kotlin/Python.</li>
+<li><strong>Precision/recall</strong>: métricas de precisión de búsqueda usadas en los benchmarks.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>RAG multiplica las copias de datos privados por todo el stack (vector DBs, logs, firewalls, agentes); el vector database es una de las copias menos vigiladas.</li>
+<li>Los vectores no son hashes: se invierten a texto casi exacto con herramientas públicas y esfuerzo mínimo, y la propia base vectorial ya es un oráculo de consultas en lenguaje natural sin necesidad de invertir nada.</li>
+<li>La seguridad de las vector databases nuevas es inmadura (sin auth por defecto, TLS vendido como E2E): asumir que "están protegidas" no es una estrategia.</li>
+<li>El cifrado con preservación de comparación de distancias integra la defensa sin cambiar la infraestructura: mismos resultados de búsqueda, latencia insignificante, y datos exfiltrados que quedan irreversibles sin la clave.</li>
+<li>Si los vectores contienen datos sensibles, casi no hay razón para no cifrarlos: la excusa de coste ya no existe.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Lxg9YyFJ8s0">«DEF CON 33 - Attacks on GenAI Data and Using Vector Encryption to Stop Them - Patrick Walsh, Bob Wall (IronCore Labs)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

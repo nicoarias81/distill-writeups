@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cargar modelos, ejecutar shells: abuso de formatos de archivo de IA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cargar modelos, ejecutar shells: abuso de formatos de archivo de IA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/IHzn9BiH6rY">«DEF CON 33 - Loading Models, Launching Shells: Abusing AI File Formats fr Code Execution - C Parzian»</a> · ver el <a class="nz-link" href="https://youtu.be/IHzn9BiH6rY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El ecosistema de IA heredó una deuda de seguridad de dos décadas: los formatos de archivo de Python que serializan objetos —pickle y sus derivados— ejecutan código arbitrario al cargarse. La cadena de suministro de modelos (Hugging Face, GitHub, PyPI) distribuye esos archivos a escala, y las defensas tradicionales (antivirus, EDR, escáneres de repositorios) no están construidas para detectar código malicioso escondido en formatos de ML. La demostración central: un chatbot de salud aparentemente funcional, cargado con flan-t5-small, que en segundo plano establece una reverse shell contra el servidor del atacante sin activar Microsoft Defender Endpoint ni la mayoría de los escáneres comerciales.</p>
+<p>El problema de fondo es estructural: Python domina el pipeline de IA, y por esa prevalencia el atacante no necesita siquiera usar los formatos de IA — cualquier módulo de Python capaz de ejecutar código al cargar un archivo sirve. Y el riesgo no es teórico: hubo casos reales de archivos pickle maliciosos detectados en Hugging Face, de un desarrollador de Disney que entregó acceso a su máquina vía un caballo de Troya de IA (con 1,1 TB de datos exfiltrados) y de paquetes maliciosos con pickle en PyPI.</p>
+<h2>Pickle: ejecución de código por diseño</h2>
+<p>Pickle es el mecanismo por defecto de Python para serializar y deserializar objetos: convierte objetos en un stream de bytes y los reconstruye al cargarlos. El detalle crítico es que <strong>al deserializar puede ejecutar código</strong>. Las extensiones (.pickle, .pkl) son cosméticas: lo que importa es el contenido del archivo, no su nombre, así que un archivo sin extensión reconocible sigue siendo un riesgo imposible de bloquear por tipo.</p>
+<p>El precedente no es nuevo: ya en Black Hat 2011 se documentaron los peligros de los pickle files, y luego se demostró cómo backdoor-earlos. Lo nuevo es el contexto: la explosión de modelos compartidos hace que "descargar y cargar un archivo" sea el gesto cotidiano de millones de desarrolladores. El vector de ataque completo:</p>
+<ol>
+<li>Descargar (o crear) un chatbot o modelo popular —valiéndose del <em>name camouflage</em>: aprovechar la familiaridad del usuario con un nombre conocido—.</li>
+<li>Insertar código malicioso en el modelo o en el pickle asociado.</li>
+<li>Republicar en Hugging Face o GitHub.</li>
+<li>Esperar descargas orgánicas, o enviar el artefacto como carnada de phishing dirigida a desarrolladores de un entorno concreto.</li>
+</ol>
+<h2>El chatbot trampa, paso a paso</h2>
+<p>El chatbot de demostración se construyó desde cero sobre <strong>flan-t5-small</strong>, un modelo liviano que corre en CPUs comunes (no es un chatbot RAG: no hay embeddings ni base vectorial, solo un set de preguntas y respuestas guardado en el pickle que da soporte a las respuestas del modelo). En Hugging Face, el ícono blanco "pickle" indicaba que los scanners no hallaban problemas.</p>
+<p>La versión maliciosa introduce dos cambios: una función <code>reverse_shell_fix</code> en el Python principal —una callback a un servidor y puerto del atacante (desplegable detrás de un CDN para disimularla)— y, al final del set de preguntas y respuestas dentro del pickle, una entrada extra cuyo "payload sigiloso" invoca a esa función vía <code>__var_zero__</code>. Al cargar el pickle, el chatbot abre la shell; el usuario ve un chatbot perfectamente funcional que responde preguntas de salud mientras la conexión de comando y control queda establecida.</p>
+<p>Con la modificación, el ícono del repo pasa a naranja: Hugging Face señala que la función <code>reverse_shell_fix</code> podría ser problemática. Dos observaciones incómodas: los scanners tardaron una o dos semanas en analizar el archivo, y el aviso solo aparece si el usuario hace clic en el ícono.</p>
+<h2>Detección: un escáner la ve, el resto no</h2>
+<p><strong>Fickling</strong>, la herramienta de referencia para analizar, crear y verificar la seguridad de pickle files, señala exactamente el problema en el archivo modificado (la llamada a <code>__var_zero__</code> y la función de reverse shell) y advierte que el archivo podría ser malicioso. En cambio, dos herramientas open source muy conocidas de escaneo de pickle no reportan nada, y una herramienta comercial de primer nivel respondió que el ataque —por combinar pickle y Python— le resultaba "un poco complejo" y que esperaba detectarlo en el futuro. Contra los antivirus y EDR del momento (febrero), el chatbot pasó sin ser detectado.</p>
+<p>Tras la notificación responsable a Microsoft, desde abril la descarga del chatbot se marca como virus detectado (reverse shell Trojan) y bloquea su ejecución. Pero el segundo demo remueve esa barrera: con todo el payload —función y llamada— dentro de un único pickle cargado con un one-liner, <strong>Microsoft Defender Endpoint no genera ninguna alerta</strong> (protection history limpia, todo "al día").</p>
+<h2>ONNX y más allá: el chatbot como loader</h2>
+<p>ONNX es el formato estándar para convertir modelos entre frameworks (PyTorch → TensorFlow, por ejemplo). El mismo patrón aplica: definir el payload de reverse shell, codificarlo en base64, embeberlo en un modelo ONNX y guardarlo. Cargarlo desde el chatbot con <code>onnx.load</code> produce la callback al C2 (un simple servidor Python) sin tocar Defender. La conclusión conceptual: <strong>el chatbot es solo un loader</strong> — un contenedor inofensivo que carga módulos Python capaces de ejecutar código, y en ese rol puede alimentarse de pickle, ONNX y variantes.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Chatbot aparentemente<br/>legítimo (flan-t5-small)"] --> B{"Formato cargado<br/>al iniciar"}
+    B --> C["pickle / .pkl"]
+    B --> D["ONNX"]
+    B --> E["egg / cloudpickle /<br/>joblib / feather"]
+    C --> F["Payload base64:<br/>reverse shell"]
+    D --> F
+    E --> F
+    F --> G["Callback al C2<br/>sin alertas de AV/EDR"]
+    G --> H["Acceso a la máquina<br/>del desarrollador"]
+
+</pre>
+
+<p>Las cuatro variantes subidas a Hugging Face lo confirman: <strong>egg</strong> (el "zip" de paquetes Python), <strong>cloudpickle</strong> (pickle con funcionalidad extendida para otros tipos de archivo), <strong>joblib</strong> (formato de modelos que internamente es pickle) y <strong>feather</strong> ("CSV rápido"). Dos fueron detectadas por Hugging Face, dos pasaron. La lección: enfocarse solo en los formatos del pipeline de IA es un error — la prevalencia de Python en el ecosistema permite al atacante elegir cualquier módulo periférico.</p>
+<h2>Compilar el problema: PyInstaller</h2>
+<p>Hasta aquí todos los demos requerían Python instalado. Con <strong>PyInstaller</strong> el ONNX malicioso se convierte en un EXE autónomo que establece la callback al C2 sin Python en la víctima. Escaneado con Microsoft Defender Endpoint: ninguna detección. En el catálogo de malware (VirusTotal), el EXE obtiene <strong>0 detecciones sobre 0 motores</strong>, sin actividad maliciosa reportada. Para un equipo rojo acostumbrado a invertir días o semanas buscando un payload que evada AV/EDR, los formatos de archivo de Python son un atajo directo.</p>
+<h2>Defensas</h2>
+<ul>
+<li><strong>No ejecutar código no confiable.</strong> La recomendación principal es trivial de enunciar y difícil de cumplir: el desarrollador confía en el sitio donde descarga y en su AV/EDR para detectar lo malicioso, y ambos confían fallan aquí.</li>
+<li><strong>Restringir el acceso a GitHub y Hugging Face</strong> para la mayoría de los usuarios de un entorno corporativo: descargar un chatbot trampa que da acceso a la máquina es demasiado fácil como para dejarlo abierto a todos.</li>
+<li><strong>Aceptación del límite estructural:</strong> bloquear por tipo de archivo (la vía fácil con .hta o .js) no funciona cuando un pickle puede no tener extensión y cualquier módulo Python sirve de loader. Los AV/EDR actuales no miran los ataques de cadena de suministro en formatos de IA/ML, y parchearlo no es sencillo.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Pickle / .pkl</strong>: serialización de Python con ejecución de código al deserializar; la extensión no es indicador de riesgo.</li>
+<li><strong>Name camouflage</strong>: republicar código malicioso bajo nombres de modelos o chatbots conocidos.</li>
+<li><strong>flan-t5-small + set de Q&amp;A en pickle</strong>: chatbot funcional usado como loader de payload.</li>
+<li><strong>Fickling</strong>: análisis, creación y verificación de seguridad de pickle files; único escáner que señaló el payload.</li>
+<li><strong>ONNX con payload embebido</strong>: mismo patrón sobre el formato de conversión de modelos, vía <code>onnx.load</code>.</li>
+<li><strong>Variantes de serialización</strong>: egg, cloudpickle, joblib, feather — la mitad pasa los scanners de Hugging Face.</li>
+<li><strong>PyInstaller</strong>: empaquetado del artefacto malicioso como EXE autónomo, 0 detecciones en VirusTotal.</li>
+<li><strong>Microsoft Defender Endpoint</strong>: EDR de referencia usado como línea base de detección (bypass en todos los escenarios).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los formatos de archivo de IA heredan el modelo de ejecución de código de la serialización de Python, y toda la cadena de distribución de modelos (Hugging Face, GitHub, PyPI) los mueve a escala con controles de detección insuficientes.</li>
+<li>La detección es inconsistente en todos los niveles: escáneres de repositorio tardan semanas y fallan la mitad de las veces, las herramientas comerciales se declaran incapaces, los AV/EDR no alertan, y un EXE empaquetado obtiene cero detecciones.</li>
+<li>Un chatbot inocente es un loader: la aplicación de IA visible para el usuario solo tapa el módulo Python que ejecuta código, y el atacante elige el formato (pickle, ONNX, egg, feather) que mejor evade.</li>
+<li>La mitigación real es operativa, no técnica: no ejecutar artefactos no confiables y reducir la superficie restringiendo el acceso a repositorios de modelos en entornos corporativos, mientras la industria no resuelva la inspección de estos formatos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/IHzn9BiH6rY">«DEF CON 33 - Loading Models, Launching Shells: Abusing AI File Formats fr Code Execution - C Parzian»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

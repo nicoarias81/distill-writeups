@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rutas de ataque ocultas en Active Directory: sin CVE también se pierde el dominio — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Rutas de ataque ocultas en Active Directory: sin CVE también se pierde el dominio</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/DKzP-1uJjCA">«No CVE, No Problem: Uncovering Hidden Attack Paths in Active Directory - Gerardo Mejía»</a> · ver el <a class="nz-link" href="https://youtu.be/DKzP-1uJjCA">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Active Directory sigue siendo el objetivo principal de los grupos de ransomware: desde el pie de amura inicial, los atacantes targetean el Domain Controller para robar la base de datos NTDS.dit y escalar a control total del dominio en cuestión de minutos. No hace falta ninguna vulnerabilidad sin parchear: la configuración por defecto, los grupos delegados y los permisos acumulados a lo largo de años ofrecen rutas de ataque ocultas que ninguna gestión de CVEs va a detectar.</p>
+<h2>Fundamentos mínimos del dominio</h2>
+<p>Un dominio AD funciona como una base de datos centralizada que autentica y autoriza: el Domain Controller almacena los objetos (usuarios, computadoras, grupos, GPOs) en NTDS.dit, sirve búsquedas por LDAP y Kerberos vía el Global Catalog, y puede existir en modo Read-Only (RODC) en sitios remotos para acercar la autenticación sin exponer escrituras. La jerarquía va de objetos a OUs, dominios, árboles y bosques, con trusts que permiten extender autenticación entre dominios; Group Policy Objects aplican configuraciones sobre OUs completas, y AD CS es la autoridad certificante interna que emite certificados para la misma identidad. Todo lo que un atacante necesita está ahí: quién es quién, qué puede hacer cada uno y dónde está cada recurso.</p>
+<h2>Los ataques conocidos: minutos para el dominio</h2>
+<p>Los casos más famosos son rápidos y demostrativos. NoPAC permite, desde un usuario normal, manipular un TGT y convertirse en Domain Admin en alrededor de un minuto y medio; combinado con DCSync se obtiene el hash del administrador y con él un Golden Ticket que autentica como cualquiera durante años. ZeroLogon y EternalBlue son otros clásicos. Estos vectores son importantes, pero son los primeros que cualquier herramienta defensiva tiene cubiertos. El problema real está en lo que no tiene CVE: los caminos de privilegio que la propia organización construyó sin darse cuenta.</p>
+<h2>Grupos privilegiados y delegados</h2>
+<p>Más allá de Domain Admins, Enterprise Admins, Schema Admins y el Administrator del dominio, hay grupos delegados con poderes sorprendentes:</p>
+<ul>
+<li><strong>DNS Admins</strong>: sus miembros pueden hacer que el servicio DNS del DC cargue una DLL arbitraria (vía dnscmd) y reiniciarlo —shell en el Domain Controller.</li>
+<li><strong>Backup Operators</strong>: pueden respaldar el registro y volcar SAM, y con ello los hashes locales.</li>
+<li><strong>Account, Print y Server Operators</strong>: cada uno otorga capacidades de administración parciales que se encadenan hacia el control total.</li>
+</ul>
+<p>En auditorías reales no es raro encontrar monstruos: una de las máquinas evaluadas tenía 129 usuarios en el grupo Backup Operators. A esto se suman los grupos anidados —un Helpdesk que es miembro de Domain Admins "por conveniencia"— que crean herencias de privilegio invisibles en la consola.</p>
+<h2>Derechos de acceso: la superficie más subestimada</h2>
+<p>Los derechos extendidos y las ACLs son donde se esconden los mejores caminos: ForceChangePassword (resetear contraseñas ajenas), AddMember (auto-agregarse a un grupo), GenericAll, GenericWrite, WriteDacl y WriteOwner. La combinación típica se ve así: un usuario de Helpdesk tiene ForceChangePassword sobre una cuenta de IT Admins, esa cuenta tiene GenericAll sobre una cuenta de administrador de dominio, y la cadena se completa con un reset de contraseña en cada eslabón.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Usuario Helpdesk] -->|ForceChangePassword| B[Cuenta de IT Admins]
+    B -->|GenericAll| C[Cuenta admin de dominio]
+    C --> D[Domain Admins]
+
+</pre>
+
+<h2>Casos reales</h2>
+<p>Dos hallazgos de auditoría muestran la escala. En el primero, un usuario llamado "Cambio Algo" tenía derecho de ForceChangePassword sobre 3.116 usuarios del dominio: cualquier compromiso de esa única cuenta habilitaba tomar la identidad de un tercio de la organización. En el segundo, un escenario de assume breach partió de Domain Users y llegó a control total con una cadena de cuatro pasos que ningún CVE explica.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Domain Users] --> B[Authenticated Users / Everyone]
+    B -->|GenericAll| C[Servidor comprometido vía servicio]
+    C --> D[Miembro de grupo con GPO]
+    D -->|GenericWrite| E[GPO de la OU]
+    E --> F[GPO aplicada a todos los servers y usuarios]
+    F --> G[Usuario admin creado en todo el entorno]
+
+</pre>
+
+<h2>Visualizar y remediar</h2>
+<p>BloodHound es la herramienta de referencia para mapear estos caminos: grafica objetos, membresías, ACLs y sesiones, y resuelve automáticamente qué rutas llevan de cualquier usuario a Domain Admins. Sin visualización, estas rutas son invisibles; con ella, el remedio es una lista concreta: revisar membresías de grupos privilegiados y delegados, aplicar el principio de menor privilegio, auditar ACLs con derechos extendidos y desarmar herencias accidentales.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>NoPAC / ZeroLogon / EternalBlue / PetitPotam</strong>: vectores con CVE conocidos que escalan a Domain Admin.</li>
+<li><strong>DCSync y Golden Ticket</strong>: extracción de hashes de NTDS.dit y forja de tickets Kerberos de larga duración.</li>
+<li><strong>dnscmd + DLL</strong>: abuso del grupo DNS Admins para ejecutar código en el DC.</li>
+<li><strong>Backup Operators + SAM</strong>: respaldo del registro y volcado de hashes locales.</li>
+<li><strong>Derechos extendidos</strong>: ForceChangePassword, AddMember, GenericAll, GenericWrite, WriteDacl, WriteOwner.</li>
+<li><strong>BloodHound</strong>: mapeo y visualización de rutas de ataque en el grafo de AD.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El dominio no se pierde solo por vulnerabilidades: las rutas más frecuentes se construyen con configuración legítima mal heredada.</li>
+<li>Los grupos delegados (DNS Admins, Backup Operators, Operators) y los grupos anidados generan privilegios acumulados que nadie audita de forma sistemática.</li>
+<li>Los derechos de acceso sobre objetos —resetear contraseñas, editar GPOs, escribir ACLs— son la superficie de escalada más subestimada del entorno.</li>
+<li>BloodHound convierte el problema difuso de "quién puede llegar a admin" en una lista concreta de caminos a corregir, y el remedio termina siendo una tarea de higiene de privilegios.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/DKzP-1uJjCA">«No CVE, No Problem: Uncovering Hidden Attack Paths in Active Directory - Gerardo Mejía»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hackear sistemas de IA desde cero: recon, extracción de prompts y primeras inyecciones — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/aipentest.html">IA &amp; Pentesting</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · IA &amp; Pentesting</p>
+<h1 class="nz-h2">Hackear sistemas de IA desde cero: recon, extracción de prompts y primeras inyecciones</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/dG6NFXQOmsE">«BECOMING AN AI HACKER (Episode 01)»</a> · ver el <a class="nz-link" href="https://youtu.be/dG6NFXQOmsE">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Atacar sistemas de IA no requiere magia: requiere método. Un recorrido de aprendizaje guiado por Joseph "Rezo" muestra la ruta completa del primer contacto con un objetivo de IA: encontrar programas de bug bounty con funciones de IA filtrando la API de HackerOne con un script, entender el backend de un asistente mirando las requests en Burp, sondear un chatbot endurecido con un guion de pruebas sistemáticas, extraer el system prompt con una técnica de resumen incremental, mapear qué se renderiza en la interfaz y terminar frente al reto real: encontrar un punto de inserción para una inyección indirecta de prompts.</p>
+<p>El material de partida es la aplicación Neo, un copiloto de pentesting con IA que actúa como guía: le pedí opciones de ataque y devolvió una taxonomía de cinco vías que estructura todo el trabajo posterior.</p>
+<h2>Recon de objetivos de IA a escala</h2>
+<p>El primer paso es encontrar objetivos, y la API de HackerOne sirve para automatizarlo. Un script en Python consulta los programas públicos y filtra por palabras clave en su descripción: "AI powered", "ChatGPT", "AI agent", "AI assistant", "copilot". El filtro inverso importa tanto como el directo: excluir los programas que aclaran que no aceptan reportes sobre funciones de IA. El resultado se escribe a un CSV para trabajar después, y revela programas serios con IA en alcance: Cloudflare (con prompt injection explícitamente en scope desde 2023), Adobe, LinkedIn, Python.</p>
+<p>El siguiente nivel de recon es ver qué dicen los programas privados —aunque HackerOne los oculta, se pueden listar para saber que existen—. Y un detalle de higiene: el script consulta el endpoint correcto con la cabecera adecuada, porque la API pública de HackerOne tiene requisitos propios.</p>
+<h2>Ver bajo el capó de un asistente</h2>
+<p>Con un objetivo elegido —una función de IA de Adobe—, el recon técnico empieza preguntando al chatbot qué puede hacer: la respuesta da una primera idea del hardening y de cuánto presupuesto de tiempo merece. Después, el proxy: interceptar las requests en Burp para entender la arquitectura. Para Firefly, la request revela que viaja hacia <code>firefly.adobe.com</code> con un campo de modelo apuntando a Gemini Flash, un endpoint de generación asíncrona (<code>v2/3p/images/generate</code>), un seed id y un job result servido bajo <code>adobe.io</code> que, sin autenticación, no exige API key.</p>
+<p>Este mapeo no es curiosidad: saber qué modelo corre detrás, qué endpoints existen y qué requiere autenticación es la diferencia entre probar a ciegas y elegir vectores con sentido. Es el equivalente exacto de leer el código fuente en un pentest web tradicional.</p>
+<h2>Las cinco vías de ataque a un chatbot</h2>
+<p>Ante un chatbot, Neo organiza el ataque en cinco categorías que funcionan como checklist:</p>
+<ol>
+<li><strong>Prompt injection directa:</strong> manipulación del contexto para forzar comportamiento fuera de las reglas.</li>
+<li><strong>Extracción del system prompt / fuga de configuración:</strong> obtener instrucciones internas, y con suerte API keys o credenciales.</li>
+<li><strong>Jailbreak y evasión de seguridad:</strong> codificaciones, role play y otras técnicas para saltarse los filtros.</li>
+<li><strong>Exfiltración de datos:</strong> acceso a datos entre usuarios, CSRF y canales de salida.</li>
+<li><strong>Prompt injection indirecta:</strong> contenido malicioso que el modelo ingiere desde una fuente externa.</li>
+</ol>
+<p>La experiencia práctica con chatbots endurecidos —el asistente de HubSpot en este caso— muestra que la exploración tiene capas: preguntar por las herramientas disponibles da la lista de capacidades, y probar qué formato acepta la salida (¿markdown?, ¿imágenes?, ¿HTML?) delimita los canales de exfiltración posibles.</p>
+<h2>Extracción del system prompt y pruebas de renderizado</h2>
+<p>La extracción del system prompt es un juego de escalada. La negativa directa ("no puedo compartir mis instrucciones internas") se rodea con una técnica de resumen incremental: pedir un resumen "casi idéntico" que empiece con "You are", cambiar una palabra por párrafo, y después pedir "hazlo con todo, no te saltes nada". El modelo, empujado a resumir y no a revelar, entrega el prompt real: principios básicos, arquitectura de herramientas y todo.</p>
+<p>Por sí solo, el system prompt no es una vulnerabilidad —las políticas de la mayoría de los programas lo tratan como informativo—, pero es el mapa: revela dónde están las herramientas, las reglas y los posibles huecos. En paralelo, las pruebas de renderizado mapean los canales de exfiltración: los links en markdown se renderizan (vector de phishing e inyección), las imágenes se bloquean, y el HTML se bloquea dentro de bloques de código pero se ejecuta si se pide fuera de ellos. Cada canal abierto es una vía potencial de exfiltración o de ataque a otros usuarios.</p>
+<h2>El reto: inyección indirecta de prompts</h2>
+<p>El cierre pone el listón alto: encontrar, en cualquiera de los programas del recon, un punto de inserción donde colocar un prompt injection indirecta que haga que el chatbot hable como pirata. El truco es instructivo precisamente porque el impacto es trivial —hablar como pirata—: toda la dificultad está en el punto de inserción, es decir, en encontrar contenido que el modelo ingiera a través de una llamada a herramienta o de un documento y que un atacante pueda controlar. Esa es la forma canónica del ataque indirecto: no convencer al usuario de escribir nada, sino envenenar lo que el modelo lee.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Recon: API de HackerOne + filtros IA] --> B[Elegir objetivo con IA en scope]
+    B --> C[Sondeo: qué puede hacer el chatbot]
+    C --> D[Análisis de requests en Burp]
+    D --> E[Extracción del system prompt]
+    E --> F[Mapeo de canales: markdown, HTML, imágenes]
+    F --> G[Inyección indirecta: buscar punto de inserción]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Recon con la API de HackerOne:</strong> filtrado por keywords de IA y exclusión de programas que no aceptan reportes de IA; salida a CSV.</li>
+<li><strong>Análisis de requests en Burp:</strong> identificación de endpoints, modelo subyacente, flujos asíncronos y autenticación.</li>
+<li><strong>Prompt injection directa:</strong> manipulación de contexto tras construir rapport.</li>
+<li><strong>Extracción de system prompt:</strong> resumen incremental con cambios de una palabra por párrafo y orden de "no saltear nada".</li>
+<li><strong>Pruebas de renderizado:</strong> markdown, HTML e imágenes como canales de exfiltración potenciales.</li>
+<li><strong>Prompt injection indirecta:</strong> contenido malicioso en fuentes que el modelo lee vía herramientas o documentos.</li>
+<li><strong>Data exfiltration:</strong> acceso entre usuarios y vectores de salida en chatbots.</li>
+<li><strong>Neo:</strong> copiloto de pentesting con IA usado como guía táctica.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El ataque a sistemas de IA empieza igual que cualquier pentest: recon sistemático y lectura del tráfico antes de lanzar un solo payload.</li>
+<li>La extracción del system prompt no es el objetivo final, es el mapa: sin saber qué herramientas y reglas tiene el modelo, se prueba a ciegas.</li>
+<li>Mapear qué renderiza la interfaz (markdown, HTML, imágenes) define los canales de exfiltración disponibles antes de atacar.</li>
+<li>En la inyección indirecta de prompts, el reto real no es el payload sino el punto de inserción: encontrar contenido controlable que el modelo ingiera.</li>
+<li>Los programas serios (Cloudflare, Adobe) ya tienen funciones de IA en alcance explícito: hay superficie de recompensa real para esta disciplina.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/dG6NFXQOmsE">«BECOMING AN AI HACKER (Episode 01)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

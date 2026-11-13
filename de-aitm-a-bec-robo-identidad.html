@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De la sesión robada al golpe financiero: anatomía de un ataque AiTM que termina en BEC — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">De la sesión robada al golpe financiero: anatomía de un ataque AiTM que termina en BEC</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/k4oGpjzUuII">«Unveiling the Threat: From Adversary-In-The-Middle to BEC in real-life -D. Matos &amp; W. Santiago Silva»</a> · ver el <a class="nz-link" href="https://youtu.be/k4oGpjzUuII">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El modelo clásico de intrusión —explotar una vulnerabilidad, ganar acceso, moverse lateralmente— está cediendo terreno ante algo más simple y más barato: robar la identidad del usuario. Los equipos de respuesta a incidentes del ecosistema IBM X-Force en América Latina documentan un cambio global en el modus operandi: en lugar de romper el software, el atacante se interpone en el proceso de autenticación, captura usuario, contraseña y segundo factor en tiempo real, y entra como si fuera el empleado legítimo. Brasil lidera el volumen de credenciales a la venta en la Dark Web según el Threat Intel Index, con Argentina como otro de los mercados más afectados.</p>
+<p>La cadena que sigue a ese robo es un patrón repetido en incidentes reales, muchos de ellos en organizaciones de decenas de miles de usuarios: el acceso inicial se convierte en persistencia, la persistencia en reconocimiento interno, y el reconocimiento en un Business Email Compromise (BEC) multietapa que compromete a otras cuentas y, peor aún, a empresas de la cadena de confianza del cliente. El caso más ilustrativo incluye un detalle incómodo: la víctima tenía MFA, acceso condicional y detección de impossible travel, y aun así el ataque prosperó porque el equipo de seguridad interno lo descartó como falso positivo.</p>
+<h2>El eslabón inicial: phishing entre conocidos</h2>
+<p>Todo arranca con un correo que no parece phishing. Los atacantes comprometen primero a una empresa y usan sus buzones ya comprometidos para escribirle a contactos de confianza en otra: la relación preexistente entre dos personas baja la guardia del destinatario. El mensaje suele contener un enlace a servicios legítimos de almacenamiento —Dropbox, Google Drive, Canvas— que redirige a una página clonada de la autenticación de Office 365.</p>
+<p>Esa legibilidad de infraestructura es deliberada. Cuando el equipo de monitoreo revisa el incidente, la reputación del dominio es limpia y las URLs pertenecen a plataformas reales: no hay IOC clásico que bandera. El análisis tradicional de reputación simplemente no ve el ataque.</p>
+<h2>AiTM: el proxy que roba la sesión completa</h2>
+<p>El corazón técnico del esquema es el adversary-in-the-middle. Una herramienta de proxy inverso —Evilginx es la más conocida, pero hay otras, operadas a escala y con infraestructura distribuida incluso sobre proveedores cloud como Amazon— se coloca entre la víctima y Microsoft. El flujo:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Phishing con enlace a proxy] --> B[Pagina falsa de login O365]
+    B --> C[Victima envia usuario + contrasena + 2FA]
+    C --> D[Proxy reenvia a Microsoft y captura cookies de sesion]
+    D --> E[Atacante reusa la cookie y entra como el usuario]
+
+</pre>
+
+<p>El usuario escribe su contraseña y luego resuelve su segundo factor con normalidad: el proxy lo reenvía al servicio real y devuelve la respuesta. De ese intercambio el atacante obtiene no solo las credenciales, sino las cookies y session IDs que permiten reanudar la sesión autenticada en su propio navegador. No hace falta romper el MFA: se cumple. Además de montajes manuales, la economía criminal ya ofrece phishing-as-a-service que automatiza el bypass del segundo factor y la recolección de sesiones.</p>
+<h2>Después de la sesión: persistencia y evasión</h2>
+<p>Con la sesión en mano, el atacante consolida:</p>
+<ol>
+<li><strong>MFA adicionado, no reemplazado.</strong> Registra su propio dispositivo como segundo método de autenticación sin invalidar el del usuario legítimo. Ambos factores coexisten; el usuario no nota nada.</li>
+<li><strong>Reglas de buzón.</strong> Reglas de supresión y redirección que borran el correo del phishing original, mandan mensajes a carpetas ocultas o monitorean toda la comunicación del usuario, interna y externa. Borrar ese primer correo persigue un objetivo forense directo: que nadie pueda identificar al paciente cero.</li>
+<li><strong>Aplicaciones OAuth de terceros.</strong> En un incidente real apareció la aplicación <em>Perfect Data Software</em>, que hace backup completo del buzón, instalada en 40 usuarios. Los equipos de soporte y seguridad confirmaron que no la usaban; estaba correlacionada con la filtración de datos y con la preparación del golpe: quien controla los buzones sabe quién es el CFO y quién es su asistente.</li>
+</ol>
+<p>La evasión es sistemática: borrar el correo inicial, multiplicar cuentas comprometidas en paralelo para dificultar el rastreo (se documentaron campañas de más de cien intentos internos de compromiso desde una sola cuenta), y servirse exclusivamente de infraestructura legítima.</p>
+<h2>El golpe: ingeniería social y falso positivo</h2>
+<p>El objetivo final es financiero. El atacante, ya con visibilidad total del buzón, entabla una conversación con el usuario pidiendo información o acciones —el BEC propiamente dicho—. En el caso documentado, el usuario detectó algo sospechoso y consultó a su propio equipo de seguridad, que analizó los indicadores: Dropbox, Canvas, dominios con buena reputación, ningún IOC. Veredicto: falso positivo. Con ese decreto, el atacante siguió comprometiendo cuentas libremente hasta que el caso escaló y se llamó al equipo de respuesta externo.</p>
+<p>La multietapa cierra el círculo: desde la empresa comprometida se atacan los contactos externos —se identificaron más de 50 usuarios de compañías terceras que recibieron el mismo correo—, y cada nueva víctima alimenta la venta de credenciales y el siguiente ciclo de BEC.</p>
+<h2>Investigar un AiTM: qué colectar y con qué</h2>
+<p>La respuesta a estos casos sigue un ciclo de triaje y escoping:</p>
+<ul>
+<li><strong>Limitar el alcance por lo anómalo</strong>: filtrar los últimos tres meses (el máximo de retención que expone Microsoft) en busca de redirecciones externas y buzones que envían correo fuera de la organización; de ahí sale la primera lista de usuarios a revisar.</li>
+<li><strong>Colectar los logs correctos</strong>: UAL (Unified Audit Log), MOL y, el más olvidado, el <em>Administrator Audit Log</em>, donde quedan las acciones administrativas ejecutadas por PowerShell sobre cuentas privilegiadas comprometidas.</li>
+<li><strong>Message Trace</strong>: reconstruir quién recibió el correo, a quién se reenvió, si viajó solo interno o también externo; es lo que revela el segundo estadio hacia terceros.</li>
+<li><strong>Análisis del header del correo de phishing</strong> y revisión integral de la configuración del tenant: el MFA "presente" pero sin enforcement equivale a no tenerlo.</li>
+<li><strong>Correlación en SIEM</strong> con retención propia de 90+ días, porque Microsoft no conserva todo lo necesario, y enriquecimiento con fuentes de threat intelligence.</li>
+</ul>
+<p>Dos utilidades gratuitas de GitHub aceleran el triaje masivo: <strong>Invictus IR</strong> y <strong>Hawk</strong>, que ejecutan chequeos automatizados —cambios de permisos en grupos de seguridad, reglas de buzón, forwarding— y devuelven una lista priorizada de lo que no es común. No sustituyen el análisis, pero orientan la investigación cuando hay 50.000 usuarios y las consolas gráficas no alcanzan.</p>
+<p>Un requisito organizacional que se decide en caliente y sale caro si se posterga: el analista necesita un usuario forense con permisos de <em>global reader</em> ya preparado. Las consolas de Microsoft reparten los permisos en varios lugares y, sin esa discusión temprana con CISOs y áreas legales, la recolección por PowerShell llega incompleta justo cuando más urgency hay.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>AiTM (adversary-in-the-middle)</strong> — interposición de un proxy de phishing que captura credenciales, segundo factor y cookies de sesión.</li>
+<li><strong>Evilginx</strong> — framework de proxy inverso para robo de sesiones; se observa operado a escala sobre infraestructura cloud, incluida Amazon.</li>
+<li><strong>Phishing-as-a-service</strong> — servicios de la Dark Web que automatizan el bypass de MFA y el robo de identidad.</li>
+<li><strong>Reglas de buzón maliciosas</strong> — supresión, redirección y borrado del correo de phishing para evadir al paciente cero.</li>
+<li><strong>Perfect Data Software</strong> — aplicación legítima de backup de buzón abusada vía OAuth para exfiltrar cajas de correo; su presencia no autorizada es indicador de compromiso.</li>
+<li><strong>BEC multietapa (multistage attack)</strong> — reutilización de una empresa comprometida para atacar a sus contactos y revender credenciales.</li>
+<li><strong>Microsoft Defender (disrupción automática)</strong> — contención automática de robo de sesión disponible según licenciamiento.</li>
+<li><strong>Entra ID / Azure AD</strong> — enforcement obligatorio de MFA para roles administrativos anunciado por Microsoft.</li>
+<li><strong>Unified Audit Log, Message Trace, Administrator Audit Log</strong> — fuentes de telemetría esenciales; la última registra acciones administrativas vía PowerShell.</li>
+<li><strong>Invictus IR y Hawk</strong> — herramientas open source de GitHub para triaje automatizado de tenants Microsoft.</li>
+<li><strong>SIEM (Sentinel) + threat intel</strong> — correlación con retención propia y enriquecimiento (VirusTotal, IBM X-Force Exchange).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El MFA sin diseño complementario no detiene el AiTM</strong>: el atacante cumple el segundo factor en tiempo real. Se requiere MFA en enforcement, restricción de los métodos permitidos (evitar registrar dispositivos con solo SMS u OTP), acceso condicional, impossible travel y expiración/reutilización de sesión.</li>
+<li><strong>La infraestructura legítima es el nuevo ciego del análisis de reputación</strong>: si el playbook depende de IOCs y dominios maliciosos, un ataque montado sobre Dropbox, Canvas y proxies de phishing pasa como falso positivo. Los equipos de seguridad también necesitan awareness.</li>
+<li><strong>Busque aplicaciones OAuth que nadie reconoce</strong>: una app de backup de buzón instalada en decenas de usuarios y desconocida para soporte es señal fuerte de exfiltración preparatoria.</li>
+<li><strong>Prepare la respuesta antes del incidente</strong>: logs habilitados para todos los usuarios, SIEM con retención mayor a los 90 días de Microsoft, usuario forense con global reader pre-aprobado, protocolos legacy sin MFA deshabilitados y revisión periódica de reglas de forwarding.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/k4oGpjzUuII">«Unveiling the Threat: From Adversary-In-The-Middle to BEC in real-life -D. Matos &amp; W. Santiago Silva»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

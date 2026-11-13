@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ELMA: una placa de middleware para auditar transacciones EMV de contacto — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">ELMA: una placa de middleware para auditar transacciones EMV de contacto</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Zg7diTEwW70">«ELMA: EMV Laboratory Middleware Assistant - Salvador Mendoza - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/Zg7diTEwW70">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las transacciones con tarjeta de contacto EMV son una caja negra para la mayoría de los investigadores: la comunicación entre la tarjeta y el terminal pasa por pads metálicos dentro de un slot, y pocas herramientas permiten observarla o manipularla. ELMA (EMV Laboratory Middleware Assistant) es una placa desarrollada por MetaBaseQ que se interpone físicamente entre tarjeta y terminal para esnifiar, emular y alterar el protocolo APDU de la capa aplicativa ISO 7816 en tiempo real.</p>
+<p>El proyecto nació como un hobby en 2016, cuando la investigación en pagos se concentraba casi toda en NFC y relays de contacto, y maduró hasta convertirse en hardware propio con varias versiones. Este artículo recorre por qué hizo falta una placa específica, qué herramientas existían y qué les faltaba, cómo funciona ELMA a nivel hardware y firmware, y qué clase de ataques permite montar — incluido un caso real de fuerza bruta sobre PIN reportado a Mastercard.</p>
+<h2>Transacciones EMV: qué se habla entre tarjeta y terminal</h2>
+<p>ELMA se enfoca exclusivamente en transacciones de inserción (EMV de contacto), no en NFC ni banda magnética. Lo que interesa es el canal entre tarjeta y terminal: un protocolo APDU no cifrado, de la capa aplicativa de ISO 7816, donde todos los comandos y respuestas viajan en hexadecimal en claro. Cada tarjeta, sea Visa o Mastercard, tiene su proveedor, su perfil de perfilamiento dictado por el esquema y su propio sistema operativo (Java Card, Global Platform), pero todas comparten ese protocolo de comunicación.</p>
+<p>El modelo EMV se documenta en los "libros" de EMV (del 1 al 4 para contacto; 5 o 7 adicionales para NFC). Esos libros definen los tags, comandos y respuestas que tarjeta y terminal intercambian. Varios conceptos son clave para entender los ataques posibles:</p>
+<ul>
+<li><strong>Elemento seguro</strong>: espacio dentro del chip donde se guardan secretos y se generan los certificados que producen los criptogramas de cada transacción.</li>
+<li><strong>CVM (Cardholder Verification Method)</strong>: cómo se verifica que quien transacciona es el titular — PIN cifrado, firma, no CVM, verificación en línea, etc.</li>
+<li><strong>Perfil de intercambio de aplicación (AIP)</strong>: la tarjeta le informa al terminal qué capacidades y versión maneja, durante el answer-to-reset inicial.</li>
+<li><strong>Contador de intentos de PIN (retry counter)</strong>: normalmente 3 o 5; al llegar a cero la tarjeta queda bloqueada por PIN, aunque puede seguir transaccionando por otros medios como NFC.</li>
+<li><strong>ARC</strong>: la respuesta del autorizador en el último paso de la transacción.</li>
+</ul>
+<p>Una transacción EMV de contacto tiene tres fases encadenadas: autenticación de la tarjeta (identificar si es Visa, Mastercard, American Express), verificación del titular (según los CVM que la tarjeta soporte) y autorización (generación de criptogramas que el emisor o un gateway valida).</p>
+<pre class="mermaid">
+flowchart LR
+    T[Terminal] <-->|APDU en claro| ELMA[Placa ELMA<br/>middleware]
+    ELMA <-->|APDU en claro| C[Tarjeta EMV]
+    T -->|criptograma / ARC| E[Emisor / autorizador]
+
+</pre>
+
+<p>La ausencia de cifrado en ese enlace local es la propiedad que hace viable todo lo demás: quien pueda colocarse en medio, ve y puede tocar cada comando y respuesta.</p>
+<h2>De sniffer a emulador: por qué hacía falta otra placa</h2>
+<p>El objetivo original del proyecto fue escalonado: primero un sniffer pasivo de la comunicación, después un emulador, después la alteración de comandos y respuestas en vuelo, luego fuzzing a nivel APDU e incluso por debajo (en la activación o el reset de la tarjeta), y finalmente un relay local o remoto. El relay remoto merece mención: conectando la tarjeta a un lector común en un país y la placa a un MQTT en otro, una terminal en México puede transaccionar con una tarjeta física en Argentina — útil cuando la política de una empresa impide enviar tarjetas de prueba. El relay local reemula, desde un archivo, una transacción EMV previamente capturada.</p>
+<p>Las herramientas existentes se quedaban cortas. Hacia 2020 aparecieron sniffers pasivos por serial, fáciles de fabricar pero incapaces de programarse como emulador. El proyecto open source "Detective EMV" (2022) ya emulaba y permitía instrucciones hardcodeadas en el firmware, pero la comunidad lo abandonó. El punto de inflexión llegó con la SIM Trace 2 de Osmocom, placa alemana diseñada para esnifiar y emular la comunicación entre un teléfono y su SIM. Como la comunicación SIM trabaja en la misma capa APDU que EMV, la placa servía de base: con firmware de snifeo intercepta de forma pasiva, y con firmware de emulación responde comandos programables desde Python. Sus limitaciones frente a lo que EMV exigía eran claras: el buffer de firmware es chico, pensado para mensajes SIM de pocos dígitos, mientras que las tramas EMV son mucho más largas.</p>
+<p>De ahí nació ELMA. La versión 2 usó un ESP32 como puente UART para control por Wi-Fi sobre el SAM3S, entradas y salidas flexibles para insertarse en ATMs sin atascar la tarjeta, y USB-C. La versión final, 3.1, es notablemente más pequeña que la SIM Trace 2 y admite adaptadores de salida de distintas longitudes según el tipo de terminal o cajero. MetaBaseQ planea liberar la placa como open source, ya que su uso interno ofensivo deja de ser prioritario.</p>
+<h2>MitM en tiempo real con Virtual Smart Card</h2>
+<p>Con la placa insertada, un lector de tarjetas común y dos scripts (uno para el lado del lector, otro para la emulación en ELMA), el equipo levantó un man-in-the-middle completo: la terminal ve una tarjeta y la tarjeta ve un terminal, pero cada APDU atraviesa la computadora. El ingrediente de software es la librería Virtual Smart Card (protocolo PC/SC Lite), que simula lectores virtuales que funcionan como un proxy de APDU: los comandos y respuestas pasan por él, se modifican en tiempo real y siguen su camino. Como la transacción EMV de contacto no impone una ventana de tiempo estricta, hay margen de sobra para alterar tramas sin que la terminal o la tarjeta se incomoden — y sin tropezar con los mecanismos anti-relay que ya implementan algunas tarjetas de Mastercard en NFC. Virtual Smart Card corre igual en Raspberry Pi, Mac, Linux y Windows.</p>
+<p>Para pasar de "puedo cambiar una cosa" a "puedo orquestar un ataque", ELMA incorpora un sistema de reglas: un script Python con una tabla por regla que indica si está activa, si reemplaza el campo completo, qué tag EMV afectar (por ejemplo el 5711, donde viaja el PAN), el nuevo valor, cuántas repeticiones aplicar y una descripción. Las reglas se evalúan en secuencia sobre cada comando y respuesta, con contador de repeticiones, así que un solo cambio puede cubrir varias tramas sin hardcodear nada. Ese framework surgió de la necesidad: los ataques reales exigían tocar dos, tres o más comandos y respuestas a la vez.</p>
+<p>Las capacidades que habilita: modificar comandos y respuestas al vuelo, repetir una transacción desde archivo, reordenar el listado de CVM, inspeccionar el contador de intentos de PIN y prevenir el cargo final (bloqueando el último comando del terminal hacia el emisor) para probar con tarjetas sin generar movimientos reales.</p>
+<h2>Reordenar la lista de CVM: transaccionar sin PIN</h2>
+<p>El listado de CVM que la tarjeta declara al terminal está, como todo el enlace, en claro. Lista los métodos de verificación en orden de preferencia — PIN cifrado online primero, PIN cifrado por IC, firma en papel, no CVM, entre otros. Si una tarjeta caída en la calle exige PIN, basta con reordenar esa lista: moviendo la verificación por firma al frente mediante una regla, una terminal SumUp conectada por Android completó la transacción solicitando solo firma. El terminal no pide PIN porque la propia tarjeta le dijo, tras la modificación, que la firma era suficiente.</p>
+<p>Esto funciona porque la decisión de qué CVM es válido vive en el perfil transaccional del emisor: límites por firma, por no CVM, por NFC, por contacto — top floors que se configuran al perfilar la tarjeta. Si el emisor permite firma hasta cierto monto, un terminal que reciba "firma" como primer CVM simplemente la pedirá.</p>
+<h2>PINata: fuerza bruta de PIN con reseteo automático</h2>
+<p>La investigación PINata (2022) explotó una combinación rara pero devastadora. Dos condiciones bastan:</p>
+<ol>
+<li>La tarjeta acepta verificación por <strong>PIN en texto plano hacia el chip</strong> (el comando VERIFY viaja sin cifrar hasta el IC): al enviar un PIN candidato, la tarjeta responde <code>9000</code> si es correcto o <code>63 Cx</code> — con C2/C1/C0 — indicando el estado del contador de intentos. Es un oráculo de verificación directo.</li>
+<li>El emisor <strong>resetea automáticamente el contador de intentos de PIN</strong> en una transacción posterior. En el banco de Estados Unidos estudiado, la respuesta del autorizador contenía bytes constantes: <code>0012</code> en el flujo normal y <code>031A</code> cuando la tarjeta estaba bloqueada por PIN — esa orden cifrada y firmada por el emisor instruye al elemento seguro a resetear el contador de forma automática en la siguiente transacción, típicamente por NFC, para no obligar al cliente a ir a un ATM o pedir reemplazo de PIN por correo.</li>
+</ol>
+<p>El setup del ataque: tarjeta en el lector EMV, placa ELMA con Virtual Smart Card por USB, terminal SumUp, y un Android conectado a la app de SumUp ejecutando un macro para automatizar transacciones sin interacción manual. El ciclo: transacción que consulta el contador de intentos; fuerza bruta de tres PIN (con el contador agotándose); transacción distinta con reglas que disparan el reseteo del contador desde el emisor; repetición. Los PIN probados en la demostración (0718, 0719, 0720) fallaron; el correcto, 0722, respondió <code>9000</code> verificado contra el chip.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Macro Android + SumUp
+    participant E as ELMA + Virtual Smart Card
+    participant C as Tarjeta EMV
+    participant B as Emisor
+    A->>E: transacción de sondeo
+    E->>C: VERIFY PIN (texto plano)
+    C-->>E: 63 Cx (contador decrece)
+    A->>E: transacción con reglas de reset
+    E->>B: autorización
+    B-->>E: ARC con orden 031A (resetear contador)
+    E->>C: comando firmado del emisor
+    C-->>E: contador restaurado a 3
+    Note over A,C: ciclo repetido hasta 9000
+
+</pre>
+
+<p>Costo temporal: unas 14 a 15 horas para cubrir las 10.000 combinaciones de un PIN de 4 dígitos. El hallazgo no se reportó al banco sino directamente a Mastercard, ante la sospecha de un problema de hardware de tarjetas; Mastercard emitió un comunicado a los bancos del mundo para revisar estas condiciones. Al día siguiente, la tarjeta de prueba quedaba bloqueada en los primeros intentos y generaba una llamada del banco: la detección por anomalías (múltiples reseteos de contador o transacciones simultáneas desde el mismo punto) y las reglas EMV de bloqueo estaban operativas, algo que debió implementarse desde el inicio. Un matiz importante que salió en las preguntas: la orden de reset no puede emularse porque el ARC llega cifrado y firmado para esa tarjeta específica — solo los dos bytes constantes son observables, y por eso el ataque necesita al emisor vivo en el circuito.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ELMA (EMV Laboratory Middleware Assistant)</strong>: placa de MetaBaseQ (v3.1) que se interpone entre tarjeta y terminal EMV de contacto para snifar, emular y alterar APDUs.</li>
+<li><strong>Protocolo APDU / ISO 7816</strong>: capa aplicativa no cifrada donde viajan todos los comandos y respuestas EMV de contacto, en hexadecimal.</li>
+<li><strong>Libros EMV 1-4</strong>: especificación base de transacciones de contacto; libros 5-7 adicionales para NFC.</li>
+<li><strong>CVM (Cardholder Verification Method)</strong>: métodos de verificación del titular (PIN cifrado, firma, no CVM, verificación en línea); su listado viaja en claro y puede reordenarse.</li>
+<li><strong>Contador de intentos de PIN (retry counter)</strong>: se decrementa en cada VERIFY fallido; su reseteo automático por el emisor habilita PINata.</li>
+<li><strong>ARC (Authorization Response Cryptogram)</strong>: respuesta del autorizador; sus bytes constantes <code>0012</code>/<code>031A</code> delatan la orden de reseteo del contador.</li>
+<li><strong>SIM Trace 2 (Osmocom)</strong>: placa alemana open source para SIM-teléfono, base del diseño por compartir la capa APDU.</li>
+<li><strong>Detective EMV</strong>: sniffer/emulador open source anterior, con instrucciones hardcodeadas y abandono comunitario.</li>
+<li><strong>Virtual Smart Card (PC/SC Lite)</strong>: librería que simula lectores virtuales y actúa como proxy de APDUs modificables en tiempo real; multiplataforma.</li>
+<li><strong>ESP32 + SAM3S</strong>: puente UART Wi-Fi y microcontrolador base de ELMA v2; conectores flexibles y USB-C.</li>
+<li><strong>SumUp + macro en Android</strong>: terminal de pruebas y automatización de transacciones para el ciclo de fuerza bruta.</li>
+<li><strong>MQTT</strong>: canal para relay remoto de transacciones entre países.</li>
+<li><strong>PINata</strong>: investigación de 2022 sobre fuerza bruta de PIN con reseteo de contador, reportada a Mastercard.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El enlace físico entre tarjeta y terminal EMV de contacto transmite APDUs sin cifrar; un dispositivo intermedio con acceso a ese enlace puede observar y reescribir la transacción completa, siempre que se conozca el protocolo y el perfil de la tarjeta.</li>
+<li>Las defensas basadas en la lista de CVM son débiles porque el listado lo declara la propia tarjeta y viaja en claro: reordenarlo basta para degradar la verificación de PIN a firma cuando el emisor lo permite.</li>
+<li>La combinación de PIN en texto plano hacia el chip y reseteo automático del contador de intentos por parte del emisor convierte un oráculo de verificación en fuerza bruta viable (~15 horas por PIN), mitigada por detección de anomalías y reglas transaccionales del emisor.</li>
+<li>Una buena implementación debe detectar rápidamente patrones anómalos — reseteos repetidos del contador, transacciones simultáneas desde un mismo punto — y bloquear la tarjeta; el comunicado de Mastercard posterior al reporte fijó esa expectativa a nivel de la industria.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Zg7diTEwW70">«ELMA: EMV Laboratory Middleware Assistant - Salvador Mendoza - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

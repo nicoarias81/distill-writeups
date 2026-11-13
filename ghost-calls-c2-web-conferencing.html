@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghost Calls: comando y control encubierto sobre web conferencing — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ghost Calls: comando y control encubierto sobre web conferencing</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YVoF_mI8MIw">«DEF CON 33 - Ghost Calls - Abusing Web Conferencing for Covert Command &amp; Control - Adam Crosser»</a> · ver el <a class="nz-link" href="https://youtu.be/YVoF_mI8MIw">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las plataformas de videoconferencia —Zoom y Microsoft Teams en particular— son, por diseño, canales de baja latencia y alto throughput que las empresas confían, permiten en firewall y excluyen de la inspección TLS. Esta exposición muestra cómo esa misma combinación los convierte en el canal de corto plazo ideal para comando y control ofensivo: se obtienen credenciales TURN de la infraestructura de ambos vendors, y con ellas una herramienta open source —Turntunneler— conecta dos sistemas directamente a través de esa infraestructura, sin dependencias en el endpoint comprometido ni backend propio. La demo descarga archivos a 9-10 MB/s por Zoom y 3-5 MB/s por Teams, con tráfico indistinguible de una video llamada.</p>
+<h2>Taxonomía de canales C2</h2>
+<p>Cuatro tipos de canales ordenan el problema:</p>
+<ul>
+<li><strong>C2 de corto plazo</strong>: SOCKS proxying, tunneling de herramientas, remote port forwarding para NTLM relaying en la red interna, exfiltración. Horas de uso, comunicación de baja latencia y alto throughput.</li>
+<li><strong>C2 de largo plazo</strong>: lo que sobrevive al reinicio y re-logueo. Muchos equipos usan el mismo canal para ambos, con desventajas que se ven más abajo.</li>
+<li><strong>C2 de backup</strong>: vectores de acceso alternativos; el ejemplo memorable: credenciales de autoelevadores (forklifts) no unidos al dominio y sin EDR, con una tablet Windows a bordo como canal de respaldo.</li>
+<li><strong>Comunicación peer-to-peer</strong>: un host comprometido en un entorno PCI sin egress a Internet se enlaza con otro equipo de la red (laptop con salida directa) vía ICMP o SMB para tunelar hacia dentro.</li>
+</ul>
+<h2>La matriz de selección del canal ideal</h2>
+<p>Para el canal de corto plazo faltaba una opción satisfactoria. Los atributos ideales definidos:</p>
+<ol>
+<li><strong>Latencia</strong>: tiempo entre enviar un mensaje y que se reciba.</li>
+<li><strong>Throughput</strong>: cuántos datos pasan; muchos canales tienen baja latencia pero también bajo caudal, u otros con alto caudal y alta latencia.</li>
+<li><strong>Reach</strong>: IRC o Tor no existen en la mayoría de las redes empresariales grandes.</li>
+<li><strong>Trust</strong>: idealmente un servicio allow-listed y excluido de inspección.</li>
+</ol>
+<p>Criterios de selección: servicios que egresan desde dispositivos de usuario final (el foothold habitual), de uso masivo —no solo desarrolladores—, y que encajen en workflows comunes. La evaluación de candidatos:</p>
+<ul>
+<li><strong>DNS over HTTPS</strong>: latencia baja, pero dudas de throughput (10 GB por un DNS server se vería raro) y de reach (las empresas grandes suelen tener resolución DNS interna propia).</li>
+<li><strong>Cloud file storage</strong>: resuelve throughput pero exige chunking que agrega latencia inaceptable para comunicación en tiempo real; además, si la empresa no usa Box/Dropbox suele estar bloqueado.</li>
+<li><strong>Dominio propio envejecido y clasificado como finance, con WebSockets</strong>: rápido, pero todo lo que lo contacta es un activo comprometido; poca confianza intrínseca.</li>
+<li><strong>Email/mensajería (Slack)</strong>: reach y trust buenos, latencia y throughput no.</li>
+<li><strong>Web conferencing</strong>: solapa perfecto. Está diseñada desde cero para tiempo real —múltiples streams de video exigen ancho de banda incluso con compresión moderna, y un mínimo de latencia vuelve inutilizable una llamada—. Mandar tráfico propio no destaca frente al uso normal, y post-pandemia son servicios omnipresentes y confiables.</li>
+</ul>
+<p>Los vendors lo confirman con sus propias recomendaciones: Microsoft sugiere split tunneling para Teams (no enrutar su infraestructura por la VPN, porque degradaría latencia y throughput) y Zoom recomienda lo propio para zoom.us, ambos incluyendo la exclusión de la inspección TLS. La exposición aclara: no es un error de los proveedores, es cómo tienen que funcionar los sistemas de tiempo real.</p>
+<h2>Arquitectura común: media servers, WebRTC y TURN</h2>
+<p>Las plataformas comparten diseño: una app SaaS para crear/unirse a meetings; cada meeting tiene un media server asignado al que fluyen audio y video; un modo peer-to-peer directo entre endpoints (a veces más rápido, a veces no); e infraestructura TURN que actúa como relay cuando el hole punching con STUN no alcanza —también útil cuando un dispositivo tiene problemas de egress y necesita alcanzar al media server por una vía alternativa—. WebRTC y SRTP son los bloques comunes, incluso bajo protocolos custom. El handshake básico: Alice genera una offer, la envía (por un signaling server de terceros) a Bob; Bob genera una answer y la devuelve.</p>
+<p>Reverse engineering con Wireshark: el cliente desktop de Zoom egresa por UDP 8801 con un header custom alrededor de RTP (existe un analyzer publicado por investigadores de Princeton); Google Meet usa WebRTC estándar por UDP 3478, con DTLS para el key exchange y SRTP para los streams.</p>
+<p>La resiliencia de estos clientes es notable. En un laboratorio donde el único egress es un web proxy con TLS inspection obligatoria y solo HTTP saliente: Zoom desktop intenta primero su zone controller por UDP 443 con protocolo custom sobre TLS (falla), cae a un WebSocket por HTTPS 443 a través del proxy (funciona); para el media server intenta TCP 443 y UDP 881 (fallan) y termina mandando también el media por el WebSocket; el web client habla con un real-time web gateway por WebSocket, intenta WebRTC por UDP 8801 al media server (falla), prueba TURN sobre TLS (turns: TCP 443 con TURN debajo; falla por los controles) y termina proxando todo por el real-time web gateway. La calidad se degrada —en el lab el canal WebSocket mandaba solo audio—, pero la llamada funciona. En pocas palabras: los clientes de videoconferencia egresan y se adaptan donde casi nada más lo logra.</p>
+<h2>Credenciales TURN y la herramienta</h2>
+<p>El hallazgo central, sin que sea una vulnerabilidad —es el funcionamiento normal—:</p>
+<ul>
+<li><strong>Zoom</strong>: las credenciales TURN se devuelven al cliente por el WebSocket del real-time web gateway al unirse a una meeting. La obtención es manual (Burp + Chrome, unirse a una llamada, leer el canal WebSocket) y se prefirió la documentación manual a automatizar un flujo frágil.</li>
+<li><strong>Microsoft Teams</strong>: hay un endpoint sin autenticación que devuelve las credenciales.</li>
+</ul>
+<p>Las credenciales suelen valer un par de días, y no requieren que la víctima tenga Zoom instalado: corriendo la herramienta en el sistema comprometido, la infraestructura se usa sin dependencias del lado víctima. Y están alojadas en los rangos IP que los propios vendors piden allow-listear.</p>
+<p>De ahí <strong>Turntunneler</strong> (open source, documentación de ~35 páginas en dos blog posts), con dos componentes: el <strong>controller</strong> corre en el sistema del operador y el <strong>relay</strong> en la víctima (vía el implant existente —Nighthawk, Cobalt Strike—; solo requiere poder ejecutar un binario en memoria y leer stdout). El controller genera la offer, el relay la answer, y la conexión se establece a través de la infraestructura TURN. Tres usos concebidos:</p>
+<ol>
+<li><strong>SOCKS proxying</strong> para navegar aplicaciones web internas y correr tooling ofensivo proxado a través del endpoint en lugar de sobre él —menor superficie de detección en el endpoint—.</li>
+<li><strong>C2 descentralizado</strong>: ideal para el modelo assumed breach (portátil o VDI entregado por el cliente), sin backend propio: la laptop del operador se conecta a la víctima por la infraestructura del vendor.</li>
+<li><strong>Local y remote port forwarding</strong>: correr herramientas complejas (ntlmrelayx y sus dependencias) en el sistema del operador y exponerlas en la red interna vía remote port forward en la víctima; o lo inverso, local port forward para clientes thick que no soportan SOCKS (el caso SAP). El caso Citrix: desde afuera exige MFA, desde adentro no; se pivota al Citrix Receiver a través del endpoint comprometido, se escala en esa infraestructura, se roban credenciales y cookies de Chrome, y de ahí al objetivo.</li>
+</ol>
+<p>Los demos: descarga de 100 MB a 9-10 MB/s por Zoom y 3-5 MB/s por Teams (10-20 MB/s posibles; la ruta internacional penaliza), y un remote port forward que expone un web server local del operador a través de la VM víctima. A nivel de red, el tráfico es TLS 443 hacia subdominios de zoom.us o teams.microsoft.com —un DTLS tunnel de WebRTC indistinguible del de una llamada real; solo tamaños y tasas de paquetes podrían diferir si se mira en profundidad—.</p>
+<p>Nota de mitigación: Zoom ya restringió su TURN a conexiones hacia media servers (no facilita P2P), lo que bloquea este uso en su caso; la factibilidad depende de cómo cada proveedor use su TURN —y hay más: otros vendors de videoconferencia, Cloudflare o Twilio exponen infraestructura TURN equivalente—. Teams seguía funcionando al momento de la exposición.</p>
+<h2>Optimización de velocidad: el cuello de botella no es la última milla</h2>
+<p>Una digresión con valor operativo: al tunelar a través de usuarios de help desk —objetivo favorito: privilegiados, entry-level, frecuentemente tercerizados en el extranjero— las velocidades decepcionaban. La intuición dice "última milla lenta", pero la fibra global barata cambió el mapa: el cuello de botella suele ser el routing internacional y el peering. Evidencia del autor, desde una conexión residencial de 40 Mbps en el Midwest rural: descargar desde Hetzner Singapore da ~2 MB/s; conectar antes a ExpressVPN en Chicago duplica la velocidad del mismo archivo, porque ExpressVPN paga transit premium (CDN77) mientras la residencial sale por Hurricane Electric/NTT. Implicaciones para operaciones:</p>
+<ul>
+<li>Posicionar la infraestructura según peering: saber qué región de AWS o qué proveedor tiene buen tránsito hacia el ISP del objetivo puede multiplicar la velocidad de exfiltración desde un VPS barato.</li>
+<li>TCP-over-TCP es una trampa (TCP meltdown): la pérdida de paquetes en la capa externa dispara congestion control en la interna, y el head-of-line blocking bloquea toda la cadena de mensajes hasta retransmitir. Por eso la herramienta descarta el tunneling VPN completo sobre TCP; el mismo servidor VPN rinde muy distinto con capa externa UDP versus TCP.</li>
+<li>P2P no siempre gana: un peer-to-peer directo entre EE.UU. e India atraviesa ISPs residenciales con tránsito mediocre, y puede ser más lento que relayar por Microsoft Teams, cuyo backbone privado y puntos de presencia globales ofrecen mejor tránsito. Ridar el backbone de Microsoft es, en sí, una ventaja del vector.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los atributos que hacen útil a Zoom/Teams para video —latencia mínima, caudal alto, confianza organizacional, allow-listing y exclusión de inspección TLS— son exactamente los atributos de un canal C2 de corto plazo ideal.</li>
+<li>Las credenciales TURN son el primitivo: entregadas legítimamente al cliente, reutilizables desde tooling externo sin dependencias en la víctima, y válidas días; lo que a nivel de red se ve es un túnel DTLS de WebRTC idéntico al de una llamada.</li>
+<li>Separar C2 de corto y largo plazo evita el efecto demostrado en operaciones reales: un buen canal de largo plazo deja de ser covert en cuanto le exigís cinco gigas de tráfico de navegación.</li>
+<li>Para defensores: la restricción de TURN es la palanca (Zoom ya la aplicó); la factibilidad del abuso depende de qué permite conectar cada infraestructura TURN y de si el tráfico se parece a video bidireccional.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YVoF_mI8MIw">«DEF CON 33 - Ghost Calls - Abusing Web Conferencing for Covert Command &amp; Control - Adam Crosser»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

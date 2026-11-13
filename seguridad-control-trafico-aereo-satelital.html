@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguridad del control de tráfico aéreo vía satélite — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Seguridad del control de tráfico aéreo vía satélite</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vJWzTt2ANAQ">«DEF CON 32 - Analyzing the Security of Satellite Based Air Traffic Control -Martin Strohmeier»</a> · ver el <a class="nz-link" href="https://youtu.be/vJWzTt2ANAQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El control de tráfico aéreo se apoya en una familia de protocolos de comunicación conocidos y disponibles públicamente, sin autenticación ni cifrado. Desde principios de la década de 2010 se han demostrado ataques prácticos contra casi todos ellos: se estudia el estándar, se implementa un receptor —el mismo que alimenta FlightRadar o FlightAware para los entusiastas— y, con un SDR, implementar un transmisor es cuestión de tiempo. El patrón se repitió con ADS-B, con los enlaces aire-aire y aire-tierra, y con GPS.</p>
+<p>Faltaban dos capítulos, y ambos tienen a los satélites como protagonistas. Uno es el sistema anticolisión, que los colegas del autor atacaron al día siguiente en otra presentación. El otro es el tema aquí: el <strong>control de tráfico aéreo basado en espacio</strong>, que cubre dos tecnologías: el ADS-B satelital y el mucho menos conocido <strong>ADS-C</strong> (Automatic Dependent Surveillance Contract).</p>
+<h2>ADS-B satelital: mismo protocolo, más altura</h2>
+<p>El ADS-B clásico es la tecnología donde las aeronaves transmiten su posición a receptores terrestres; sus fallos están sobradamente documentados desde hace años: recibir es trivial, generar aeronaves fantasma es posible, y todo sin ninguna protección. El ADS-B satelital no cambia nada de eso: varias compañías construyeron constelaciones en órbita baja que simplemente captan esas mismas señales terrestres y las revenden a los proveedores de servicios de navegación aérea. La ventaja es real —cubre océanos y zonas montañosas donde no hay receptores en tierra—.</p>
+<p>Una de esas operadoras argumentó públicamente que, estando a 485 millas de altura, nadie iba a atacar su señal. El argumento no se sostiene: los satélites captan aeronaves volando a 10 kilómetros; que la fuente esté en tierra en vez de en el aire es solo un problema de potencia de transmisión. Y el espacio tampoco es intrínsecamente seguro: se han demostrado comunicaciones bidireccionales con satélites y ataques contra ellos. El ataque de aeronaves fantasma contra la versión satelital se postuló teóricamente —no se ejecutó contra satélites reales por razones regulatorias— pero no hay ninguna razón para creer que no funcione: la señal es la misma de siempre.</p>
+<h2>ADS-C: vigilancia aérea por contrato</h2>
+<p>Desarrollado a fines de los años 90 y popularizado en la última década —en parte por el impulso del incidente del MH370 y la necesidad de rastrear aeronaves sobre océanos—, ADS-C funciona por <strong>contratos</strong>: las unidades de servicio de tráfico aéreo (las estaciones en tierra) inician la conexión y piden a una aeronave concreta que les reporte información.</p>
+<ul>
+<li><strong>Contrato periódico</strong>: actualizaciones regulares, por ejemplo cada 10 minutos, con posición, altitud, velocidad, intención de navegación y datos meteorológicos.</li>
+<li><strong>Contrato de evento</strong>: reportes disparados por sucesos concretos, como un cambio de waypoint.</li>
+</ul>
+<p>La arquitectura: la aeronave obtiene su posición de GNSS/GPS y habla con satélites —típicamente geoestacionarios de Inmarsat, aunque también hay constelaciones LEO que ofrecen el servicio— que reenvían los datos a las estaciones terrestres, que los enrutan al proveedor de navegación aérea correspondiente. Existe también una variante por VHF/HF, fuera del alcance del análisis. Las frecuencias implicadas: 1,6 GHz del enlace ascendente aeronave-satélite, y 3,6 GHz (descendente) y 6,5 GHz (ascendente) entre satélite y tierra.</p>
+<p>Para qué sirve: sin esta tecnología, los controladores estiman trayectorias precomputadas y recurren a voz por HF —canales congestionados y de poca precisión— para saber dónde están las aeronaves sobre el Atlántico o el Pacífico. Con posiciones reales y actualizadas se puede minimizar la separación entre aeronaves y usar el espacio aéreo con mucha más eficiencia, reservando los canales de voz para comunicaciones urgentes. La cobertura satelital completa los grandes huecos de recepción crowdsourced en tierra: océanos Pacífico, Atlántico e Índico, y parte de África.</p>
+<p>A diferencia del resto de protocolos aeronáuticos, ADS-C no había sido estudiado en absoluto: ni por la comunidad científica en sus casos de uso, ni por la comunidad de seguridad.</p>
+<h2>Modelo de amenaza: tres atacantes</h2>
+<p>El sistema tiene tres actores: el satélite en el medio, la estación terrestre (<em>ground earth station</em>) y la estación de aeronave (<em>aircraft earth station</em>, nombre que suena raro pero la aeronave sigue estando sobre la Tierra). El análisis contempla tres perfiles de atacante:</p>
+<ol>
+<li><strong>Pasivo (escucha)</strong>: basta estar dentro del haz del satélite geoestacionario. Un problema práctico en Europa: la frecuencia descendente de 3,6 GHz coincide con una banda de 5G, y las estaciones base cercanas ahogan las débiles señales satelitales; la recepción exige situarse en una zona libre de 5G.</li>
+<li><strong>Activo sobre el enlace descendente</strong>: transmite hacia las estaciones en tierra los mismos datos que escucha.</li>
+<li><strong>Activo sobre el enlace ascendente</strong>: transmite al satélite. Más exigente: requiere más potencia y, según la configuración del satélite (posible beamforming), puede no bastar con estar en el haz —quizá haya que estar cerca de una estación terrestre.</li>
+</ol>
+<h2>Lo que se puede hacer desde cada posición</h2>
+<p><strong>Escucha pasiva.</strong> El contenido de los mensajes es sobre todo posición y waypoints, con metadatos como el identificador de aeronave. Sirve para reconocimiento: saber dónde está cada aeronave, qué reporta y hacia dónde va; los identificadores se cruzan con bases de datos públicas, con las consiguientes implicaciones de privacidad (el fenómeno del rastreo de aviones privados de celebridades). También es el primer paso para ataques activos.</p>
+<p><strong>Ataque al enlace ascendente.</strong> El repertorio es el de denegación de servicio: la aeronave establece el lock-on, el satélite lo confirma y lo reconoce; impidiendo ese establecimiento no hay conexión ADS-C. No es inmediatamente crítico para la seguridad del vuelo —hay otras tecnologías disponibles—, pero es un ataque real, y el protocolo ofrece varios puntos donde ejecutarlo.</p>
+<p><strong>Ataque al enlace descendente.</strong> Aquí está la carne: la <strong>suplantación de posiciones de aeronaves</strong> frente al proveedor de tráfico aéreo. Lo que no se puede hacer es inyectar aeronaves fantasma desde cero: como el controlador siempre inicia la conexión hacia aeronaves que sabe que vuelan, una respuesta de una aeronave con la que no tiene contrato se descarta. Pero si el contrato ya existe, se puede enviar cualquier posición en lugar de la real. Con el propio equipo de recepción se ilustró: para una misma aeronave real, diez posiciones agrupadas se muestran tal cual en el sistema. También se puede inundar las estaciones terrestres con mensajes de <strong>modo de emergencia</strong> de todas las aeronaves con las que tienen contrato: cada una aparece marcada en el sistema de gestión de vuelo del piloto, con prioridad y rutinas de emergencia activadas. Ejecutarlo para todas las aeronaves a la vez es una receta de caos y denegación de servicio.</p>
+<h2>Evaluación real: del receptor al transmisor</h2>
+<p>La evaluación práctica se hizo dentro de lo legalmente posible. El montaje incluye receptores de ambos enlaces, con los pipelines publicados en GitHub para armarlos con SDRs y antenas propias (en Europa el satélite geoestacionario relevante es Alphasat; en EE. UU. hay otros). El receptor de enlace ascendente cabe en una antena diminuta; el descendente necesita una antena de unos ocho pies —con jardín decente incluido—.</p>
+<p>En unas semanas de recolección se captaron 2.500 aeronaves comunicándose con entre 50 y 60 estaciones terrestres, con rutas completas reconstruibles (otras fuentes como airframes.io publican los últimos dos días de datos). Sobre esa base, construir el transmisor fue trabajo de estudiante: partiendo de las implementaciones SDR receptoras existentes se generaron mensajes ADS-C arbitrarios, incluyendo todas las subcapas del protocolo, y se inyectaron contra un plato de recepción propio. Resultado binario y contundente: un mensaje inyectado con aspecto legítimo es <strong>indistinguible</strong> de uno originado en una aeronave real.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Aeronave: GNSS + ADS-C] -->|1,6 GHz| B[Satélite geoestacionario]
+    B -->|3,6 GHz| C[Estación terrestre]
+    C --> D[Proveedor de tráfico aéreo]
+    E[Atacante pasivo: escucha el haz] -.-> B
+    F[Atacante activo: inyecta posiciones falsas] -.-> C
+    G[Atacante de uplink: bloquea contratos] -.-> B
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>ADS-C mejora la eficiencia del espacio aéreo, pero la seguridad nunca fue una preocupación de diseño.</strong> No hay autenticación, lo que es tan problemático vía satélite como en tierra: la distancia no añade protección.</li>
+<li><strong>El atacante pasivo</strong> puede seguir muchas aeronaves con un solo receptor.</li>
+<li><strong>El atacante activo</strong> puede inyectar señales y perturbar el control de tráfico aéreo hasta cierto punto, sin poder crear aeronaves fantasma nuevas (el contrato debe existir previamente).</li>
+<li><strong>La barrera de entrada es baja</strong>: el montaje cabe en una tesis de maestría y el transmisor cuesta unos pocos cientos de euros de hardware.</li>
+<li>El trabajo completo, con paper incluido, se presentó en la conferencia USENIX Security correspondiente; los pipelines de recepción están disponibles en GitHub para replicar el análisis.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vJWzTt2ANAQ">«DEF CON 32 - Analyzing the Security of Satellite Based Air Traffic Control -Martin Strohmeier»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

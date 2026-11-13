@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desmistificando la evasión de EDRs: pensamiento estratégico antes que técnica suelta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Desmistificando la evasión de EDRs: pensamiento estratégico antes que técnica suelta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/wg0HmsDUyiM">«Desmistificando la evasión de EDRs - Víctor Contreras»</a> · ver el <a class="nz-link" href="https://youtu.be/wg0HmsDUyiM">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Víctor Contreras (alias Sterben), especialista red team de Entel Provider con más de 10 años en ciberseguridad, abrió el último bloque técnico de la jornada con una promesa concreta: las recetas que usó en los últimos años para evadir EDRs del top tier de Gartner "sin ningún altercado", muchas de las cuales —con ajustes— siguen funcionando hoy. Su tesis de fondo: la evasión ya no es cuestión de bajar un proyecto de GitHub, ofuscar y listo; es un problema de pensamiento estratégico aplicado antes y durante el ejercicio.</p>
+<h2>Por qué el plug and play murió</h2>
+<p>Los EDRs investigan las mismas herramientas, papers y proyectos públicos que investigamos los red teamers, y sus ingenieros de reglas indexan los indicadores en sus bases de firmas. Cualquier packer u ofuscador público ya tiene firma asociada. Hoy las detecciones siguen siendo mayormente por firmas —aunque las marcas aleguen madurez en comportamiento—, con una diferencia clave: ya no son solo firmas en disco, también <strong>en memoria</strong>. Un implante que hace algo fuera del comportamiento esperado de su proceso anfitrión (por ejemplo, generar conexiones SMB viviendo en Teams) gatilla un escaneo de memoria, y si el payload está desencriptado en ese momento, proceso muerto y game over.</p>
+<p>El cliente tampoco ayuda: en ningún ejercicio se desactivan los controles de seguridad — indistintamente de la modalidad, siempre hay algo que evadir, y sin esa evasión no se alcanzan las joyas de la corona del ejercicio.</p>
+<h2>Decisiones estratégicas antes de escribir código</h2>
+<ul>
+<li><strong>Desarrollar algo privado</strong>: propio C2, propio packer, propias técnicas. Si todo lo que se usa es público, se es detectable. En la práctica desarrollarlo todo es poco realista; la alternativa es personalizar y ofuscar el arsenal de otros, o automatizar la personalización vía un pipeline CI/CD que renombra clases, funciones y strings y cambia GUIDs para que cada binario sea único (con la opción de llevar el compilador a un GitLab local para borrar también los rastros del compilador, que también tienen indicadores).</li>
+<li><strong>Elegir el lenguaje según el objetivo</strong>: C++ o Rust para control fino de memoria (ofuscar payloads antes de ejecutarlos); C#, Nim, Python o PowerShell para rapidez de implementación, a costa de menor eficiencia a bajo nivel — pero entonces hay que lidiar con AMSI y ETW, o parcharlos (los hardware breakpoints son una opción).</li>
+<li><strong>Considerar al equipo y el presupuesto</strong>: no toda empresa puede contratar desarrolladores full time para mantener herramientas propias.</li>
+<li><strong>Acceso inicial vs persistencia</strong>: el payload de persistencia vive más tiempo y es más escaneado.</li>
+<li><strong>Packer vs ofuscación</strong>: el packer desencripta en memoria justo al ejecutar — vulnerable a un escaneo en ese momento. La ofuscación rompe la lógica de análisis (una regla Yara ya no hace match), pero obliga a probar más: lo que funciona en el equipo de desarrollo puede fallar en el de la víctima por versiones de SO, librerías o configuración.</li>
+<li><strong>Proceso local vs remoto</strong>: quedarse en el proceso local da menos superficie de evaluación al EDR, pero un threat hunter manual lo encuentra rápido viendo conexiones y ubicaciones en memoria y disco. Al inyectar en un proceso remoto, el comportamiento del payload debe correlacionar con lo que el proceso hace normalmente (comunicación HTTP → browser sí; SMB → Teams no).</li>
+</ul>
+<h2>Evasión en user land</h2>
+<ul>
+<li><strong>User land hooks</strong>: al crear un proceso, el EDR carga su DLL y establece jumps en las APIs de Windows potencialmente sospechosas, interceptando parámetros para analizarlos. Microsoft Defender ATP ya abandonó esta técnica y trabaja solo a nivel kernel, pero otros EDRs siguen usándola. El punto crítico: en <code>CreateRemoteThreadEx</code>, el parámetro <code>StartAddress</code> apunta al shellcode, y es justo ahí donde el EDR mira (y escanea).</li>
+<li><strong>Unhooking</strong>: tomar una copia fresca de ntdll desde disco y reemplazar la región .text en memoria, removiendo los hooks del EDR.</li>
+<li><strong>Direct syscalls</strong>: embeber las funciones syscalls dentro del propio malware (definidas en assembler con los syscall numbers), obtenidas por ejemplo con Hell's Gate o Halo's Gate; el EDR no puede establecer ningún jump sobre llamadas que no pasan por ntdll.</li>
+<li><strong>Hardware breakpoints</strong>: establecer un breakpoint en <code>ZwProtectVirtualMemory</code>, ocultar los parámetros del stack en otra región mientras el flujo pasa por el jump del EDR, y restaurarlos justo antes del syscall — la API se ejecuta normalmente, pero el EDR nunca ve qué se le envió.</li>
+<li><strong>DLL entry point patching</strong> (ver SharpBlock): crear un proceso hijo con el flag <code>DEBUG_ONLY_THIS_PROCESS</code>, esperar el evento <code>LOAD_DLL_DEBUG_EVENT</code> para saber cuándo se carga la DLL del EDR y parchearla con un solo byte (<code>0xC3</code>, un return) para que su función main devuelva <code>true</code> y el proceso salga — sin EDR viviendo dentro, no hay jumps ni análisis de llamadas.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Payload ofuscado en disco] --> B[Carga en memoria]
+    B --> C{User land hooks?}
+    C -- Sí --> D[Unhooking / direct syscalls / HW breakpoints]
+    C -- No / kernel --> E[Romper patrón de APIs]
+    D --> F[Secciones de 64 KB cifradas: nunca el shellcode completo en claro]
+    E --> F
+    F --> G[Ejecución sin detección]
+
+</pre>
+
+<h2>Detecciones y evasión a nivel kernel</h2>
+<ul>
+<li><strong>Kernel callbacks</strong>: eventos que ocurren en el kernel (crear thread, resumirlo, detenerlo, crear proceso). Es el análogo kernel de los hooks, pero no se pueden remover desde user land — se necesita elevación: ser admin con handle de mayores privilegios, un driver vulnerable o un exploit para detener los callbacks.</li>
+<li><strong>ETW Threat Intelligence</strong>: suscripciones a eventos típicos de malware (creación de procesos remotos, escritura en disco, modificación de registros), también desde un nivel superior al user land.</li>
+</ul>
+<h2>Romper el patrón conocido</h2>
+<p>La combinación clásica OpenProcess → asignar memoria → escribir shellcode → ejecutar es un patrón detectado como sospechoso que gatilla escaneo de memoria. Opciones para romperlo etapa por etapa:</p>
+<ul>
+<li><strong>Asignación de memoria</strong>: en vez del típico <code>NtVirtualAlloc</code>, buscar procesos con memoria ya RX y escribir el shellcode remotamente sin crear espacios ni modificar privilegios; usar <code>SetWindowsHookEx</code> para cargar DLLs innecesarias y escribir el shellcode en su región .text (todas las DLL tienen una sección RX); o sobreescribir asignaciones existentes — sabiendo muy bien qué ocurre en el proceso, porque romper su lógica hace crash y se pierde el payload.</li>
+<li><strong>Escritura</strong>: en vez de <code>NtWriteVirtualMemory</code>, escribir el shellcode en el parámetro Process Environment al crear un proceso — el shellcode ya vive en el proceso sin asignar ni escribir memoria, y se salta directo a la ejecución.</li>
+<li><strong>Ejecución</strong>: crear o resumir hilos, usar APIs como QueueUserAPC o funciones de retorno — todas funcionan pero requieren customización porque están bien conocidas. Las joyas menos visibles: <strong>3DS Inject</strong> y <strong>DLL Notification Injection</strong> (liberadas hace unos dos años) alteran llamadas a APIs para parchearlas con la propia función — haciendo exactamente el mismo rol que el EDR hace para hookear, pero para ejecutar el payload — sin generar eventos ETW ni kernel callbacks: literalmente no se visualizan a nivel kernel.</li>
+</ul>
+<h2>Fragmentación y cifrado permanente</h2>
+<p>Dos remates finales contra el escaneo de memoria:</p>
+<ul>
+<li><strong>Dividir el payload en secciones</strong> de 64 KB (o incluso 4 KB): tamaño que muchos EDRs consideran demasiado pequeño como para valer la pena escanear. Si hay detección en una sección, el escaneo solo cubre ese punto; con buena ofuscación no hay indicadores, y el shellcode completo nunca está junto.</li>
+<li><strong>Hardware breakpoints para el cifrado</strong>: mantener todo el shellcode encriptado en memoria con una pequeña instrucción en assembler en texto plano que, al ejecutarse, desencripta la siguiente sección y re-encripta la anterior — nunca hay shellcode completo en claro.</li>
+</ul>
+<h2>Pruebas de concepto</h2>
+<ul>
+<li><strong>SentinelOne, versión 25.1.3.3.4</strong> (grabada el día anterior): políticas totalmente activadas. Primera evasión en la escritura en disco — el zip no estaba protegido con contraseña y el binario extraído seguía ahí, con lo que el escaneo estático no detectó nada. Ejecución sin alertas: proceso vivo, conexión C2 estable (con partes ocultas porque el C2 es privado), técnicas como listar procesos y directorios ejecutadas sin que el escaneo de memoria que gatillan encontrara nada. Sin detección alguna hasta la fecha.</li>
+<li><strong>EDR Cortex XDR de Palo Alto, versión 8.9</strong> (ejercicio real del 20 de agosto, anonimizado): emulación de ransomware ejecutado directamente desde <code>ProgramData</code>, sin técnicas avanzadas, encriptando carpetas enteras con alto volumen de archivos. Sin detección ni notificación; los XML de prueba mostraron el antes (legibles) y el después (encriptados). El ransomware tenía una blacklist propia (archivos de configuración, INI, ejecutables) para no dejar el equipo inutilizable durante el ejercicio. El hallazgo se reportó al fabricante — y no al cliente, porque quemar las técnicas y el ransomware propio significaría quemar un servicio de la organización.</li>
+</ul>
+<p>El expositor aplicó el mismo enfoque también contra Microsoft Defender ATP, Kaspersky, Sophos y CrowdStrike (este último el año pasado), con éxito en distintos clientes.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Para el lado ofensivo</strong>: sí se puede seguir evadiendo, pero con pensamiento estratégico activo, no solo acumulando técnicas nuevas.</li>
+<li><strong>Para el lado defensivo</strong>: no se puede depender de la tecnología de forma absoluta — una operación de ciberseguridad es personas, procesos y tecnología. El EDR desplegado no es plug and play: es solo el motor. La magia está en las custom rules que crean los ingenieros de reglas, orientadas tanto a las técnicas como al negocio.</li>
+<li><strong>El horizonte sube el nivel</strong>: Microsoft ya no monitorea user land (solo kernel), SentinelOne implementa desde septiembre reglas con machine learning e IA para mejorar la detección de comportamiento. Si el nivel de los EDRs sube, el de los atacantes también — y la única base sólida es entender los fundamentos para seguir aprendiendo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/wg0HmsDUyiM">«Desmistificando la evasión de EDRs - Víctor Contreras»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

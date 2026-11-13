@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Threat modeling en equipo: del diagrama al juego de cartas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Threat modeling en equipo: del diagrama al juego de cartas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El threat modeling —a veces llamado "diagram hacking"— es el ejercicio de imaginar con los pies en el suelo qué puede salir mal en una aplicación: pensamiento divergente sobre amenazas, pero anclado en el contexto real del producto. Es la respuesta práctica al <em>security by design</em>: incrustar la seguridad en el producto desde su concepción, no como parche al final del desarrollo. Su valor económico es conocido: encontrar un problema de seguridad al inicio del ciclo de desarrollo cuesta una fracción de lo que cuesta descubrirlo en producción, donde suele traducirse en controles ausentes o inaplicables al contexto.</p>
+<p>El problema no es conceptual sino operativo: los equipos tienen muy poco tiempo, las palabras significan cosas distintas para desarrollo y para seguridad, y los especialistas tienden a monopolizar el ejercicio hasta volverse cuellos de botella. La experiencia acumulada en equipos AppSec de una veintena de ingenieros destila un conjunto de lecciones de campo sobre cómo hacer threat modeling que sobreviva al calendario.</p>
+<p>La aportación concreta es <em>Engineers &amp; Exploits</em>, un minijuego derivado de <strong>OWASP Cornucopia</strong> diseñado para entrenar a los formadores: convertir a desarrolladores, arquitectos y QA en capaces de hacer threat modeling sin que seguridad esté en la mesa.</p>
+<h2>Fundamentos: qué es y qué no es un threat model</h2>
+<p>Un threat model examina el diseño de las operaciones del sistema y cómo fluyen los datos a través de los límites de confianza; identifica los puntos donde un atacante podría explotar el sistema y diseña contramedidas. Idealmente se hace en la fase de planificación del SDLC; en la práctica puede hacerse en cualquier punto y cruzar los dedos.</p>
+<p>Tres términos que se usan como sinónimos y no lo son: el <strong>ataque</strong> es lo que se intenta prevenir, la <strong>vulnerabilidad</strong> es una debilidad en las defensas, y la combinación de ambos con los activos que se protegen produce la <strong>exposición</strong> o el <strong>riesgo</strong>.</p>
+<p>El marco de las cuatro preguntas guía la sesión: ¿Qué estamos construyendo? ¿Qué podría salir mal? ¿Qué vamos a hacer al respecto? ¿Hicimos un trabajo suficientemente bueno? Esas preguntas se responden sobre un diagrama de flujo de datos (DFD) con cuatro primitivas —entidades, procesos, almacenes de datos y flujos de datos— y, sobre todo, los <strong>límites de confianza</strong> por donde cruza la información.</p>
+<p>El resultado real de un threat model corporativo es feo y denso: activos identificados, casos de uso y workflows de usuario, flujos de datos a través de límites de confianza, y amenazas anotadas encima. Y funciona mejor cuanto más variada es la mesa: desarrolladores, arquitectos, QA y perfiles de negocio aportan perspectivas que seguridad no tiene; el rol del especialista es facilitar el ejercicio y luego soportar al equipo.</p>
+<h2>Metodologías, herramientas y juegos</h2>
+<p>No hay una única forma correcta: en un mismo equipo de 20 ingenieros AppSec cada persona hace threat modeling de manera distinta, a veces de forma molesta, y funciona igual. El ecosistema ofrece:</p>
+<ul>
+<li><strong>STRIDE</strong>: spoofing, tampering, repudiation, information disclosure, denial of service, elevation of privilege.</li>
+<li><strong>PASTA</strong>: proceso para simulación de ataques y análisis de amenazas (<em>Process for Attack Simulation and Threat Analysis</em>).</li>
+<li><strong>LINDDUN</strong>: identificación y mitigación de amenazas a la privacidad.</li>
+<li><strong>Threat modeling as code</strong>: modelado sobre Terraform.</li>
+<li><strong>Threat Dragon</strong>: herramienta de diagramado de OWASP.</li>
+<li><strong>Juegos de cartas</strong>: <em>Elevation of Privilege</em> y <strong>Cornucopia</strong>, el más relevante aquí.</li>
+</ul>
+<p>Cornucopia es un proyecto open source de 2012 con dos mazas (con expansiones planificadas por industria y para seguridad en IA). Es agnóstico de lenguaje y plataforma, y su mecánica empuja a los desarrolladores a identificar y redactar <em>security user stories</em>. Sus palos en la versión web cubren autenticación, autorización, seguridad de datos y criptografía, gestión de sesión y una categoría residual llamada Cornucopia. Su gran ventaja: deja a los desarrolladores jugar a las cartas en horario laboral, y aprenden el mecanismo rápido. Su contras sorprendente: a los propios profesionales de seguridad les cuesta —llegan a la sesión con las amenazas ya pensadas y pueden pasar por alto exploits importantes—, y a muchos les cuesta explicar la diferencia entre cartas o dar un ejemplo concreto de riesgo para una carta.</p>
+<h2>Lecciones de campo</h2>
+<p>La experiencia operativa condensa reglas duras ganadas a fuerza de sesiones fallidas:</p>
+<ul>
+<li><strong>El tiempo ajeno es escaso</strong>: convencer a un equipo de que haga threat modeling ya es medio trabajo. Hay que ser quirúrgico y, sobre todo, dejar al equipo capacitado para hacerlo sin ti; si eres cuello de botella, el proceso muere contigo.</li>
+<li><strong>No des por supuesta la familiaridad con los términos</strong>: los mismos acronimos significan cosas distintas para desarrollo y seguridad.</li>
+<li><strong>No apuntes al diagrama y preguntes "¿dónde están las vulnerabilidades?"</strong>: el resultado son caras de confusión y silencio. Mejor hacer fluir la conversación dentro del propio equipo, donde suele descubrirse que los arquitectos tienen una imagen mental del sistema que no coincide exactamente con lo que los desarrolladores escriben.</li>
+<li><strong>No des por hecho que todo debe mitigarse</strong>: si el equipo cree que vas a cuadruplicarle la carga de trabajo, deja de escucharte. El contexto manda.</li>
+<li><strong>Empieza pequeño</strong>: el threat modeling consume tiempo, se descontrola fácilmente y un diagrama gigante de una sola sentada despista a cualquiera. Un threat model es un documento vivo que se actualiza al ritmo de los cambios mayores de la aplicación.</li>
+</ul>
+<h2>Engineers &amp; Exploits: entrenar a quien entrena</h2>
+<p>El eslabón que falta es la formación de formadores: gente —seguridad, desarrolladores, arquitectos— que vuelva a sus equipos a implantar la mentalidad de threat modeling y logre equipos autosuficientes. Para eso existe <em>Engineers &amp; Exploits</em>, un minijuego creado por un ingeniero de seguridad y arquitectura con debilidad confesa por Dungeons &amp; Dragons.</p>
+<p>Su diseño resuelve dos problemas pedagógicos: da <strong>diagramas de ejemplo</strong> para no empezar de cero, y separa el aprendizaje del contexto productivo —en vez de amenazar el diagrama de la aplicación real de producción, se practica sobre un escenario de juego. Su complejidad la modula el <em>game master</em>.</p>
+<p>Las reglas: un game master (idealmente el threat modeler más experimentado) interpreta a un desarrollador muy confiado —no tonto, simplemente sin idea de seguridad—. De cuatro a siete jugadores, con unas siete cartas cada uno, encarnan consultores de seguridad con la misión de encontrar qué puede salir mal y convencer al game master de abrir tickets en Jira y arreglarlos antes de que la app llegue a producción. Cada ronda dura unos 20 minutos; gana quien acumula más amenazas válidas, y se pueden robar puntos. El arbitraje es estricto: señalar un servidor web y decir "cross-site scripting" no es una amenaza; leer la carta en voz alta o hacer una pregunta tampoco puntúa. El game master debe ser tacaño con los puntos y mantener la atmósfera positiva para que la gente piense de verdad y ponga ejemplos sobre el escenario.</p>
+<p>La extensión natural es añadir <em>story points</em>: convertir las amenazas encontradas en estimaciones, lo que añade competitividad y ancla el juego en la realidad de los equipos de desarrollo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Threat modeling / "diagram hacking"</strong>: ejercicio estructurado de identificación de amenazas sobre el diseño del sistema.</li>
+<li><strong>Las cuatro preguntas</strong> (¿qué construimos? ¿qué puede salir mal? ¿qué hacemos? ¿lo hicimos bien?): marco de Adam Shostack usado como esqueleto de sesión.</li>
+<li><strong>DFD (Data Flow Diagram)</strong>: entidades, procesos, almacenes, flujos y límites de confianza.</li>
+<li><strong>STRIDE</strong>: taxonomía de seis categorías de amenazas.</li>
+<li><strong>PASTA</strong>: metodología de simulación de ataques y análisis de riesgo.</li>
+<li><strong>LINDDUN</strong>: framework de amenazas a la privacidad.</li>
+<li><strong>OWASP Cornucopia</strong>: juego de cartas con palos por dominio de seguridad web, base del minijuego.</li>
+<li><strong>Elevation of Privilege</strong>: el otro juego de cartas de threat modeling con tracción.</li>
+<li><strong>Threat Dragon</strong>: herramienta open source de OWASP para dibujar threat models.</li>
+<li><strong>Threat modeling as code</strong>: enfoque aplicado a Terraform.</li>
+<li><strong>Engineers &amp; Exploits</strong>: minijuego de entrenamiento de formadores derivado de Cornucopia.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El threat modeling es la encarnación operativa del security by design, pero fracasa en la práctica por razones humanas: falta de tiempo, jerga no compartida y dependencia del especialista.</li>
+<li>Capacitar al equipo para modelar sin seguridad presente —y no asustarlo con carga de trabajo extra— es la diferencia entre un proceso vivo y una ceremonia muerta.</li>
+<li>Un threat model es un documento vivo que evoluciona con la aplicación; empezar con alcances pequeños evita que el ejercicio se desborde.</li>
+<li>Los juegos de cartas (Cornucopia, y sobre él Engineers &amp; Exploits) convierten el threat modeling en un ejercicio de bajo riesgo: se aprende el método sobre escenarios de juguete antes de aplicarlo a la aplicación real, y la dinámica competitiva extrae amenazas concretas que terminan en tickets.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

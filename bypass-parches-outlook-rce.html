@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cuando los parches no salvan: burlar dos veces los fixes de Outlook — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cuando los parches no salvan: burlar dos veces los fixes de Outlook</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/GwwxeY11xMI">«DEF CON 33 - Patches Won&#x27;t Save You: Bypassing Outlook Vulnerability Patches - Michael Gorelick, Arnold Osman»</a> · ver el <a class="nz-link" href="https://youtu.be/GwwxeY11xMI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Un parche de seguridad debería cerrar todas las rutas de explotación de una vulnerabilidad. En la práctica, muchas veces es solo una bala contra una bala: el desarrollador cierra el flujo concreto reportado, deja intacta la raíz del problema, y el investigador que lee el parche encuentra al instante el siguiente flujo no cubierto. Sobre esa tesis, el equipo de Morphisec — Michael Gorelick, CTO y fundador de la compañía (descubridor del ataque de cadena de suministro de CCleaner) y Arnold, responsable de su equipo de investigación de malware — recorre dos familias de vulnerabilidades de Outlook que llevan a ejecución remota de código: la inyección de formularios y los monikers compuestos, en ambos casos burlando el parche oficial de Microsoft mediante el simple análisis del propio fix.</p>
+<p>Los hallazgos fueron reportados en abril y parcheados en junio; una tanda adicional de vulnerabilidades recibió parche la semana siguiente a esta presentación. La lección de fondo: el algoritmo exacto de coincidencia que valida los formularios y la lista parcial de flujos que alcanzan <code>MkParseDisplayName</code> siguen dejando abiertas vías de ataque, y la fuga de credenciales NTLM vía monikers compuestos ni siquiera se considera digna de parche urgente.</p>
+<h2>Inyección de formularios: el mecanismo</h2>
+<p>Outlook no es solo correo: detrás de cada mensaje hay un sistema de formularios. El mensaje de recuperación ("recall") es el ejemplo canónico — un formulario cuyo servidor, una DLL (<code>recall.dll</code> registrada como <code>InProcServer32</code>), se instancia dentro del proceso de Outlook y borra el mensaje de la bandeja del destinatario. Los formularios pueden crearse programáticamente mediante archivos de configuración <strong>CFG</strong> — documentados por Microsoft —, donde se definen las propiedades del formulario (mensaje, cita, calendario) y opcionalmente un <em>form server</em>: un ejecutable, una DLL o cualquier otra cosa que se instancie al abrir un mensaje con esa clase. La sincronización vía Exchange propaga esos formularios a todos los clientes de la víctima: lo instalado en la bandeja de entrada se sincroniza; lo que va a una librería personal, no. En el registro, cada clase se mapea a un class ID con el nombre y la ruta del formulario en disco (en AppData para los sincronizados, en Program Files para los integrados).</p>
+<p>Para impedir formularios maliciosos, Microsoft incluye un mecanismo de bloqueo ("allow form bypass", deshabilitado por defecto): un algoritmo de validación que rechaza las claves del CFG que contengan palabras prohibidas como <code>in-proc server</code> o <code>local handler</code> — las que auto-instancian los objetos COM que apuntan a DLL o ejecutables controlados. El defecto fatal de ese algoritmo es que hace <strong>coincidencia exacta</strong>: busca las palabras exactas, ni más ni menos.</p>
+<h2>Primera ronda: el bypass de la barra invertida final</h2>
+<p>El grupo Netspy había demostrado ya dos cosas: que documentación de Microsoft permite explícitamente rutas relativas para el form server (añadir una ruta relativa rompía la coincidencia exacta y permitía instanciar un formulario malicioso con class ID controlado), y un directory traversal que instalaba formularios en cualquier ruta del disco. Microsoft parcheó en junio eliminando la ruta relativa — ya no se admite una barra invertida en la propiedad — pero <strong>sin tocar el algoritmo de coincidencia</strong>. Morphisec reportó en abril su propio bypass, demostrado sobre Outlook actualizado antes del parche: una propiedad de la API de creación de claves de registro (la misma usada por casi todas las aplicaciones Windows) acepta hasta 32 claves anidadas separadas por barras invertidas y, por diseño de consistencia, <strong>elimina la barra invertida final</strong>. Añadirla al final de la propiedad del formulario hace pasar la validación exacta; al crear la clave, Windows la quita, y el formulario malicioso queda registrado y sincronizado con las credenciales de la víctima. Basta enviar un correo con la clase de mensaje correspondiente para que, al abrirlo, el form server se ejecute en el contexto de Outlook (como DLL vía <code>InProcServer32</code>, o como proceso externo con <code>local handler</code>).</p>
+<p>El siguiente parche añadió un bucle que recorta todas las barras invertidas finales de la clave antes de aplicar el mismo algoritmo exacto — y de paso amplió la lista de bloqueo con atributos adicionales que permiten COM hijacking, señal de que quedaban más caminos sin cerrar. Las utilidades del vector van más allá del RCE puntual: persistencia, escalada de privilegios y propagación masiva — con credenciales de un administrador de Exchange, el mismo formulario puede desplegarse en todas las bandejas de la organización.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Formulario malicioso en CFG<br/>form server controlado] --> B{Algoritmo de coincidencia<br/>exacta de palabras prohibidas}
+    B -- Ruta relativa<br/>Netspy --> C[Parche 1: sin barras invertidas<br/>algoritmo intacto]
+    B -- Barra invertida final<br/>Morphisec --> C
+    C -- Bypass --> D[Registro limpia la barra final<br/>formulario instalado y sincronizado]
+    D --> E[Correo con la message class<br/>RCE en el proceso de Outlook]
+    E --> F[Parche 2: recorta TODAS las barras finales<br/>+ lista de bloqueo ampliada COM hijacking]
+    E --> P[Persistencia · escalada · propagación vía Exchange admin]
+
+</pre>
+
+<h2>Segunda ronda: monikers compuestos y <code>MkParseDisplayName</code></h2>
+<p>La segunda familia parte de un comportamiento esperado: hacer clic en un enlace a un archivo SMB en un correo no abre nada — solo aparece una notificación genérica de "algo salió mal con la URL" —, de modo que el archivo nunca se accede y las credenciales NTLM locales nunca se filtran. A principios de año, un investigador de Check Point demostró que <strong>añadir un signo de exclamación al final del enlace</strong> lo convierte de file moniker simple en un <strong>moniker compuesto</strong> (file moniker + item moniker): el archivo se accede — fuga de NTLM garantizada, porque SMB autentica con esas credenciales — y puede encadenarse RCE.</p>
+<p>La mecánica interna: las aplicaciones de Office cargan <code>mso.dll</code> y sus componentes derivados; el que gestiona enlaces, <code>mso30.dll</code> (el responsable del parseo de vínculos), envuelve la creación de hyperlinks en <code>MsoHrLinkCreateFromString</code>, que pasa el destino a <code>MkParseDisplayName</code>. La documentación de esa API advierte textualmente de no pasarle cadenas de fuentes no confiables: durante el parseo, algunas implementaciones de moniker <strong>actúan</strong> sobre la cadena, y la llamada a <code>BindToObject</code> llega a instanciar el objeto COM registrado para el tipo de archivo apuntado — si el destino es un RTF, Word arranca silenciosamente en segundo plano, accede al archivo y parsea el objeto apuntado por el item moniker. Fuga de NTLM por el acceso, y cualquier RCE en la rutina de parseo se convierte en RCE completo. Detalle relevante para detección no documentado previamente: el disparador no es solo el signo de exclamación — <strong>el corchete de apertura y los dos puntos</strong> también fuerzan el parseo como moniker compuesto.</p>
+<p>Cómo parchea Microsoft Office: mediante hooks instalados desde la función <code>InitDetours</code> de la propia <code>mso.dll</code>, con verificación del application ID del proceso — una técnica de hot-patching que solo altera la API dentro de los procesos de Office, no en el resto del sistema. El primer parche interceptó <code>MkParseDisplayName</code> y comprueba un flag por hilo (<code>block MkParseDisplayName on current thread</code>) que solo se activa al inicio de <code>MsoHrLinkCreateFromString</code>, y solo cuando el application ID es Outlook. La pregunta obvia: ¿qué otros flujos llegan a la API insegura sin pasar por esa función? La respuesta llegó rápido: <code>HrPmonFromURL</code>, el encargado de las URLs de las etiquetas de imagen. Un moniker compuesto dentro de una etiqueta de imagen evita por completo la función parcheada y alcanza <code>MkParseDisplayName</code> directamente. El segundo parche activó el mismo flag — otra vez, solo para Outlook — desde ese flujo. Quedan abiertas, y son explícitamente invitación a investigar, las otras aplicaciones de Office y los flujos restantes hacia la misma API.</p>
+<p>Y hay un cabo deliberadamente dejado sin atar: el parche no resuelve la <strong>fuga NTLM</strong>. Microsoft la clasificó de riesgo medio y no urgente, con el argumento de que las imágenes de remitentes no confiables no se descargan automáticamente. Cierto — pero si el remitente es confiable (una cuenta interna comprometida que escribe a otros miembros de la organización), la imagen se previsualiza sola, el moniker compuesto se ejecuta solo, y la fuga ocurre. Sigue sin parche.</p>
+<pre class="mermaid">
+flowchart LR
+    L[Enlace o imagen con<br/>moniker compuesto<br/>! o [ o :] --> M{Ruta hacia<br/>MkParseDisplayName}
+    M -- "MsoHrLinkCreateFromString<br/>(parche 1: flag por hilo)" --> S1[Bloqueado]
+    M -- "HrPmonFromURL<br/>(etiquetas de imagen)" --> K[BindToObject]
+    M -- "parche 2: flag también aquí<br/>(solo app ID Outlook)" --> S2[Bloqueado]
+    K --> W[Word/COM parsea el archivo<br/>RCE encadenable]
+    K --> N[Acceso SMB al archivo<br/>fuga de credenciales NTLM]
+    N -. sin parche .-> U[Riesgo medio según Microsoft<br/>explotable con remitente confiable]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Formularios Outlook vía CFG</strong> — definición programática de formularios con form server (ejecutable o DLL) instanciado al abrir un mensaje con la clase correspondiente.</li>
+<li><strong>Sincronización de formularios vía Exchange</strong> — los formularios instalados en la bandeja de entrada se propagan a todos los clientes de la víctima.</li>
+<li><strong>Coincidencia exacta en el algoritmo de bloqueo</strong> — la validación de palabras prohibidas (<code>in-proc server</code>, <code>local handler</code>) falla ante cualquier variación sintáctica.</li>
+<li><strong>Barra invertida final en claves de registro</strong> — la API de creación de claves (hasta 32 niveles anidados) elimina la barra final, burlando la validación exacta.</li>
+<li><strong>Ruler (Etienne Stiller)</strong> — herramienta que automatiza vía MAPI la creación y sincronización de formularios en el entorno de la víctima.</li>
+<li><strong>Monikers compuestos</strong> — file moniker + item moniker (<code>!</code>, <code>[</code>, <code>:</code>) que fuerzan acceso al archivo y parseo vía <code>MkParseDisplayName</code> → <code>BindToObject</code>.</li>
+<li><strong>InitDetours / hot-patching en Office</strong> — parches implementados como hooks por application ID dentro de <code>mso.dll</code>.</li>
+<li><strong>Fuga NTLM vía SMB</strong> — el acceso al archivo autentica con las credenciales locales; sin parche, explotable con remitente confiable.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los parches de Outlook analizados cerraban el flujo reportado y nada más: el algoritmo exacto de coincidencia y la lista parcial de flujos hacia <code>MkParseDisplayName</code> garantizaban bypass tras bypass con esfuerzo mínimo.</li>
+<li>La inyección de formularios ofrece RCE autenticado trivialmente explotable, y con credenciales de administrador de Exchange se escala a persistencia y propagación en toda la organización.</li>
+<li>Los monikers compuestos combinan fuga de NTLM (sin parchear, considerada riesgo medio) y RCE encadenable vía parseo de archivos; los disparadores van más allá del signo de exclamación, algo clave para detección y prevención.</li>
+<li>Las recomendaciones estructurales pasan por Kerberos (Windows 11 desactiva NTLM por defecto), firma SMB obligatoria y gestión del SMB saliente — mientras los parches individuales siguen siendo balas contra balas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/GwwxeY11xMI">«DEF CON 33 - Patches Won&#x27;t Save You: Bypassing Outlook Vulnerability Patches - Michael Gorelick, Arnold Osman»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Armar la confianza: la investigación que persiguió a un actor que cazaba investigadores — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Armar la confianza: la investigación que persiguió a un actor que cazaba investigadores</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/iTGnoDEYlog">«DEF CON 33 - Investigating Threat Actor Targeting Researchers, Academics - C Tafani-Dereeper, M Muir»</a> · ver el <a class="nz-link" href="https://youtu.be/iTGnoDEYlog">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En diciembre de 2024, una publicación de un investigador de Checkmarx sobre un paquete NPM malicioso —<code>ox_engine_xmlrpc</code>, un typo-squatting del legítimo <code>xmlrpc</code>, con el mismo readme, la misma funcionalidad y un validador ofuscado que subía archivos comprimidos a una cuenta de Dropbox del atacante— abrió una investigación que terminó mapeando a un grupo bautizado MUT-1244. La definición del objetivo es de las más incómodas posibles: no perseguía usuarios finales, sino investigadores de seguridad, académicos, estudiantes de doctorado y actores ofensivos —pentesters y red teamers—, es decir, justo las personas que piensan que no caerán en una trampa.</p>
+<p>La historia, contada sin retoques, empieza con un mapa lineal imaginado y termina con un grafo enredado de descubrimientos: casi 400.000 credenciales robadas, campañas de phishing con pretextos tan absurdos como "actualizá el microcódigo de tu CPU", repositorios de pruebas de concepto falsas promovidos con SEO comprado y cuentas de GitHub inauténticas que se estrellan entre sí. Y, como giro final, el propio atacante filtrando su propia infraestructura en un servicio público de archivos.</p>
+<h2>La cadena de infección: tres puertas hacia el mismo cargador</h2>
+<p>El análisis del paquete NPM reveló que el validador ofuscado comprimía archivos del sistema y los subía a Dropbox con credenciales embebidas —client ID, client secret y refresh token— que además permitían leer todo lo acumulado en la cuenta. Dentro había archivos ZIP nombrados con el identificador de la máquina comprometida y el sello temporal, conteniendo información del sistema y un archivo <code>targets.txt</code> con casi 400.000 credenciales (URL, usuario y contraseña): un volumen imposible para un infostealer clásico de equipos personales, y la primera pista de que las víctimas compartían algo estructural.</p>
+<p>La explicación llegó al encontrar un repositorio en Bitbucket de una herramienta llamada "Yop", supuestamente para validar credenciales de WordPress por HTTP y por la API XML-RPC. Su documentación sugería ejecutarla contra un archivo llamado exactamente <code>targets.txt</code> —el mismo nombre que espera el paquete NPM— y una de sus dependencias era el paquete malicioso. La conclusión: el grupo arma trampas para actores ofensivos, que descargan volúmenes de credenciales robadas y las validan con herramientas trojanizadas, entregando su botín al atacante en el proceso.</p>
+<p>Había al menos otras dos vías de acceso inicial. Una campaña de phishing scrapingteaba correos de arXiv —el sitio preprint de académicos, cuyo correo es público por diseño— con un mail que pedía actualizar el microcódigo del CPU mediante un enlace a una página de apariencia años 90; al seguir las instrucciones, un script alojado en GitHub descargaba la misma segunda etapa: un goteador de monedas más un infostealer en Bash que revisaba carpetas de AWS y Azure, wallets de Electrum, historial de Bash y llaves SSH, y subía todo a file.io. Y los repositorios de pruebas de concepto falsas de CVEs incluían instrucciones que ejecutaban un script de configuración malicioso, cerrando el círculo con la tercera puerta.</p>
+<pre class="mermaid">
+flowchart TD
+    A[MUT-1244] --> B[Paquete NPM trojanizado<br/>dependencia de Yop]
+    A --> C[Phishing a académicos<br/>pretexto de microcódigo]
+    A --> D[POCs falsas de CVE<br/>script de configuración]
+    B --> E[Validador de credenciales<br/>targets.txt]
+    C --> F[Script desde GitHub]
+    D --> F
+    E & F --> G[Infostealer Bash + coin miner]
+    G --> H[Exfiltración a Dropbox y file.io]
+
+</pre>
+
+<h2>Seguimiento por metadatos: GitHub Archive, grafos y reclutamiento de confianza</h2>
+<p>Para buscar más cargas del actor, la investigación recurrió al conjunto de datos GitHub Archive, que registra continuamente los eventos públicos de la API de GitHub —commits, estrellas, forks, pushes— en un año por terabyte de JSON comprimido, consultable en Google BigQuery (cuidado con los <code>SELECT *</code>: pagan por terabyte escaneado y una consulta amplia puede costar más de 100 dólares) o gratis en el playground público de ClickHouse, que procesa miles de millones de filas en segundos y se consume también por API sin autenticación. Pivoteando sobre el usuario <code>paulmuller1977</code> —el mismo alias de la cuenta de Dropbox— y sus interacciones pasadas, se llegó a "galaxias" de usuarios inauténticos que solo interactúan entre sí para promover contenido falso y malicioso.</p>
+<p>Ese contenido sonaba a ciencia legítima: repositorios de POCs con readmes detallados, enlaces a los avisos originales de vulnerabilidad e imágenes de perfil generadas por IA. Algunos anunciaban "vectores de ataque nunca antes utilizados", un gancho diseñado a juicio de los investigadores específicamente para actores ofensivos, que son quienes buscan ese tipo de novedad. Y la promoción no quedaba en GitHub: el grupo compró servicios de SEO para posicionar su propio sitio de artículos robados sobre vulnerabilidades, mantuvo una cuenta en X con imágenes generadas por IA y, como detalle demoledor, sus POCs falsas aparecían agregadas en los reportes de vulnerabilidad de Feedly, prestando la credibilidad del agregador al malware.</p>
+<h2>Una operación demasiado humana</h2>
+<p>El infostealer exfiltraba a file.io, servicio que fue adquirido por LimeWire y dejó de funcionar, a lo que el actor se quejó públicamente en redes. El giro decisivo llegó de la mano de un pentester francés que, tras infectarse ejecutando una POC falsa, rastreó hacia dónde iban sus datos y descubrió que el propio atacante había probado su malware en su máquina y exfiltrado sus datos a un lugar público. Ese volcado contenía más de 2.000 líneas de historial de Bash: autenticaciones contra servidores de comando y control, errores de tipeo en comandos, intentos fallidos con credenciales robadas contra una máquina RDP, y los comandos <code>git</code> con los que empujaba sus repos maliciosos, revelando los perfiles que operaba.</p>
+<p>Entre ellos, el usuario <code>abolet</code> (con cero) llevó a otra pista: un perfil sin repositorios públicos que había creado y comentado issues en proyectos de generación de imágenes con IA como Stable Diffusion Web UI Forge, lo que explica las imágenes de perfil sintéticas, y una captura de pantalla de Total Commander en ruso que encaja con las publicaciones en un foro ruso de criptomonedas donde se promovía otra herramienta falsa. Esa herramienta, "Token Recovery", prometía recuperar tokens ERC-20 enviados por error a contratos —técnicamente imposible sin la clave privada del destinatario—, con sitio web dedicado, artículos promocionales en Medium bajo el seudónimo Paulina Buhler (misma identidad de fondo que Paul Muller), respuestas en Quora y menciones en foros rusos desde 2022: la evidencia de que el grupo empezó en comunidades de cripto y blockchain antes de escalar a académicos, pentesters y red teamers.</p>
+<h2>Detectar lo inauténtico: heurísticas y herramienta abierta</h2>
+<p>La investigación se apoyó en trabajos académicos sobre detección de contribuciones maliciosas en proyectos open source: uno de la Universidad de Rochester sobre metadatos de commits, otro de la Universidad de California en Riverside que clasifica perfiles en maliciosos y benignos según los campos completados (el 95% de los usuarios benignos ponen su nombre completo frente al 28% de los maliciosos), y uno de la Universidad de Leiden que encontró que casi el 2% de los repositorios de POCs de CVEs en GitHub son maliciosos o backdoored. Sobre esa base, los autores publicaron una herramienta open source que analiza los metadatos de usuarios y repositorios sin mirar el contenido, con heurísticas como forks de repositorios eliminados, commits con correos no vinculados al perfil, actividad comunitaria baja y estrelladores cuya cuenta se creó el mismo día. Durante el análisis en vivo, esas heurísticas señalaron usuarios y repositorios maliciosos reales.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las pruebas de concepto son un blanco de élite: los pentesters deben probarlas para mantenerse al día, y suelen operar con credenciales y accesos privilegiados que las convierten en botín de alto valor.</li>
+<li>Ejecutar código sin confiar en él no es un problema exclusivo de las POCs: cada <code>pip install</code> o <code>npm install</code> conlleva el mismo riesgo, y las dependencias transitivas son una superficie de ataque en sí misma.</li>
+<li>Fabricar legitimidad —readmes técnicos, imágenes generadas por IA, artículos agregados por servicios como Feedly, SEO comprado, cuentas de X— es parte central de la operación del actor, y paradójicamente es también el lugar donde se puede detectar.</li>
+<li>Los conjuntos de datos abiertos como GitHub Archive, consultables con BigQuery o ClickHouse, permiten reconstruir la actividad de perfiles eliminados y mapear redes de usuarios inauténticos; hay muchos más disponibles, por ejemplo en Hugging Face.</li>
+<li>Los atacantes son humanos: errores de tipeo, quejas públicas por servicios caídos y pruebas descuidadas de su propio malware dejan rastros que la investigación puede capitalizar.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Typo-squatting en NPM</strong>: publicación de paquetes con nombres casi idénticos a los legítimos para distribuir código malicioso a desarrolladores.</li>
+<li><strong>Infostealer en Bash</strong>: script que recopila credenciales de nube (carpetas de AWS y Azure), wallets de Electrum, historial de Bash y llaves SSH.</li>
+<li><strong>ClickFix</strong>: técnica de ingeniería social que induce a la víctima a ejecutar comandos "técnicos" (aquí, actualizar el microcódigo del CPU) que descargan el payload.</li>
+<li><strong>Validación de credenciales trojanizada</strong>: herramienta como Yop que parece validar volcados de credenciales contra WordPress pero exfiltra esos mismos volcados al atacante.</li>
+<li><strong>GitHub Archive + BigQuery/ClickHouse</strong>: conjuntos de datos públicos de eventos de GitHub para investigación OSINT y pivote sobre perfiles eliminados.</li>
+<li><strong>Análisis de metadatos de commits</strong>: detección de contribuciones maliciosas mediante correos no vinculados, patrones de horarios y campos de perfil incompletos.</li>
+<li><strong>Heurísticas de inautenticidad</strong>: forks de repos eliminados, estrelladores con cuentas creadas el mismo día, actividad comunitaria mínima y ausencia de nombre público.</li>
+<li><strong>Promoción SEO y agregadores</strong>: compra de posicionamiento en buscadores y aparición en resúmenes de vulnerabilidades para dar credibilidad a POCs falsas.</li>
+<li><strong>Token Recovery</strong>: herramienta fraudulenta que prometía recuperar tokens ERC-20 en contratos, imposible sin la clave privada del propietario.</li>
+<li><strong>Exfiltración a servicios de intercambio</strong>: uso de Dropbox con credenciales embebidas y file.io como destinos de datos robados.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/iTGnoDEYlog">«DEF CON 33 - Investigating Threat Actor Targeting Researchers, Academics - C Tafani-Dereeper, M Muir»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

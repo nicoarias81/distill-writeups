@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Big Sleep y CodeMender: eliminar toda vulnerabilidad de software de la Tierra, sin humanos en el circuito — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Big Sleep y CodeMender: eliminar toda vulnerabilidad de software de la Tierra, sin humanos en el circuito</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/B_7RpP90rUk">«Heather Adkins &amp;  Four Flynn - Evaluating Threats &amp; Automating Defense at Google | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/B_7RpP90rUk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>2026 quedará como el año en que todo pivotó, y probablemente como un tiempo simple comparado con lo que viene. Dos datos fijan la escena: ya existen frameworks open source de pentesting automatizado, y hay alrededor de mil millones de dólares de capital de riesgo entrando en startups de descubrimiento de vulnerabilidades, pruebas de penetración y simulación de red team. La consecuencia, con buenos y malos atacando con las mismas herramientas, es un mundo donde se encontrarán todas las vulnerabilidades de todos los sistemas. Ya se ve el colapso logístico: la NVD tiene una cola de 30.000 vulnerabilidades pendientes de análisis, y entre 2024 y 2025 los CVEs registrados crecieron un 35% —y no todo bug encontrado llega siquiera a CVE—. Hasta el sistema CVSS quedará obsoleto: cuando hay demasiadas vulnerabilidades, priorizarlas por puntuación pierde sentido.</p>
+<p>La respuesta de Google y Google DeepMind son dos proyectos de investigación con un objetivo formulado sin rodeos: eliminar toda vulnerabilidad de software de la Tierra. Big Sleep encuentra bugs profundos de memoria; CodeMender los parchea automáticamente. Junto con código greenfield seguro por defecto y hardening proactivo del código legado, configuran la vía para crear y mantener código esencialmente libre de bugs en un par de años.</p>
+<h2>Big Sleep: recrear al investigador élite, no al prompter</h2>
+<p>El punto de partida cuantitativo es un estudio de RAND de 2017: a un investigador experto le toma del orden de un mes encontrar un bug profundamente enterrado y unos 22 días explotarlo con éxito. La pregunta es qué pasa si un sistema de razonamiento agéntico logra lo mismo en horas o minutos, y antes de que el software salga a producción. La premisa de diseño viene de observar cómo trabajan los investigadores de Project Zero —un equipo con más de una década dedicado a eliminar zero-days—: se vuelven expertos profundos del code base que atacan, estudian sus vulnerabilidades pasadas, hacen análisis de variantes y entienden su arquitectura. Esa expertise es lo que se reconstruye en el sistema.</p>
+<p>El ciclo tiene tres fases. Primero, la fase de especialización: entender el código, los bugs históricos y las variantes. Segundo, el bucle agéntico que opera constantemente retroalimentándose: construye hipótesis sobre qué parte del código puede ser vulnerable, y para probarlas usa herramientas —debugger, navegador de código, intérprete de Python para escribirse sus propios scripts—. No se auto-promptea: construye código, construye casos de prueba, y verifica sus propias hipótesis en success y failure. Es exactamente el aire del investigador experto que queda parado en una esquina con el café, dándole vueltas al bug que no consigue; ese ciclo de hipótesis y revisión es lo que reproduce. Tercero, la fase de verificación: con un crash candidato, analiza el feedback del debugger y construye un exploit. Esa prueba de vulnerabilidad es lo que lleva la tasa de falsos positivos a cero.</p>
+<p>Los resultados: cada bug que sale del sistema es probadamente una vulnerabilidad —no candidatos con ruido—, son bugs profundos de memoria (no XSS ni overflows superficiales), todos publicados en el issue tracker público y, salvo cinco, corregidos al momento del evento. Los informes también los escribe Gemini, de punta a punta, con el código de prueba incluido y una explicación paso a paso de cada función implicada, diseñada para que un desarrollador inexperto entienda qué pasó.</p>
+<h2>CodeMender: parchear a la velocidad del descubrimiento</h2>
+<p>Encontrar es la mitad del trabajo; la otra mitad es la que nadie disfruta: corregir. CodeMender nació el año pasado con una palabra que hay que llevarse de la conferencia: la vonpocalypse viene, y hay que armar a la comunidad con herramientas, no solo reportar. El parcheo exige tres cosas simultáneas: que el parche arregle la vulnerabilidad, que no rompa la funcionalidad del código, y que respete los idioms del desarrollador original —que el cambio sea digerible para quien mantiene el proyecto—.</p>
+<p>El sistema toma una vulnerabilidad verificada de Big Sleep y genera candidatos de parche con un agente LLM que tiene acceso a herramientas similares: debugging, prueba de hipótesis. Pero los candidatos no se envían tal cual: la salsa secreta está en una etapa de verificación conectable con múltiples capas:</p>
+<pre class="mermaid">
+flowchart TD
+    A["Vulnerabilidad verificada (Big Sleep)"] --> B["Agente LLM genera candidatos de parche"]
+    B --> C{"Verificación multicapa"}
+    C --> C1["Fuzzing de variables antes/después:<br/>¿sobrevive la funcionalidad?"]
+    C --> C2["Verificación formal:<br/>¿equivalencia funcional de la sección?"]
+    C --> C3["Differential tests + fuzzing con<br/>entradas maliciosas: ¿sigue el bug?"]
+    C --> C4["Revisión LLM con pre-prompt<br/>cuidadosamente diseñado"]
+    C1 & C2 & C3 & C4 --> D{"¿Todo pasa?"}
+    D -- "Sí" --> E["Candidato rankeado para la comunidad"]
+    D -- "No" --> F["Aprendizajes del fallo vuelven al<br/>contexto: nuevos candidatos"]
+    F --> B
+
+</pre>
+
+<p>Cuando ningún candidato pasa, los aprendizajes de los fallos se reinyectan en la ventana de contexto para que el LLM corrija y genere un nuevo lote, que vuelve a validarse y rankearse. Hay además una pieza de hardening: revisar proactivamente un code base en busca de puntos débiles de punteros y modificar el código con parches mayores que protejan todos esos buffers antes de que exista la vulnerabilidad —el mismo proceso de parcheo, aplicado preventivamente—.</p>
+<p>Los números hasta hoy: 178 correcciones generadas de forma autónoma ya integradas en open source, pasadas por librerías como libxml (ejemplo citado), trabajo en Chrome endureciendo punteros del code base con parches automáticos, y despliegue interno en los sistemas de Google. La crítica previsible es que el enfoque es quizá demasiado cauto: solo sale a la comunidad lo altamente verificado. Es una apuesta deliberada —la calidad y la confianza son lo que acelerará la adopción—, frente a otros equipos que prefieren llegar antes al mercado tolerando más fricción para los desarrolladores. Y queda el problema que la IA no resuelve aún: el eslabón más débil sigue siendo el mundo que tarda en aplicar los parches; llevar el parcheo global a la velocidad de la IA es, literalmente, un problema abierto —quien lo resuelva, que se acerque a hablar.</p>
+<h2>Qué responde —y qué no— el método</h2>
+<p>Las preguntas del público delimitan el alcance con honestidad. Frente a la comparación con el trabajo equivalente de OpenAI (Aardvark): no hay comparación lado a lado, porque ninguno de los dos equipos publicó detalles completos; ambos usan razonamiento agéntico, y habrá que ver cómo evolucionan. Sobre si las técnicas aplican más allá de memoria: sí — el equipo también encuentra bugs superficiales, y la investigación apunta a lo profundo porque es más difícil y esotérico; las técnicas de verificación cambian según la clase de bug, pero validación de entradas y vulnerabilidades web están en construcción. Un dato de calibración: Google sigue haciendo muchísimo fuzzing —ellos crearon OSS-Fuzz—, y Big Sleep encuentra cosas que los fuzzers no ven; eso indica que están atacando la profundidad correcta. Y sobre vulnerabilidades de lógica de negocio: la mayoría de la investigación actual no va por ahí, sino por componentes de infraestructura como el motor V8 de Chrome —sandboxizado, con ganas de hacerlo mejor— o FFmpeg, cuyo trabajo es precisamente procesar entrada no confiable; la traducción a aplicaciones de negocio sigue abierta.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El contexto de 2026: frameworks open source de pentesting más mil millones de dólares de inversión en descubrimiento de vulnerabilidades implican que todas las vulnerabilidades de todos los sistemas serán encontradas; la NVD ya acumula 30.000 análisis pendientes y los CVEs crecieron 35% en un año.</li>
+<li>Big Sleep reproduce la expertise del investigador élite en tres fases —especialización en el code base, bucle agéntico de hipótesis con herramientas propias, y construcción de exploit como prueba— y logra cero falsos positivos en bugs profundos de memoria, con informes fully automatizados y públicos.</li>
+<li>CodeMender cierra el ciclo: 178 correcciones autónomas en open source, verificadas por una batería conectable (fuzzing, verificación formal, differential tests, revisión LLM) que devuelve los fallos al contexto para iterar, más hardening proactivo de punteros.</li>
+<li>La apuesta estratégica es la calidad sobre la velocidad: solo se publica lo altamente verificado, porque la confianza es el camino hacia la adopción masiva; el objetivo declarado es código esencialmente libre de bugs en un par de años.</li>
+<li>El eslabón roto sigue siendo humano y logístico: aplicar parches a tiempo en todo el mundo no tiene aún solución con IA, y es la pieza que falta para que la defensa alcance la velocidad del ataque.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/B_7RpP90rUk">«Heather Adkins &amp;  Four Flynn - Evaluating Threats &amp; Automating Defense at Google | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPS spoofing en aviación: el ataque que rompe no la posición, sino el tiempo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">GPS spoofing en aviación: el ataque que rompe no la posición, sino el tiempo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/wSVdfOn737o">«DEF CON 32  - GPS spoofing it&#x27;s about time, not just position - Ken Munro»</a> · ver el <a class="nz-link" href="https://youtu.be/wSVdfOn737o">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>GPS se percibe como una fuente de posición, pero en un avión moderno su función más crítica es otra: ser la fuente autorizada de tiempo. El abandono progresivo de las ayudas a la navegación tradicionales — VOR, ILS, balizas — en favor de aproximaciones satelitales ha concentrado toda la dependencia en GNSS, justo cuando el jamming y el spoofing se han disparado en zonas de conflicto.</p>
+<p>Los incidentes documentados en los últimos años muestran un espectro que va desde errores de posición de decenas de millas náuticas hasta fallas cascada dentro del avión: el sistema de referencia inercial "envenenado" por GPS falso, receptores incapaces de readquirir satélites al salir de la zona de interferencia, y el caso más grave: un reloj de a bordo que saltó hacia adelante tanto que invalidó los certificados digitales de la aeronave y obligó a reflashear la mayoría de sus componentes. Spoofear GPS es barato y de poca potencia; la señal es débil y unos pocos watts alcanzan.</p>
+<h2>La aviación abandonó sus ayudas terrestres</h2>
+<p>La navegación aérea se construyó sobre balizas terrestres. Las <strong>NDB</strong> (balizas no direccionales) son baratas, de largo alcance siguiendo la curvatura de la Tierra, pero con un defecto peligroso: en condiciones instrumentales con tormentas, la aguja apunta a la tormenta. Los <strong>VOR</strong>, en uso desde 1947, corrigen eso y son más precisos, pero solo funcionan a línea de vista y dan rumbo, no altitud. El <strong>DME</strong> mide distancia por tiempo de vuelo de un pulso, y el <strong>ILS</strong> permite aterrizar con niebla total hasta categorías tan bajas como 3c — con la curiosidad de que su glideslope genera señales falsas en múltiplos del ángulo real, razón por la que siempre se aproximaba desde abajo.</p>
+<p>El problema es económico: ILS y VOR son carísimos de construir, calibrar (el ILS exige un proceso con espejos y aviones de calibración) y mantener. GPS es más preciso y da posición y tiempo exactos. El resultado es un desmantelamiento sistemático: el Reino Unido pasó de 44 VOR hace una década a menos de 19, y aeropuertos regionales retiran sus ILS en favor de aproximaciones LPV basadas en GPS — la pista 19R de Las Vegas ya es un procedimiento GPS. El sistema de referencia inercial, que en un vuelo trasatlántico se desvía apenas una milla náutica, se degrada periódicamente contra la posición GPS porque esta es la más precisa a bordo.</p>
+<p>Esa dependencia creciente convierte cada perturbación de la señal en un problema operativo global.</p>
+<h2>Lo que está pasando en el aire</h2>
+<p>Las zonas de conflicto generan jamming y spoofing de GPS a gran escala, en parte para degradar drones de consumo que dependen del satélite. El Mar Negro registró errores de posición de unas 20 millas náuticas en el tráfico marítimo cercano a instalaciones militares, con reportes de un aumento del 400% en los últimos meses, y una migración visible del jamming puro hacia errores de posición inducidos por spoofing, más difíciles de detectar.</p>
+<p>Las consecuencias en vuelo son tangibles:</p>
+<ul>
+<li><strong>Falsas alarmas del GPWS</strong>: con la posición falseada, el sistema de proximidad al suelo cree que el avión va hacia terreno y dispara "too low, pull up" en plena aproximación ILS, forzando maniobras de motor y al aire.</li>
+<li><strong>Envenenamiento del sistema inercial (IRS)</strong>: como el IRS se recalibra contra GPS, el GPS falso arrastra al inercial. El procedimiento recomendado a pilotos es conmutar de GPS a referencia inercial al entrar en zonas de spoofing.</li>
+<li><strong>Incapacidad de readquisición</strong>: al salir de la zona de interferencia, el receptor multimodo (MMR) necesita su almanaque satelital para encontrar las constelaciones; si los satélites no están donde el receptor cree, no readquiere, y el reinicio solo se puede hacer en tierra con el avión detenido. Los MMR más modernos parecen readquirir mejor que los de aeronaves viejas, aunque falta investigación sobre por qué.</li>
+<li><strong>Suspensión de rutas</strong>: Finnair dejó de volar al aeropuerto de Tartu en Estonia durante meses porque el spoofing impedía aproximaciones seguras; la solución de compromiso fue volver a apoyarse en el DME como contraste.</li>
+</ul>
+<p>La comunidad OPS Group centraliza reportes en tiempo real de jamming y spoofing y es la referencia para seguir el fenómeno.</p>
+<h2>Cuando el reloj es el blanco</h2>
+<p>La clave poco comentada: GPS entrega tiempo, no solo posición, y el avión entero depende de él. Los primeros indicios fueron errores leves en los relojes de a bordo — saltos de un minuto hacia adelante o hacia atrás — con una contramedida simple en el manual de referencia rápida: volver al reloj local del avión.</p>
+<p>El incidente grave fue distinto. El tiempo GPS se desplazó una cantidad enorme hacia adelante, tan rápido que los pilotos no alcanzaron a conmutar al reloj local, y desató una cadena de fallas en cascada:</p>
+<ol>
+<li>Los <strong>certificados digitales</strong> de la comunicación electrónica dejaron de ser válidos — no por expiración, sino porque la fecha quedó demasiado en el futuro.</li>
+<li>El <strong>Wi-Fi de pasajeros</strong> falló por esos certificados inválidos.</li>
+<li>El <strong>CPDLC</strong> (enlace de datos controlador-piloto), que exige una fuente de tiempo precisa, dejó de funcionar y la tripulación volvió a VHF.</li>
+<li>Componentes que dependen de tiempo exacto — TCAS anticolisión en sus versiones más nuevas con espaciamiento reducido, el logging de incidentes, los data loaders, las SATCOM — quedaron comprometidos o degradados.</li>
+</ol>
+<p>Lo más duro vino después: el avión tenía protecciones contra el retroceso del reloj (nadie quiere que el tiempo vaya hacia atrás) pero no contra saltos hacia adelante. Reajustar el tiempo no era posible sin reflashear la mayoría de los componentes, con un costo directo enorme y, sobre todo, un avión inmovilizado durante un período significativo. No está claro si el comportamiento es específico de ese avión, de su tipo o del fabricante: hace falta más investigación.</p>
+<h2>Disciplina de divulgación y el camino híbrido</h2>
+<p>En aviación la divulgación responsable no es opcional: el código debe certificarse, no se puede "parchear y empujar" a un avión en vuelo, y arreglar una vulnerabilidad puede llevar un par de años. Tampoco aplica el mito popular de aviones hackeados desde el respaldo de un asiento: las redes están segregadas y siempre hay pilotos al mando. La cultura que hace seguro volar — reportar incidentes sin culpa y compartirlos — es la que la industria de la seguridad informática todavía no replica.</p>
+<p>El futuro apunta a navegación <strong>híbrida</strong>: GPS correlacionado con fuentes terrestres conocidas (las ayudas a la navegación que aún existen) para validar posición y tiempo recibidos. La advertencia es no retirar con demasiado entusiasmo las balizas tradicionales, porque si no queda nada contra qué contrastar, el esquema híbrido pierde sentido. Y el problema excede a la aviación: trading de alta frecuencia, sistemas de control industrial y muchos otros dominios usan GPS como fuente confiable de tiempo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>GNSS/GPS spoofing</strong>: emisión de señales satelitales falsas que inducen posición o tiempo erróneos; la señal GPS es débil y unos pocos watts bastan.</li>
+<li><strong>GPS jamming</strong>: interferencia de la señal; tendencia actual a sustituirlo por spoofing con errores de posición.</li>
+<li><strong>NDB, VOR, DME, ILS</strong>: ayudas a la navegación terrestres clásicas, en proceso de retiro frente a las aproximaciones LPV por GPS.</li>
+<li><strong>IRS (sistema de referencia inercial)</strong>: navegación inercial por giroscopios y acelerómetros; se degrada contra GPS y puede "envenenarse" con datos falsos.</li>
+<li><strong>MMR (receptor multimodo)</strong>: receptor GNSS de a bordo; depende del almanaque satelital para readquirir tras una zona de jamming.</li>
+<li><strong>GPWS</strong>: sistema de advertencia de proximidad al terreno, propenso a falsas alarmas bajo spoofing de posición.</li>
+<li><strong>CPDLC, TCAS, SATCOM, data loaders</strong>: sistemas de a bordo que requieren tiempo preciso y fallan cuando el reloj GPS se corrompe.</li>
+<li><strong>Certificados digitales de a bordo</strong>: invalidados por saltos de tiempo hacia adelante; su restauración exige reflashear componentes.</li>
+<li><strong>NOTAM</strong>: avisos a la tripulación sobre zonas con jamming/spoofing activo.</li>
+<li><strong>OPS Group</strong>: comunidad que agrega reportes en tiempo real de GPS jamming y spoofing.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>GPS es una infraestructura de tiempo antes que de posición</strong>: un reloj corrupto tumba certificados, comunicaciones de datos, anticolisión y registro de eventos; el daño del tiempo supera al de la posición.</li>
+<li><strong>Las protecciones asimétricas importan</strong>: bloquear que el tiempo retroceda sin bloquear que salte hacia adelante dejó a un avión fuera de servicio; el reloj de a bordo resultó más difícil de restablecer que cualquier otro subsistema.</li>
+<li><strong>La dependencia monocultivo es el riesgo</strong>: al retirar VOR, ILS y balizas por ser caros, la aviación concentró toda su confianza en una señal débil y fácilmente falseable; el futuro híbrido exige conservar contrastes terrestres.</li>
+<li><strong>El contexto geopolítico amplifica el problema</strong>: el spoofing masivo en zonas de conflicto, diseñado contra drones, golpea de rebote a la aviación civil con desvíos, motor y al aire, rutas suspendidas y mantenimiento costoso.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/wSVdfOn737o">«DEF CON 32  - GPS spoofing it&#x27;s about time, not just position - Ken Munro»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El badge de Ekoparty 2024: un laboratorio IoT de bolsillo con ESP32-C6 y LoRa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">El badge de Ekoparty 2024: un laboratorio IoT de bolsillo con ESP32-C6 y LoRa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bRo-Cc6bkKE">«Entendiendo el Badge de Ekoparty - Andres Sabas &amp; Eduardo Contreras - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/bRo-Cc6bkKE">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El badge electrónico de Ekoparty 2024, creado por el estudio de hardware libre mexicano Electronic Cats, es mucho más que una insignia con LEDs: es una plataforma de auditoría IoT completa. Su corazón, un ESP32-C6, es de los primeros chips en integrar Wi-Fi 6, Bluetooth, ZigBee, Thread y Matter en un solo módulo, y encima monta un radio LoRa SX1276 para redes mesh comunitarias. Hardware y firmware son open source, y el objetivo declarado es que nadie lo use como pisapapeles después del evento.</p>
+<p>La pieza explica el diseño del dispositivo, su historia (desde MagSpoof y HunterCat hasta el primer badge de 2023), las capacidades de ataque y captura que trae el firmware Minino, y el juego social que convierte al badge en excusa para conocer gente: tres misiones, tres gatitos y una llama que solo se mantiene viva brindando con otros asistentes.</p>
+<h2>De MagSpoof a un badge propio</h2>
+<p>La trayectoria de Electronic Cats hacia el mundo de la seguridad empezó con MagSpoof, un emulador de bandas magnéticas basado en la investigación de Samy Kamkar, relanzado como hardware open source con PCB propia. Le siguió HunterCat, un detector de skimmers para cajeros y terminales bancarios que con tres LEDs (verde, amarillo, rojo) indica si hay un skimmer de banda magnética —particularmente útil en Estados Unidos, donde la banda magnética sigue masiva en pagos de combustible y servicios—. Después llegó HunterCat NFC, en colaboración con el investigador Salvador Mendoza: no solo detecta lectores activos extrayendo información de tarjetas (una transacción NFC real, no solo la presencia del campo electromagnético), sino que emula tarjetas Visa y Mifare con un SDK versátil.</p>
+<p>El primer badge de Ekoparty (2023) marcó otro hito: uno de los primeros badges con procesador RISC-V (chip WCH a 144 MHz, Bluetooth, puertos I2C/SPI/serial), útil como herramienta para acceder a memorias SPI/I2C sin necesidad de un Bus Pirate. Todo quedó documentado en el repositorio <code>Echobatch2023</code>.</p>
+<h2>Qué hay dentro del badge 2024</h2>
+<pre class="mermaid">
+flowchart LR
+    ESP32C6[ESP32-C6] -->|Wi-Fi 6 / BT / ZigBee / Thread / Matter| RF[RF integrada]
+    ESP32C6 --> SPI[SX1276 LoRa]
+    ESP32C6 --> LED[3 NeoPixels]
+    ESP32C6 --> USB[USB-C 2.0]
+    ESP32C6 --> ADD[3 conectores add-ons]
+    PWR[Pilas AA + switch] --> ESP32C6
+
+</pre>
+
+<ul>
+<li><strong>ESP32-C6</strong>: el chip recién está siendo adoptado por la comunidad. Combina Bluetooth, Wi-Fi 6 (con modos low power), ZigBee, Thread y Matter. Matter es el intento de Google, Apple y demás de unificar el Internet de las Cosas; funciona sobre Bluetooth, Wi-Fi y Thread simultáneamente. La oportunidad de investigación es evidente: Matter está en su versión 1.0, y según los white papers el provisioning de claves aterriza en una zona de RAM que muchas veces no va encriptada. La implementación es más segura que ZigBee o Bluetooth clásico, pero es terreno fértil para dumpeo y auditoría. Wi-Fi 6, además, permite estudiar el protocolo a bajo nivel sin meterse en drivers de Linux ni debug de kernel.</li>
+<li><strong>Radio LoRa SX1276</strong>: pensada para Meshtastic, la red mesh comunitaria de mensajería que crece en Argentina; también es el canal por el que Ekoparty envía avisos y notificaciones a través de un dongle maestro.</li>
+<li><strong>Tres NeoPixels</strong> RGB en los "ojitos", <strong>USB-C</strong> (USB 2.0, sin Power Delivery) que sirve para reprogramar y dumpear el badge sin programador externo, <strong>portapilas AA</strong> y switch de encendido.</li>
+<li><strong>Tres conectores para add-ons</strong>: compatibles con complementos de 8.8 y DEF CON. En el evento se repartieron add-ons propios (Red Team, cervecita, lentes) y de patrocinadores como Palm Labs y Yes We Hack; también funcionan de forma independiente con pila externa.</li>
+</ul>
+<h2>Minino: el firmware que convierte el badge en herramienta</h2>
+<p>Minino, presentado en DEF CON, es un "tamagotchi de gatito" que audita protocolos IoT de forma sencilla. Usa el mismo ESP32-C6 —difiere del badge solo en que tiene GPS y no LoRa—, y su firmware open source es el núcleo sobre el que se compilan las aplicaciones del badge. Capacidades ya implementadas:</p>
+<ul>
+<li><strong>Wi-Fi 6</strong>: sniffer, deauthentication y ataques DoS dirigidos a una IP concreta; captura de paquetes a la memoria flash.</li>
+<li><strong>Bluetooth 5</strong>: sniffing directo a Wireshark vía script Python, spoofing de dispositivos HID y spam de advertisements (estilo AirTag).</li>
+<li><strong>ZigBee</strong>: sniffer a Wireshark con captura de transportes de claves —cargando las claves capturadas, los mensajes se leen en texto plano—, más integración como end device ZigBee 3.0 (por ejemplo, emular un foco en Home Assistant).</li>
+<li><strong>Thread</strong>: sniffer y broadcast por Wireshark.</li>
+</ul>
+<p>El repositorio del badge quedó privado durante el evento —saben que un análisis estático revelaría los tres gatitos y, probablemente, bugs que ellos no conocen— y se libera al terminar: hardware, esquemáticos y firmware en GitHub, con pull requests bienvenidos.</p>
+<h2>Un badge, varias conferencias: los badges hermanos</h2>
+<p>El badge 2024 es la última parada de un tour latinoamericano: B-Sides Ciudad de México, Dragon Yard y BootCon recibieron sus propios badges, todos "hermanos". Acercar dos badges hermanos desbloquea animaciones exclusivas. La dinámica de inclusión es deliberada: en muchos eventos el badge es el identificador —no importa el nombre ni la cara—, lo que rompe el hielo y baja los prejuicios al acercarse a cualquiera, incluidos referentes que uno admira.</p>
+<h2>La misión: tres gatitos y una llama</h2>
+<p>Tras un texto inicial de ambientación —un viaje desde un futuro donde la IA dominó el mundo y el badge es la clave para evitarlo, escrito con David Cuartielles—, el badge plantea tres misiones. La detección por Bluetooth hace que el dispositivo parpadee en amarillo cerca de villas y patrocinadores, desencadenando fragmentos de la historia. Cada participante elige personaje (dragón, llama o gatito) y debe mantener viva una llama —literal, de fuego en pantalla— que solo se aviva brindando con otros portadores de badge. Las misiones no son obligatorias: quien prefiera la ingeniería inversa al contacto social también tiene su camino, y el badge no está ofuscado ni protegido —los side channels son bienvenidos—. Detalles ocultos (canciones, mensajes LoRa que activan funciones) quedaron sembrados para los curiosos. La logística no fue trivial: con la aduana argentina bloqueada semanas antes del evento, los 150 badges viajaron vía Miami y entraron declarados como mercancía, con la anécdota de que casi nadie declara y eso agilizó el paso.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ESP32-C6</strong> — MCU con Wi-Fi 6, Bluetooth, ZigBee, Thread y Matter; corazón del badge y de Minino.</li>
+<li><strong>Matter (v1.0)</strong> — estándar IoT unificado; su provisioning de claves en RAM sin encriptar es superficie de investigación.</li>
+<li><strong>SX1276 / LoRa / Meshtastic</strong> — radio de largo alcance para redes mesh comunitarias de mensajería.</li>
+<li><strong>Minino</strong> — firmware open source de auditoría IoT (sniffing Wi-Fi/BT/ZigBee/Thread, deauth, DoS, spoofing HID, spam AirTag).</li>
+<li><strong>Wireshark</strong> — destino de las capturas vía script Python; permite leer tráfico ZigBee descifrado con claves capturadas.</li>
+<li><strong>HunterCat / HunterCat NFC</strong> — detectores de skimmers de banda magnética y NFC, con emulación de tarjetas Visa/Mifare.</li>
+<li><strong>MagSpoof</strong> — emulador de banda magnética open source, base del ingreso al mundo de la seguridad.</li>
+<li><strong>Bus Pirate</strong> — herramienta clásica de acceso a memorias SPI/I2C que el badge 2023 puede reemplazar.</li>
+<li><strong>Home Assistant / ZigBee 3.0</strong> — ecosistema donde el badge puede integrarse como end device.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El ESP32-C6 pone auditoría IoT de nivel profesional en un dispositivo de evento: Matter recién nace y las primeras vulnerabilidades están por descubrirse.</li>
+<li>El firmware Minino convierte el badge en sniffer multi-protocolo con captura de claves ZigBee en texto plano —un salto enorme respecto a un badge decorativo.</li>
+<li>Todo es open source por diseño: sin ofuscación ni protecciones, la ingeniería inversa es una invitación explícita y los pull requests, parte del modelo.</li>
+<li>El badge funciona como infraestructura social: misiones compartidas, brindis colectivos y detección por Bluetooth existen para que nadie se quede solo mirando el teléfono.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bRo-Cc6bkKE">«Entendiendo el Badge de Ekoparty - Andres Sabas &amp; Eduardo Contreras - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

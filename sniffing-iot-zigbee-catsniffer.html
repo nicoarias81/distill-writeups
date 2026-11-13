@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sniffing de redes Zigbee con CatSniffer: del beacon request al network key — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Sniffing de redes Zigbee con CatSniffer: del beacon request al network key</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8VF8-LIomvc">«Ekoparty Webinars: &quot;Gatos con IoT: Analizando redes Zigbee&quot; I Eduardo Contreras y Kevin Jahaziel»</a> · ver el <a class="nz-link" href="https://youtu.be/8VF8-LIomvc">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Las redes IoT van mucho más allá de Wi-Fi y Bluetooth: Zigbee, Thread, Matter y LoRa/LoRaWAN dominan el mundo de los dispositivos de bajo consumo, y son justamente los protocolos menos explorados desde la seguridad. CatSniffer — una tarjeta multiprotocolo y multibanda open source desarrollada junto a Electronic Cats — permite hacer sniffing de todos ellos con una versión actualizada de Wireshark, sin depender de las versiones viejas y quebradizas que exigen los sniffers tradicionales de Bluetooth. El recorrido práctico parte de un laboratorio con Home Assistant, pasa por el hallazgo del canal de la red, la captura del proceso de pairing, la desencriptación con la llave bien conocida de Zigbee y llega hasta la interceptación de una actualización OTA para reconstruir el binario del firmware. La conclusión de fondo: la seguridad de una red Zigbee depende de que el fabricante no deje la llave pública por defecto — y cuando lo hace, toda la red queda expuesta.</p>
+<h2>Contexto: un protocolo que vuelve con fuerza</h2>
+<p>Zigbee salió, quedó un poco abandonado y hoy retoma popularidad porque la industria entra en la era de los dispositivos de bajo consumo, que este protocolo maneja bien. Marcas como Sonoff y Philips lo usan ampliamente (Philips tuvo incluso una vulnerabilidad interesante en sus dispositivos Zigbee). En paralelo aparecen protocolos derivados:</p>
+<ul>
+<li><strong>Thread</strong>: un protocolo que casi no se está explorando en seguridad y donde se anticipan muchas vulnerabilidades por descubrir.</li>
+<li><strong>Matter</strong>: su función principal es comunicar todos los dispositivos entre sí. Thread y Matter son dos protocolos distintos que suelen confundirse porque se combinan — comparten características y se usan de manera conjunta.</li>
+<li><strong>LoRa / LoRaWAN</strong>: el equipo anuncia estar desarrollando el primer sniffer a nivel Wireshark de LoRaWAN con capa física directa.</li>
+</ul>
+<h3>El laboratorio</h3>
+<p>El entorno de pruebas usa <strong>Home Assistant</strong> para el control de dispositivos, lo que permite armar una red IoT agregando varios protocolos soportados: hardware desde ESP32, NRF o productos finales de marca (el kit de Xiaomi basado en Zigbee trae su propio gateway, sensores de movimiento y de puerta, y un switch de escenas). Para el lado del sniffer, los coordinadores posibles van desde un ESP32 (H2, C6 con capa IEEE), un CC2538/CC1352 de Texas Instruments o un NRF52840, hasta el dongle Sonoff con micro EFR32 de Silicon Labs. Con hardware open source y económico se arma un laboratorio completo sin irse por lo costoso.</p>
+<h2>CatSniffer: una tarjeta multiprotocolo</h2>
+<p>Nace de un problema real: hacer sniffing de Bluetooth exigía una herramienta distinta por versión (2.0, 1.2, 4.1, 5.3) y versiones raras o viejas de Wireshark que había que desinstalar y reinstalar. CatSniffer resuelve eso con soporte de Bluetooth, Zigbee, Thread/Matter, SubGHz y LoRa, y firmwares intercambiables: el paquete Sniffer de Texas Instruments, Sniffle para Bluetooth, o firmware propio. Más allá de la auditoría de seguridad, es una herramienta multipropósito útil para desarrolladores que quieren verificar que la comunicación de su dispositivo funciona.</p>
+<p>El puente hacia el análisis es <strong>PyCatSniffer</strong>, que conecta la tarjeta con Wireshark — el estándar de facto para ver paquetes de forma digerible y manipular la información.</p>
+<h3>Flujo de captura</h3>
+<pre class="mermaid">
+flowchart TD
+    A[pycatsniffer + puerto de la tarjeta] --> B[Selección de capa física: 0=Bluetooth, 1=IEEE 802.15.4]
+    B --> C[Canal inicial 11-25]
+    C --> D{¿Canal conocido?}
+    D -- No --> E[channel hopping: barrido canal por canal]
+    E --> F[Identificar canales con tráfico]
+    D -- Sí --> F
+    F --> G[FIFO hacia Wireshark]
+    G --> H[Captura y análisis de paquetes]
+
+</pre>
+
+<p>Los parámetros clave del comando: la capa física (índice 1 corresponde a IEEE 802.15.4, que abarca Zigbee y Thread), el canal de inicio (11 a 25), la apertura de un <strong>FIFO</strong> — una tubería que Wireshark usa para capturas de protocolos externos — y la orden de abrir Wireshark sobre él.</p>
+<h3>El problema del canal</h3>
+<p>A diferencia de Bluetooth — saturado de paquetes en todas partes —, el tráfico cotidiano de una red Zigbee o Thread es escasísimo. Y Zigbee <strong>no hace channel hopping</strong>: si se desconoce la red, hay que buscar el canal. El channel hopping de la herramienta es más una utilidad de reconocimiento que de sniffing funcional: recorre los canales uno por uno para visualizar dónde hay información. En la práctica:</p>
+<ol>
+<li>Poner un dispositivo en modo <strong>pairing</strong> (su botón dispara el proceso de "steering": manda paquetes buscando a qué red conectarse).</li>
+<li>Observar en qué canales aparecen paquetes — descartando los <strong>beacon requests</strong>, que se envían en todo el rango y no orientan.</li>
+<li>Fijarse en un canal y capturar; si no llega nada, probar canales vecinos (las redes Zigbee suelen colocarse en canales intermedios como el 15, y buscan canales con poca transferencia).</li>
+<li>En un entorno controlado, accionar los dispositivos para generar tráfico y delatar el canal.</li>
+</ol>
+<h2>Anatomía de la seguridad Zigbee</h2>
+<p>Una red Zigbee distribuida comparte llaves entre los dispositivos finales y el coordinador (o Trust Center), que administra la red y mueve las llaves entre todos los dispositivos. El punto débil es la primera llave del intercambio: la conocida llave pública <strong>"Zigbee 09"</strong>, trivial de encontrar en internet y usada por el propio protocolo en sus implementaciones por defecto.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant D as Dispositivo final
+    participant C as Coordinador (Trust Center)
+    D->>C: Beacon request ("estoy aquí, ¿dónde me conecto?")
+    C-->>D: Beacon de respuesta
+    D->>C: Association request (parámetros IEEE)
+    C-->>D: Association response
+    D->>C: Data request
+    C-->>D: Transport-key (network key)
+    D->>C: Request key
+    C-->>D: Transport-key (Trust Center Link Key)
+    Note over D,C: Con ambas llaves capturadas, la red queda desencriptada
+
+</pre>
+
+<p>Si el fabricante deja la llave pública por defecto — y confía en que el usuario instale sus propios códigos de seguridad, algo que rara vez ocurre —, se puede desencriptar toda la información: dispositivos, endpoints, todos los paquetes, hasta las llaves propias que se intercambian durante el pairing. La clave se carga en Wireshark desde preferencias → protocolos → Zigbee → claves preconfiguradas (conviene nombrar cada clave para saber cuál es la de defecto).</p>
+<h3>La captura del pairing, paquete a paquete</h3>
+<p>Con la llave cargada, el handshake completo se vuelve legible y se distinguen las capas de cada paquete: la capa <strong>IEEE 802.15.4</strong>, la capa de <strong>red</strong> (de qué dispositivo a qué dispositivo viaja la información) y la capa de <strong>soporte/aplicación</strong>, donde viaja el transporte con la clave. El momento crítico es el <strong>transport-key</strong>: primero llega el <em>network key</em>; después, en el <em>request key</em>, el dispositivo pide formalmente su llave y llega un segundo transporte con la <strong>Trust Center Link Key</strong> — distinta de la primera y la que realmente otorga acceso completo. Sin la llave, en cambio, solo se ven asociaciones y comandos genéricos: la diferencia entre ver tráfico y entender la red.</p>
+<p>Si aun con la llave pública los paquetes no se desencriptan, la red tiene códigos propios instalados y el camino se alarga: dumpear el firmware, hacer reversing y buscar llaves dentro del código — los fabricantes a veces las dejan en los <em>defines</em>.</p>
+<h2>Zigbee 1.0 vs 3.0 y los vectores de ataque</h2>
+<p>Gran parte del parque de dispositivos funciona todavía con <strong>Zigbee 1.0</strong>, que encripta con la versión vieja del protocolo. Zigbee 3.0 incorpora protección específica para el aprovisionamiento de llaves, así que los sistemas se vuelven más seguros con el tiempo — pero mientras tanto, sobre 1.0 son viables:</p>
+<ul>
+<li><strong>Ataques de replay</strong>: replicar paquetes capturados.</li>
+<li><strong>Personificación / mimetización del sensor</strong>: hacerse pasar por un dispositivo de la red.</li>
+<li><strong>Interceptación de actualizaciones OTA</strong>: los paquetes OTA viajan como <em>payloads</em> dentro de los frames; buscando los <em>responses</em> se recuperan los strings del binario (firmware ESP32, por ejemplo) y, con una herramienta que empaqueta esa información, se reconstruye el binario completo para hacer reversing del firmware.</li>
+<li><strong>Jamming + rogue coordinator</strong>: scripteando la CatSniffer para detectar un beacon request, hacer jamming al servidor para bloquear la comunicación y levantar un servidor propio — el beacon se conecta al atacante y este toma control de la red.</li>
+<li><strong>Escenarios críticos</strong>: no es lo mismo una actualización OTA que una transferencia en un POS bancario, donde la modificación o replicación de paquetes al vuelo sí puede ser crítica.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CatSniffer</strong>: tarjeta multiprotocolo y multibanda open source (Electronic Cats) para sniffing de Bluetooth, Zigbee, Thread/Matter, SubGHz y LoRa con firmwares intercambiables.</li>
+<li><strong>PyCatSniffer</strong>: puente entre la tarjeta y Wireshark; selecciona capa física, canal inicial y abre un FIFO sobre el que corre la captura.</li>
+<li><strong>Wireshark</strong>: análisis de paquetes, con carga de claves Zigbee preconfiguradas (preferencias → protocolos → Zigbee) para desencriptar la red.</li>
+<li><strong>Home Assistant</strong>: hub del laboratorio para agregar dispositivos de varios protocolos IoT.</li>
+<li><strong>Coordinadores/dongles</strong>: ESP32 (H2, C6), CC2538/CC1352 de Texas Instruments, NRF52840 y dongle Sonoff con EFR32 de Silicon Labs.</li>
+<li><strong>Firmwares de sniffer</strong>: Sniffer de Texas Instruments, Sniffle para Bluetooth y firmware propio de CatSniffer.</li>
+<li><strong>Well-known key "Zigbee 09"</strong>: llave pública por defecto del protocolo, trivial de encontrar en internet; habilita la desencriptación completa del tráfico.</li>
+<li><strong>Channel hopping</strong>: barrido canal por canal (11–25) para localizar el canal de la red — utilidad de reconocimiento, no de sniffing.</li>
+<li><strong>Kit Xiaomi Zigbee</strong>: gateway, sensores de movimiento y de puerta, y switch de escenas para generar tráfico controlado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El sniffing de Zigbee exige resolver primero el canal (la red no hace hopping y su tráfico cotidiano es mínimo): channel hopping de reconocimiento, dispositivos en modo pairing y paciencia — los beacon requests no orientan porque se mandan en todo el rango.</li>
+<li>La seguridad de la red se juega en las llaves: si el fabricante deja la "Zigbee 09" pública por defecto, beacon request, association, transport-key y request key se vuelven legibles en Wireshark y la red completa queda expuesta; con códigos propios, el camino pasa por dumpear y reverear el firmware.</li>
+<li>CatSniffer demuestra que un laboratorio IoT multiprotocolo (Zigbee, Thread, Matter, LoRa) es accesible con hardware open source y económico — y que los protocolos de bajo consumo, poco explorados en seguridad, son una frontera con muchas vulnerabilidades por descubrir.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8VF8-LIomvc">«Ekoparty Webinars: &quot;Gatos con IoT: Analizando redes Zigbee&quot; I Eduardo Contreras y Kevin Jahaziel»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

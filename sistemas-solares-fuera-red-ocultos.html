@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exponer lo oculto en sistemas solares fuera de la red — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Exponer lo oculto en sistemas solares fuera de la red</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/wCt-93lEIME">«DEF CON 32 - Exposing the Occultations in Large Off-Grid Solar Systems - Dan Berte &amp; Alexandru Lazar»</a> · ver el <a class="nz-link" href="https://youtu.be/wCt-93lEIME">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Dan Berte y Alexandru Lazar, investigadores de IoT de Bitdefender con más de una década dedicada a auditar dispositivos de consumo —Ring, televisores LG, Fire Stick, cerraduras August, Wyze, Owlet y decenas más—, volcaron su mirada sobre la energía solar fotovoltaica: más de 500 gigavatios de capacidad añadida solo el último año, tres cuartas partes de crecimiento explosivo, con una seguridad que no acompasa ni de cerca el endurecimiento de la generación eléctrica tradicional. Su auditoría sobre el fabricante DAE y la plataforma de medición SolarMan destapó una cadena de fallos —credenciales hardcodeadas, filtración de datos de 3,5 millones de usuarios, y una falla de validación de tokens JWT que permitía tomar control de cualquier cuenta— en una plataforma que administra cerca de un quinto de la capacidad solar generada del mundo, más que toda la generación fotovoltaica de Estados Unidos.</p>
+<h2>El punto de partida: la red eléctrica "protegida" y la duda solar</h2>
+<p>El contexto previo es casi cómico: durante más de una década y media, el "terrorista más buscado" de la red eléctrica estadounidense fue... la ardilla. Existe hasta un índice de ardillas en Wikipedia, y ni menos que un exsubdirector de la NSA declaró que la amenaza número uno de la red eran las ardillas, cuyo daño supera al de los ciberataques. La narrativa dominante sostiene que la red eléctrica es tan regulada y protegida que los males del ciberataque no aplican. Pero la energía solar entra en escena con otro perfil: sistemas inteligentes controlables a distancia, crecimiento explosivo y un endurecimiento y regulación claramente menores que los de la generación heredada. La pregunta que motorizó la investigación: ¿la seguridad está creciendo al mismo ritmo que la capacidad? El detonante concreto fue una observación de un colega tras instalarse un sistema en la oficina: un inversor podía añadirse a ambas plataformas usando la aplicación y <strong>solo el número de serie</strong>. Eso merecía excavarse.</p>
+<h2>Arquitectura del sistema: dónde se conecta todo a internet</h2>
+<p>La topología es la misma para usuarios residenciales que para plataformas grandes: los paneles solares del techo conectan a un inversor que alimenta la red eléctrica; el inversor se conecta a un <strong>data logger</strong> que hace de puente entre todos los sistemas; y el logger envía la información a la nube, que alimenta las aplicaciones y los sistemas de gestión. El logger es el conducto que conecta todo a internet y es responsable de la configuración, la recolección de datos y las actualizaciones de todo el sistema —además, tiene que estar conectado, porque de otro modo no funciona con la red—. Los usuarios finales controlan el sistema desde el teléfono o la plataforma, y pueden hablar directamente con la nube.</p>
+<h2>Primer fallo: la cuenta hardcodeada con la contraseña 123456</h2>
+<p>El equipo arrancó con un man-in-the-middle sobre la aplicación en la nube de DAE, usando únicamente el certificado del usuario —sin necesidad de parchear la aplicación—. Entre el tráfico apareció una solicitud de inicio de sesión sospechosa con credenciales hardcodeadas: un usuario fijo en el dominio de SolarMan cuya contraseña era <code>123456</code>, primer puesto de la lista de contraseñas más comunes. ¿Para qué sirve esa cuenta? Para obtener información sobre el dispositivo de cualquier usuario —modelo, versión y, la joya, la <strong>contraseña del logger</strong>—. Y no está vinculada a ninguna cuenta de usuario: funciona para cualquier dispositivo, sea quien sea el dueño.</p>
+<p>El complemento del ataque: mientras el logger está en funcionamiento mantiene activo un punto de acceso Wi-Fi cuyo SSID sigue un esquema cómodo —<code>AP_</code> seguido del número de serie—. La cadena de ataque completa: encontrar un punto de acceso que calce con el esquema, extraer el número de serie, pedir la contraseña del logger con la cuenta hardcodeada, conectarse al punto de acceso y cobrar. Con acceso a la interfaz del logger se obtiene también la red Wi-Fi del usuario y se le pueden enviar comandos directos. Las contras: exige proximidad física, exige mantenerla, y solo da un dispositivo por vez —y por más divertido que sea el war driving, no es eficiente—. Se podía hacer mejor.</p>
+<h2>Segundo fallo: la API de búsqueda que filtra a 3,5 millones de usuarios</h2>
+<p>Al explorar las funciones de la plataforma apareció el detalle de que los usuarios solo pueden ver estadísticas de su propio sistema, y que para hacer cambios deben añadir una cuenta de negocio como invitada. La búsqueda de esos negocios pasa por una API que devuelve datos de <strong>todos</strong> los usuarios y organizaciones. En la interfaz solo se ve el nombre del negocio; en el backend llegan correos, teléfonos, direcciones e identificadores de usuario. Por ejemplo, para un negocio: nombre administrativo y teléfono del administrador; para los usuarios: la IP del último inicio de sesión y la dirección física, si la cargaron. Por sí solo es un problema de privacidad, no de acceso, pero sirvió para acotar la escala del sistema: unos 3,5 millones de usuarios y más de 300.000 negocios. Números que después resultarían clave.</p>
+<h2>Tercer fallo: tokens JWT sin validar entre DAE y SolarMan</h2>
+<p>Hasta hace poco, DAE corría sobre la infraestructura de SolarMan; después construyó su propio centro de datos y migró a sus usuarios a una base nueva. El código en el nuevo centro resultó ser muy similar. Primera consecuencia: un token de DAE funciona en SolarMan y da acceso a la cuenta con el mismo identificador de usuario —pero como los usuarios fueron migrados, hoy tienen identificadores distintos entre plataformas—. Como esos identificadores son incrementales —una cuenta nueva recibe uno cercano a 14 millones en SolarMan y a 13 millones en DAE—, crear cuentas nuevas en DAE bastaba para tomar el control de más de un millón de cuentas. Buen resultado, pero todavía había margen para algo más grande.</p>
+<p>El mecanismo de autenticación de las cuentas de negocio tiene tres pasos. Primero, un inicio de sesión normal con correo y contraseña hasheada devuelve un JWT con el correo y el identificador de usuario. Segundo, con ese token se consulta la lista de organizaciones que el administrador puede gestionar. Tercero, una nueva solicitud al mismo endpoint —con el token en la cabecera de autorización y también en el cuerpo del mensaje junto con el identificador de la organización elegida— devuelve el token definitivo con acceso a esa organización. La falla: <strong>el endpoint del tercer paso construye el token final a partir del token que llega en el cuerpo del mensaje, sin verificar nada</strong>. Cambiar el identificador de usuario y el correo en el token enviado... simplemente funcionó: sin chequeos de firma, sin errores, sin siquiera necesidad de la cabecera de autorización. El token fabricado con firma inválida llegaba, y el servidor respondía con un token válido y firmado que daba acceso a cualquier cuenta que se quisiera. Y como la API de búsqueda del fallo anterior entrega identificador y correo de todas las cuentas, el universo de toma de control escaló a los 3,5 millones de usuarios y más de 330.000 negocios que controlan múltiples sistemas.</p>
+<pre class="mermaid">
+flowchart TD
+    A[JWT del admin de negocio: sin firma válida pero con ID y email manipulados] --> B[Endpoint de organización no valida el token del cuerpo]
+    B --> C[El servidor emite un JWT válido firmado para la organización elegida]
+    C --> D[Acceso total a cualquier cuenta: 3,5M usuarios, 330K negocios]
+
+</pre>
+
+<h2>Impacto: PII, la red eléctrica y un quinto de la capacidad solar mundial</h2>
+<p>La lista de fabricantes afectados es probablemente mayor de lo confirmado: la plataforma es compartida y muchos venden el mismo backend —varios parchearon de inmediato al recibir el aviso y notificaron a sus usuarios—. El impacto tiene dos capas. La primera es la filtración de datos personales: ubicación y datos de los usuarios al alcance de un atacante con acceso a la plataforma. La segunda es física: con control de los inversores a través de la plataforma de gestión, un actor malicioso podría sobrecargar o subcargar la red eléctrica —y de ahí en adelante, la imaginación corre sola—. Para dimensionar: la plataforma administra cerca de un quinto de la capacidad solar total del planeta. La pregunta que deja el estudio es si esto, finalmente, le gana a las ardillas: el objetivo no es sembrar pánico sobre la energía solar sino encender una luz —la situación está cambiando y merece más atención—.</p>
+<h2>Coordinación y cronología</h2>
+<p>El contacto con las empresas ocurrió a mediados de mayo; ambas fueron razonablemente receptivas en reconocer y corregir —la falla crítica de tokens quedó reparada <strong>en 24 horas</strong> desde el aviso—, y la divulgación se cerró pocos días antes del evento, con los hallazgos ya publicados. En contraste, la estadística acumulada de una década de investigación de IoT del equipo es dura: más del 30% de los fabricantes nunca responde, o responde tarde, al contacto —a menudo más de 180 días—, y un 20% tarda más de un año en corregir o nunca parchea, a veces superando el fin de vida del producto.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El crecimiento supera a la seguridad</strong>: 500 gigavatios nuevos por año sobre sistemas inteligentes controlables a distancia, con un endurecimiento y regulación muy por debajo de la generación eléctrica tradicional, es una superficie de ataque que se expande sola.</li>
+<li><strong>Las credenciales hardcodeadas siguen siendo el fallo más rentable</strong>: una cuenta de servicio con contraseña 123456, sin vínculo con ningún usuario, convertía un número de serie público en contraseña de un logger conectado a internet.</li>
+<li><strong>Los detalles aparentemente inofensivos escalar el daño</strong>: una API de búsqueda que solo filtraba privacidad terminó siendo el catálogo de identificadores y correos que multiplicó el alcance real de la falla de autenticación.</li>
+<li><strong>La confianza en el cuerpo del mensaje es una falla de diseño</strong>: construir el token de organización a partir de un JWT enviado por el cliente, sin verificar firma ni contenido, permitió emitir credenciales válidas para cualquier cuenta con un token fabricado.</li>
+<li><strong>La conexión entre plataformas multiplica los fallos</strong>: la herencia de código y de base de datos entre DAE y SolarMan convirtió una vulnerabilidad de un proveedor en un problema de todo un ecosistema de fabricantes.</li>
+<li><strong>El riesgo ya no es solo de datos</strong>: controlar inversores masivamente habilita manipular el equilibrio de carga de la red eléctrica —el escenario de seguridad nacional que las ardillas ya no cubren solas.</li>
+<li><strong>La divulgación coordinada funciona</strong>: respuesta en 24 horas para el fallo crítico demuestra que con un canal de contacto y un programa de divulgación de vulnerabilidades —URL, clave PGP, bandeja monitoreada— el ciclo de corrección se mide en días y no en años.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/wCt-93lEIME">«DEF CON 32 - Exposing the Occultations in Large Off-Grid Solar Systems - Dan Berte &amp; Alexandru Lazar»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

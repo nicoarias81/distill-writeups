@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fast and Furious: el reto de la seguridad de la cadena de suministro en DevOps — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Fast and Furious: el reto de la seguridad de la cadena de suministro en DevOps</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/F8PTBrGqevY">«Fast and Furious: Reto Supply Chain Security en DevOps»</a> · ver el <a class="nz-link" href="https://youtu.be/F8PTBrGqevY">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cuando aparece una vulnerabilidad en la cadena de suministro del software, la reacción tiene que ser tan rápida como en una película de acción — pero lo que suele pasar es lo contrario: se llega al final con el auto destruido por no revisar bien la seguridad. El exponente — director regional de ventas en Lugapel, profesor adjunto de desarrollo de software seguro y ex jefe del CECIRT del Ejército de Uruguay — trajo una mirada de purple team: no solo red, sino cómo equipos azules y de aplicación pueden potenciar sus defensas con lo que los atacantes ya están haciendo. Tres casos reales estructuraron el trabajo: el phishing que comprometió 18 paquetes de NPM con 2.000 millones de descargas semanales, un dependency confusion contra una aerolínea de infraestructura crítica (su propio cliente), y un intento fallido pero ingenioso de Lazarus escondiendo código malicioso en un scroll de cinco líneas.</p>
+<h2>Los tres eslabones del software</h2>
+<p>La seguridad de la cadena de suministro en desarrollo se apoya en tres puntos: <strong>componentes</strong> (todo lo que compone la aplicación), <strong>dependencias</strong> (sobre todo librerías de los lenguajes, el pilar del trabajo) y <strong>procesos</strong> (cómo se hacen las cosas, con qué elementos y cómo se implementan). Los eslabones concretos de una cadena de suministro de software son: librerías de terceros, paquetes del sistema operativo, imágenes de Docker y sus dependencias, APIs externas y — el vector recién descubierto — las herramientas de construcción. Semanas antes, atacantes comprometieron más de media docena de plugins de Visual Studio Code: el IDE del desarrollador pasó a ser vehículo válido para un ataque.</p>
+<p>¿Quién es objetivo? Todos. Pero hay objetivos predilectos: quien sea parte vital del ecosistema de IT de un país — infraestructura crítica, gobierno, salud — y, curiosamente, quienes tienen la seguridad más robusta. Es la lógica del ladrón de casas: ante rejas, cerco eléctrico y puerta blindada, es más fácil hacerse pasar por el jardinero del viernes a las 10. Y los ataques recientes a librerías no apuntan a un objetivo específico: apuntan al mundo entero, a capturar la mayor cantidad de datos o dinero posible.</p>
+<h2>Caso 1: el phishing que tumbó a NPM</h2>
+<p>En septiembre de 2025, Josh Shunon — conocido como Qix, mantenedor de paquetes fundamentales de Node.js — recibió un correo supuestamente de NPM pidiéndole registrar un segundo factor de autenticación o quedaría bloqueado. El dominio parecía legítimo (lo habían creado apenas tres días antes), él cayó, y le secuestraron la cuenta. Detalle clave: NPM no exigía 2FA ni para mantenedores de dependencias críticas — se venía anunciando que lo haría, y por eso el correo no le resultó extraño.</p>
+<p>Inmediatamente se publicaron 18 librerías con código malicioso que combinaban 2.000 millones de descargas por semana. La mala suerte de los atacantes fue la velocidad de reacción: la comunidad alertó los pushes extraños, Shunon denunció el phishing en LinkedIn a las dos horas, otro mantenedor lo sacó como administrador de los paquetes, y en las primeras cuatro horas resolvieron 12 de los 18 — sobrescribiendo versiones con versiones seguras y aislando la cuenta — hasta que NPM intervino, limpió las dependencias y le devolvió el acceso.</p>
+<p>El código inyectado era sofisticado y multicapa: monitoreaba transacciones de criptomonedas detectando llamadas a APIs de cripto y, al momento del pago, cambiaba la dirección de destino. Desde el front el usuario veía la información correcta; en el back pagaba a otra persona.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante
+    participant J as Mantenedor (Qix)
+    participant N as NPM
+    participant M as Millones de apps
+    A->>A: Crea dominio falso (3 días antes)
+    A->>J: Phishing "registrá tu 2FA"
+    J->>A: Cae y entrega credenciales
+    A->>N: Publica 18 paquetes maliciosos
+    N->>M: 2.000M de descargas/semana expuestas
+    M->>M: Robo: se altera la dirección de pago en cripto
+    J-->>N: Alerta a las 2 horas + comunidad
+    N->>N: 12/18 paquetes corregidos en 4 horas
+
+</pre>
+
+<h2>Caso 2: dependency confusion en una aerolínea</h2>
+<p>En abril o mayo del mismo año, un cliente de infraestructura crítica — una aerolínea — sufrió dependency confusion. Tenían dependencias privadas nombradas como <em>organización-función</em> (por ejemplo, <em>organización-carrito</em>), nunca publicadas en registros públicos: seguridad por oscuridad. Un atacante que descubrió el nombre subió a NPM un paquete con el mismo nombre, con código malicioso. El objetivo: que el manejador de paquetes, mal configurado, fuera primero a NPM en vez del Artifactory e instalara la versión pública maliciosa en lugar de la privada legítima.</p>
+<p>La detección vino de una herramienta de SCA que levantó con flag a la dependencia <em>privada</em> como maliciosa. La primera reacción del equipo fue la esperable — "tu herramienta es una mierda, me detectó mi propia librería" — pero el análisis del paquete confirmó un backdoor: un C2 que, al instalarse y desplegarse la aplicación, conectaba el servidor con el centro de comando y control del atacante.</p>
+<p>La mitigación reveló un problema cultural: el equipo trabajaba en gestión proactiva de vulnerabilidades de código, no en respuesta a un ataque real. El proceso, con un SBOM organizacional que listaba las dependencias de los 8.000 repositorios: filtrar qué repos usaban la librería, ver cuáles habían corrido por pipeline desde la publicación del paquete, verificar que todos los entornos apuntaran al Artifactory. Por suerte, ningún pipeline había instalado la dependencia. En paralelo se reportó a NPM y se dio de baja el paquete.</p>
+<p>Las recomendaciones que quedaron: usar un Artifactory y verificar que las instalaciones apunten a él; versionar las dependencias públicas en el propio Artifactory para no golpear a NPM constantemente; whitelist de fuentes autorizadas de descarga. Y la estrategia de otro cliente: <strong>reservar los nombres</strong> de las dependencias privadas en NPM — paquetes vacíos pero propios — en lugar de apostar a que nadie conozca el nombre.</p>
+<h2>Caso 3: Lazarus y el scroll de cinco líneas</h2>
+<p>Lazarus, el APT norcoreano que compromete para financiarse — no para robar información —, subió a NPM una librería <em>react-html-to-pdf</em> por typosquatting, imitando una dependencia muy usada de React. El ataque, además, se hizo en vivo: subían una versión, no funcionaba, subían otra — la comunidad los vio debuguear su propio ataque en tiempo real.</p>
+<p>Lo notable fue el ocultamiento. La convención en ataques de suministro es usar scripts de pre-install o post-install para ejecutar el compromiso; aquí el <code>main</code> tenía cinco líneas, un kilobyte. La única rareza: un <code>scroll</code>. Al formatear el código, ese "scroll" era una etiqueta que escondía un IIFE que traía un recurso externo y lo ejecutaba — ahí estaba la carga maliciosa. Otras técnicas de ocultamiento vistas: caracteres especiales de Unicode que a la vista parecen espacios en blanco, y el caso reportado ese mismo año de un APT que desofuscaba en Base64 un código que llamaba a un evento de Google Calendar, también en Base64, que al decodificarse disparaba la descarga del recurso externo.</p>
+<h2>Qué hacer desde cada lado del equipo</h2>
+<p>Para el red team, las tácticas de los casos son replicables dentro de la propia organización: phishing dirigido a desarrolladores clave — quienes manejan dependencias privadas o tienen acceso privilegiado al Artifactory o los pipelines — para robar credenciales y probar si se llega a publicar código; simular un paquete malicioso por typosquatting; usar a un desarrollador como vehículo para introducir un pull request con código malicioso (como la race condition de GitHub que regalaba miles de likes para que los PRs maliciosos parecieran populares) y verificar si el código llega a producción; y revisar las dependencias existentes buscando vulnerabilidades conocidas con exploits disponibles para pentestearlas.</p>
+<p>Para DevOps y los equipos azules: educar a devs y mantenedores en phishing — van a ser público objetivo —, implementar segundo factor de autenticación y firmas digitales en las librerías, mantener un Artifactory con control cruzado de firmas, y fijar configuraciones correctas de resolución de dependencias en todos los proyectos, porque en dependency confusion basta un solo proyecto mal configurado para que el compromiso sea exitoso.</p>
+<pre class="mermaid">
+flowchart TD
+    A["Ataque a la cadena de suministro"] --> B["Typosquatting\nnombre parecido"]
+    A --> C["Dependency confusion\nprivada suplantada en registro público"]
+    A --> D["Secuestro de cuenta\ndel mantenedor"]
+    A --> E["Contribución maliciosa\nPRs con likes falsos"]
+    A --> F["Compromiso de herramientas\nde desarrollo / IDE"]
+    C --> G["Defensa: Artifactory + whitelist\nde fuentes"]
+    D --> H["Defensa: 2FA + firmas digitales"]
+    E --> I["Defensa: revisión de PRs\nsin confiar en popularidad"]
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>La cadena de suministro del software tiene eslabones que van mucho más allá de SolarWinds: librerías, paquetes del sistema operativo, imágenes de Docker, APIs externas y ahora hasta los plugins del IDE — y un ataque por cualquiera de ellos te hackea igual que por el camino más frecuente.</li>
+<li>El caso de NPM demostró que se puede atacar la piedra fundamental de un lenguaje sin apuntar a nadie en concreto, y que la diferencia entre un desastre global y un incidente contenido fue la velocidad de la comunidad: alerta a las dos horas, 12 de 18 paquetes corregidos en cuatro.</li>
+<li>El dependency confusion convierte la seguridad por oscuridad en una vulnerabilidad: esconder el nombre de una dependencia privada no es defensa; reservar el nombre en el registro público y forzar que todo instale desde el Artifactory sí lo es.</li>
+<li>El ocultamiento de código malicioso puede ser tan simple como un <code>scroll</code> en cinco líneas o tan exótico como un evento de Google Calendar en Base64: la revisión de dependencias exige mirar más allá de los scripts de instalación.</li>
+<li>El red team tiene un campo de juego nuevo y barato: replicar phishing a mantenedores, dependency confusion y pull requests maliciosos dentro de la propia organización — si funciona en el pentest interno, funcionaría en Internet.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/F8PTBrGqevY">«Fast and Furious: Reto Supply Chain Security en DevOps»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

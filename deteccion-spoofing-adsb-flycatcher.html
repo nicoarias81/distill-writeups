@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detección de spoofing ADS-B con Flycatcher — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Detección de spoofing ADS-B con Flycatcher</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/KytDyg5s-E8">«DEF CON 33 - Skytalks - Flycatcher - Kendal Conway»</a> · ver el <a class="nz-link" href="https://youtu.be/KytDyg5s-E8">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Flycatcher es un dispositivo de bajo costo para monitorear ADS-B y detectar aviones fantasma generados por spoofing. Combina un Raspberry Pi con radios definidos por software y una red neuronal densa propia entrenada para clasificar transmisiones como legítimas o falsificadas, alcanzando una precisión del 90%. El dispositivo es portátil, funciona con batería y llegó a volar instalado en la parte trasera de un Sport Cruiser sobrevolando el sur de Los Ángeles para recolectar datos de entrenamiento en entornos reales.</p>
+<h2>ADS-B: qué transmite y por qué es vulnerable</h2>
+<p>ADS-B (Automatic Dependent Surveillance-Broadcast) es la tecnología obligatoria de vigilancia aérea. Desglosado: <strong>automático</strong> (sin intervención del piloto), <strong>dependiente</strong> (necesita GPS satelital para posición), <strong>vigilancia</strong> (transmite datos completos del avión: velocidad, altitud, posición) y <strong>broadcast</strong> (emite continuamente para que control aéreo, otros aviones y receptores terrestres triangulen su posición).</p>
+<p>La cadena: receptor GPS → transpondedor (protocolo Mode S) → paquetes a 1090 MHz → receptores en tierra y en otros aviones. Además, el ADS-B <strong>In</strong> permite a los pilotos monitorear el tráfico cercano.</p>
+<p>El problema de fondo: <strong>sin autenticación y sin cifrado</strong>. No hay verificación de la transmisión; cualquiera que sintonice la frecuencia lee todo, y cualquier transmisor terrestre puede inyectar paquetes que se aceptan sin cuestionamiento. Vectores de ataque:</p>
+<ul>
+<li><strong>Jamming</strong>: inundar la frecuencia con datos basura.</li>
+<li><strong>Spoofing</strong>: jamming selectivo con paquetes fabricados a medida — crea un <strong>avión fantasma</strong> en el feed que no existe.</li>
+<li><strong>Replay</strong>: retransmitir paquetes capturados antes, duplicando un avión real.</li>
+<li><strong>Inyección de mensajes</strong>: manipular telemetría puntual (altitud, velocidad, posición).</li>
+</ul>
+<h2>El dispositivo</h2>
+<p>Construcción en cuatro pasos: estación terrestre de recepción → conversión en dispositivo portátil → entrenamiento de la red neuronal → vuelo con el dispositivo para recolectar datos.</p>
+<p>Estación terrestre:</p>
+<ul>
+<li><strong>FlightAware Pro Stick Plus</strong> (SDR basado en chipset RTL2832U, configurable con decodificadores dum1090)</li>
+<li>Antena rubber ducky de 1090 MHz</li>
+<li>Raspberry Pi ejecutando <strong>dump1090</strong>, que decodifica los paquetes Mode S y produce salida JSON</li>
+<li>Dashboard <strong>FlightAware</strong> para visualización</li>
+</ul>
+<p>La estructura del paquete ADS-B: bits iniciales de downlink format, transponder capability, designación ICAO (identificador único por aeronave), mensaje en los bits 33-88 y parity al final.</p>
+<p>Versión portátil: Raspberry Pi 3B, carcasa personalizada, pantalla TFT encima, antena rubber ducky y batería abajo. Durable, compacta, utilizable en cualquier sitio.</p>
+<h2>Detección de aviones fantasma con una red neuronal</h2>
+<p>Un avión genuino muestra un perfil de vuelo coherente: ascenso con velocidad y altitud crecientes, crucero, descenso final. Los spoofed planes se delatan por inconsistencias:</p>
+<ul>
+<li><strong>Posición</strong>: coordenadas GPS incoherentes con la fase de vuelo o apariciones abruptas en ubicaciones distintas.</li>
+<li><strong>Altitud</strong>: varianza anómala en las gráficas.</li>
+<li><strong>Identificación</strong>: campos nulos o vacíos en la estructura del mensaje.</li>
+</ul>
+<p>Con estos vectores de características se construyó una <strong>red neuronal densa</strong> en TensorFlow: tres capas densamente conectadas con activación <strong>ReLU</strong> y capa final <strong>sigmoide</strong> como clasificador binario (0 = legítimo, 1 = spoofed).</p>
+<p>Datos de entrenamiento:</p>
+<ul>
+<li>Registros históricos de <strong>ADS-B Exchange</strong> (datos desde los 2000), <strong>FlightAware</strong> y <strong>OpenSky</strong>, en CSV.</li>
+<li>Datos propios de la estación terrestre y del dispositivo a bordo, guardados a CSV tras pasar por dump1090.</li>
+</ul>
+<p>El cuello de botella fueron los datos de spoofing: no hay archivos públicos (y conseguirlos plantea problemas legales). Alrededor de la mitad de las señales falsificadas del conjunto se <strong>generaron manualmente</strong>, adoptando la perspectiva del atacante para fabricar mensajes ADS-B con apariencia de spoofing. Los datos legítimos, en cambio, abundan.</p>
+<p>Visualización de clasificaciones con la librería <strong>Folium</strong>, que traza los aviones marcados como spoofed en un mapa.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Antena 1090 MHz] --> B[SDR FlightAware<br/>Pro Stick Plus]
+    B --> C[Raspberry Pi + dump1090<br/>JSON]
+    C --> D[CSV de features<br/>posicion, altitud, ID]
+    D --> E[DNN TensorFlow<br/>ReLU x3 + sigmoide]
+    E --> F{Clasificador binario}
+    F -->|0| G[Avion legitimo]
+    F -->|1| H[Avion spoofed]
+    H --> I[Mapa Folium]
+
+</pre>
+
+<h2>Recolección aérea</h2>
+<p>El dispositivo viajó en la parte trasera de un <strong>Sport Cruiser</strong> monomotor, volando por Santa Monica, Torrance, Malibu, Palisades, Burbank y downtown Los Ángeles. La estrategia de ubicaciones mezcló deliberadamente:</p>
+<ul>
+<li><strong>Aeropuertos comerciales</strong> (LAX, Burbank): 747 y aviación de línea.</li>
+<li><strong>Aeropuertos locales</strong> (Santa Monica, Van Nuys): helicópteros, monomotores, bimotores — más variedad de firmas.</li>
+</ul>
+<p>El resultado es un conjunto de datos que refleja tanto aviación general como comercial.</p>
+<h2>Mejoras identificadas</h2>
+<ul>
+<li><strong>RSSI fingerprinting</strong>: el enfoque actual analiza el <em>contenido</em> de los mensajes, no la señal. Analizar la potencia de recepción de cada transmisor permitiría localizar el origen físico: un avión genuino produce RSSI consistente, un spoofed muestra desviaciones. Es el siguiente paso de inteligencia de señales.</li>
+<li><strong>Otros modelos</strong>: RNN, LSTM o técnicas de reinforcement learning sobre la red actual para superar el 90%.</li>
+<li><strong>Data augmentation</strong> sobre las señales spoofed generadas manualmente para ampliar el conjunto de entrenamiento.</li>
+<li>Más datos de spoofing realistas, que exigen acceso a fuentes especializadas en inteligencia de señales de aviación.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ADS-B / Mode S</strong>: protocolo de vigilancia aérea sin cifrar a 1090 MHz.</li>
+<li><strong>Ghost plane</strong>: aeronave falsa inyectada por spoofing.</li>
+<li><strong>SDR RTL2832U + dump1090</strong>: recepción y decodificación de paquetes ADS-B a JSON.</li>
+<li><strong>Raspberry Pi 3B</strong>: plataforma del dispositivo portátil.</li>
+<li><strong>Red neuronal densa (TensorFlow)</strong>: ReLU en tres capas, sigmoide final, precisión del 90%.</li>
+<li><strong>RSSI fingerprinting</strong>: identificación por huella de potencia de señal (mejora futura).</li>
+<li><strong>ADS-B Exchange, FlightAware, OpenSky</strong>: fuentes históricas de datos.</li>
+<li><strong>Folium</strong>: visualización geográfica de clasificaciones.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La ausencia de autenticación y cifrado en ADS-B convierte el spoofing en un ataque trivial de fabricar; la defensa pasa por detectarlo, no por impedirlo.</li>
+<li>Las inconsistencias de telemetría (posición, altitud, identificación) son señales suficientes para clasificar aviones fantasma con una red simple y hardware de consumo.</li>
+<li>La escasez de datos de spoofing es el límite real de estos sistemas: la mitad del conjunto de ataque se tuvo que fabricar a mano.</li>
+<li>El análisis de contenido puede complementarse con inteligencia de señales pura (RSSI) para localizar transmisores falsos, y la portabilidad del dispositivo permite recolectar en vuelo donde las estaciones fijas no llegan.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/KytDyg5s-E8">«DEF CON 33 - Skytalks - Flycatcher - Kendal Conway»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

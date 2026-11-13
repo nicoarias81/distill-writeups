@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Descifrar firmware para criptográficamente analfabetos: los autogoles de D-Link — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Descifrar firmware para criptográficamente analfabetos: los autogoles de D-Link</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TcxVExGxEtk">«DEF CON 33 - Firmware Decryption: For, and By, the Cryptographically Illiterate - Craig Heffner»</a> · ver el <a class="nz-link" href="https://youtu.be/TcxVExGxEtk">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El autor de Binwalk y analista de firmware recorre tres errores clásicos con que los fabricantes "protegen" sus imágenes de firmware — y muestra cómo cada uno se cae solo. Del script de GPL que filtra su propio comando OpenSSL, al XOR rodante de 15 líneas de Python, hasta la inyección de comandos en la interfaz web que entrega la clave de cifrado: un catálogo de cómo no cifrar firmware, cerrado con una herramienta que descifra la línea completa de access points D-Link desde Binwalk.</p>
+<h2>El contexto: firmware cada vez más cifrado</h2>
+<p>Antes, el firmware de consumo se podía despiezar directamente con Binwalk o un editor hexadecimal. Hoy, hasta productos insignificantes llegan cifrados, lo que bloquea análisis, modificación y auditoría. El recorrido son tres casos de estudio, todos D-Link, cada uno con una estrategia de cifrado distinta y una vía de descifrado distinta.</p>
+<h2>Caso 1: la GPL entrega el comando (DAP-1620)</h2>
+<p>Un repetidor Wi-Fi diminuto con firmware cifrado. La pista: la cabecera contiene <code>Salted__</code> — la firma de OpenSSL cuando se cifra con passphrase (ocho bytes de salt a continuación). El GPL release que el fabricante debía publicar incluía, quizá sin obligación legal, el script de build con el comando de cifrado: la clave era un SHA del hardware ID más el nombre del modelo. El único tropiezo: OpenSSL deriva la clave real de la passphrase y el salt mediante una función de hash que ha cambiado con el tiempo (MD5 entonces, SHA-256 hoy); había que forzar MD5 explícitamente, como la versión vieja de OpenSSL que usaban. Moraleja doble: leer el código GPL buscando claves, y conocer la evolución de las herramientas.</p>
+<h2>Caso 2: firmware "de transición" sin cifrar (DAP-2610)</h2>
+<p>Un access point de gama pequeña-empresarial con años de imágenes publicadas. La más reciente es de altísima entropía (cifrada), pero la primera que sacaron no: squashfs plano. Ahí está el fallo de diseño: un dispositivo que originalmente no sabía aceptar firmware cifrado necesita un firmware intermedio sin cifrar capaz de instalar futuras versiones cifradas — lo que de por sí vence el propósito. En esa imagen aparecía el binario <code>enc_image</code>, que cifra con AES usando como clave e IV un XOR rodante de dos cadenas (<code>fw_sign_data</code> e <code>image_sign</code>) presentes tanto en el binario como en la cabecera. Reimplementar el XOR rodante: unas 15 líneas de Python. Atajo para vagos: ejecutar <code>enc_image</code> en QEMU pasándole la ruta del archivo cifrado.</p>
+<h2>Caso 3: compré todos los access points de Amazon y les saqué la clave (E15)</h2>
+<p>La línea actual de consumidores de D-Link comparte básicamente el mismo firmware, así que bastó comprar el modelo más barato (E15, ~30 dólares). Camino recorrido:</p>
+<ol>
+<li>El enlace GPL llevaba a la home taiwanesa — ni intentarlo.</li>
+<li>En la placa, un header de 4 pines UART convenientemente etiquetado (TX, RX, GND), pero la consola llega silenciada: hay log de arranque sin interacción.</li>
+<li>U-Boot sí responde: "hit any key to stop autoboot" da acceso al shell del bootloader. Cambiar el argumento <code>init=/bin/sh</code> arranca un shell que no acepta entrada — la consola del sistema está capada a propósito.</li>
+<li>U-Boot de serie trae oro: <code>ubi</code> para leer bloques de flash a memoria y <code>tftp put</code> para volcarlos al portátil. La partición del filesystem se extrajo sin cifrar (squashfs).</li>
+<li>Dentro, el binario <code>commander</code> — escrito por alguien acostumbrado a Bash, que solo hace shell-out — revela con <code>strings</code> que lee una clave de un offset codificado del flash y la escribe en <code>/tmp/ph0t0key.firmware</code>.</li>
+<li>Para llegar al sistema vivo: el binario <code>foda</code> acepta la zona horaria como argumento desde la interfaz admin; establecerla a <code>`telnetd`</code> (inyección de comandos) levanta el servidor telnet → shell de root → leer <code>/tmp/ph0t0key.firmware</code>.</li>
+<li>La clave sirve para esa versión y todas las anteriores del dispositivo.</li>
+</ol>
+<p>El remate: como toda la línea de productos corre el mismo firmware base, compró cada modelo disponible en Amazon — política de devoluciones mediante — le sacó shell y clave a cada uno, los reempaquetó y los devolvió. Las claves están integradas en la última versión de Binwalk: al analizar firmware D-Link cifrado, lo detecta y extrae directamente (herramienta <code>dlink</code>).</p>
+<h2>Lecciones de diseño (y de ataque)</h2>
+<ul>
+<li>Cifrar firmware que el dispositivo ya instalado no sabe descifrar exige un eslabón sin cifrar: el esquema se rompe solo.</li>
+<li>Las claves derivadas de datos públicos (hardware ID, modelo) no son secretas.</li>
+<li>Los scripts GPL y los binarios con shell-outs son cajas de resonancia de secretos.</li>
+<li>U-Boot es una superficie de extracción completa si no se compila a medida: consola de arranque, <code>ubi</code>, <code>tftp put</code>.</li>
+<li>El punto más débil suele ser la aplicación: una inyección de comandos en la web admin entregó la clave que el cifrado "protegía".</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Binwalk:</strong> detección y extracción, ahora con soporte integrado de descifrado D-Link.</li>
+<li><strong>Identificación de OpenSSL:</strong> cabecera <code>Salted__</code> + 8 bytes de salt; deriva de clave por hash (MD5 histórico vs SHA-256).</li>
+<li><strong>GPL release mining:</strong> buscar comandos y claves de cifrado en el código que el fabricante publica por licencia.</li>
+<li><strong>XOR rodante como KDF casera:</strong> reconstruible en ~15 líneas de Python; alternativamente ejecutar el binario de descifrado en QEMU.</li>
+<li><strong>U-Boot:</strong> autoboot interrumpible, <code>init=/bin/sh</code>, <code>ubi read</code>, <code>tftp put</code> para volcado de flash.</li>
+<li><strong>UART:</strong> header etiquetado TX/RX/GND; consola de kernel silenciada pero bootloader activo.</li>
+<li><strong>Inyección de comandos vía TZ:</strong> backticks en el campo de zona horaria → telnetd → shell root.</li>
+<li><strong>Clave en /tmp:</strong> <code>ph0t0key.firmware</code> escrita en texto plano por el binario <code>commander</code>.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La mayoría del cifrado de firmware observado es cosmético: las claves son derivables, se filtran en builds y GPLs, o se alcanzan por un vector de aplicación.</li>
+<li>La cadena UART → U-Boot → volcado de flash resuelve casi cualquier caso donde el bootloader no esté endurecido.</li>
+<li>La homogeneidad de firmware entre productos convierte un solo hallazgo en la llave de toda una línea de dispositivos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TcxVExGxEtk">«DEF CON 33 - Firmware Decryption: For, and By, the Cryptographically Illiterate - Craig Heffner»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

