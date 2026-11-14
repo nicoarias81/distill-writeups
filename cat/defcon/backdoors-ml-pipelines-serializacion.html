@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exploits incubados: los bugs de serialización que incuban backdoors en pipelines de ML — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Exploits incubados: los bugs de serialización que incuban backdoors en pipelines de ML</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Z38pTFM0FyU">«DEF CON 32 - Incubated ML Exploits: Backdooring ML Pipelines w Input Handling Bugs - Suha Hussain»</a> · ver el <a class="nz-link" href="https://youtu.be/Z38pTFM0FyU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Z38pTFM0FyU · <strong>URL:</strong> https://youtu.be/Z38pTFM0FyU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Incubated ML Exploits: Backdooring ML Pipelines w Input Handling Bugs - Suha Hussain</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los ataques contra modelos de aprendizaje automático suelen estudiarse en un mundo ideal: un modelo que recibe una entrada y produce una salida. Pero un modelo real nunca vive solo: está incrustado en un sistema con preprocesadores, serializadores, hubs de modelos, compiladores y runtimes, y ese ecosistema abre superficies de ataque que la literatura de model security apenas toca. El concepto central aquí es el <strong>exploit híbrido de ML</strong>: el encadenamiento de un problema de seguridad de sistemas con una vulnerabilidad de modelo, en cualquiera de las dos direcciones.</p>
+<p>Dentro de esa categoría, el trabajo identifica un tipo concreto: el <strong>exploit incubado de ML</strong> (<em>incubated ML exploit</em>), donde un atacante aprovecha un bug de manejo de entrada en la serialización de archivos de modelos —pickles, TorchScript, ONNX, SafeTensors, PyTorch— para inyectar un backdoor. Es decir, no hace falta controlar el entrenamiento ni el código fuente: basta con que el archivo del modelo se interprete de forma distinta a la esperada en algún punto de la cadena de distribución.</p>
+<p>El aporte es doble: un marco conceptual que une model security y system security (con langsec como lente teórica), y una colección de pruebas de concepto reales, varias de ellas descubiertas en auditorías publicadas de SafeTensors y YOLOv7, que demuestran que esta clase de explotación no es teórica.</p>
+<h2>De la vulnerabilidad de modelo al exploit de sistema</h2>
+<p>Un modelo de ML es una secuencia flexible de operaciones de álgebra lineal entrenada sobre grandes volúmenes de datos. Esa flexibilidad implica que puede equivocarse de formas inesperadas: eso es la base de las vulnerabilidades de modelo. Una de ellas es el <strong>backdoor</strong>: la capacidad de forzar que el modelo produzca salidas específicas ante entradas específicas. Los backdoors interesan por tres razones: sirven como primitivas para otras vulnerabilidades (como <em>membership inference</em>), existen backdoors "naturales" preexistentes, y hay evidencia fuerte de que son una amenaza inherente a la forma de entrenar.</p>
+<p>El problema es la brecha entre la investigación y el mundo real. Los frameworks de ataque suelen modelar el sistema como <code>entrada → modelo → salida</code>, cuando en la práctica un sistema de ML —el ejemplo de referencia es Ask Astro, una arquitectura RAG auditada por Trail of Bits— involucra decenas de componentes donde el modelo es solo un punto. Además, los artefactos de ML se comparten masivamente sin mecanismos de confianza sustanciales.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Archivo de modelo<br/>(pickle/ONNX/SafeTensors)"] --> B["Bug de manejo de entrada<br/>(parser diferencial, polyglot, RCE)"]
+    B --> C["Inyección de backdoor<br/>(pesos o arquitectura)"]
+    C --> D["Modelo distribuido<br/>aparentemente benigno"]
+    D --> E["Disparo: entrada de activación<br/>→ salida controlada"]
+
+</pre>
+
+<p>Los escenarios ilustrativos no exageran: un vehículo autónomo que ignora señales de stop marcadas con calcomanías es un clásico de la investigación de backdoors, y el caso de un modelo pre-entrenado distribuido sin verificación alguna para una competencia es perfectamente realista.</p>
+<h2>Langsec y la taxonomía de bugs de entrada</h2>
+<p>La lente teórica es <strong>langsec</strong>: aplicar teoría de lenguajes formales a la seguridad de sistemas, tratando cada entrada como un lenguaje que el código debe entender solo lo suficiente. Vulnerabilidades históricas como Heartbleed y Android Master Key fueron, en el fondo, bugs de parsing.</p>
+<p>Sobre esa base se organiza una taxonomía de ocho clases de bugs de manejo de entrada (las categorías no son disjuntas; la elección depende del análisis de causa raíz). Los personajes del ecosistema ayudan a medir el impacto: <strong>Alice</strong> distribuye modelos, <strong>Bob</strong> los usa directamente, <strong>Dave</strong> los integra en productos, <strong>Frank</strong> es el usuario final y <strong>Chuck</strong> es el atacante. Los exploits que siguen muestran a quién afecta cada clase.</p>
+<h2>Pickle y la complejidad innecesaria del parser</h2>
+<p>La primera clase es el <strong>código de manejo de entrada no minimalista</strong>: parsers demasiado complejos que ofrecen gadgets al atacante. Pickle es el ejemplo paradigmático. Un pickle no es un archivo de datos pasivo: es un programa compilado que corre en una máquina virtual (la <em>pickle machine</em>) y cuyo juego de opcodes incluye <code>GLOBAL</code> y <code>REDUCE</code>, capaces de ejecutar código arbitrario fuera de la VM. Eso convierte cualquier pickle en RCE potencial.</p>
+<p>El encadenamiento con backdoors ya existe: <strong>Sleepy Pickle</strong>, desarrollado en Trail of Bits, encadena un pickle RCE con un backdoor de modelo. Puede modificar un modelo al vuelo —convertir un LLM en un generador de phishing, desinformación o robo de datos— sin necesidad de subir un modelo malicioso completo.</p>
+<p>El arsenal defensivo incluye <strong>Fickling</strong>, la primera herramienta de seguridad para pickles orientada a ML: descompilador, analizador estático y reescritor de bytecode que ejecuta simbólicamente con su propia implementación de la pickle machine, por lo que es seguro de correr sobre archivos potencialmente maliciosos. Incluye un módulo para PyTorch y otro para crear e identificar polyglots.</p>
+<h2>Rechazar la entrada inválida: el bypass de unpicklers restringidos</h2>
+<p>La clase opuesta es <strong>no corregir la entrada inválida, rechazarla</strong> (el "anti-principio de robustez"). Como mitigación de pickle, muchos desarrolladores escriben <em>restricted unpicklers</em>, subclases de <code>Unpickler</code> con allowlists o blocklists. La metodología <strong>Pain Pickle</strong> demostró que no son difíciles de bypasear: identificó ocho tipos de unpicklers restringidos y tres estrategias que burlan a la gran mayoría, habilitando de nuevo la ejecución arbitraria de código y, con ella, los backdoors. Quien confía en estas mitigaciones —típicamente Dave, el integrador— lleva una falsa sensación de seguridad.</p>
+<h2>Diferenciales de parsers: el mismo archivo, dos modelos</h2>
+<p>Un <strong>parser diferencial</strong> ocurre cuando dos componentes interpretan el mismo input de forma distinta; el archivo resultante es un <em>archivo ambiguo</em>. En ML esto permite distribuir un modelo que es benigno para un sistema y backdooreado para otro.</p>
+<p>Dos pruebas de concepto con <strong>TorchScript</strong>: un modelo PyTorch puede convertirse a TorchScript por <em>tracing</em> o por <em>scripting</em>, y el tracing no incorpora flujo de control dinámico. Basta representar los componentes maliciosos del backdoor con flujo de control dinámico para que el modelo traced y el original diverjan. En la auditoría de <strong>YOLOv7</strong> se encontraron múltiples casos donde el tracing no capturaba el modelo con precisión: tras serializar y deserializar, información clave se perdía sin que aparecieran las advertencias habituales de PyTorch. Usando TorchFX y el IR de TorchScript se construyó una entrada que hacía que ambas versiones se comportaran distinto: un backdoor efectivo. Bob recibe un modelo fundamentalmente distinto del que Alice entrenó.</p>
+<p>El caso de <strong>SafeTensors</strong> —formato creado precisamente como respuesta a la inseguridad de pickle— es ilustrativo: en su auditoría se identificó que incluir JSON en el formato genera diferenciales. JSON es notoriamente sub-especificado; el parser de referencia es estricto y rechaza claves duplicadas, pero muchas herramientas externas usan el parser JSON nativo de Python, que no. Con una clave duplicada en los offsets se pueden agregar pesos backdooreados y producir archivos que la referencia rechaza pero los parsers externos aceptan. Aquí el impacto recae sobre Dave: todos los parsers de su producto deben coincidir.</p>
+<p>De los diferenciales de parser derivan los <strong>diferenciales de modelo</strong>: el mismo modelo interpretado de forma distinta en distintas etapas. Los ataques en el preprocesamiento (escalado de imágenes, parsing de Unicode) suelen alterar los pesos; los que abusan de transformaciones como compilación o cuantización suelen alterar la arquitectura. La hipótesis es provocadora: casi cualquier transformación que pueda expresarse como función de pérdida puede resultar en un backdoor explotable.</p>
+<h2>Shotgun parsing y polyglots</h2>
+<p>El <strong>shotgun parsing</strong> es no validar la entrada completa antes de procesarla. Su fruto más conocido son los <strong>polyglots</strong>: archivos válidos en dos o más formatos a la vez, históricamente usados para distribuir malware y burlar firma de código. En la auditoría de SafeTensors se construyeron polyglots con zip, PDF, TF Records, Keras native y PyTorch Mara; el propio reporte de auditoría es un polyglot PDF-zip que contiene todos los demás. La causa raíz era una verificación ausente: el formato no comprobaba que los offsets de inicio y fin correspondieran al tamaño del tensor, permitiendo anexar datos arbitrarios (y cambiar el tamaño del header para ampliar el repertorio de polyglots). El problema fue corregido, pero el patrón general persiste en el ecosistema.</p>
+<h2>Especificaciones incompletas y entradas minimalistas</h2>
+<p>PyTorch soporta múltiples formatos de archivo, algunos deprecados pero aún aceptados por parsers externos, y carece de versionado consistente: no es difícil crear archivos que se interpretan válidamente como formatos PyTorch distintos. Además, pickle es un formato <em>streaming</em> (termina en el código STOP, así que se puede anexar cualquier cosa) mientras que la mayoría de parsers zip no exigen la firma mágica al inicio (se puede anteponer): combinando ambas propiedades se obtienen polyglots zip-pickle como PyTorch Mara. Fickling ahora incluye un módulo para identificar y crear estos polyglots.</p>
+<p>En el extremo opuesto, cuando la entrada es simple y bien definida se puede verificar a fondo. <strong>ONNX</strong> se almacena como protobuf, y su especificación prohíbe explícitamente efectos secundarios. Pero el runtime permite registrar custom ops en vuelo, y en la época relevante el lenguaje de definición de esas ops era complejo: se podía encapsular código arbitrario dentro de un custom op y lanzar un backdoor arquitectural. La herramienta <strong>Lobotomy</strong> empaqueta esta técnica. Como con pickle, la víctima directa es Bob.</p>
+<h2>La pila de ML como mapa de explotación</h2>
+<p>Un mapa útil para orientar la búsqueda: la pila de ML tiene capas de hardware, infraestructura, bajo nivel, compilador, alto nivel, framework, modelo y conocimiento. Ubicando los exploits descritos: restricted unpicklers, ONNX runtime y pickle viven en la capa de framework; el diferencial de TorchScript, en la de compilador; los polyglots de SafeTensors y PyTorch, en la de infraestructura. Es un punto de partida, no un límite: quien domina hardware puede mirar TPUs; quien domina seguridad distribuida, puede escribir exploits híbridos a nivel de infraestructura.</p>
+<p>El esquema de explotación requiere primitivas de escritura sobre pesos o arquitectura (y conviene tener también primitivas de lectura; el acceso a metadatos, como mostró SafeTensors, puede habilitar ambos caminos). Las transformaciones y diferenciales de modelo permiten explotar etapas existentes del pipeline, y los custom ops maliciosos sugieren que también los dialectos de compiladores son superficie viable.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Model security y system security no pueden auditarse por separado</strong>: tratarlas como procesos independientes ignora por completo los exploits híbridos, que son una propiedad emergente de meter un modelo dentro de un sistema.</li>
+<li><strong>Los archivos de modelos son programas y documentos ambiguos</strong>: verificar integridad, parsear metadatos con rigor, versionar formatos, incluir checksums, usar firmas mágicas aplicadas en el offset 0 y separar el almacenamiento de pesos y arquitectura.</li>
+<li><strong>Minimizar complejidad</strong>: evitar custom ops, preferir especificaciones robustas y herramientas que rechacen la entrada inválida en lugar de "corregirla".</li>
+<li><strong>Dos causas raíz explican el estado del arte</strong>: la construcción frenética de nueva infraestructura de ML (nuevos formatos, compiladores, lenguajes) genera superficies de ataque nuevas a cada paso, y la pila y cadena de suministro de ML siguen sin suficiente revisión — de ahí que los pickles sigan en todas partes.</li>
+<li>Material recomendado: los informes de auditoría de SafeTensors y YOLOv7, los artículos sobre Fickling y el repositorio de formatos de archivos de ML.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Z38pTFM0FyU">«DEF CON 32 - Incubated ML Exploits: Backdooring ML Pipelines w Input Handling Bugs - Suha Hussain»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bind & Breach: inyectando consultas PostgreSQL a nivel de protocolo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Bind & Breach: inyectando consultas PostgreSQL a nivel de protocolo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YZK98rFCMbA">«DEF CON SG1 - CSIT Village - Sim Wei Jun - Bind &amp; Breach Injecting Postgresql Queries@Protocol Level»</a> · ver el <a class="nz-link" href="https://youtu.be/YZK98rFCMbA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> YZK98rFCMbA · <strong>URL:</strong> https://youtu.be/YZK98rFCMbA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON SG1 - CSIT Village - Sim Wei Jun - Bind &amp; Breach Injecting Postgresql Queries@Protocol Level</li>
+</ul>
+<h2>Resumen</h2>
+<p>El SQL injection no está muerto: simplemente migró de capa. Este walkthrough reproduce y extiende la técnica presentada por Paul Gerste (CVE-2024-27304, "SQL injection isn't dead" en DEF CON 32), que abusa de un desincronización entre la aplicación y la base de datos PostgreSQL para inyectar consultas a nivel de protocolo. La investigación, realizada durante el entrenamiento en CSIT, construye el proof of concept contra el driver Go PGX (versión 4.18.1) y culmina con la explotación real de Harbor v2.10, la plataforma de registro de contenedores, obteniendo privilegios de administrador. El material completo del POC y del exploit se publica acompañando la exposición.</p>
+<h2>El bug: un desync por integer overflow</h2>
+<p>La premisa de Paul Gerste es que esta familia de ataques es un desync entre la aplicación y la base de datos: el cliente envía primero un mensaje gigante —del orden de 4 GB— a la aplicación usando la API relacionada de PGX, y tras procesarse esa lectura se produce la desincronización que deja el resto del stream interpretado por la base PostgreSQL de manera distinta a la prevista.</p>
+<p>Para entenderlo conviene repasar el formato de los mensajes del protocolo PostgreSQL. Cada mensaje arranca con un byte de tipo, sigue con un entero de 32 bits de longitud (que incluye su propio tamaño) y luego el contenido:</p>
+<ul>
+<li><strong>Simple Query</strong>: byte de tipo, longitud int32 y la consulta SQL, que debe terminar en un null byte.</li>
+<li><strong>Bind</strong>: byte <code>B</code>, longitud int32, parámetros y valores, y el resto de campos del mensaje.</li>
+<li><strong>Sync</strong>: byte <code>S</code>, longitud int32. Es obligatorio: termina la interacción del protocolo extendido iniciada por los mensajes Parse y Bind previos.</li>
+</ul>
+<p>El código vulnerable está en la función de encoding de PGX que construye el mensaje Bind: escribe el tipo, guarda el offset donde irá el tamaño, arma el resto del mensaje y finalmente calcula el total de bytes, lo convierte a entero de 32 bits y lo escribe en el buffer. El problema es esa conversión: cualquier mensaje cuyo tamaño supere 2³²-1 se desborda y se trunca a un valor más pequeño. Si el payload mide más de 4 GB, el campo de longitud queda en un valor pequeño, y los bytes que la aplicación cree que son el valor de un parámetro del Bind son, para PostgreSQL, mensajes nuevos e independientes. Ahí el atacante controla el stream y puede colocar consultas SQL que la base ejecuta como propias.</p>
+<h2>Nobsled: encajar el payload sin conocer el tamaño del Bind</h2>
+<p>Queda un problema práctico: la inyección debe quedar después del mensaje Bind completo, pero en la vida real nadie conoce con exactitud dónde termina ese mensaje una vez armado. La solución es la técnica No-sled de Gerste, basada en construir el mensaje Simple Query más pequeño posible: se crea un mensaje de cierre (Close) de longitud gigante y se lo agrega como valor de parámetro del Bind, de modo que ese cierre termine desbordando hacia atrás y sea interpretado como mensaje independiente. Recién detrás de ese cierre se coloca la inyección, que queda fuera del Bind.</p>
+<p>Como el desync no es determinista, el exploit prueba iterativamente: primer intento sin padding, segundo con un byte más, tercero con otro, y así; en el POC la inyección aterriza dentro de las primeras cinco iteraciones. Por eso importa que el mensaje pequeño sea mínimo: cada byte de padding cuenta, y usarlo como relleno de un mensaje grande desperdiciaría oportunidades.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Exploit script] -->|"stream +4GB, Bind con overflow int32"| W[App Go con PGX vulnerable]
+    W -->|lee los primeros 4 GB| P[PostgreSQL]
+    W -->|"resto del stream: Close gigante + Sync + SQL inyectada"| P
+    P -->|interpreta el remanente como mensajes nuevos| X[Consulta adversaria ejecutada]
+
+</pre>
+
+<h2>El laboratorio y las condiciones previas</h2>
+<p>El entorno de prueba local es una aplicación en Go que usa el driver PGX 4.18.1 contra PostgreSQL 17.5, con Wireshark, Burp Suite y un script Python propio como herramientas. Elegir una app propia tiene tres ventajas: visibilidad total del estado interno, facilidad para iterar el exploit y reproducibilidad de fallos (encoding ineficiente en RAM, archivos temporales, etc.).</p>
+<p>La explotación exige condiciones concretas:</p>
+<ul>
+<li><strong>Null bytes transitables</strong>: los mensajes Simple Query, Bind y Sync requieren null bytes terminadores, así que la vía de entrada debe permitir representarlos. En el POC, un encoding Base64 del input cumple; en Harbor fue URL encoding.</li>
+<li><strong>Conocimiento de la topología de la base de datos</strong>: la consulta inyectada debe escribir sobre tablas concretas. Hay caminos auxiliares —por ejemplo, abusar de SSTI o hacer que un valor de una tabla se renderice en la aplicación web—, y en plataformas open source la topología es fácil de conocer.</li>
+<li><strong>Peticiones HTTP gigantes aceptadas</strong>: la aplicación (o el reverse proxy por delante) no debe limitar el tamaño del cuerpo.</li>
+<li><strong>Input procesado por la función de encoding de PGX</strong>: el punto de entrada debe terminar pasando por la función vulnerable para provocar el overflow.</li>
+</ul>
+<h2>De la teoría a Harbor</h2>
+<p>La escalada a un blanco real eligió Harbor v2.10. Primero, el perímetro: la configuración de NGINX embebida tiene <code>client_max_body_size</code> sin límite efectivo, así que las peticiones gigantes pasan. Los endpoints candidatos se descartan uno a uno: el endpoint de manifest rechaza payloads grandes porque Harbor impone límites sobre las anotaciones OCI; la vía de token requiere que el encoding Base64 viaje en los headers HTTP, donde el tamaño está acotado. El ganador es el endpoint de login por defecto: acepta cuerpos enormes y hace URL decoding, que representa los null bytes del payload. Revisando el código fuente se confirma que el login mantiene los parámetros como string y aplica la decodificación antes de llegar a la función de encoding de PGX.</p>
+<p>El flujo del exploit script son cuatro pasos: recibir la cantidad de padding (máximo cinco bytes), establecer sesión con la aplicación conservando los tokens CSRF, invocar el generador de payload y enviar el valor codificado con el módulo de requests de Python. El generador arma: padding inicial, los mensajes filler de No-sled, un Sync delante de la consulta de inyección (clave para cerrar la interacción del protocolo extendido y que la inyección ocurra primero) y la sentencia SQL construida como insert con su longitud calculada y null terminator, rellenando con null bytes hasta completar 2³². Todo viaja codificado en Base64.</p>
+<p>En la demo, el login con las credenciales del atacante falla antes de la explotación; tras correr el script —dos bytes de padding en el laboratorio, tres contra Harbor— la petición se envía tal cual de la aplicación a la base, el status 500 de la petición malformada es el comportamiento esperado, y el reintento de login entra con acceso a la pestaña de administración: usuario con flag de admin, capacidad de configurar usuarios y demás. La inyección insertó al atacante como administrador de la plataforma.</p>
+<h2>Mitigaciones y lecciones del proceso</h2>
+<p>Las correcciones: actualizar PGX a 4.18.2+ o 5.5.4+, donde el overflow está corregido; reforzar los límites de tamaño de las peticiones HTTP (reverse proxy tipo NGINX, lógica de la aplicación); actualizar Harbor (la versión parchada es 2.11 y posteriores); y aplicar defensa en profundidad —validación de input, configuración de encoding, análisis de logs—.</p>
+<p>Entre los tropiezos del proceso hay lecciones transferibles: el consumo de RAM del exploit se resolvió escribiendo los datos codificados a un archivo temporal en vez de mantenerlos en memoria; los mensajes fallaban en el entorno local hasta descubrir que faltaba cerrar la interacción del protocolo extendido con el Sync previo; y encontrar el endpoint útil en una aplicación tan grande como Harbor fue un proceso de prueba y error iterando endpoints candidatos, encodings y resultados de la inyección.</p>
+<p>Consideraciones finales honestas: el ataque puede requerir enviar hasta 20 GB (cinco iteraciones de 4 GB), con riesgo real de provocar una denegación de servicio en el blanco; extraer datos en la respuesta es teóricamente posible pero exige conocer la estructura de las tablas para calzar los valores en las plantillas de la aplicación; y las consultas insertadas no provocan feedback directo de la aplicación web, lo que dificulta la verificación en vivo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CVE-2024-27304</strong>: integer overflow en el encoding del mensaje Bind del driver Go PGX (trabajo de Paul Gerste).</li>
+<li><strong>Desync a nivel de protocolo</strong>: la aplicación y PostgreSQL interpretan distinto el mismo stream TCP.</li>
+<li><strong>No-sled</strong>: mensaje de cierre gigante colocado como valor de parámetro para controlar dónde aterriza la inyección.</li>
+<li><strong>Mensaje Sync</strong>: cierre obligatorio del protocolo extendido; sin él, las interacciones previas quedan abiertas y las inyecciones fallan.</li>
+<li><strong>Padding iterativo</strong>: reintento byte a byte (máximo cinco) hasta alinear el payload.</li>
+<li><strong>Base64 / URL encoding</strong> como transporte de null bytes a través de inputs de texto.</li>
+<li><strong>Wireshark, Burp Suite y requests de Python</strong> para observación y automatización.</li>
+<li><strong>Harbor v2.10</strong> como blanco real; versión parchada 2.11+.</li>
+<li><strong>Mitigaciones</strong>: PGX 4.18.2+/5.5.4+, límites de tamaño HTTP, defensa en profundidad.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las clases de bugs "clásicos" renacen en capas nuevas: un integer overflow en una librería de encoding se convierte en SQL injection sin pasar por el SQL de la aplicación.</li>
+<li>El protocolo extendido de PostgreSQL tiene invariantes estrictos (null terminators, Sync obligatorio); respetarlos es la diferencia entre un exploit funcional y horas de depuración.</li>
+<li>La cadena de explotación es una suma de condiciones —endpoint que acepta payloads gigantes, encoding que transmite null bytes, ausencia de límites en el proxy— y por eso la defensa en profundidad corta el ataque aunque quede un bug de librería sin parchear.</li>
+<li>Para equipos: auditar versiones de PGX, fijar límites de tamaño en todo el perímetro y actualizar Harbor y similares; para investigadores: el protocolo de la base de datos sigue siendo territorio fértil.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YZK98rFCMbA">«DEF CON SG1 - CSIT Village - Sim Wei Jun - Bind &amp; Breach Injecting Postgresql Queries@Protocol Level»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

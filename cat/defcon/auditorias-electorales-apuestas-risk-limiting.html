@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Auditar una elección apostando: la matemática que sostiene las Risk Limiting Audits — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Auditar una elección apostando: la matemática que sostiene las Risk Limiting Audits</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/f-QuFskAyOM">«DEF CON 33  Voting Village - Risk Limiting Audits: What They Are and Aren&#x27;t - Philip Stark»</a> · ver el <a class="nz-link" href="https://youtu.be/f-QuFskAyOM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> f-QuFskAyOM · <strong>URL:</strong> https://youtu.be/f-QuFskAyOM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33  Voting Village - Risk Limiting Audits: What They Are and Aren't - Philip Stark</li>
+</ul>
+<h2>Resumen</h2>
+<p>Una Risk Limiting Audit (RLA) es el único método conocido para dar evidencia estadística fuerte de que los ganadores reportados de una elección realmente ganaron, con esfuerzo manual acotado y sin confiar en el software de tabulación. Su fundamento no es comparar porcentajes ni revisar la tabulación: es una teoría de pruebas por juego secuencial, donde el auditor aposta dinero ficticio contra el resultado reportado y solo se detiene si acumula ganancias que serían extremadamente improbables si el resultado fuera falso.</p>
+<p>El artículo reconstruye esa maquinaria desde cero: por qué se necesita un rastro de papel confiable y independiente del software, cómo un juego de apuestas contra un banco infinito convierte "multiplicar mi capital por 20" en evidencia con riesgo acotado del 5%, y cómo la misma idea se generaliza a comparación con registros de votación (comparison audits) y a funciones de elección social arbitrarias. También desmonta los malentendidos más comunes: una RLA no audita la tabulación, no "prueba que no se cambiaron votos" y aplicada sobre un rastro de papel no confiable es, en el peor caso, cortina de humo.</p>
+<h2>Un prerrequisito innegociable: software independence</h2>
+<p>Antes de cualquier estadística hace falta que el rastro de papel sea contestable y defensible: el resultado debe poder determinarse sin depender del software que tabuló, y el procedimiento debe poder sostenerse ante un adversario que controla todo lo digital. Escáneres, imágenes de boletas y sistemas con computadoras embebidas son manipulables; por eso la evidencia es el papel físico y la regla es "ojos sobre el papel". El error grande más frecuente en elecciones reales es operativo, no criptográfico: fallar en escanear un lote o escanearlo dos veces, algo que una auditoría basada en imágenes no detecta. La contabilidad física de boletas —inventario, conciliación de padrones— es parte de la seguridad del rastro, no un trámite aparte.</p>
+<p>El problema número uno de una elección no es "hacer una RLA": es construir un rastro de papel confiable. Aplicar el procedimiento sobre un rastro dudoso y presentar el resultado como validación es desinformación; el esfuerzo rinde mucho más invertido en prácticas y regulaciones de custodia, elegibilidad y control de acceso a las boletas.</p>
+<h2>El juego de apuestas: toda la estadística necesaria</h2>
+<p>Supongamos un conteo con dos candidatas, Alice (favorita reportada) y Bob. Alice es una caricatura del casino: un adversario con capital infinito que paga 1 a 1 a que el próximo voto sea para Bob. El auditor empieza con 1 dólar y apuesta una fracción B a que la boleta muestra un voto para Alice; si acierta, duplica la apuesta, si falla, la pierde. La clave es un resultado de Jean Ville (1939): si Alice no supera realmente a Bob, la probabilidad de que el capital llegue alguna vez a un múltiplo K del inicial es a lo sumo 1/K. Multiplicar el capital por 20 solo pasa el 5% de las veces si el resultado reportado es falso; llegar a 100, el 1%.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Sortear una boleta al azar] --> B{¿Aporta ganancias<br>en todos los juegos?}
+    B -- "capital x20 en cada juego" --> C[Parar: evidencia de que<br>los ganadores reportados ganaron]
+    B -- capital en juego --> D[Seguir apostando]
+    D --> E{¿Se vio toda la paper<br>o se decide cortar?} -- sí --> F[Recuento manual completo]
+    B -- "capital a 0" --> F
+
+</pre>
+
+<p>Ese número —el riesgo límite— es una garantía del procedimiento: si el resultado reportado es incorrecto, una RLA con riesgo 5% fuerza un recuento manual completo con probabilidad de al menos 95%. No hay forma de "salirse con la suya" con alta probabilidad si los perdedores reportados en realidad ganaron.</p>
+<h2>Ganador contra perdedor: paralelizar y codificar votos</h2>
+<p>Para un conteo de varios ganadores (por ejemplo, elegir cinco) se abre un juego por cada par ganador reportado contra perdedor reportado y se juegan todos en paralelo, un dólar en cada uno. Se detiene cuando cada juego multiplicó su capital por 20; eso es evidencia simultánea de que todos los ganadores vencieron a todos los perdedores. Si algún juego quiebra, recuento completo; si se agota la paciencia, también: cortar por lo sano es siempre una opción legítima.</p>
+<p>La generalización a cualquier función de elección social —supermayorías, instant-runoff, STAR voting, representación proporcional— pasa por reemplazar votos por números. En el caso Alice contra Bob: voto para Alice es 1, voto para Bob es 0, cualquier otra boleta (Carol, voto nulo) es 1/2. Alice le ganó a Bob si y solo si el promedio de esa lista supera 1/2. La apuesta se escribe en una línea: el payoff es dos veces B por (X − 1/2), donde X es el número que muestra la boleta sorteada. Con X = 1 se duplica la apuesta, con X = 0 se pierde, con X = 1/2 no pasa nada. Y nada exige que los números sean 0, 1/2 y 1: cualquier lista de valores entre 0 y 1 con promedio mayor a 1/2 define un juego favorable que lleva a la misma conclusión.</p>
+<h2>Cómo apostar bien: de Kelly a Wald</h2>
+<p>La estrategia trivial —apostar todo en cada tirada— llega a 20 en cinco boletas si todo sale bien, pero un solo revés arruina al auditor y dispara un recuento innecesario. Conviene reservar capital para vivir otra mano, y el margen importan: cuanto más aplastante es la victoria reportada, más se puede apostar por tirada. John Kelly (Bell Labs, 1956) resolvió la apuesta óptima cuando se conocen las probabilidades reales; el problema práctico es que si el auditor las conociera, ya sabría quién ganó. Tom Cover (1991) mostró que con teoría de portfolios universal se puede rendir casi igual que quien conoce las cuotas desde el inicio, aprendiéndolas sobre la marcha. Y Abraham Wald había llegado antes que todos: en 1945, dentro del esfuerzo bélico (tan valioso que le prohibieron publicarlo hasta terminar la guerra), inventó las pruebas secuenciales de hipótesis sin el lenguaje de martingales. El método del estado del arte —el paper "alpha"— mezcla todo: apuesta como si el resultado reportado fuera correcto y ajusta gradualmente su estimación de las cuotas a medida que ve boletas.</p>
+<h2>Comparison audits: la varianza como superpoder</h2>
+<p>La misma aritmética extiende el ballot polling a comparison audits: cada boleta se compara contra un número de referencia que puede venir de un cast vote record, del subtotal de un lote o incluso inventarse —lo único que importa es que se compromete e inmuta antes de empezar el audit—. Cuatro líneas de álgebra elemental transforman "el promedio real supera 1/2" en una condición equivalente sobre una segunda lista: la diferencia entre el valor reportado y el valor observado, dividida por dos veces el margen reportado. Esa lista es no negativa, acotada y —aquí está la magia— tiene muchísima menos varianza que la lista de votos cruda.</p>
+<p>Si los registros de votación son correctos, la lista es constante y el juego es seguro: se puede apostar fuerte y terminar enseguida. Cuanta más varianza, más hay que moderar las apuestas y más boletas toca mirar. Un beneficio adicional: si solo se tienen subtotales por lote, se asigna a cada boleta del lote el promedio reportado del lote (los votos a favor ponderados, los votos en contra, los nulos a 1/2, dividido por el tamaño del lote) y el overstatement neto se conserva, con lo cual el audit sigue siendo válido. Eso elimina la necesidad de ensamblar físicamente las boletas de cada lote de reporte —un problema real: un recuento en Los Ángeles de apenas unas 100.000 boletas resultó prohibitivamente caro porque estaban dispersas por todo el condado—.</p>
+<h2>Lo que una RLA no hace</h2>
+<p>El malentendido más persistente: una RLA no es una auditoría de tabulación. Ejemplo mínimo con ocho boletas: la máquina reporta cuatro votos para Alice, tres para Bob y un nulo; en el papel, cada boleta fue mal interpretada —dos votos reales para Alice, uno para Bob, cinco nulos—. Las ocho boletas están mal tabuladas, Alice igual ganó, y una RLA correctamente diseñada se detiene sin recuento. No verificó la tabulación en absoluto; verificó quién ganó. Frases de autoridades electorales del tipo "la RLA probó que no se alteró ningún voto" son simplemente falsas, y el video explicativo que compara la fracción de votos de la muestra con la fracción reportada describe un procedimiento que no existe.</p>
+<p>Tampoco protege contra rastros no confiables: si el papel es dudoso, la RLA no puede mostrar ni que la tabulación fue correcta ni que el ganador ganó. Y los errores, aunque estén concentrados en un solo precinto, no la derrotan: el muestreo aleatorio protege contra el peor caso porque lo único que importa es si Alice realmente ganó.</p>
+<p>Los supuestos de confianza que sí son irrenunciables son pocos: una cota superior conocida del número de boletas emitidas por conteo (sin ella, pueden esconderse boletas que cambien el resultado), un compromiso previo con identificadores de boletas tales que "traeme la boleta 2719" tenga significado inmutable —mejor aún si van impresos en la boleta con mecanismos que preserven el anonimato del votante—. Si los identificadores fallan, el sistema "falla hacia arriba": a lo sumo provoca un recuento manual que no hacía falta, nunca socava el riesgo límite.</p>
+<h2>Cómo se sortea y cuánto se mira</h2>
+<p>El estado del arte en aleatoriedad es un ritual verificable: unos veinte dados de diez caras se tiran en público para generar una semilla, y a partir de ahí un generador pseudoaleatorio de calidad criptográfica basado en SHA-256 en modo contador produce los índices. También es válido usar aleatoriedad genuina para cada boleta, solo que lento. Para coordinar muestras entre conteos que comparten boletas, el muestreo consistente garantiza suficientes boletas por conteo aunque los conteos se solapen; y el muestreo no uniforme —más boletas para los conteos con márgenes más ajustados— es lo más eficiente.</p>
+<p>La pregunta "¿por qué no contar todo?" tiene una respuesta de una palabra: eficiencia. Contar hasta uno es fácil; contar hasta un millón, no. En el ejemplo de Orange County, auditar todos los conteos, más de doscientos, habría requerido mirar menos del 1% de las boletas en total. Y sobre el alcance real: aproximadamente ningún estado implementa el paquete completo; algunos hacen porciones grandes, otros lo simulan y varios tienen leyes que lo autorizan sin practicarlo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Risk Limiting Audit (RLA)</strong>: procedimiento con riesgo acotado que fuerza un recuento manual con probabilidad especificada si el resultado reportado es incorrecto.</li>
+<li><strong>SHANGRLA</strong> ("Sets of Half-average Nulls generate Risk-limiting Audits"): el paper que formaliza audits como juegos de apuestas sobre listas de números con promedio mayor a 1/2.</li>
+<li><strong>Martingales y desigualdad de Ville (1939)</strong>: base matemática — multiplicar el capital por K tiene probabilidad ≤ 1/K si la hipótesis nula es verdadera.</li>
+<li><strong>Criterio de Kelly (1956)</strong>: apuesta óptima para maximizar el crecimiento del capital cuando se conocen las cuotas.</li>
+<li><strong>Portfolio universal de Tom Cover (1991)</strong>: rendimiento casi óptimo sin conocer las cuotas a priori.</li>
+<li><strong>Pruebas secuenciales de Wald (1945)</strong>: antecedente directo, desarrollado en el esfuerzo bélico.</li>
+<li><strong>Software independence, contestability y defensibility</strong>: propiedades requeridas del sistema electoral antes de cualquier audit.</li>
+<li><strong>Cast Vote Records (CVR) y valores de referencia comprometidos</strong>: insumo de los comparison audits; pueden derivar de subtotales por lote preservando el overstatement neto.</li>
+<li><strong>Muestreo consistente y muestreo no uniforme</strong>: coordinación de muestras entre conteos solapados y asignación de esfuerzo según margen.</li>
+<li><strong>Semilla con dados de diez caras + PRNG SHA-256 en modo contador</strong>: ritual de aleatoriedad pública verificable para el sorteo de boletas.</li>
+<li><strong>Ballot accounting y conciliación de padrones</strong>: controles físicos que sostienen la integridad del rastro de papel.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Una RLA no valida la tabulación ni el sistema electoral: da evidencia de que los ganadores reportados ganaron, incluso si el software falló, y funciona porque apostar contra el resultado y ganar dinero es improbable a menos que el resultado sea correcto.</li>
+<li>El prerrequisito absoluto es un rastro de papel confiable y bien organizado; aplicarlo sobre papel dudoso es una distracción que legitima malas prácticas en lugar de detectarlas.</li>
+<li>La eficiencia viene de la varianza: comparison audits con registros de votación correctos convierten el audit en una apuesta casi segura y reducen drásticamente las boletas a inspeccionar.</li>
+<li>La garantía estadística solo se sostiene con cota superior de boletas emitidas, identificadores de boletas comprometidos antes del audit y evidencia física: imágenes digitales y conteos automáticos no son evidencia.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/f-QuFskAyOM">«DEF CON 33  Voting Village - Risk Limiting Audits: What They Are and Aren&#x27;t - Philip Stark»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

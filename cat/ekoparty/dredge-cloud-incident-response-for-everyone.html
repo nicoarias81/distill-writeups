@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dredge: respuesta a incidentes en la nube sin SIEM, sin presupuesto y sin depender de la memoria de nadie — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Dredge: respuesta a incidentes en la nube sin SIEM, sin presupuesto y sin depender de la memoria de nadie</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/GD78_sGZDSs">«Dredge: A Open Source Framework for Cloud Incident Response - Santiago Abastante»</a> · ver el <a class="nz-link" href="https://youtu.be/GD78_sGZDSs">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> GD78_sGZDSs · <strong>URL:</strong> https://youtu.be/GD78_sGZDSs · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Dredge: A Open Source Framework for Cloud Incident Response - Santiago Abastante</li>
+</ul>
+<h2>Resumen</h2>
+<p>El modelo ideal de respuesta a incidentes es el diagrama de preparación: logs centralizados, detecciones afinadas y un equipo listo para responder. La realidad, cada vez que llega el incidente de verdad, es otra: los casos de uso de detección disparan falsos positivos, y el incidente real ocurre justo donde no había monitoreo. En entornos cloud esto se agrava: organizaciones que soñaron on-premise tienen recursos en la nube y asumen que por definición es seguro, así que concentran el monitoreo en las workstations mientras un atacante lleva meses dentro sin que nadie lo visualice.</p>
+<p>Dredge es un framework open source de incident response en la nube que nació de esa fricción: una carpeta de scripts desarrollados durante años liderando respuesta a incidentes en consultoría, que un amigo resumió con "esto lo tenés que compilar en algo, porque está re bueno pero es imposible de usar". No hay IA ni machine learning: son cuatro o cinco API calls por plataforma, automatizadas, porque en medio de un incidente, con estrés, nadie recuerda cuáles eran.</p>
+<h2>Por qué las organizaciones no están preparadas</h2>
+<ul>
+<li><strong>Costo:</strong> archivar logs en un SIEM o en un log collector es mucho más caro que volcarlos a S3 y dejarlos ahí; la decisión parece sencilla hasta que llega el hackeo y nadie sabe cómo sacar los logs de S3. Y las alertas se cobran aparte: plataformas que facturan la ingesta de logs por un lado y la generación de alertas por otro, un combinado que se vuelve inviable para presupuestos de Latinoamérica o Europa del Este, mercados para los que la mayoría de los productos ni siquiera están pensados.</li>
+<li><strong>Falsos positivos de las herramientas grandes:</strong> los Cloud Security Posture Management irrumpieron hace unos años —en la nube no hay CVEs asociados a una configuración mala, y comunicar que una falla es un bug y no una feature es difícil, así que el negocio responde "lo necesito para trabajar" y la falla queda sin remediar—. Pero las alternativas open source llenan de ruido, y en pleno incidente nadie quiere una herramienta que devuelva toda la información habida y por haber: se necesitan solo los datos tácticos para ejecutar la respuesta y el análisis de causa raíz.</li>
+<li><strong>Gente y procesos:</strong> encontrar a alguien con mentalidad de incident responder, que además sepa de cloud security y de varios cloud providers, es casi imposible. El onboarding tomaba meses y, cuando terminaba el entrenamiento, una empresa norteamericana ofrecía el triple y se lo llevaba. Había que democratizar el conocimiento y achicar la curva de aprendizaje para que un analista saliera rápido a la cancha.</li>
+</ul>
+<p>Y un indicador irónico de que algo falla: la cantidad de memes sobre lo bardo que es implementar un SIEM y lo llenos de falsos positivos que estamos. Si los memes abundan, algo estamos haciendo mal.</p>
+<h2>Los cuatro módulos</h2>
+<ul>
+<li><strong>Log Retriever:</strong> el punto de partida. Con un mismo comando, un analista obtiene logs de AWS (Event History, GuardDuty, logs en buckets de S3), de GitHub o de GCP —con integración de Azure en camino—, todos en el mismo formato, sin conocer los pormenores de cada plataforma. No es magia: son las API calls básicas de cada proveedor, encapsuladas.</li>
+<li><strong>Threat Hunting:</strong> queries específicas sobre lo que el retriever levantó, para identificar causas raíz —por ejemplo, las API calls asociadas a evasión de defensas— e integraciones con Shodan y VirusTotal para contextualizar IPs.</li>
+<li><strong>Incident Response:</strong> las acciones de siempre, que en la nube no son triviales: aislar un servidor, deshabilitar o borrar un usuario, rotar credenciales. Además resuelve el problema de permisos: si el analista no es administrador de la cuenta del cliente y debe pedirle a un DevOps que ejecute comandos, pasarle "ejecutá dredge y mandame el output" es mucho mejor que pasarle 200 comandos sueltos.</li>
+<li><strong>Cloud Status:</strong> control de postura con información específicamente táctica, no exhaustiva.</li>
+</ul>
+<p>La configuración es por archivo o por CLI: fechas de inicio y fin para acotar la búsqueda (y no ejecutar queries sobre todo el data lake), API keys de Shodan y VirusTotal, y por proveedor el flag de habilitación y los perfiles de autenticación. El repositorio trae documentación y videos de instalación y configuración.</p>
+<h2>Log Retriever en acción</h2>
+<p><strong>Event History</strong> es el log principal del análisis forense en una cuenta de AWS: registra todas las API calls —crear un servidor, borrar un usuario—. Por consola solo se ven 50 (o 100) requests por query con paginado manual; con 200 millones de logs, eso es estar frito. Dredge automatiza la paginación por API:</p>
+<pre><code>python3 dredge log-retriever --provider aws --profile demo --region ... --log event-history
+</code></pre>
+<p>y el resultado es JSON, listo para greps —por un usuario de IAM como Terraform, o por una access key—.</p>
+<p><strong>GuardDuty</strong> es la detección automática de AWS, que se habilita con un botón: si ya está habilitado, se ve qué pasa en la cuenta; si no, lo primero de un incidente es habilitarlo, porque empieza a monitorear desde ese momento. El problema operacional: logs de 200 cuentas sin preparación previa significan recolectar cuenta por cuenta. Con todos los perfiles de autenticación en el archivo de configuración, el script baja todo a la vez.</p>
+<p><strong>GitHub</strong> guarda una sorpresa: los logs de consola no son los mismos que los de la API. La consola muestra logs de seguridad (accesos a la cuenta desde distintas regiones), pero un data leakage por <code>git clone</code> o <code>git fetch</code> no aparece ahí —sí en la API—. Mismo comando, cambiando el target de AWS a GitHub y pasando la organización; y, como siempre, varias organizaciones y varios repos en el archivo de configuración.</p>
+<h2>Cloud Status: la información táctica que importa</h2>
+<p>Para <strong>usuarios IAM</strong> —herramientas superpoderosas para desplegar recursos... y para que un atacante gane persistencia y se mueva lateralmente—, un control de postura tradicional da email y nombre; lo que se necesita en un incidente es:</p>
+<ul>
+<li>si tiene acceso a consola,</li>
+<li>si tiene MFA y access keys,</li>
+<li><strong>cuándo fue creado</strong>.</li>
+</ul>
+<p>La fecha de creación es la clave: si el ataque fue hoy a la mañana e inmediatamente después aparece un usuario creado sin consenso, ese es el primero a revisar —persistencia probable—.</p>
+<p>Para <strong>instancias EC2</strong> importa el triage rápido: si tiene rol de AWS adjunto, si tiene IMDSv1 habilitado (el atacante que cae en el servidor ejecuta una request y obtiene el rol; AWS ya lo exige como IMDSv2 con token por defecto, pero los sistemas legacy abundan), el nombre de la clave SSH asociada —las claves SSH son especialmente peligrosas: se asocian dejando mucho menos rastro que un usuario IAM y no están entre lo principal monitoreado—. Con eso se gradúa el riesgo: IMDSv1 sin rol es menos grave que IMDSv1 con rol de administrador, sin necesitar el volumen de datos de un Posture Management completo.</p>
+<h2>Incident Response: aislar un servidor en AWS no es trivial</h2>
+<p>El ejemplo insignia es el aislamiento de una instancia comprometida, y muestra por qué las acciones "simples" de la nube requieren automatización:</p>
+<ol>
+<li>Se busca quitar el security group del servidor comprometido —<strong>no se puede</strong>: todo servidor necesita sí o sí un security group—.</li>
+<li>Se crea un security group forense nuevo y se cambia en la instancia. Pero las <strong>conexiones existentes no se cortan</strong>: no se permiten conexiones nuevas, pero la sesión establecida del atacante con persistencia sigue viva.</li>
+<li>Hay que modificar además la <strong>network ACL</strong> para bloquear el tráfico y cortar las conexiones existentes. Problema: las ACL actúan a nivel VPC y bloquean a todos los demás servidores de la red.</li>
+<li>En muy poco tiempo: crear security group, cambiarlo, crear la ACL que bloquea todo y retirarla para verificar que la instancia quedó aislada. Manualmente, prácticamente imposible.</li>
+</ol>
+<p>Con Dredge: enumerar instancias (perfil, security group), enumerar el security group (permisos de internet para todos lados), y ejecutar <code>dredge incident-response --isolate-instance &lt;id&gt;</code>. El script ejecuta todos los pasos y la verificación posterior muestra el nuevo security group forense, sin tráfico permitido. Si el análisis lo requiere, ese security group puede permitir tráfico solo entre servidores forenses, para examinar la instancia desde el servidor de forense. También hay acciones para Lambda y Kubernetes, con extracción de logs de los dos.</p>
+<h2>Threat Hunting: a veces es solo saber qué buscar</h2>
+<p>La evasión de defensas parece algo súper sofisticado; en la nube, el caso típico es que el atacante deshabilite GuardDuty (o CloudTrail) para operar tranquilo. La caza se reduce entonces a:</p>
+<ul>
+<li>bajar el log de Event History con Dredge —<strong>ese log está siempre habilitado y no puede ser deshabilitado</strong>, sin importar lo que el atacante haya hecho—,</li>
+<li>grep contra las API calls asociadas a la técnica <strong>Impair Defenses</strong> (<code>StopGuardDuty</code>, deshabilitar CloudTrail, etc.),</li>
+<li>de cada hit, asociar el usuario, la access key o quien sea que ejecutó la acción.</li>
+</ul>
+<p>Y para el análisis avanzado: extraer todas las IPs de un log de GuardDuty (o de Event History, o de GitHub) y pasarlas por la API de VirusTotal con la API key configurada. El resultado es una tabla con cada IP, su geografía —servidor de Amazon, sistema de Argentina, o una IP asociada a un actor de China, Rusia o Europa, que enciende la alarma— y los hits de software malicioso.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La preparación ideal de incident response casi nunca existe; el diseño útil parte de lo que sí está garantizado: logs del cloud provider habilitados por defecto e imposibles de deshabilitar, como Event History.</li>
+<li>El costo de los SIEM, las alertas aparte y los falsos positivos dejan a muchos equipos —sobre todo fuera de los grandes mercados— sin la opción de la herramienta cara; automatizar cuatro o cinco API calls es la alternativa realista.</li>
+<li>Acciones que en on-premise son triviales (aislar un servidor) tienen particularidades cloud no triviales: security groups obligatorios, conexiones existentes que no se cortan y ACLs a nivel de red completa.</li>
+<li>El valor de un framework así es doble: técnica (velocidad y reproducibilidad en el momento crítico) y humano (un analista sin experiencia profunda en cada proveedor puede ejecutar la respuesta correcta con un comando).</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Incidente en la nube] --> B[Log Retriever<br/>Event History - GuardDuty - GitHub]
+    B --> C[Threat Hunting<br/>greps + Shodan/VirusTotal]
+    B --> D[Cloud Status<br/>usuarios IAM e instancias EC2]
+    C --> E[Incident Response<br/>aislar, revocar, rotar]
+    D --> E
+    E --> F[Análisis de causa raíz]
+
+</pre>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/GD78_sGZDSs">«Dredge: A Open Source Framework for Cloud Incident Response - Santiago Abastante»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

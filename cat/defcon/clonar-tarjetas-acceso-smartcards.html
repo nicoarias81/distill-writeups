@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clonar tarjetas de acceso con un Flipper Zero: la lección de las smart cards — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Clonar tarjetas de acceso con un Flipper Zero: la lección de las smart cards</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/zBP2deuPQTg">«DEF CON 33 - From Cloning Cards to Phones in Your Pocket: A Smart Card History - Zach Kavanaugh»</a> · ver el <a class="nz-link" href="https://youtu.be/zBP2deuPQTg">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> zBP2deuPQTg · <strong>URL:</strong> https://youtu.be/zBP2deuPQTg · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - From Cloning Cards to Phones in Your Pocket: A Smart Card History - Zach Kavanaugh</li>
+</ul>
+<h2>Resumen</h2>
+<p>Zach Kavanaugh —quince años en el mundo de las smart cards, paso por el Lincoln Laboratory del MIT y el DoD, hoy fundador de la empresa de autenticación Authenticate— recorre la historia de las tarjetas inteligentes desde su raison d'être hasta sus exploits más famosos, con demos de clonación en vivo en el booth del Physical Security Village. El recorrido va de las Mifare Classic disueltas en ácido por académicos de la Universidad de Virginia a los lectores HID iClass cuyo firmware se extrajo sacrificando dos lectores, y termina en la apuesta de carrera del autor: que el secure element que ya llevamos en el bolsillo —dentro del teléfono— reemplace a las tarjetas.</p>
+<h2>Por qué existen: de la llave uno-a-uno a la credencial uno-a-muchos</h2>
+<p>El problema que resuelven las smart cards es simple: las llaves físicas son uno a uno. Si mil empleados comparten la llave de una puerta y hay que despedir a uno, hay que cambiar la cerradura y repartir 9.999 llaves nuevas. Una tarjeta puede portar muchas credenciales distintas para la misma puerta, y las modernas son mini computadoras de bolsillo. Hay además un valor social que no conviene ignorar: algo colgado del cuello que indica que esa persona pertenece al lugar evita escoltas innecesarios.</p>
+<p>Los ataques posibles se ordenan por ambición: usar la tarjeta sin permiso (robarla, poco interesante), eludir la necesidad de tarjeta por completo (territorio del Physical Security Village, con técnicas que no tienen nada que ver con la computación) y <strong>clonar la tarjeta</strong>, el foco del trabajo. En las tarjetas "tontas" de 125 kHz conviven dos llaves: la de autenticación en tránsito (la que permite leer y escribir datos) y la que cifra el dato en reposo. Encontrar la primera es game over — basta acercarse a cualquiera y clonar su credencial —; conocer también la segunda permite fabricar credenciales arbitrarias. Si el número de empleado está impreso en el badge visible, la suplantación es directa.</p>
+<h2>Mifare Classic: criptoanálisis con ácido y reconocimiento de imágenes</h2>
+<p>La Mifare Classic fue la tarjeta más prolífica de la era temprana — transporte público, tarjetas de valor monetario — y romperla fue un acontecimiento. Dos profesores de la Universidad de Virginia le quitaron el encapsulado al chip disolviéndolo en ácido, fueron capa por capa fotografiando el ASIC en alta resolución y aplicaron reconocimiento de imágenes para hacer ingeniería inversa del algoritmo codificado en el silicio. El criptoanálisis posterior encontró las vulnerabilidades esperadas: hoy la Mifare Classic está completamente rota — cualquier Flipper Zero la fuerza bruta en segundos — y todavía hay llaves de hotel y tarjetas de transporte que la usan.</p>
+<h2>HID iClass: la llave universal del monopolio</h2>
+<p>En el entorno corporativo HID fue el monopolista de facto: los lectores negros que están en cada ascensor, aeropuerto e institución financiera. El diseño es escalofriante de simple: <strong>cada lector y cada tarjeta vendidos en el planeta comparten la misma clave simétrica</strong>, desplegada en millones de edificios. La protección del sistema contra la extracción de esa llave era, literalmente, invertir los pines 1 y 3 del header del microcontrolador PIC dentro del lector — "porque nadie en la tierra soñaría con invertir el pin 1 y el 3 de su kit PIC" —. En 2012 un investigador lo notó mirando la placa de un lector, cruzó los pines, y la depuración quedó abierta.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Lector iClass con PIC] -->|pines 1 y 3 invertidos| B[Depuración habilitada]
+    B --> C[El PIC no protege la memoria:<br/>borrar/leer sectores sueltos]
+    C --> D[Lector 1: borrar sector 0,<br/>escribir dumper de sectores 1..N]
+    D --> E[Lector 2 sacrificado: borrar 1..N,<br/>escribir dumper del sector 0]
+    E --> F[Firmware completo en IDA Pro]
+    F --> G[Clave simétrica universal extraída]
+    G --> H[Clonación sin fuerza bruta:<br/>leer la tarjeta y suplantar]
+
+</pre>
+
+<p>La clave no vivía en memoria segura externa sino dentro del PIC, así que tras el análisis inverso "las llaves simplemente saltan a la vista". Como son simétricas, clonar una tarjeta HID dejó de requerir fuerza bruta: se lee y se escribe. La evolución posterior del fabricante ilustra el patrón de parches que no arreglan:</p>
+<ul>
+<li><strong>iClass SE</strong> cifró el dato en reposo con AES (bien), pero la tarjeta sigue clonándose tal cual: se captura el blob cifrado y se replica en otra tarjeta — ser otro sigue siendo tocar el badge de alguien.</li>
+<li><strong>HID Elite</strong> vendía una clave específica por organización para evitar la clonación con la clave universal. Flavio García y colegas encontraron una debilidad en la derivación de las claves elite: bastan siete intentos fallidos ante un lector elite (transacciones que nunca llegan al backend) para poder, offline, romper la clave de la organización. El pago extra vuelve al punto de partida.</li>
+<li>El firmware, sin ser open source, circula; las implementaciones se escribieron en Python, C y Proxmark, y hoy todo está portado al Flipper Zero — portada, según el autor, por uno de los coautores de los papers originales.</li>
+</ul>
+<h2>El presente incómodo: 2010 y la infraestructura que no se cambia</h2>
+<p>La clave universal se filtró hace más de una década y la implicación sigue siendo enorme: la mayoría de los badges corporativos — salvo en las empresas más grandes — o no tienen cifrado alguno o siguen siendo iClass estándar. El autor cuenta que alquiló seis meses en un edificio nuevísimo en Houston y el primer día clonó la tarjeta que le dieron y empezó a abrir puertas: "¿por qué en 2024 construimos esto y compramos esta tecnología?". Queda, sin embargo, algo de valor en el teatro de seguridad: mantener honestos a los honestos, y pasar auditorías SOC 2 exige que el papel se vea bien. Lo que no está publicado fuera de DEF CON es que la vulnerabilidad existe — no hay carteles que pregunten qué versión de firmware corre el lector — y para un administrador el remedio es caro: lectores de hasta 1.500 dólares cada uno, más la mano de obra de arrancarlos y recablearlos.</p>
+<p>El denominador común de todos los casos no es la criptografía sino la mala implementación: cripto casera, decisiones que recién se ven terribles en retrospectiva (como los strings terminados en null byte que regalaron los buffer overflows para siempre). Porque la comunidad de smart cards en general lo hizo bien: atacar la CAC del DoD o una tarjeta de crédito moderna es genuinamente difícil, y los exploits notables son escasos — el caso recordado es el de las SIM de un fabricante que usaban una sola clave DES en lugar de triple DES y podían rootearse masivamente. Bien implementado, el núcleo de la tecnología es sólido.</p>
+<h2>Por qué no ganaron: escala, aislamiento y la ausencia de interfaz</h2>
+<p>Si las tarjetas seguras existen, ¿por qué no las hay en todo? Tres razones estructurales:</p>
+<ul>
+<li><strong>No escalan como se soñó.</strong> La visión original era una sola tarjeta con applets de todo tipo — banco, gimnasio, empleador —, pero la arquitectura de seguridad del Java Card OS casi no tiene aislamiento: no se puede confiar en que el gimnasio cumpla los estándares del banco para compartir el mismo espacio de memoria. Resultado: una tarjeta por función y, para logins web, un rolo de 800 tarjetas.</li>
+<li><strong>Requieren hardware extra</strong> (el dongle para el lector de la computadora) y engordan las carteras.</li>
+<li><strong>No tienen interfaz de usuario.</strong> Si se cae una tarjeta y alguien la levanta, esa persona es vos instantáneamente. Un PIN de cuatro dígitos con límite de cinco intentos mitigaría el ataque, pero las tarjetas son alimentadas pasivamente y no hay energía para una interfaz. Y contra el <strong>relay attack</strong> — dos radios software-defined reemitiendo en tiempo real, uno junto a tu tarjeta y otro en el lector, aunque estén en continentes distintos — casi no hay defensa: por eso las fundas Faraday funcionan de verdad, como confirmó el autor probándolas en laboratorio. La recomendación práctica número uno de su carrera fue precisamente usarlas, por ejemplo los portadores rígidos con jaula Faraday y tapa abatible.</li>
+</ul>
+<h2>La apuesta: el secure element que ya llevás arriba</h2>
+<p>La pregunta de carrera del autor — "¿podemos hacerlo mejor?" — apunta al teléfono. Cada smartphone moderno lleva soldado en la placa un secure element: el mismo chip de la SIM y de la tarjeta de crédito, sin el plástico, y es con lo que se interactúa en el pago sin contacto. Además, todo procesador ARM actual incluye un trusted execution environment (en ARM, TrustZone): al arrancar, el teléfono entra en un mundo seguro donde viven los secretos más sagrados — llaves criptográficas, código de autenticación — mientras iOS y Android juegan en un sandbox no seguro; aun con el sistema operativo 100% comprometido, el mundo seguro no se toca. La combinación correcta es cripto siempre en el secure element (que ya trae las defensas físicas y de canal lateral heredadas de la comunidad de smart cards) y el TEE reservado para la interacción de usuario confiable — detectar que un dedo tocó físicamente el botón, no ejecutar RSA con sus canales laterales.</p>
+<p>Es la misma vía por la que el autor apostó su carrera: dejó la academia, declinó sus ofertas de profesorado y construyó Authenticate, una app con criptografía asimétrica que habla con lectores de puerta, computadoras por SSH, servidores y sitios web — múltiples credenciales conviviendo en el almacén de llaves privado del teléfono, el sueño de los applets hecho bien.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Llave física<br/>1 a 1] --> B[Smart card<br/>1 a muchos]
+    B -->|Mifare, iClass,<br/>claves universales filtradas| C[Expos commoditizadas:<br/>Flipper Zero]
+    C --> D[Secure element + TEE<br/>en el smartphone]
+    D --> E[Credenciales múltiples,<br/>actualización OTA,<br/>interfaz de usuario]
+    B -.->|sin aislamiento de applets,<br/>sin PIN, relay attacks| F[Por qué no bastó]
+    D -.->|nuevo riesgo: el teléfono<br/>está en internet| G[Superficie de ataque<br/>de software a mitigar]
+
+</pre>
+
+<h2>Preguntas y respuestas destacadas</h2>
+<ul>
+<li><strong>¿Se rompió la CAC del DoD?</strong> "Incluso si supiera la respuesta, no podría decírtela." publicaron LL Smart Card, una librería en GitHub del Lincoln Laboratory para fuzzear interfaces de smart cards por canal de contacto y sin contacto.</li>
+<li><strong>¿Los TEE aguantan ataques físicos?</strong> Sufren más que una smart card con antitamper dedicado; la mitigación es la combinación TEE + secure element. El vector estudiado en su doctorado fue el <strong>glitching</strong>: alterar el voltaje en el instante justo del arranque para saltear la transición al mundo no seguro — así se hackeó el Xbox One. Publicaron un pass de LLVM/Clang que hace el código del bootloader resistente a glitching en software; el nombre deseado era "Glitch Please", la academia lo rebautizó.</li>
+<li><strong>¿Hay tarjetas seguras hoy?</strong> Sí: Mifare DESFire y Ultralight con DES/AES bien aplicado, sin vulnerabilidades conocidas; casi todos los lectores las leen, incluso los de marca blanca. Están armando en su sitio web un registro público de qué stocks de tarjetas están rotas y cuáles no.</li>
+<li><strong>¿Qué tan peligroso es andar por DEF CON sin funda Faraday?</strong> Las tarjetas de crédito están bien (salvo relay attack). Un badge de 125 kHz es muy probable que alguien lo haya leído — el año pasado el village tuvo su wall of sheep de tarjetas prox detectadas en el bolsillo de la gente. Con un iClass, si alguien te chocó de forma rara y sos un objetivo, pedí un badge nuevo al volver.</li>
+<li><strong>¿Y los yubikeys con falla FIPS?</strong> Ilustran el dilema del hardware: sin actualización por aire, hay que reemitir el dispositivo entero — mientras que en el teléfono el update llega por OTA. El contraejemplo son Spectre y Meltdown, donde el refab de procesadores tardó una década.</li>
+<li><strong>¿Por qué concentrar todo en el teléfono no es locura?</strong> La analogía de las Termópilas: como defensor querés un cuello de botella. El secure element tiene una sola línea de E/S, parsers rudimentarios y auditables; con las tarjetas actuales, en cambio, hay un universo de tecnologías desplegadas sin visibilidad de qué pasa dónde.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/zBP2deuPQTg">«DEF CON 33 - From Cloning Cards to Phones in Your Pocket: A Smart Card History - Zach Kavanaugh»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

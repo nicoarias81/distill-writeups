@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Splitting the email atom: discrepancias de parsers y bypass de control de acceso — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Splitting the email atom: discrepancias de parsers y bypass de control de acceso</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JERBqoTllaE">«DEF CON 33 - Splitting the Email Atom: Exploiting Parsers to Bypass Access Controls - Ben Harris»</a> · ver el <a class="nz-link" href="https://youtu.be/JERBqoTllaE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> JERBqoTllaE · <strong>URL:</strong> https://youtu.be/JERBqoTllaE · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Splitting the Email Atom: Exploiting Parsers to Bypass Access Controls - Ben Harris</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las direcciones de email parecen mundanas, pero las RFCs que las gobiernan son francamente descabelladas. La premisa del hallazgo: predecir a qué dominio llega un email es inesperadamente difícil incluso para direcciones válidas conforme a la RFC — y eso importa porque muchas websites usan la parte del dominio del email para inferir la organización del usuario y aplicar control de acceso. Slack da acceso automático al canal de la empresa según el email de trabajo; Cloudflare Zero Trust puede configurarse para proteger la red interna por dominio. Eso convierte la verificación de email en un límite de seguridad crítico — y las discrepancias de parser en un vector de bypass.</p>
+<p>Las discrepancias de parsers de URL están establecidas como críticas (SSRF, path traversal); las de email lo son igual, aunque apenas exploradas. El recorrido cubre: los cimientos inestables del email (source routes, el percent hack, el bang path de UUCP), las técnicas de generación de caracteres bloqueados (Unicode overflows, encoded word, UTF-7 y Base64), los case studies reales (GitLab Enterprise, GitLab como IdP, Zendesk, GitHub, WordPress, Cloudflare Zero Trust), el escalado a RCE vía punycode contra Joomla, la metodología y herramientas, y la defensa.</p>
+<h2>Los cimientos: protocolos antiguos dentro de direcciones modernas</h2>
+<p>La validación de email se suele hacer con regexes copiadas de Stack Overflow intentando seguir la RFC. Antes de preguntar "¿cuál dirección es válida?", la pregunta correcta es <strong>¿a qué dominio van a llegar?</strong>. Dos direcciones visualmente idénticas dirigidas a <code>example.com</code> pueden llegar ambas a <code>psres.net</code> — una funciona en Postfix, la otra en Sendmail.</p>
+<ul>
+<li><strong>Quoted local part.</strong> La RFC permite caracteres normalmente prohibidos en la parte local si se encierran entre comillas (por ejemplo un <code>@</code> literal), y quoted pairs escapados con backslash. Los comentarios entre paréntesis se ignoran al entregar.</li>
+<li><strong>Source routes.</strong> Una secuencia de servidores por los que el email pasa antes de su destino final, separados por comas, con el destino final tras dos puntos. Variante: el <strong>percent hack</strong>, donde el carácter (determinado por el mailer) se convierte en <code>@</code> tras una primera entrega y el proceso puede repetirse.</li>
+<li><strong>Bang path (UUCP).</strong> El protocolo Unix-to-Unix Copy, anterior al email y a internet, separaba usuario y hosts con signos de exclamación, listando los hosts de izquierda a derecha con el buzón destino a la derecha.</li>
+<li>El mecanismo del bypass: los paréntesis (o la escape del <code>@</code>) eliminan la parte del dominio, y sin dominio Postfix interpreta la dirección como source route y Sendmail como dirección UUCP. El descubrimiento fue empírico, no un análisis de código: un objetivo permitía caracteres especiales, el syslog mostraba "host unknown" en la delivery status notification, y acotar el carácter responsable (el signo de exclamación) reveló el comportamiento UUCP; un fuzzer posterior encontró el source route de Postfix. Bonus de la investigación: los <strong>parámetros SMTP opcionales</strong> de la RFC permiten eliminar la parte del dominio escapando el backslash para salir del quoted local part, cerrando el <code>RCPT TO</code> con <code>&gt;</code> y escondiendo el resto de la dirección en el parámetro — verificado contra un target real como conversación SMTP válida. También en Postfix: direcciones UUCP que se envían ignorando las comillas, y source routes via sintaxis de corchetes.</li>
+</ul>
+<h2>Generar caracteres bloqueados: Unicode overflows y encoded word</h2>
+<p>Muchas aplicaciones bloquean múltiples <code>@</code>. Para sortearlo:</p>
+<ul>
+<li><strong>Unicode overflows.</strong> Un sistema sin soporte de Unicode alto trunca puntos de código &gt;255 al rango 0–255 (como el <code>chr</code> de PHP: módulo tras un loop sobre negativos). En JavaScript, <code>fromCodePoint</code> con dos números (el overflow, p. ej. 0x100, y el carácter objetivo, p. ej. 0x40 = <code>@</code>) produce un carácter Unicode que, al transformarse, deviene el ASCII deseado. Caso real: un target que alteraba caracteres dentro de la conversación SMTP del mailer bloqueaba el backslash del quoted local part; el overflow lo evadió y permitió smugglear caracteres en la conversación SMTP (una doble validación — aplicación y envío — impidió el exploit completo, pero el patrón queda demostrado).</li>
+<li><strong>Encoded word (RFC 2047).</strong> Formato <code>=?charset?encoding?data?=</code> que permite incluir caracteres codificados que se decodifican al enviar: <code>=?utf-8?q?=40?=</code> es un <code>@</code>. Para sondear soporte: dos requests con dos charsets distintos (mayoría de librerías soporta charsets distintos), en minúscula, y un tercer follow-up con charset <code>x</code> para reducir falsos positivos; payload de collaborator como destino.</li>
+</ul>
+<h2>Case studies: Ruby Mail (508M de descargas)</h2>
+<p>La librería <code>mail</code> de Ruby se usa en GitHub, Zendesk, GitLab y Bugcrowd (versión testeada 2.8.1).</p>
+<ul>
+<li><strong>GitLab Enterprise:</strong> charset <code>x</code> + <code>@</code> codificado (<code>=40</code>) + underscore (encoded word soporta <code>=20</code> como espacio y también underscore): el email se parte en dos, GitLab cree que el dominio es <code>example.com</code> pero llega a <code>psres.net</code>. Impacto: verificar emails de dominios no controlados → acceso a servidores GitLab Enterprise con restricciones de registro por dominio.</li>
+<li><strong>GitLab como IdP:</strong> variante con <code>&gt;</code> codificado y espacio codificado: GitLab cree un dominio, llega otro. Se puede spoofear y verificar <strong>cualquier dominio</strong> — Microsoft.com, GitHub.com, Mozilla.com verificados en la demo. Bypass de controles por dominio en toda website que use GitLab como identity provider, incluidas instancias de Cloudflare Zero Trust con validación por dominio de email.</li>
+<li><strong>Zendesk:</strong> quoted local part con comillas codificadas (<code>=22</code>), <code>@</code> codificado, <code>&gt;</code> y carácter null (el null evita que se use el resto de la dirección), más <code>&lt;</code> codificado y doble comilla por los quirks del mailer — la teoría es que Zendesk parsea el email varias veces. Impacto: verificar emails de dominios no controlados → acceso a support centers protegidos por dominio.</li>
+<li><strong>GitHub:</strong> <code>@</code> codificado + <code>&gt;</code> codificado que cierra el <code>RCPT TO</code> + null character que descarta el resto de la dirección. Mismo bypass de controles por dominio con GitHub como IdP.</li>
+</ul>
+<h2>La escalera de la suciedad: Base64 y UTF-7 dentro del email</h2>
+<p>Durante el testing de librerías Ruby apareció soporte para <strong>direcciones Base64</strong> (<code>B</code> como encoding type): <code>=?utf-8?B?&lt;base64&gt;?=</code> se decodifica y envía a la dirección interna. Peor: <strong>UTF-7</strong>, el charset del vector clásico de XSS en IE — las librerías de parsing lo aceptan (<code>&amp;</code> como delimitador UTF-7). Y combinaciones: Base64 con charset UTF-7 (decodificación doble), y UTF-7 con Q-encoding dentro (dos capas). Todo funciona también en la parte del dominio. GitHub en su momento soportaba UTF-7 (parcheado antes de que el exploit llegara).</p>
+<p>Fuera de Ruby: <strong>PHPMailer</strong> soporta encoded word en el nombre del destinatario — difícil de explotar en WordPress por la exigencia de angle brackets, pero candidato realista para bug bounty en sistemas que decodifican el nombre del destinatario.</p>
+<h2>De bypass a RCE: punycode y Joomla</h2>
+<p>El <strong>punycode</strong> representa caracteres Unicode en el DNS actual (siempre <code>xn--</code> + secuencia alfanumérica y guiones). El algoritmo es frágil para testing: cambiar un byte puede alterar todo el output. El objetivo: generar caracteres maliciosos al decodificar. Experimentando con un convertidor online (librería PHP IDN) se lograron generar una coma y un <code>@</code> añadiendo ceros al inicio de la secuencia. En GitHub apareció el target: <strong>Joomla</strong>, donde XSS equivale a RCE. Análisis de código: Joomla escapa el email <strong>antes</strong> de decodificar punycode — HTML producido por la decodificación daría XSS.</p>
+<p>El fuzzer de punycode malformado (placeholders sustituidos por números, caracteres o espacios aleatorios) encontró múltiples caracteres generables, con restricciones duras: solo dos ASCII por subdominio, y Joomla prohíbe underscores en el dominio — descartando el vector con atributo entre comillas. Conclusión tras mucho testing: el único vector explotable era un <strong>tag <code>&lt;style&gt;</code> de apertura</strong> generado con punycode malformado, donde el HTML preexistente de Joomla aporta el espacio y el <code>&gt;</code> de cierre.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Cuenta 1: email con punycode malformado<br>→ inyecta tag style al renderizar] --> C[Admin visita la página de usuarios]
+    B[Cuenta 2: payload CSS en el nombre<br>→ import de CSS exfiltrador] --> C
+    C --> D[Exfiltración del CSRF token<br>via import chaining + servidor node]
+    D --> E[Admin visita URL del atacante<br>CSRF con el token exfiltrado]
+    E --> F[Modificación del template admin<br>= RCE]
+
+</pre>
+
+<p>La demo en vivo mostró el flujo completo: dos cuentas registradas (la primera con el <code>style</code> inyectado, la segunda con el payload CSS que hace import — ordenadas alfabéticamente A y X para que la inyección preceda al payload, y con llaves para que todo el HTML previo se trate como selector CSS inválido), el admin visita la página, el token se exfiltra, el ataque CSRF modifica el template de Joomla y el atacante obtiene RCE con <code>cat /etc/passwd</code>.</p>
+<h2>Metodología y herramientas</h2>
+<p><strong>Método: probe → observe → encode → exploit.</strong> Sondear si encoded word se soporta; observar que se decodifica; codificar varios caracteres y observar la decodificación; recién entonces explotar abusando de esos caracteres.</p>
+<p>Herramientas (libres, de PortSwigger): <strong>Hackverter</strong> (extensión Burp con tags para generar Unicode overflows y encoded word attacks), <strong>script de Turbo Intruder</strong> para explotar mailers (el null de GitHub se encontró así), <strong>fuzzer de punycode</strong> para generar punycode malformado, y wordlist actualizada de Burp Intruder.</p>
+<h2>Defensa</h2>
+<ul>
+<li>Filtrar o deshabilitar <strong>encoded word</strong>.</li>
+<li>Verificar siempre la dirección de email antes de usarla, <strong>incluso si llega de un proveedor SSO</strong>.</li>
+<li>Tras validar, <strong>nunca usar el dominio como único medio de autorización</strong>.</li>
+<li>Material práctico: CTF de Web Security Academy para practicar email splitting y Docker file con la instalación vulnerable de Joomla.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Direcciones de email perfectamente válidas pueden disparar discrepancias de parser mayores: incluso una dirección que termina en <code>@example.com</code> puede llegar a otro lado.</li>
+<li>El corolario de seguridad: <strong>nunca es seguro usar dominios de email para enforcement de control de acceso</strong> — Slack, Cloudflare Zero Trust, GitLab, GitHub y Zendesk lo aprendieron con reportes reales.</li>
+<li>La superficie explota en capas: source routes y UUCP (protocolos de los 70-80), Unicode overflows, encoded word, Base64 y UTF-7 anidados, y punycode malformado que escala de bypass a XSS y de ahí a RCE.</li>
+<li>La ruta de descubrimiento fue observación empírica (syslog, delivery status notifications) más fuzzing — no reversing de miles de líneas de código.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JERBqoTllaE">«DEF CON 33 - Splitting the Email Atom: Exploiting Parsers to Bypass Access Controls - Ben Harris»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hardware hacking: cómo empezar a manipular electrónica sin quemar nada — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hardware hacking: cómo empezar a manipular electrónica sin quemar nada</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8QWTxzmOyQM">«Hardware Hacking: ¿Cómo empiezo? - Mario Micucci»</a> · ver el <a class="nz-link" href="https://youtu.be/8QWTxzmOyQM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 8QWTxzmOyQM · <strong>URL:</strong> https://youtu.be/8QWTxzmOyQM · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Hardware Hacking: ¿Cómo empiezo? - Mario Micucci</li>
+</ul>
+<h2>Resumen</h2>
+<p>El hardware hacking es el hacking aplicado a dispositivos electrónicos: conocer en profundidad un dispositivo — un candado biométrico, una cámara IP, un router — y aplicar pensamiento lateral para descubrir funcionalidades ocultas, puertas traseras, backdoors o fallos de seguridad, extraer firmware de memorias y microcontroladores, o reutilizar el hardware para otros fines. La buena noticia para quien quiere empezar: no hace falta un laboratorio de alta gama ni seis años de carrera de electrónica, sino una motivación clara, herramientas baratas, conocimientos básicos bien priorizados y una metodología de trabajo que incluya romper cosas y documentar todo.</p>
+<h2>Por qué hacer hardware hacking</h2>
+<ul>
+<li><strong>Curiosidad e investigación</strong>: ¿la huella dactilar del candado está ahí adentro y es recuperable? ¿Se puede manipular el sistema que controla los fluidos de un auto? Esa pregunta inicial es el motor.</li>
+<li><strong>Más dispositivos que procesan información sensible</strong>: miles de dispositivos IoT en el mercado son inseguros, y cada vez hay más electrónica incorporada a la vida cotidiana — hasta cercanos al cuerpo.</li>
+<li><strong>El hardware es el eslabón más débil (junto con el usuario)</strong>: si la laptop o los dispositivos de uso diario tienen problemas de seguridad, el problema está en la base operativa de todas las demás tareas.</li>
+</ul>
+<h2>Conocimientos previos: priorizar, no cursar una carrera</h2>
+<p>La electrónica es un universo; lo que hace falta es una priorización:</p>
+<ul>
+<li><strong>Electrónica básica</strong>: tensión/voltaje, corriente, resistencia — y saber medir con multímetro (tensiones, continuidad). Muchos ya lo hicieron de forma lateral arreglando un fusible o el auto.</li>
+<li><strong>Componentes de una PCB e interpretación</strong>: reconocer un LED, un diodo, sus representaciones gráficas en un circuito.</li>
+<li><strong>Fundamentos de circuitos digitales</strong>: quien viene de informática ya cursó sistemas digitales, algoritmos y álgebra de Boole — ventaja directa.</li>
+<li><strong>Interpretación de datasheets</strong>: cada componente tiene un código asociado a una hoja de datos; hay que buscarla por el código y saber leerla.</li>
+<li><strong>Micros y sistemas embebidos</strong>: entender la lógica de funcionamiento de un microcontrolador y una memoria, aunque todavía no se haya metido mano físicamente.</li>
+<li><strong>Protocolos de comunicación y debugging</strong>: protocolos embebidos en las placas que después se manipulan para extraer información y hacer análisis de firmware y dumps de memorias.</li>
+<li><strong>Buenas prácticas de seguridad</strong> al abordar cualquier dispositivo.</li>
+</ul>
+<h3>Si no sé electrónica: caminos alternativos</h3>
+<ul>
+<li><strong>Cursos de reparación de dispositivos</strong>: reparar celulares, notebooks o electrónica automotriz condensa casi todo lo necesario — medir corriente, tensión, continuidad — y de paso da una salida laboral paralela.</li>
+<li><strong>Proyectos de electrónica</strong>: sitios con proyectos armables (domótica, un tacho de basura inteligente) para comprar componentes, soldar y programar; ideal para quien ya tiene una base o es más intrépido.</li>
+</ul>
+<h2>Herramientas: baratas primero, gadgets después</h2>
+<p>Advertencia clave: <strong>los gadgets de hardware hacking (como la Flipper Zero) no son herramientas para practicar hardware hacking</strong> — sirven para pruebas de intuición y los usan más bien perfiles de pentesting. Las herramientas de verdad son las del mundo de la electrónica:</p>
+<ul>
+<li><strong>Destornilladores</strong> con puntas para tornillos normalizados (Torx y demás) y <strong>soldador</strong> — muy baratos.</li>
+<li><strong>Estación de soldadura</strong>: más barata que un par de zapatillas.</li>
+<li><strong>Multímetro</strong>: mide tensión y corriente; los hay con osciloscopio incorporado respetable para ciertas frecuencias.</li>
+<li><strong>Fuentes regulables</strong>, <strong>programadores</strong> de memoria, <strong>analizadores de señales</strong> — para identificar pines en placas y hacer debugging de microcontroladores y memorias.</li>
+<li><strong>Extras de alta gama</strong>: microscopios, soportes de memorias, generadores de onda, osciloscopios y — sorprendentemente útil tras muchas horas de soldadura — el extractor de humo.</li>
+</ul>
+<p>No hay que comprar todo de una: las herramientas se incorporan a medida que avanzan los conocimientos y las pruebas.</p>
+<h2>Por dónde empezar: dispositivos IoT</h2>
+<p>Recomendaciones para el primer análisis:</p>
+<ul>
+<li><strong>No empezar por el dispositivo más caro</strong>: el primer dispositivo se rompe, es un hecho. Aceptarlo evita frustración.</li>
+<li><strong>Empezar por dispositivos viejos y baratos</strong>: un router clásico de Mercado Libre, por pocos dólares un candado biométrico. Todos tienen vulnerabilidades.</li>
+<li><strong>Por qué IoT es la entrada ideal</strong>: son baratos, hay muchísima documentación (microcontroladores y memorias de dispositivos masivos están bien conocidos), tienen CVEs tipificados con exploits disponibles, y son buena entrada al pentesting de hardware, un mundo incipiente que crecerá con la electrónica en empresas y hogares. La <strong>OWASP</strong> mantiene un top 10 de vulnerabilidades en dispositivos IoT, utilizable como guía de referencia en cualquier pentest de hardware.</li>
+</ul>
+<h3>Ciclo de trabajo: information gathering</h3>
+<ol>
+<li><strong>Desarmar e inspeccionar visualmente</strong> el dispositivo.</li>
+<li><strong>Leer la etiqueta</strong>: punto de partida para manuales y funcionalidades; googlear el modelo.</li>
+<li><strong>Consultar wikis especializadas</strong> (como la InfosecPot wiki) que documentan microcontroladores y memorias por modelo — ojo: un mismo TP-Link fabricado en Singapur o en Taiwán puede tener variaciones.</li>
+<li><strong>Identificar en la placa</strong>: memoria flash (donde vive el firmware), memorias, osciladores (marcan el clock del microcontrolador), microcontroladores, <strong>SoC</strong> (System on Chip, no el equipo de seguridad), reguladores de voltaje y fuentes de alimentación.</li>
+<li><strong>Identificar componentes por su código</strong>: buscar el código serigrafiado en Google, obtener el datasheet; y usar la IA a favor — pedirle que interprete un datasheet funciona, e incluso identificar puertos JTAG desde fotos de la PCB hoy funciona "muy mal, pero en ciertas cosas bastante aproximado". En el futuro cercano, la IA cubrirá buena parte del reconocimiento.</li>
+<li><strong>Documentar todo</strong>: fotos desde varios ángulos, voltajes medidos, inventario de información recolectada.</li>
+</ol>
+<h2>Puertos de depuración: JTAG y UART</h2>
+<p>Las placas traen interfaces de comunicación y depuración puestas por los fabricantes. <strong>JTAG</strong> nace en los años 90 para permitir a los ingenieros hacer testing sin desoldar cada microcontrolador: pines que permiten conectarse al chip y debuggearlo. Y hecha la ley, hecha la trampa: lo mismo que sirve para testear sirve para extraer información. <strong>UART</strong> funciona como consola de comunicación.</p>
+<p>Lo interesante de los dispositivos IoT es que muchos de estos puertos vienen integrados en la placa — a veces con pines físicamente montados, listos para colgarse con un programador. Pero no vienen rotulados: hay que buscarlos. Las técnicas básicas de identificación son medir <strong>continuidad</strong> y <strong>tensión</strong> con el multímetro para armar una tabla de pines; en circuitos muy viejos, la IA puede ayudar.</p>
+<h2>Extracción y análisis de firmware</h2>
+<p>El firmware es el "sistemita operativo" del dispositivo: maneja todas sus funcionalidades. El proceso no es lineal — se vuelve una y otra vez sobre inspección, identificación de pines, extracción, análisis, simulación y documentación.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Inspección visual] --> B[Detección de puertos de depuración]
+    B --> C{¿Guarda disponible?}
+    C -- Sí --> D[Acceso a consola UART y extracción]
+    C -- No --> E{¿JTAG?}
+    E -- Sí --> F[JTAGulator para identificar pines y extraer]
+    E -- No --> G{¿Dump directo / captura de buses?}
+    D --> H[Análisis del firmware en PC]
+    F --> H
+    G --> H
+    H --> I[Simulación y documentación]
+
+</pre>
+
+<ul>
+<li><strong>Conexión segura de alimentación</strong>: si el dispositivo funciona con 3,3 V y 5 mA, no conectarlo a una fuente cualquiera — respetar tensión y corriente o se quema.</li>
+<li><strong>Atajos</strong>: muchos fabricantes (TP-Link, por ejemplo) publican los firmwares descargables — no hace falta extraerlos del dispositivo. Las memorias, en cambio, son propias de cada dispositivo.</li>
+<li><strong>Dónde está el valor</strong>: la mayor cantidad de vectores de investigación está en memorias y firmwares — contraseñas e información sensible guardadas que permiten avanzar por el dispositivo.</li>
+<li><strong>Análisis con Binwalk</strong>: el dump es un archivo .bin; con Binwalk se encuentran claves SSH, usuarios por defecto, scripts. Si se encuentra algo, se modifica el firmware, se vuelve a quemar en el dispositivo y el dispositivo queda vulnerado.</li>
+<li><strong>Reinyección y verificación</strong>: verificar los hashes de cada extracción y documentar — en un trabajo de pentesting todo tiene que estar registrado.</li>
+<li><strong>IA en el reversing</strong>: probar analizar firmwares con inteligencia artificial funciona bastante bien, siempre sabiendo qué se busca — optimiza el tiempo frente al clásico barrido de strings.</li>
+</ul>
+<p>El análisis de <strong>memorias</strong> es más "cuadrado" que el de firmware: no depende tanto de la arquitectura del microcontrolador, y las herramientas son las mismas del reversing y la forense (Binwalk, Extreme/XTamp, etc.).</p>
+<h2>Cuando la placa no coopera: dispositivos modernos</h2>
+<p>El mundo IoT y los dispositivos antiguos son amables; los modernos no:</p>
+<ul>
+<li><strong>Resina (epoxi)</strong>: placas llenas de resina — típico en consolas de videojuegos, donde nacieron las primeras capas de seguridad por copyright de los juegos. Sacarla exige raspado, aire caliente, químicos, ultrasonido, incluso rayos X.</li>
+<li><strong>Chips desconocidos</strong>: circuitos diseñados a medida sin datasheet ni información; hace falta <strong>decapping</strong> (raspar hasta llegar a la información), un nivel de expertise y laboratorios elevados.</li>
+<li><strong>Glitching y fuerza bruta</strong> como técnicas de ataque ante protecciones activas.</li>
+<li><strong>Componentes suicidas</strong>: componentes colocados de modo que si alguien intenta manipular la placa, la rompe y no deja analizar nada.</li>
+<li><strong>Man in the middle en actualizaciones</strong>: colgarse en el medio cuando el dispositivo actualiza su firmware y extraer la información en tránsito.</li>
+</ul>
+<p>Y otra vía para los ansiosos: <strong>empezar por un dispositivo ya vulnerable con exploit conocido</strong> — como el clásico enchufe inteligente controlado por app, con CVE publicado y exploits de terceros — la misma lógica de empezar pentesting con Metasploitable antes que con el último Windows. Explotarlo da adrenalina y ganas de seguir.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Multímetro</strong>: medición de tensión, corriente y continuidad; base para identificar pines de puertos de depuración sin rotular.</li>
+<li><strong>Estación de soldadura / soldador / destornilladores Torx</strong>: herramientas físicas de arranque, baratas, previas a cualquier gadget.</li>
+<li><strong>Fuentes regulables, programadores de memoria y analizadores de señales</strong>: para alimentar con tensión/corriente exactas, quemar memorias y hacer debugging de microcontroladores.</li>
+<li><strong>Osciloscopio y microscopio</strong>: nivel de alta gama para análisis de señales y trabajo fino en placa.</li>
+<li><strong>JTAG y UART</strong>: puertos de depuración integrados por los fabricantes; sirven para testear el chip y, del otro lado, para extraer información.</li>
+<li><strong>JTAGulator</strong>: identificación de pines JTAG en placas sin rotular.</li>
+<li><strong>Binwalk</strong>: análisis del dump del firmware (.bin) para encontrar claves SSH, usuarios por defecto y scripts; junto con las herramientas clásicas de reversing y forense para memorias.</li>
+<li><strong>Datasheets y wikis especializadas</strong> (InfosecPot): identificación de componentes por código serigrafiado y documentación de micros/memorias por modelo.</li>
+<li><strong>IA aplicada al análisis</strong>: interpretación de datasheets, aproximación a identificación de puertos JTAG desde fotos de PCB y análisis de firmwares optimizando el tiempo frente al barrido de strings.</li>
+<li><strong>OWASP IoT Top 10</strong>: guía de vulnerabilidades típicas de dispositivos IoT usable como referencia en cualquier pentest de hardware.</li>
+<li><strong>Flipper Zero</strong>: contraejemplo — gadget de pruebas de intuición, no herramienta para practicar hardware hacking.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El hardware hacking es 100 % aplicable desde hoy: motivación clara (que reduce la frustración), herramientas baratas (soldador, multímetro, destornilladores) y conocimientos priorizados de electrónica digital bastan para arrancar; los gadgets tipo Flipper Zero no sustituyen ese camino.</li>
+<li>Los dispositivos IoT son la puerta de entrada ideal: baratos, vulnerables, documentados y con CVEs y exploits disponibles para aprender sin desanimarse.</li>
+<li>El ciclo básico — inspección visual, identificación de componentes y pines (continuidad, tensión, datasheets), detección de puertos JTAG/UART, extracción de firmware y dumps de memoria, análisis con Binwalk, simulación y documentación constante — no es lineal: se itera una y otra vez.</li>
+<li>La dificultad real aparece en los dispositivos modernos: resina, chips sin datasheet, decapping, glitching y componentes suicidas exigen laboratorio y expertise — por eso conviene llegar ahí después de la práctica con IoT.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8QWTxzmOyQM">«Hardware Hacking: ¿Cómo empiezo? - Mario Micucci»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

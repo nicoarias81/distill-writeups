@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>z/OS Unix como puerta de entrada: escalada de privilegios en el mainframe moderno — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">z/OS Unix como puerta de entrada: escalada de privilegios en el mainframe moderno</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/J3f9axtJsCw">«DEF CON 33 - Mainframe MAYHEM: z/OS UNIX Privilege Escalation from Recon to Root - Phil Young (Soldier of Fortran) &amp; Chad Rikansrud»</a> · ver el <a class="nz-link" href="https://youtu.be/J3f9axtJsCw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> J3f9axtJsCw · <strong>URL:</strong> https://youtu.be/J3f9axtJsCw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Mainframe MAYHEM: z/OS UNIX Privilege Escalation from Recon to Root - Phil Young (Soldier of Fortran) &amp; Chad Rikansrud</li>
+</ul>
+<h2>Resumen</h2>
+<p>El mainframe no murió: cada transacción de tarjeta de crédito, cada vuelo de una aerolínea mayor y la operación de cualquier empresa de más de 50 años pasa por un mainframe, y los anuncios de migración nunca culminan — el CIO arranca, llega a la mitad y renuncia. Y sin embargo, la seguridad de estas plataformas sigue cargando mitos ("no se pueden hacer buffer overflows en el mainframe") que se desmontan una y otra vez.</p>
+<p>El recorrido completo de un pentest de mainframe se apoya en un privilegio concreto: la brecha entre el sistema "clásico" (MVS, data sets, TSO) y z/OS Unix, el subsistema POSIX integrado en z/OS desde los 90 (desarrollado en 1994, conforme a POSIX en 1996, rebrandeado como Unix System Services en 1998 y hoy z/OS Unix). Para cualquiera que conozca Linux, Unix es la "droga de entrada" al mainframe: los comandos son familiares, hay SSH, y la superficie completa del sistema se puede mapear desde ahí.</p>
+<h2>Terminología mínima para entender un mainframe</h2>
+<ul>
+<li><strong>ESM (External Security Manager).</strong> RACF, Top Secret o ACF2 — uno solo activo por vez. Piénsese como Active Directory reemplazable: el sistema operativo pregunta al router SAF "¿esto está bien?" y el router deriva al producto. El ESM controla todas las autorizaciones.</li>
+<li><strong>Special y Operations.</strong> Atributos de usuario en RACF: <code>special</code> permite editar cualquier perfil y darse permisos; <code>operations</code> permite leer cualquier data set, incluida la base de contraseñas de RACF. Cualquiera de los dos, o su combinación, equivale a control total del sistema.</li>
+<li><strong>Bibliotecas APF.</strong> Como una carpeta donde todo lo que se deposita corre setuid: los programas APF-authorized ejecutan en <em>supervisor state</em> (ring 0 equivalente). En Unix, el atributo <code>a</code> (vía <code>extattr +a</code>) marca un programa como APF-authorized.</li>
+<li><strong>Key 0 y el ACEE.</strong> Cada página de memoria tiene una clave; un proceso en key 0 edita cualquier página. Al hacer login, RACF copia la información del usuario a una región de memoria (el ACEE — el equivalente del UID en Linux) protegida en key 0; los procesos de usuario corren en key 8. Si un proceso logra cambiar a key 0 y reescribir su ACEE con otro usuarioid, se convierte en ese usuario.</li>
+</ul>
+<h2>La metodología: de la recon a la demostración de impacto</h2>
+<p>Los cuatro caminos de ataque sobre un mainframe son la red (nmap funciona; también existen redes SNA propias), el sistema de archivos (accesos a data sets mal configurados: read sobre 110.000 data sets con información sensible, write sobre 30.000), el ESM (misconfigurations de autorización) y z/OS Unix. El flujo del pentest:</p>
+<ol>
+<li><strong>Subida de herramientas.</strong> Las empresas restringen la carga de archivos, así que todo se empaqueta en un único <code>all.jcl</code> que se auto-despliega. SCP solo transfiere binario: hay que convertir a EBCDIC (el mainframe habla EBCDIC, no ASCII/UTF-8).</li>
+<li><strong>Recon en memoria con <code>enum.rex</code>.</strong> Un script REXX (lenguaje de scripting de IBM, nativo en Unix) que lee regiones de memoria accesibles y extrae información no documentada del sistema operativo y del entorno: donde el listado está restringido, el dato sigue en memoria si se sabe dónde buscar.</li>
+<li><strong>Recon del filesystem con <code>omvs_enum</code>.</strong> Un port de LinEnum reescrito para tcsh y extendido con comandos mainframe: vuelca además la salida de <code>LISTUSER</code> de RACF para saber qué puede hacer cada cuenta.</li>
+<li><strong>Egress testing.</strong> Con un scanner SYN escrito en Java (los mainframes traen Java por defecto) contra un <code>egress tester</code> externo. Resultado recurrente: el mainframe, detrás de dos VPNs, tiene salida directa sin filtrar a AWS. Un cliente descubrió que reglas hacia un ISP abandonado hacía 10 años seguían routando.</li>
+<li><strong>Búsqueda de secretos con <code>zosHog</code></strong> (port de TruffleHog con regex) y <strong>cracking de credenciales</strong>: <code>enum.rex</code> revela la ubicación de los data sets de RACF y su algoritmo de hash. Con DES (el caso por defecto, sin KDF AES habilitado), John the Ripper o Hashcat rompen toda la base en horas — un full dump con todas las contraseñas se crackea en una tarde.</li>
+</ol>
+<pre class="mermaid">
+flowchart TD
+    A[SSH / OMVS al mainframe] --> B[Recon: enum.rex + omvs_enum + zosHog]
+    B --> C{Vector encontrado}
+    C -->|Credenciales en archivos| D[Lateral: login como usuario special/operations]
+    C -->|extattr +a permitido| E[Programa APF-authorized<br>MODESET KEY0 + RACROUTE<br>= suplantación de cualquier userid]
+    C -->|sudo su sin password| F[UID 0 en Unix<br>+ SSH key en home de admin]
+    C -->|mount permitido| G[Dataset malicioso montado<br>preserva bits APF y setuid]
+    D --> H[Special + Operations = control total]
+    E --> H
+    F --> H
+    G --> H
+
+</pre>
+
+<h2>Cuatro vías de escalada, explicadas</h2>
+<p><strong>Credenciales almacenadas.</strong> Un script en el home de un usuario, <code>chmod 777</code> porque "no funcionaba", con credenciales en texto claro dentro. Se entra por SSH, <code>LISTUSER</code> confirma <code>special</code> y <code>operations</code>, y el pentest se convierte en assessment de lectura total. No es un hallazgo raro: aparece en la mayoría de los tests. La lección: no almacenar contraseñas en archivos, y si es inevitable, verificar que el ESM no esté invalidando los permisos del filesystem.</p>
+<p><strong><code>extattr +a</code>: el atributo APF en Unix.</strong> Acceso de lectura al perfil <code>BPX.FILEATTR.APF</code> en el ESM permite marcar cualquier binario como APF-authorized. El programa de explotación: <code>MODESET KEY=0</code> (aborta si el binario no es APF-authorized) y luego <code>RACROUTE</code> construyendo un ACEE nuevo con el userid objetivo. Se ensambla, se linkea, se marca con <code>extattr +a</code>, y un usuario cualquiera se convierte en cualquier otro — la demo muestra a un usuario sin acceso a un archivo convertirse en el dueño del archivo y leerlo.</p>
+<p><strong><code>su</code> sin contraseña: UID 0 que no es root.</strong> En Unix se llega a UID 0, pero eso no trasciende a Unix: el ACEE de key 0 sigue siendo el usuario original y <code>lu</code> de RACF lo confirma. El workaround trivial: crear <code>~/.ssh/authorized_keys</code> en el home de un administrador (con permisos correctos), inyectar la clave pública y entrar por SSH como él. Si el admin tiene <code>special</code>+<code>operations</code>, de nuevo: control total. Los dos objetivos de toda la escalada son esos: <code>special+operations</code> o APF-authorized.</p>
+<p><strong>Montaje de data sets con bits preservados.</strong> El filesystem de z/OS Unix monta data sets como volúmenes. Con acceso de update a <code>SUPERUSER.FILESYS.USERMOUNT</code> o <code>SUPERUSER.FILESYS.MOUNT</code>, un data set preparado en un mainframe propio — con binarios APF-authorized y setuid en su interior — se empaqueta con JCL, se transfiere y se monta en el objetivo: los bits se preservan y el atacante obtiene ejecución APF-authorized y UID 0 sin tocar los perfiles del ESM.</p>
+<p><strong>Buffer overflows en z/OS Unix.</strong> Mucho código Unix es C; C no es memory-safe; un overflow en un binario APF-authorized da ejecución APF-authorized. Los programas APF-authorized se listan con <code>find -exta</code> (la lista sigue "para siempre"). El mito de que no hay overflows en mainframe persiste incluso ante demostraciones en vivo; el material para aprender existe: el material de z/OS buffer overflows de DEF CON 30 y el curso libre con contenedor Docker que camina el exploit paso a paso (shellcode mainframe incluido, que ejecuta las técnicas RACROUTE descritas).</p>
+<h2>Menciones honrosas de hallazgos reales</h2>
+<ul>
+<li>Permisos ESM mal aplicados: el filesystem parecía restringido pero el ESM otorgaba lectura total de todo z/OS Unix.</li>
+<li>Un shell script world-writable en <code>/etc/profile</code> (se ejecuta en cada login) modificado para otorgar <code>special</code> al siguiente usuario special que entre.</li>
+<li>Carpetas de staging de logs hacia el SIEM world-writable — detectado tres veces en distintos clientes.</li>
+<li>Un web app con LFI que permitía leer archivos de Unix a los que el shell no llegaba.</li>
+</ul>
+<h2>Prevención y detección</h2>
+<p><strong>Prevención:</strong> auditar permisos (<code>find</code> de todo lo <code>chmod 777</code> — hay hallazgos de permisos en cada pentest); restringir los perfiles del ESM (<code>BPX.FILEATTR.APF</code>, <code>BPX.SUPERUSER</code>, los perfiles de mount — acceso break-glass únicamente); testear permisos reales porque el ESM puede anular los del filesystem.</p>
+<p><strong>Detección:</strong> monitorear SMF (el facility de logging de z/OS) por usos de <code>BPX.SUPERUSER</code>, <code>BPX.FILEATTR.APF</code> y comandos de mount; alertar por volumen anómalo de "access denied" (ningún cliente preguntó jamás por los 30.000 intentos de lectura de un pentest); vigilar conexiones salientes inesperadas (el mainframe debe tener patrones de conectividad aburridos y conocidos); y activar la auditoría de archivos de z/OS Unix con <code>chaudit</code> — la columna de audit de <code>ls -W</code> distingue bits controlados por el usuario y por el admin (que el usuario no puede revertir). No para todo archivo: para <code>/etc</code> y los archivos críticos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>z/OS Unix es la superficie de entrada más accesible del mainframe para quien viene de Linux: SSH, comandos familiares, y acceso a data sets clásicos vía <code>//'dataset'</code>.</li>
+<li>La escalada no requiere exotismo: credenciales en texto claro, <code>extattr +a</code>, montajes y <code>su</code> sin contraseña cubren la mayoría de los escenarios reales.</li>
+<li>UID 0 en Unix no es root del mainframe: el objetivo real es el ACEE en key 0 — <code>special</code>+<code>operations</code> o APF-authorized.</li>
+<li>Los mitos del mainframe ("no hay buffer overflows") siguen vivos entre los administradores, mientras la comunidad de mainframe hacking crece de dos personas a dos docenas.</li>
+<li>El remedio es aburrido y efectivo: permisos mínimos, perfiles ESM cerrados, SMF monitoreado y <code>chaudit</code> en lo crítico.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/J3f9axtJsCw">«DEF CON 33 - Mainframe MAYHEM: z/OS UNIX Privilege Escalation from Recon to Root - Phil Young (Soldier of Fortran) &amp; Chad Rikansrud»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

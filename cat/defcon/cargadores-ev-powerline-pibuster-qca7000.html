@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La capa Powerline de los cargadores de vehículos eléctricos: un bit escondido, fugas de señal y firmware ejecutando Doom — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">La capa Powerline de los cargadores de vehículos eléctricos: un bit escondido, fugas de señal y firmware ejecutando Doom</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SQz4nySj4hg">«DEF CON 33 - A Little Bit of Security: EV Charging Modem Exploitation - Marcel, Jan Berends»</a> · ver el <a class="nz-link" href="https://youtu.be/SQz4nySj4hg">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> SQz4nySj4hg · <strong>URL:</strong> https://youtu.be/SQz4nySj4hg · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - A Little Bit of Security: EV Charging Modem Exploitation - Marcel, Jan Berends</li>
+</ul>
+<h2>Resumen</h2>
+<p>La carga rápida DC de un vehículo eléctrico se apoya en una cadena de comunicación poco conocida: señal básica → Powerline Communication (PLC) sobre el propio cable de carga → una red IPv6 completa entre coche y cargador. Toda la industria —coches y estaciones— habla ese PLC con los mismos dos chips de Qualcomm (QCA7000 y QCA7005), la misma tecnología que los adaptadores "Ethernet por línea eléctrica" domésticos, y con firmware mayoritariamente de 2013-2015: más de la mitad de los cargadores relevados en un estudio de campo no había actualizado en más de una década, y ninguno con firmware posterior a 2022 —es decir, nadie había parcheado el broken wire attack divulgado dos años antes—.</p>
+<p>Sobre ese telón de fondo, este trabajo encadena tres hallazgos: el <strong>PIBuster attack</strong>, que permite a un coche malicioso (o a un cargador malicioso) reescribir la configuración del módem del otro extremo por el cable de carga; una caracterización de las <strong>fugas de señal y ataques por tierra</strong>, que convierten cualquier punto de tierra cercano —incluso un tornillo de la rueda del coche— en punto de entrada; y la <strong>ingeniería inversa del propio chip</strong>, que termina con código arbitrario ejecutando en el QCA y un Doom renderizado por el módem de un cargador.</p>
+<p>Las advertencias de seguridad no son un formalismo: los cargadores actuales entregan hasta un megavatio, "solo duele una vez". El emulador de vehículo usado en el estudio conecta únicamente a los pines de datos y jamás toca los de potencia.</p>
+<h2>El road trip: 397 conectores en 4 países</h2>
+<p>Para saber qué hay realmente desplegado se construyó una caja emuladora de vehículo: Raspberry Pi + módem powerline + placa de señalización eléctrica, implementando en Python y C los mismos protocolos que un coche (código público en el GitHub del grupo de investigación). Conectada por el cable de carga, ejecuta en un minuto varias sesiones y reporta qué soporta el cargador —sin pentesting, exactamente como lo haría un vehículo—.</p>
+<p>El muestreo fue aleatorio (autopistas, grandes ciudades, pueblos; 2013 a 2023 de fabricación; 26 fabricantes): 397 conectores CCS en cuatro países europeos. Los hallazgos de campo:</p>
+<ul>
+<li>Todos los cargadores exponen, a petición, la versión de chip y de firmware de su módem de comunicación —equivalente a que una red Wi-Fi anuncie a cualquier cliente qué chip usa y con qué firmware—.</li>
+<li>Solo hay dos chips en todo el parque: QCA7000 y QCA7005, esencialmente el mismo.</li>
+<li>Más de la mitad corre firmware de 2013 o 2015; ningún cargador con firmware más nuevo que la divulgación del broken wire attack de 2022.</li>
+</ul>
+<h2>PIBuster: reescribir la configuración del otro extremo por el cable</h2>
+<p>Los módems guardan su configuración en el <strong>Parameter Information Block (PIB)</strong>: un binario propietario de ~10 KB sin metadatos ni pares clave-valor, donde cada ajuste vive en un offset fijo —dirección MAC, cadena de fabricante, y la <em>network membership key</em>, análoga a la pre-shared key de una red Wi-Fi—. El host puede leer y escribir el PIB enviando mensajes de gestión por Ethernet; las herramientas open source de Qualcomm (open-plc-utils) traen los comandos listos.</p>
+<p>En el contexto doméstico, los módems de una casa forman una red de confianza y existe una función de administración remota: dirigir un comando al MAC de <em>otro</em> módem, que lo recibe modulado por la línea eléctrica y lo ejecuta. El problema es que en carga eléctrica el coche y el cargador también forman una red HomePlug —no porque confíen entre sí, sino porque formar la red es simplemente cómo se envían paquetes—. La consecuencia es el PIBuster attack: un vehículo malicioso puede sobrescribir el PIB del cargador, y un cargador malicioso el del coche. Un PIB malicioso basta para silenciar por completo un módem —sin PLC, sin interfaz con el host—: el dispositivo deja de existir comunicativamente.</p>
+<h3>El bit escondido en el offset 0x1F8C</h3>
+<p>La prueba de laboratorio produjo un resultado inesperado: el ataque funcionaba en algunos dispositivos y en otros no, con firmware Qualcomm idéntico en todos. Como el firmware no se personaliza, la diferencia solo podía estar en el PIB. Localizar el ajuste dentro de un blob binario de 10 KB documentado apenas al 10% exigió un método sencillo y robusto:</p>
+<ol>
+<li>Truncar a igual longitud el PIB de un dispositivo vulnerable (cargador portátil) y uno seguro (dev board), y cargarlos en el mismo módem con el mismo firmware.</li>
+<li>Montar un banco de pruebas: Raspberry Pi + dos módems, uno "víctima" y otro "atacante" emparejados por powerline, con comandos de lectura y escritura del atacante hacia la víctima y releída del flash al final para verificar si los cambios persisten.</li>
+<li>Confirmar que los dos PIB se comportan distinto en hardware idéntico, y partir cada uno por la mitad concatenando vulnerable+seguro: si el resultado es seguro, el ajuste está en la segunda mitad.</li>
+<li>Búsqueda binaria sobre el punto de corte hasta el byte exacto.</li>
+</ol>
+<p>El resultado: <strong>el byte en el offset 0x1F8C</strong>. En 0, leer y escribir el PIB vía powerline está permitido; en 1, bloqueado. Los dev boards venían de fábrica con 0.</p>
+<h3>Prevalencia en California y respuesta de Qualcomm</h3>
+<p>En campo solo se hicieron lecturas —una escritura fallida en producción sería romper cargadores ajenos—; si la lectura estaba bloqueada se asumía dispositivo seguro. De 69 cargadores visitados en California se descargaron 41 PIB: <strong>los 41 sin protección de escritura</strong>. Qualcomm, notificado en febrero, confirmó que lo trata como vulnerabilidad y que será corregido.</p>
+<p>Pero la demostración final agria el panorama: incluso con el bit de seguridad activado en un PIB personalizado, un comando de <strong>reset remoto sigue aceptándose</strong>, y tras el reinicio el chip vuelve a una configuración oculta de fábrica donde el bit desaparece. Donde el QCA arranca con flash externo hay una ventana de explotación; en los automóviles, que usan <em>host booting</em> (el chip se reprograma desde el controlador de host en cada arranque), no hay persistencia compartible por ahora —pero interrumpir sesiones de carga hasta el reinicio sigue siendo trivial—.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Coche malicioso<br/>o cargador malicioso] -- cable CCS/CCS2/NACS --> B[Red HomePlug<br/>coche + cargador]
+    B -- PIB write remoto<br/>vía MAC --> C[PIB del módem del otro extremo]
+    C -- bit 0x1F8C = 0 --> D[Lectura/escritura vía PLC<br/>→ DoS / manipulación]
+    C -- reset remoto --> E[Vuelve a config de fábrica<br/>bit desaparece]
+
+</pre>
+
+<h2>Escuchar sin tocar: fugas de señal y el ataque por tierra</h2>
+<p>La señal PLC ocupa 1-30 MHz con huecos intencionales para no pisar radioaficionados. A esas frecuencias, todo cable que transporta la señal genera un campo eléctrico medible (inyección de modo común). Las consecuencias prácticas:</p>
+<ul>
+<li>Un <strong>CCS listener</strong> comercial (Vector, con bobina de inducción alrededor del cable) decodifica toda la comunicación, pero cuesta 3.000-4.000 dólares y solo se vende B2B. Una placa de desarrollo B2B de ~280 dólares con la misma bobina —o literalmente <strong>un trozo de cable pelado</strong>— capta la comunicación: sin amplificación, a un metro de distancia; con amplificadores, el límite lo pone el entorno.</li>
+<li>El <strong>broken wire attack</strong> de Oxford (2022) ni siquiera necesita contacto: va por SDR, con potencia ridícula, y bloquea la carga de forma inalámbrica.</li>
+</ul>
+<p>El descubrimiento más incómodo vino de replicar broken wire en laboratorio bajo una antena 5G: la interferencia impedía las pruebas, y la solución improvisada de un pasante fue conectar el módem <strong>al terminal de tierra del edificio</strong>. Funciona, y la razón es estructural: coche y cargador forman un sistema de red en el que PE y neutro se combinan, así que el cable de alimentación del cargador comparte tierra con el coche. Cualquier tierra cercana sirve: un cable Ethernet pelado atornillado a un switch lejano, o los tornillos de la rueda del coche, dan acceso al ataque, sin límite de alcance. La lectura por tierra sin amplificación es difícil, pero la denegación de servicio es trivial —el PLC es un protocolo de ventana deslizante y basta llenar las ventanas—: un dispositivo hostil conectado a tierra cerca de un parque de carga puede impedir toda la carga del recinto, y es prácticamente imposible de localizar.</p>
+<h2>Dentro del chip: firmware comprimido, no cifrado</h2>
+<p>El dev board revela la arquitectura: el QCA (pequeño) se une al host por un convertidor Ethernet↔SPI tonto, y a su propio chip de flash SPI de 2 MB, de donde carga firmware y configuración. El volcado de esa flash muestra la estructura esperada según open-plc-utils: <strong>cadenas NVM</strong>, listas doblemente enlazadas de cabeceras y bloques de datos con checksums, empezando por un <em>manifest</em> con información legible (build dates, versiones). En la flash conviven el soft loader con su flash layout, cuatro módulos pequeños de inicialización, el firmware —que anida a su vez otra cadena con una sección de firmware y un blob de alta entropía—, un área de módulos custom vacía, el PIB, espacio de scratch y un backup completo del firmware.</p>
+<p>El blob de alta entropía parecía cifrado; el firmware loader que lo procesa resultó ser código ARMv5 sin cifrar ni firmar, que salta a una entrada en el espacio alto de direcciones —el bootloader ROM del propio chip—. Al revertir el bootloader aparecieron sorpresas: drivers de SPI hacia el host y hasta <strong>drivers Ethernet integrados</strong> aunque el chip no exponga esa función. Y la revelación final: el "cifrado" era <strong>LZMA</strong>. Era compresión, no protección.</p>
+<p>Con la cadena de arranque completa —soft loader → módulos de init → firmware loader → imagen descomprimible— y los registros memory-mapped mapeados, el camino queda abierto a firmware custom para el PLC: protocolos propios, implementaciones más seguras o herramientas de hacking.</p>
+<p>Quedaba el problema clásico de la ejecución de código sin I/O: el PLC, Ethernet y GPIO solo los inicializa la imagen principal; en las secciones no cifradas solo hay lectura SPI de la flash. La solución, tomada de los side channels de CPU: usar los <strong>datos como direcciones</strong> — emitir lecturas a direcciones que codifican la información a transmitir y esnifar los comandos SPI con un analizador lógico para reconstruir el volcado completo del espacio de memoria del bootloader. Y sí: con RAM mínima, sin OS, sin punto flotante, sin pantalla y con Ethernet como único I/O, el chip ejecuta Doom, renderizando en el propio módem y enviando frames por UDP al host.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Emulador de EV (Raspberry Pi + módem PLC + placa de señalización)</strong>: implementación Python/C de los protocolos de carga; código público; solo pines de datos.</li>
+<li><strong>Relevamiento de campo</strong>: 397 conectores CCS, 4 países, 26 fabricantes, 2013-2023; versión de chip y firmware consultables por el cable.</li>
+<li><strong>QCA7000 / QCA7005</strong>: los únicos dos chips PLC de la industria de carga; misma línea que los adaptadores domésticos QCA7420.</li>
+<li><strong>open-plc-utils (Qualcomm, open source)</strong>: herramientas de diagnóstico y configuración de módems HomePlug, funcionales en los chips de carga.</li>
+<li><strong>PIB (Parameter Information Block)</strong>: binario de ~10 KB con ajustes en offsets fijos (MAC, manufacturer string, network membership key); leíble/escribible por el host y, vía red HomePlug, por el otro extremo del cable.</li>
+<li><strong>PIBuster attack</strong>: escritura remota del PIB a través del cable de carga; con reset remoto, revierte a configuración de fábrica aunque el bit de seguridad esté puesto.</li>
+<li><strong>Bit de seguridad en offset 0x1F8C</strong>: localizado por búsqueda binaria con PIBs truncados en hardware idéntico; 0 = PLC read/write permitido.</li>
+<li><strong>Banco de pruebas</strong>: Raspberry Pi + módem víctima + módem atacante emparejados por PLC, con verificación por releída de flash.</li>
+<li><strong>Broken wire attack (Oxford, 2022)</strong>: jamming inalámbrico del PLC con potencia mínima, vía SDR; sin parche desplegado en campo.</li>
+<li><strong>Ataque por tierra</strong>: PE+neutro combinados ⇒ tierra del coche = tierra del cargador; cualquier punto de tierra cercano (switch lejano, tornillos de rueda) sirve de vector; DoS trivial por saturación de ventanas deslizantes.</li>
+<li><strong>Fugas de señal (modo común, 1-30 MHz)</strong>: captura con CCS listener (3-4k USD), dev board B2B (~280 USD), trozo de cable pelado (1 m sin amplificación) o SDR.</li>
+<li><strong>Cadena NVM / manifest / soft loader / firmware loader</strong>: estructura de la flash SPI de 2 MB; código sin firmar en todas las etapas previas a la imagen principal.</li>
+<li><strong>"Cifrado" = LZMA</strong>: el blob de alta entropía era compresión; el firmware principal es descomprimible y revertible.</li>
+<li><strong>Exfiltración por direcciones SPI</strong>: usar datos como direcciones de lectura de flash y esnifar los comandos SPI para volcar memoria sin I/O dedicado.</li>
+<li><strong>Doom sobre UDP</strong>: prueba de ejecución de código arbitrario en el QCA.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La seguridad de la carga DC descansa en un único par de chips con firmware congelado hace una década, protegido por NDA y oscuridad: el PIBbuster demuestra que el dispositivo del otro extremo del cable no es de confianza, y ningún despliegue relevado lo había mitigado.</li>
+<li>Un solo byte escondido en un binario propietario separaba "vulnerable" de "seguro" en hardware idéntico — y aun activado, el reset remoto lo revierte. La protección de configuración de estos módems es cosmética.</li>
+<li>La topología eléctrica es la superficie de ataque más dura de cerrar: compartir tierra entre coche y cargador hace inútiles cables apantallados (el blindaje va a tierra) y convierte cualquier conductor conectado a tierra en antena de ataque, con DoS a escala de parque de carga imposible de atribuir.</li>
+<li>Dentro del chip no hay defensa real: sin firmar, sin cifrar (solo LZMA), con cadena de arranque revertible desde la flash. El siguiente paso natural es firmware PLC custom, y la recomendación del propio trabajo es políticamente incómoda: sacar el PLC del entorno industrial y devolverlo a donde funcionaba razonablemente — la red doméstica — porque, tal como está, no tiene arreglo fácil y los parches tardarán una década en llegar a los despliegues.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SQz4nySj4hg">«DEF CON 33 - A Little Bit of Security: EV Charging Modem Exploitation - Marcel, Jan Berends»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

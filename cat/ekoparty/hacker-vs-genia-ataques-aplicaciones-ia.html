@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Hacker 1, IA 0? Ataques reales a aplicaciones con modelos de lenguaje y cómo defenderse — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">¿Hacker 1, IA 0? Ataques reales a aplicaciones con modelos de lenguaje y cómo defenderse</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/yMifB6zJVjI">«Hacker vs GENI: Who Wins? From Open Source To AI Malware: The Rise of LLM-driven Threats | Efraín Reyes»</a> · ver el <a class="nz-link" href="https://youtu.be/yMifB6zJVjI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> yMifB6zJVjI · <strong>URL:</strong> https://youtu.be/yMifB6zJVjI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Hacker vs GENI: Who Wins? From Open Source To AI Malware: The Rise of LLM-driven Threats | Efraín Reyes</li>
+</ul>
+<h2>Resumen</h2>
+<p>Efraín Reyes (Roquiset), CTO de una financiera ecuatoriana y dedicado en su tiempo libre a pentesting, research y bug bounty, recorrió el panorama de ataques a aplicaciones que integran inteligencia artificial. El punto de partida es el contexto de mercado: el hype de la IA lleva a que en Europa, si un producto no incorpora un módulo de IA, "no está en la onda", lo que empuja a las empresas a sumar agentes y automatizaciones a toda velocidad, muchas veces sin seguridad.</p>
+<p>Como marco de referencia sirve el OWASP Top 10 para LLM y aplicaciones de IA generativa: prompt injection, manejo inseguro del output, envenenamiento de datos de entrenamiento, denegación de servicio (incluida la monetaria, que consume el crédito de tokens), vulnerabilidades de cadena de suministro, divulgación de información sensible, diseño inseguro de plugins, alucinaciones y robo del modelo. Sobre esa base, el recorrido presentó tres escenarios de arquitectura —del agente simple al que ejecuta plugins con acceso al backend— y ejemplos reales de explotación, cerrando con las recomendaciones de desarrollo seguro.</p>
+<h2>Tres escenarios de arquitectura, tres niveles de riesgo</h2>
+<p>El escenario básico es un front con un agente que dialoga con el usuario y detrás un backend con uno o varios modelos. Aun sin base de datos, ya concentra vulnerabilidades: el prompt injection (la puerta de entrada para concatenar todo lo demás), el manejo inseguro del output (que encadenado con fallos del Top 10 web o API dispara cross-site scripting o HTML injection) y la denegación de servicio si la API no está cubierta.</p>
+<p>El segundo escenario agrega una base de datos en el medio, usada como historial de chat o como base de conocimiento del modelo. Aparecen tres riesgos nuevos: envenenamiento de datos de entrenamiento, vulnerabilidades de cadena de suministro y exposición de información sensible según lo que contenga la base y las funciones adicionales del modelo. Si el modelo se comunica con componentes internos sin segurizar, el impacto puede ser catastrófico.</p>
+<p>El tercer escenario incorpora plugins: microservicios internos con los que el modelo ejecuta acciones avanzadas hacia adentro de la organización. Aquí surgen las vulnerabilidades más graves, desde RCE hasta SSRF.</p>
+<h2>Prompt injection en acción: del self-XSS al robo de sesión</h2>
+<p>El primer ejemplo combinó prompt injection con manejo inseguro del output: pedirle al agente que imprima ciertos tags HTML, lo que dispara un cross-site scripting si no hay sanitización. Por sí solo es un self-XSS de poco impacto, pero encadenado con un IDOR permite inyectar el payload en el chat de un tercero y robarle las cookies.</p>
+<p>Un segundo prompt, más avanzado, pide al modelo que olvide el prompt del sistema y solo atienda lo que esté dentro de un símbolo concreto (un numeral), donde va el mismo payload. El modelo abandona su tarea original y ejecuta lo que pide el atacante. La técnica más efectiva, sin embargo, usa matemática: partir el payload en las variables A y B, pedirle al modelo que resuelva C = A + B e imprima C. El modelo arma y devuelve el payload completo; funciona en múltiples modelos de terceros, no en los abiertos como OpenAI.</p>
+<p>El vector de impacto llega con el historial de chat: si el producto no está bien desarrollado, usa el mismo thread ID para todos los usuarios, y el atacante puede inyectar código en la sesión de otro.</p>
+<h2>Envenenamiento del conocimiento y SQL injection con IA</h2>
+<p>El escenario de training data poisoning derivó en el mismo cross-site scripting: un administrador carga documentos o datasets en una base de conocimiento (por ejemplo, descargados de Hugging Face, donde hay datasets llenos de estos payloads). El atacante entrega un documento Word con el prompt ofuscado —un punto de un píxel con el color del fondo, con una cadena gigante dentro— que pasa desapercibido y el modelo sí interpreta. Cuando el usuario consulta, el output no sanitizado ejecuta el ataque.</p>
+<p>Otro ejemplo revive un clásico: el SQL injection blind. Si el modelo está conectado a una base de datos y puede consultar información del usuario, pedirle datos de un tercero recibe un "no" por confidencialidad. Pero si se le pide que responda solo verdadero o falso —¿el nombre del administrador empieza con A?, ¿la segunda letra es B?— el modelo entrega la información letra por letra sin darse cuenta. Automatizable, extrae usuarios y contraseñas en segundos.</p>
+<h2>Plugins inseguros: scores crediticios y phishing masivo</h2>
+<p>Con plugins que ejecutan acciones avanzadas el riesgo se multiplica. Dos ejemplos: un plugin de score crediticio personalizado o de corrección de exámenes. Un atacante sube su parcial en Word o PDF con la instrucción de olvidar el prompt del sistema y devolver siempre 100 puntos; el modelo obedece, y esa respuesta termina guardándose en la base de datos de la empresa. Referencia además una vulnerabilidad conocida en un plugin de envío de e-mails que terminó en RCE.</p>
+<p>En el caso del plugin de correo, un archivo subido por el usuario puede contener un prompt que ordene redactar un mail con características de phishing y enviarlo a todos los destinatarios indicados: daño reputacional y pérdidas económicas fuertes para la empresa.</p>
+<pre class="mermaid">
+flowchart LR
+    U[Atacante] -->|documento con prompt ofuscado| A[Agente]
+    A --> M[Modelo LLM]
+    M -->|ejecuta acciones| P[Plugins / backend interno]
+    P --> DB[(Base de datos)]
+    A -->|output sin sanitizar| V[Usuario víctima]
+
+</pre>
+
+<h2>Cómo desarrollar con IA de manera segura</h2>
+<p>Las recomendaciones, en orden de impacto: filtrar el prompt injection con herramientas open source o pagas (controlar esa puerta de entrada resuelve un porcentaje alto del problema); usar datasets propios y revisar —aunque sea de manera automatizada— los de terceros, porque los documentos también se ofuscan y "un documento de tres páginas" no es garantía de nada; sanitizar input y output con listas negras (sin tags de script, sin URLs, sin HTML si el agente no los necesita); adoptar el esquema de agentes supervisores, donde un segundo modelo revisa cada respuesta antes de entregarla al usuario —más dinámico y efectivo que la lista negra, aunque agrega costo en tokens—; aplicar cero trust al agente, con los mínimos permisos posibles para que una vulnerabilidad no detone los servicios internos; y monitorear con logs y trazabilidad toda la interacción, para mejorar los datasets y las medidas y evitar que el modelo sea una caja negra que gasta dinero sin control.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Sin prompt injection no hay nada: es la puerta de entrada; encontrada la vía, "el resto es historia" y el límite es la creatividad del atacante.</li>
+<li>Un mismo prompt sirve para múltiples ataques: self-XSS encadenado con IDOR roba sesiones; variables matemáticas burlan filtros; el thread ID compartido convierte el self-XSS en ataque a terceros.</li>
+<li>Hoy la balanza la tiene ganada el hacker: los modelos cumplen códigos de conducta y no piensan maliciosamente; el desarrollador aún está crudo en conciencia, metodologías de testing y madurez.</li>
+<li>Hay oportunidad profesional: el rubro ofensivo sobre IA tiene muy pocas personas dedicadas, y se espera una ola de productos con IA que necesitarán revisión.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Prompt injection:</strong> técnica base para desviar al modelo de su función; incluye el patrón "olvidá el prompt del sistema" y la partición del payload en variables matemáticas (C = A + B).</li>
+<li><strong>Insecure Output Handling:</strong> renderizado de tags HTML/JS en el chat para cross-site scripting e HTML injection.</li>
+<li><strong>Training data poisoning:</strong> inyección de payloads en bases de conocimiento vía documentos ofuscados o datasets de terceros (Hugging Face).</li>
+<li><strong>SQL injection blind asistido por IA:</strong> extracción de datos letra por letra con respuestas verdadero/falso.</li>
+<li><strong>Thread ID compartido:</strong> vector para inyectar contenido en la sesión de otros usuarios.</li>
+<li><strong>Agentes supervisores:</strong> segundo modelo que revisa cada respuesta antes de entregarla.</li>
+<li><strong>OWASP Top 10 para LLM y GenAI:</strong> marco de referencia de riesgos, incluida la denegación de servicio monetaria.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/yMifB6zJVjI">«Hacker vs GENI: Who Wins? From Open Source To AI Malware: The Rise of LLM-driven Threats | Efraín Reyes»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

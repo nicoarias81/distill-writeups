@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un becario con memoria de elefante: agentes de IA para cazar bugs de Android para Pwn2Own — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Un becario con memoria de elefante: agentes de IA para cazar bugs de Android para Pwn2Own</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/c5XAvRbma6Y">«Georgi G - Promp2Pwn - LLMs Winning at Pwn2Own | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/c5XAvRbma6Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> c5XAvRbma6Y · <strong>URL:</strong> https://youtu.be/c5XAvRbma6Y · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Georgi G - Promp2Pwn - LLMs Winning at Pwn2Own | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Con más de una década atacando targets de Android en Pwn2Own, el punto de partida era el aburrimiento: los mismos bugs una y otra vez en los mismos vendors, enterrados en una cantidad enorme de aplicaciones, con los bug bounties barriendo los errores más obvios. La decisión fue usar el concurso como excusa para aprender IA. Las condiciones del dominio jugaban a favor: los ejecutables Dalvik de Android decompilan a Java legible por humanos —entrada ideal para un LLM—, los bugs buscados son patrones visibles que un analizador estático clásico difícilmente detecta pero que un modelo reconoce al verlos, y no hay ninguna preocupación de privacidad porque los hallazgos terminan en los organizadores del concurso.</p>
+<p>El escepticismo inicial se disolvió rápido: pegar en un chatbot la salida de descompiladores como JEB o JADX bastó para que algunos bugs aparecieran al instante. Pero no existía (hablando de agosto del año anterior) una solución agéntica que consumiera una aplicación Android y buscara bugs por su cuenta, así que hubo que construirla.</p>
+<h2>La arquitectura y sus tropiezos</h2>
+<p>La primer versión era deliberadamente ingenua: LangChain para orquestar, dos agentes —uno de análisis de superficie de ataque que enumeraba puntos de entrada y otro bug hunter que los atacaba—, todos los modelos en Azure Foundry con Langfuse para observabilidad, y JADX como motor de descompilación expuesto vía un MCP construido sobre un plugin que corre un servidor HTTP embebido, con herramientas para pedir el Android Manifest, el código de un método o una clase, y buscar entre las clases de la app.</p>
+<p>El primer intento —"buscá bugs en esta app"— fracasó por previsible: objetivo demasiado vago, criterios de éxito difusos, el agente perdido y quemando tokens. Las lecciones tempranas se resumen en tratar al sistema como a un becario de verano al que hay que describir, con todo el detalle, el proceso de búsqueda que el investigador tiene interiorizado: qué primitivas encadenar, qué clases de bugs priorizar, dónde mirar. Otras correcciones fueron estructurales: descripciones de herramientas más precisas, mensajes de error accionables (en lugar de un genérico "hubo un error") para que el agente pueda reintentar con la entrada corregida, y prohibirle explícitamente sugerir fixes y mitigaciones, que solo gastaban tokens.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Scripts deterministas<br/>harvesting de APKs + análisis de superficie] --> B[Bug hunter<br/>por entry point, 1-5 corridas]
+    B --> C[Bug de-duplicator<br/>reportes únicos]
+    B --> V[Bug verifier<br/>con reachability source-to-sink]
+    C --> J[Agente JSON<br/>post-procesamiento de reportes]
+    D[Code de-obfuscator<br/>vía JADX MCP] --> B
+    J --> V
+
+</pre>
+
+<h2>Los dos bugs encadenados</h2>
+<p>El resultado concreto para Pwn2Own fue la cadena de dos bugs que, individualmente, el agente nunca relacionó. El primero, en una aplicación de atención al cliente de Samsung: una validación de URL tradicionalmente descuidada permite cargar en un WebView una URL controlada por el atacante y ejecutar JavaScript en él. El detalle interesante: un WebChromeClient completamente permisivo que otorga cámara, micrófono y geolocalización sin pedir confirmación. El detalle crucial que el agente omitió: la app verifica al inicio si hay una llamada telefónica en curso; sin ella, el flujo muere. Un prerrequisito extraño para un exploit, y a la vez el meme perfecto para el concurso.</p>
+<p>El segundo bug, en Bixby, el asistente de IA de Samsung —un blanco irónico donde los haya—: validación de host tan relajada que cualquier subdominio de mcsvc.samsung.com carga en el WebView de la app, y algunos de esos subdominios tienen cross-site scripting ejecutable. La cadena resultante: un solo click en un link lleva al WebView de Bixby, desde donde se le pide a Bixby hacer una llamada; con la llamada activa, el check del primer bug se supera y el atacante accede al feed de la cámara. Un reporte del bug hunter bien construido incluye el trigger concreto para reproducir y el sink exacto, aunque falte el detalle que el humano termina encontrando a mano.</p>
+<h2>Evolución del sistema</h2>
+<p>El sistema creció en capas de pragmatismo: un harvestor de APKs para escanear a escala desde las stores; el desacople del análisis de superficie de ataque como script standalone (sin LLM para lo que es determinista); el refinamiento del scope del bug hunter hasta tratar cada path de un intent filter como entry point único; y un code de-obfuscator intercalado —el agente trabaja mucho mejor sobre código con nombres restaurados— que hookinga las peticiones del bug hunter, pasa el código por el deobfuscador y devuelve versiones con nombres de tres letras convertidos en identificadores con significado.</p>
+<p>Sobre la no-determinismo: la misma entrada point produce resultados distintos en cada corrida, así que se corre entre 1 y 5 veces según el interés, se agregan reportes y un agente de-duplicador extrae los bugs únicos. La conversión a JSON se hizo como post-procesamiento separado porque forzar un schema estricto en la salida degradaba la calidad. Los prompts de sistema se modularon con Jinja2 para compartir snippets entre agentes. El agregado más valioso fue el bug verifier, con una herramienta de reachabilidad source-to-sink basada en Soottup, un framework de análisis de bytecode Java que construye call graphs y busca paths entre partes del grafo. Es un arma de doble filo: el verifier correctamente descartó un bug alcanzable solo en llamada —el que después resultó ser la pieza clave de la cadena del concurso—.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>JADX MCP</strong>: plugin con servidor HTTP embebido exponiendo la API interna del descompilador como herramientas (manifest, código de método/clase, búsqueda).</li>
+<li><strong>LangChain</strong> para orquestación multiagente, <strong>Azure Foundry</strong> para hosting de modelos, <strong>Langfuse</strong> para observabilidad.</li>
+<li><strong>Scripting determinista primero</strong>: harvesting de APKs y análisis de superficie de ataque sin LLM, reservando el modelo para el pattern matching.</li>
+<li><strong>Code de-obfuscation como middleware</strong>: limpieza de nombres antes de que el bug hunter vea el código.</li>
+<li><strong>Deduplicación por agente + agregación de múltiples corridas</strong> para manejar la no-determinismo del modelo.</li>
+<li><strong>Post-procesamiento de salida a JSON</strong> separado del análisis, para no degradar calidad con schemas estrictos.</li>
+<li><strong>Jinja2</strong> para composición modular de system prompts compartidos entre agentes.</li>
+<li><strong>Soottup</strong> para call graphs y reachabilidad source-to-sink como herramienta de verificación.</li>
+<li><strong>Roadmap declarado</strong>: integración de análisis estático para triage automático, base de datos de bugs cross-app para cadenas entre aplicaciones, y generación de PoCs en runtime con ADB MCP y Frida MCP (el agente testea el trigger, refina el PoC y colecta eventos con hooks de Frida y logcat).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los agentes de IA ya encuentran bugs reales de Android con una infraestructura casera: el sistema básico, sin verificación ni guardrails, produjo más de una docena de bugs que requirieron verificación manual y dos suficientemente buenos para encadenarse en Pwn2Own.</li>
+<li>El éxito no está en la sofisticación del framework sino en el detalle de las instrucciones: describir al agente el proceso de investigación como si fuera un becario, con prioridades, primitivas y criterios explícitos.</li>
+<li>La arquitectura ganadora separa lo determinista (scripts) de lo probabilístico (agentes) y añade verificación con análisis de call graphs para contener los falsos positivos.</li>
+<li>La verificación automatizada es un arma de doble filo: descarta correctamente lo inalcanzable, pero también puede descartar el prerrequisito raro que, encadenado con otro bug, se convierte en el exploit ganador del concurso.</li>
+<li>El siguiente límite es inter-aplicación: los bugs dentro de una app ya se encuentran; encadenarlos a través de apps distintas para construir primitivas útiles requiere memoria compartida entre corridas, que es la pieza de roadmap más prometedora junto con los PoCs automáticos en runtime.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/c5XAvRbma6Y">«Georgi G - Promp2Pwn - LLMs Winning at Pwn2Own | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

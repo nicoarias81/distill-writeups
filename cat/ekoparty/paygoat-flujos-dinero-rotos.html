@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAYGoat: un laboratorio para romper flujos de dinero — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">PAYGoat: un laboratorio para romper flujos de dinero</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/w8ZpUnghOj8">«PAYGoat: Playing with Broken Money Flows - Cesar Calderon»</a> · ver el <a class="nz-link" href="https://youtu.be/w8ZpUnghOj8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> w8ZpUnghOj8 · <strong>URL:</strong> https://youtu.be/w8ZpUnghOj8 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> PAYGoat: Playing with Broken Money Flows - Cesar Calderon</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las aplicaciones financieras concentran su seguridad en controles técnicos —cifrado, autenticación, tokens— pero la categoría de errores que más dinero cuesta vive en otro plano: la lógica de negocio. Un precio que admite negativos, una transacción que no valida concurrencia, un parámetro que acepta ceros y subnormales. PAYGoat es una aplicación vulnerable de tipo <em>goat</em> —del estilo de WebGoat o DVWA— diseñada específicamente para practicar estos ataques sobre flujos de dinero, un terreno donde hasta ahora no existía un laboratorio dedicado: los goats clásicos apuntan a vulnerabilidades técnicas como inyecciones o XSS, no a reglas de negocio mal implementadas.</p>
+<p>El proyecto recoge vulnerabilidades reales encontradas en pentests de banca y fintech: manipulación de montos negativos, race conditions que multiplican ventas de activos, recargas con valor cero y un IDOR sobre identificadores ofuscados con UID. Todo el material viene acompañado de lecciones, descripción e impacto por vulnerabilidad, y su catálogo de escenarios crece con aportes de la comunidad.</p>
+<h2>Dineros que se vuelven negativos</h2>
+<p>El error más rentable es también el más simple: cuando la aplicación no valida correctamente el signo de un monto, una transacción de -500 no resta dinero de la propia cuenta sino que lo suma, independientemente del contexto de la aplicación. El ejemplo clásico de este patrón apareció en quioscos de restaurantes de aeropuertos de Estados Unidos, donde el cliente ordena y paga en el mismo punto de venta. Manipulando el campo de <em>Custom Service</em> para agregar -38 —el precio total de la orden—, el pago resultante era cero: la orden salía gratis porque el número negativo nunca se procesaba como corresponde.</p>
+<p>La familia de errores sigue con el procesamiento de números especiales:</p>
+<ul>
+<li><strong>Ceros y nulos</strong>: colocar cero como monto de compra y observar si la lógica de compra o transferencia acepta la operación.</li>
+<li><strong>Números subnormales</strong>: valores como <code>1e-50</code> que ningún lenguaje espera recibir; si el backend espera un float o un double y recibe un integer mal formado, puede crashear internamente, y ese comportamiento anómalo se aprovecha para modificar el precio.</li>
+<li><strong>Palabras reservadas</strong>: <code>null</code>, <code>none</code>, <code>infinity</code> como valores de precio, para mapear cómo reacciona cada capa.</li>
+<li><strong>Decimales inesperados</strong>: cambiar un precio de 99 a 99.99 o 0.99 mediante manipulación de entrada; sin validación de tipo y rango, la transacción se procesa con un monto completamente distinto al esperado.</li>
+</ul>
+<h2>Replay y race conditions: el dinero duplicado</h2>
+<p>Cuando los parámetros viajan cifrados no todo está perdido: si una petición cifrada con un valor mínimo —por ejemplo, el precio más bajo del catálogo— puede retransmitirse en otro contexto donde el monto real es mayor, un <strong>ataque de replay</strong> manipula el precio sin tocar la cifra. Basta identificar qué parámetro encriptado controla el valor y sustituirlo por el de la petición "barata".</p>
+<p>Las <strong>race conditions</strong> son la vulnerabilidad favorita de este repertorio: ocurren cuando la aplicación no procesa correctamente solicitudes simultáneas. Dos transacciones enviadas a la vez pueden acreditarse ambas, dejando el saldo a favor del atacante. La técnica con Burp Suite es directa: agrupar cinco pestañas en el Repeater y usar la opción de envío paralelo del grupo, para que las cinco peticiones salgan en el mismo instante.</p>
+<p>El caso real más ilustrativo vino de una aplicación <em>vintage</em> de compra y venta de fondos. Enviando solicitudes simultáneas, una misma acción podía <strong>venderse múltiples veces</strong>: el saldo pasaba de 10.000 a 25.000. El plugin usado fue <strong>Turbo Intruder</strong>, con su script incluido <em>Simple Race Condition</em>, configurado para disparar la petición —en la demostración, unas diez veces—; en este caso solo tres se procesaron en paralelo y bastaron para triplicar la venta. Hubo un detalle adicional: tras el ataque la cuenta quedaba con saldo negativo, y una nueva compra no asignaba valor sino que solo rellenaba ese negativo, de modo que el golpe era aprovechable una única vez sin gastar dinero propio.</p>
+<h2>Ceros que recargan y UIDs que no protegen</h2>
+<p>Otro caso real: una aplicación de recarga de tarjetas de bus. Para recargar, el sistema creaba un número de cuenta al que enviar el dinero, que se descontaba de la cartera del usuario. Enviando una recarga con valor cero y un <em>give amount</em> de cero, y modificando los parámetros de <strong>balance inicial y balance final</strong>, la recarga se procesaba como exitosa: saldo añadido a la tarjeta sin que se descontara nada.</p>
+<p>El último escenario ataca la falsa seguridad de los identificadores ofuscados. Frente al IDOR clásico por números de cuenta secuenciales, muchas plataformas migran a <strong>UIDs</strong>: cadenas de caracteres que aparentemente no se pueden enumerar. Pero el UID se filtra por vías legítimas: al agregar una cuenta en la banca, al consultar el perfil, al ver los datos de una transferencia. Conociendo el UID de una cuenta ajena y el propio, la <strong>inversión de parámetros</strong> completa el ataque: en la petición de transferencia, donde va la cuenta emisora se coloca la cuenta B y donde va el destinatario el UID propio. El resultado: "transferencia completada", con dinero extraído de la cuenta de otro. La ofuscación del identificador no sustituye a la autorización.</p>
+<pre class="mermaid">
+flowchart LR
+    A[UID de cuenta ajena filtrado por vistas legítimas] --> B[Inversión de parámetros en transferencia]
+    B --> C[Transferencia completada desde cuenta de terceros]
+    D[Venta de fondo enviada en paralelo x N] --> E[Venta procesada 3 veces]
+    E --> F[Saldo x2.5]
+    G[Recarga con valor 0] --> H[Balance inicial/final manipulado]
+    H --> I[Recarga exitosa sin descuento]
+
+</pre>
+
+<h2>Del pentest al laboratorio</h2>
+<p>PAYGoat nace de una constatación: existen goats para AI, para EKS, para web —WebGoat de OWASP, DVWA—, pero todos orientados a vulnerabilidades técnicas. No había uno para practicar lógica de negocio. El proyecto, desarrollado en Node y disponible en GitHub como PAYGoat, implementa:</p>
+<ul>
+<li><strong>Registro de usuarios con JWT</strong>, con los ataques típicos asociados a ese tipo de autenticación.</li>
+<li>Asignación automática de <strong>cuentas en dólares y euros</strong> al registrarse, más datos adicionales que el usuario va identificando.</li>
+<li>Escenarios de <strong>race condition</strong>, manipulación de montos y transferencias por UID, entre otros.</li>
+<li><strong>Lecciones</strong> para la mayoría de los escenarios, con descripción e impacto de cada vulnerabilidad, mapeadas al <strong>CWEM</strong> (Common Weakness Enumeration), y procesos replicables paso a paso.</li>
+<li>Ejemplos de uso con Burp Suite, incluida una alternativa al Turbo Intruder para quienes no tienen la versión Pro: el propio Repeater con envío de grupo paralelo.</li>
+</ul>
+<p>Entre los escenarios ya disponibles figuran los típicos de cualquier auditoría: fuga de OTPs —incluido el caso real de una aplicación que devolvía el OTP generado en la propia respuesta—, IDORs y fugas de información. El road map apunta a más: una <strong>aplicación móvil</strong> que combine lógica de negocio con ataques propios de mobile, una <strong>banca empresarial</strong> con roles diferenciados —operador, contador, administrador— para practicar escalación entre roles, envenenamiento de bitácoras y otros patrones propios de entornos corporativos, y protecciones graduales (rate limits en OTPs y controles bypasseables) para simular defensas realistas. La aplicación ya está montada en línea en TryHackMe, accesible con solo una VPN.</p>
+<h2>Cómo auditar lógica de negocio</h2>
+<p>La auditoría de flujos de dinero tiene una regla fundamental: <strong>no se automatiza</strong>. A diferencia de un escaneo de vulnerabilidades técnicas, pensar fuera de la caja es el método; todo se hace de manera artesanal, entendiendo primero cuál es la regla de negocio para después romperla deliberadamente. Las recomendaciones para los equipos que construyen estas aplicaciones siguen de ahí:</p>
+<ul>
+<li>Validar <strong>todas las reglas de negocio del lado del servidor</strong>, nunca confiar en lo que llega del cliente.</li>
+<li>Implementar <strong>controles de concurrencia</strong> —mutex u otros mecanismos— para neutralizar race conditions.</li>
+<li>Validar <strong>tipos y rangos de datos</strong>: números negativos, ceros, subnormales y palabras reservadas no deberían llegar jamás al motor de transacciones.</li>
+<li>Aplicar <strong>control de acceso basado en roles</strong> para que cada usuario acceda únicamente a su propia información, sin confiar en la ofuscación de identificadores.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La lógica de negocio es la superficie de ataque más rentable y la menos automatizable: no hay scanner que detecte que -500 suma dinero.</li>
+<li>Los números son un campo de batalla: negativos, ceros, subnormales, decimales e infinitos rompen aplicaciones que nunca definieron qué hacer con ellos.</li>
+<li>Las race conditions convierten una operación legítima en un multiplicador de saldo cuando no hay controles de concurrencia.</li>
+<li>Los UIDs ofuscados no reemplazan la autorización: si el identificador se filtra por cualquier vista legítima, la inversión de parámetros restaura el IDOR.</li>
+<li>PAYGoat existe para practicar esto antes de que sea en producción: escenarios reales de banca, con lecciones y mapeo CWEM, en crecimiento abierto con la comunidad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/w8ZpUnghOj8">«PAYGoat: Playing with Broken Money Flows - Cesar Calderon»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

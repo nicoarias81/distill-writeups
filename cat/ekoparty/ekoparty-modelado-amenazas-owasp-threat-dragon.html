@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Modelado de amenazas en la práctica con OWASP Threat Dragon — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Modelado de amenazas en la práctica con OWASP Threat Dragon</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/vV0IEeF1Mvg">«Dominando el modelamiento de amenazas con OWASP Threat Dragon - Nelson Contreras - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/vV0IEeF1Mvg">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> vV0IEeF1Mvg · <strong>URL:</strong> https://youtu.be/vV0IEeF1Mvg · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Dominando el modelamiento de amenazas con OWASP Threat Dragon - Nelson Contreras - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>El modelado de amenazas es un proceso sistemático para identificar, clasificar y evaluar las vulnerabilidades de un sistema analizando su arquitectura, los datos que maneja y los ataques a los que está expuesto. En la teoría todos levantan la mano; en la práctica, muy pocas organizaciones lo hacen. Y cuando lo intentan, chocan contra tres fricciones: consume mucho tiempo, exige que participe todo el equipo técnico y, al ser manual, depende de la experiencia individual del analista, con alta probabilidad de obviar escenarios.</p>
+<p>OWASP Threat Dragon, herramienta open source de modelado disponible como aplicación web, ataca esos puntos: genera amenazas automáticamente a partir de los componentes y flujos de datos del diagrama, organiza todo con la metodología STRIDE y exporta en JSON para integrarse a otros flujos. Este artículo recorre los conceptos previos (vulnerabilidad, amenaza, riesgo, límites de confianza), el proceso completo y un caso real de aplicación sobre una arquitectura de microservicios en la nube.</p>
+<h2>Por qué el diseño inseguro se volvió un problema de primer orden</h2>
+<p>La evidencia de la industria apunta en la misma dirección. En el OWASP Top 10 de 2021, la categoría de <strong>diseño inseguro (A04)</strong> aparece como novedad y desplaza temas que en 2017 ocupaban otros puestos: cuando las aplicaciones nacen en la nube con arquitecturas modernas —SPA, infraestructura como código, módulos reutilizables— y no nacen seguras, los problemas se pagan después en retrabajos y vulnerabilidades. En paralelo, el Cloud Security Alliance encuestó a más de 500 expertos para rankear las principales amenazas cloud, y el primer puesto fue <strong>misconfiguration</strong>: más de la mitad de los riesgos en la nube vienen de configuraciones mal hechas, no de bugs exóticos.</p>
+<p>El caso de Capital One (2019) es el ejemplo canónico: una regla del firewall de AWS simplemente no estaba configurada, un ex empleado explotó la debilidad y la brecha expuso los datos personales de clientes de un servicio financiero masivo. Ningún ataque sofisticado —una mala configuración. Y la matemática del costo es contundente: según un informe de IBM, corregir un defecto de seguridad detectado después del diseño cuesta 100 veces más que corregirlo en diseño. La analogía de la construcción lo resume: si el maestro de obra no sigue el plano del arquitecto, después hay que picar paredes para arreglar las tuberías.</p>
+<h2>Los cuatro puntos de dolor y por qué importa igual</h2>
+<p>Hacer modelado manual duele: requiere mucho tiempo, demanda participación de todos los roles del squad (desarrollador, seguridad, QA, DevOps/DevSecOps, PO, Scrum Master, arquitecto), y su calidad depende del expertise único del analista. Aun así, el beneficio de hacerlo supera el costo:</p>
+<ul>
+<li><strong>Identificar vulnerabilidades temprano</strong>: la seguridad más a la izquierda evita riesgos que después cuestan 100 veces más.</li>
+<li><strong>Involucrar a todas las partes interesadas</strong>: cada célula ágil se vuelve responsable de su propia seguridad; los stakeholders se convierten en los primeros interesados en remediar.</li>
+<li><strong>Priorizar por riesgo y negocio</strong>: nadie tiene recursos para 100 vulnerabilidades a la vez — con ~60 CVEs nuevas por día, hasta el dashboard más verde puede estar rojo mañana. No es lo mismo un e-commerce que procesa pagos que un formulario de baja criticidad. La fórmula simple: <strong>riesgo = amenaza × vulnerabilidad × impacto</strong>.</li>
+<li><strong>Cultivar el mindset de seguridad</strong>: DevSecOps es una cultura, no un puesto; el objetivo del equipo de seguridad es ser habilitador, no poner stoppers que retrasen los releases.</li>
+</ul>
+<p>Tres conceptos se confunden a menudo y conviene separar: la <strong>vulnerabilidad</strong> es una debilidad explotable del software; la <strong>amenaza</strong> es el peligro potencial, el intento de dañar el sistema (típicamente vía exploit); el <strong>riesgo</strong> es la probabilidad de que esa vulnerabilidad sea explotada causando daño.</p>
+<h2>Límites de confianza: el concepto que nadie documenta</h2>
+<p>El <strong>límite (o frontera) de confianza</strong> define hasta dónde confía el sistema en lo que entra: componentes expuestos a internet —un API management, un CDN, una aplicación web tras un WAF— marcan el borde. En la nube, el borde de confianza es el propio proveedor cloud (CSP). Todo lo que cruza ese límite debe tratarse con sospecha, y cualquier diagrama de modelado que no lo marque explícitamente está incompleto.</p>
+<p>Para arrancar la práctica hacen falta insumos básicos: entender el alcance y el contexto (negocio y técnico — el negocio define necesidades, TI las despliega), y contar con diagramas de arquitectura <strong>físico, lógico y de datos</strong>. Sin conocer el flujo completo de datos —desde la petición del usuario hasta el último componente— no hay modelado posible. Las preguntas guía de CIA organizan el análisis: ¿qué almacenamos y cómo lo protegemos (cifrado en reposo y en tránsito)?, ¿qué pasa ante modificaciones no autorizadas y hay logs suficientes?, ¿cuánto tiempo puede la empresa operar sin el sistema y hay failover planificado?</p>
+<h2>STRIDE: las seis preguntas del atacante</h2>
+<p>STRIDE —creada por Microsoft en 1999, más de dos décadas de existencia— mapea cada letra a una pregunta que el analista le hace al equipo técnico:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Categoría</th>
+<th>Pregunta clave</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>S</strong>poofing</td>
+<td>¿Puede un atacante acceder usando una identidad falsa? (ej.: una API sin autenticación que responde a cualquiera)</td>
+</tr>
+<tr>
+<td><strong>T</strong>ampering</td>
+<td>¿Puede modificar los datos en tránsito o en la base? (canal sin cifrar, permisos excesivos)</td>
+</tr>
+<tr>
+<td><strong>R</strong>epudiation</td>
+<td>Si niega haber hecho algo, ¿podemos demostrarlo? (¿hay logs, por cuántos días?)</td>
+</tr>
+<tr>
+<td><strong>I</strong>nformation disclosure</td>
+<td>¿Puede acceder a datos privados o sensibles? (exportar información desde la base)</td>
+</tr>
+<tr>
+<td><strong>D</strong>enial of service</td>
+<td>¿Puede bloquear o degradar la disponibilidad?</td>
+</tr>
+<tr>
+<td><strong>E</strong>levation of privilege</td>
+<td>¿Puede escalar de usuario normal a administrador?</td>
+</tr>
+</tbody>
+</table></div>
+<p>El proceso completo tiene cuatro fases que se repiten siempre: <strong>diseño</strong> (diagrama y arquitectura claros), <strong>interrupción</strong> (la lluvia de ideas: ¿qué pasaría si este control falta?), <strong>corrección</strong> (definir controles que mitiguen cada amenaza) y <strong>verificación</strong> (comprobar que los controles se ejecutaron). Y es un ciclo continuo: cada nueva funcionalidad —una app, un microservicio nuevo— amerita re-modelar. La metodología de trabajo complementa el marco: definir alcance y perímetro (una aplicación híbrida cloud + on-premise modelada de punta a punta puede consumir un sprint entero; acotar es parte del trabajo), descomponer el sistema y dividir las fronteras de confianza, enumerar amenazas y contrastarlas con frameworks de atacantes como MITRE ATT&amp;CK o Cyber Kill Chain.</p>
+<h2>El caso práctico: portal de asesoría en la nube</h2>
+<p>La arquitectura de ejemplo es una típica de seguros: un portal SPA cuyo contenido estático vive en blob storage, con la lógica en microservicios detrás de un API management, un proveedor de identidad (Entra ID) para la autenticación y una base de datos con información de alta criticidad.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Actor: cliente<br/>navegador"] -->|"solicitud"| P1["Proceso: portal<br/>asesoría digital (SPA)"]
+    S["Storage: blob<br/>(JS, CSS, estáticos)"] -.-> P1
+    subgraph "Límite de confianza (CSP)"
+      P1 -->|"datos de cotización"| P2["Proceso: API<br/>generador de cotizaciones"]
+      P2 --> P3["Proceso: microservicio<br/>cotizador rentas"]
+      P3 -->|"guarda cliente +<br/>cotización"| DB[("Data store:<br/>BD de alta criticidad")]
+      ID["Proceso: Entra ID<br/>(autenticación)"] -.-> P1
+    end
+
+</pre>
+
+<p>En Threat Dragon cada pieza tiene su tipo: el actor (cómo ingresa el usuario — navegador, cliente web, SFTP), los procesos (APIs y microservicios, la lógica de negocio), los storages (estáticos, registros) y los data flows (qué datos cruzan cada conexión — no es lo mismo mover datos de tarjeta que llenar un formulario). Al seleccionar un componente y pedirle que genere amenazas, la herramienta propone automáticamente un set —seis por proceso en la demo— según la información cargada: descripción, datos que fluyen, nivel de privilegio.</p>
+<p>Dos ejemplos del resultado sobre el microservicio: una amenaza de <strong>automatización de peticiones</strong> (explotar velocidades fuera del uso normal esperado para obtener beneficio injusto; mitigación: validar flujo normal de la aplicación e impedir peticiones automatizadas maliciosas) y una de <strong>enumeración</strong> sobre contenedores (mitigación: escanear imágenes base y remediar vulnerabilidades del despliegue). Sobre el API, la categoría fue <strong>spoofing</strong>: exposición inadecuada de las APIs; mitigación: autenticación robusta con JWT y OAuth. Cada amenaza admite score de 0 a 100 y prioridad baja/media/alta según el contexto del negocio, campo de mitigación, y marca de resuelta cuando el equipo cierra el trabajo.</p>
+<p>El matiz importante: la generación automática propone, no decide. El especialista de seguridad tiene que leer cada amenaza propuesta y descartar las que no aplican (la herramienta no siempre tiene el contexto completo), y agregar las propias que su experiencia sugiera. Los diagramas se exportan en JSON —formato estándar— para llevarlos a otras plataformas.</p>
+<h2>La estrategia que falta: de la herramienta al ciclo</h2>
+<p>El cierre va más allá del software. Las organizaciones que modelan en serio terminan viendo las mismas vulnerabilidades repetidas en muchas aplicaciones, con pocos desarrolladores para resolverlas y squads presionados por release. La salida no es ignorar ni demorar: es automatizar (controles que ya vienen resueltos en plantillas), reducir la fricción de los cambios —siempre probados en desarrollo y certificación antes de producción— y convertir cada sesión en aprendizaje: la retrospectiva del modelado (¿por qué nos demoramos tanto?, ¿qué nos faltó?) alimenta templates y controles pre-armados que reducen sesiones de 5-6 horas a algo mucho más liviano.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>OWASP Threat Dragon</strong> — herramienta open source de modelado de amenazas como aplicación web; genera amenazas automáticas por componente y exporta JSON.</li>
+<li><strong>STRIDE</strong> — metodología de Microsoft (1999): Spoofing, Tampering, Repudiation, Information disclosure, Denial of service, Elevation of privilege.</li>
+<li><strong>Metodología de 4 fases</strong> — diseño, interrupción, corrección, verificación; ciclo continuo que se repite con cada funcionalidad nueva.</li>
+<li><strong>Diagramas físico, lógico y de datos</strong> — insumos mínimos para poder modelar.</li>
+<li><strong>Límite de confianza</strong> — frontera del sistema (en la nube, el CSP); todo lo que la cruza se trata con sospecha.</li>
+<li><strong>Riesgo = amenaza × vulnerabilidad × impacto</strong> — fórmula simple de priorización.</li>
+<li><strong>MITRE ATT&amp;CK / Cyber Kill Chain</strong> — frameworks para contrastar las amenazas encontradas con rutas reales de atacantes.</li>
+<li><strong>OWASP Top 10 (2021) A04 — Insecure Design</strong> — categoría que consolida el diseño inseguro como riesgo de primer orden.</li>
+<li><strong>Cloud Security Alliance Top Threats</strong> — encuesta a 500+ expertos; misconfiguration en primer lugar.</li>
+<li><strong>Caso Capital One (2019)</strong> — brecha masiva por una regla de firewall mal configurada en AWS.</li>
+<li><strong>JWT / OAuth</strong> — controles de autenticación robusta para APIs (mitigación de spoofing).</li>
+<li><strong>Análisis de imágenes de contenedores</strong> — escaneo de vulnerabilidades como mitigación de enumeración en microservicios.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El modelado de amenazas es la única práctica de seguridad que opera cuando el costo de corregir es 100 veces menor: en diseño, antes de escribir código.</li>
+<li>Las herramientas automáticas como Threat Dragon resuelven los tres dolores clásicos (tiempo, participación, expertise) solo si el especialista valida lo que proponen: generan, no deciden.</li>
+<li>Los diagramas de arquitectura físico, lógico y de datos más los límites de confianza bien marcados son prerrequisito, no accesorio: sin ellos no hay modelado posible.</li>
+<li>La estrategia de escala está en la retrospectiva: templates, controles pre-mitigados y sesiones cada vez más cortas convierten una práctica costosa en una rutina de DevSecOps.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/vV0IEeF1Mvg">«Dominando el modelamiento de amenazas con OWASP Threat Dragon - Nelson Contreras - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

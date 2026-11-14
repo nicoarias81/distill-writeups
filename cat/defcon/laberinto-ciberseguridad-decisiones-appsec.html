@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El laberinto de la ciberseguridad: decidir antes de que decidan por ti — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El laberinto de la ciberseguridad: decidir antes de que decidan por ti</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/iN1c0j4nGvo">«DEF CON 32 - Navigating the Cyber Security Labyrinth Choose Your Own Security Adventure - punkcoder»</a> · ver el <a class="nz-link" href="https://youtu.be/iN1c0j4nGvo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> iN1c0j4nGvo · <strong>URL:</strong> https://youtu.be/iN1c0j4nGvo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Navigating the Cyber Security Labyrinth Choose Your Own Security Adventure - punkcoder</li>
+</ul>
+<h2>Resumen</h2>
+<p>La aplicación segura (AppSec) atraviesa un momento de agotamiento colectivo: brechas tras brechas, incidentes que apenas generan reacción, decisiones estratégicas tomadas por personas que no entienden el trabajo técnico y una curva de CVEs que apunta a ser insostenible. Este análisis plantea que los ciclos de "una herramienta más y se arregla" han fallado porque el factor que falta en todas esas soluciones es el ser humano, y que la única salida real pasa por que los profesionales tomen consciencia de las decisiones estructurales que les tocará tomar —antes de que la presión del momento decida por ellos.</p>
+<p>La propuesta central es un ejercicio de "elige tu propia aventura": una serie de disyuntivas reales que enfrentará cualquier persona de AppSec durante su carrera —adoptar o no IA, homogeneizar o diversificar, liderar comunidad o trabajar en silencio, aceptar un ascenso directivo, divulgar o retener una vulnerabilidad— con el argumento de que pensarlas con calma de antemano es la diferencia entre una carrera con impacto y una carrera a la deriva.</p>
+<h2>El estado del agotamiento: brechas, memes y normalización del desastre</h2>
+<p>Los últimos años acumulan señales difíciles de ignorar. La caída del foro de filtraciones BreachForums —desactivado por el gobierno de Estados Unidos, de vuelta en línea en 48 horas, vuelto a caer 72 horas después y otra vez restaurado 24 horas más tarde— marcó el tono de una época convulsa para todos los bandos: red team, AppSec, blue team. A eso se sumó el panico por excelencia: la actualización defectuosa de CrowdStrike que dejó fuera de servicio 8,5 millones de máquinas, incluida infraestructura crítica, con la ironía añadida de que la empresa presidía con un gran banner la conferencia de seguridad de la calle de enfrente semanas después… con el stand lleno.</p>
+<p>La reacción del sector fue el meme del neumático desinflado —la misma imagen sirvió para la falla de una librería de Node, luego para Log4j y después para CrowdStrike— y chistes sobre organizaciones tan anticuadas que ni siquiera podían verse afectadas, como quienes se enorgullecían de que su aerolínea siguiera corriendo Windows 3.1. Pero debajo del humor hay un patrón: el incidente ocurre, todo el mundo lo olvida al día siguiente, y se sigue operando igual. Ni las guías <em>Secure by Design</em> de CISA —con 12 países firmantes y todas las agencias de seguridad estadounidenses— lograron mover la respuesta cultural del desarrollo, que sigue siendo un "me arrancarás C de mis frías y muertas manos".</p>
+<p>Un diagnóstico adicional: preguntar a tres gerentes qué es AppSec y obtener la misma respuesta es engañoso, porque esa respuesta es literalmente el primer resultado de Google. La capa directiva no entiende el trabajo, lo que hace que las decisiones sobre seguridad se tomen sin el contexto técnico necesario.</p>
+<h2>La disyuntiva de la IA: entre el salvavidas y el acelerador de deuda técnica</h2>
+<p>La primera encrucijada es la IA. En la mayoría de organizaciones, la decisión sobre herramientas de copiloto de código ya se tomó antes de que nadie en seguridad fuera consultado. Las promesas de los proveedores —hasta un 80% más de código generado— chocan con una pregunta incómoda: ¿el problema es que falta código?</p>
+<p>Las pruebas empíticas del propio campo no son alentadoras. Pedir a un modelo de lenguaje un formulario que recoja datos personales produce un archivo PHP con entrada sin validar y credenciales embebidas, aunque sorprende que parametrice el SQL. Con ingeniería de prompts —simulando a un desarrollador junior preocupado por no ser descubierto— el modelo "mejora" el código moviendo la conexión a base de datos a otro archivo, aplicando <code>trim</code>, <code>strip_slashes</code> y codificación HTML, y sugiriendo HTTPS y manejo de errores: una colección de rituales que no constituye código seguro. La pregunta que deja esto abierta no es si la IA "salva o hunde" la ciberseguridad, sino qué posición defenderá cada profesional cuando el C-suite ya haya elegido.</p>
+<h2>Homogeneidad o diversidad: la lección que CrowdStrike dejó y nadie aprendió</h2>
+<p>La segunda decisión estructural es si el ecosistema converge hacia un único lenguaje, un único set de requisitos y un único chequeo idéntico en el pipeline de CI/CD, o si se enseñan principios de seguridad y se deja que cada equipo los adapte a su threat model. El incidente de CrowdStrike es la prueba de laboratorio de los riesgos de la monocultura: 8,5 millones de máquinas caídas a la vez por un único punto de fallo compartido, y sin embargo al día siguiente el mercado siguió igual, porque es el único jugador dominante.</p>
+<p>La opción alternativa —enseñar principios, no recetas, y formar equipos autosuficientes que afinen sus propios controles— requiere más inversión en personas y menos en herramientas únicas. Y son precisamente los profesionales de AppSec quienes implementarán cualquiera de las dos opciones: por eso conviene tener la respuesta pensada antes de que llegue el momento.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Decisiones estructurales pendientes] --> B{IA en AppSec}
+    A --> C{Homogeneidad o diversidad}
+    A --> D{Liderazgo o individualismo}
+    A --> E{Divulgación de vulnerabilidades}
+    B --> F[El C-suite decide si nadie da su opinión a tiempo]
+    C --> G[Monocultura: fallo compartido masivo]
+    D --> H[Comunidad construida o carrera aislada]
+    E --> I[Ventana responsable o 0-day caliente]
+    F & G & H & I --> J[¿El ser humano forma parte del diseño?]
+
+</pre>
+
+<h2>Liderar o no liderar: comunidad, gerencia y las consecuencias de cada camino</h2>
+<p>Convertirse en referente comunitario no exige ser un hacker de élite. La experiencia de cofundar B-Sides Boulder —nacida porque las entradas de B-Sides Denver se agotaron antes de poder conseguir asientos, y cinco años después sigue en pie— demuestra que casi todo se reduce a presentarse y sumar: organizar un meetup para desarrolladores, proponer un café, dar un <em>lunch and learn</em>. La vía alternativa, trabajar solo en lo propio, es legítima, pero deja la construcción del ecosistema a otros.</p>
+<p>El ascenso a gerencia es la disyuntiva más difícil porque no tiene respuesta correcta: aceptar significa que la vida pasa a ser hojas de cálculo y ya no hay tiempo técnico; rechazar significa que quizá dirija la seguridad alguien que no sabe lo que hace. La recomendación es considerar esa pregunta en frío, antes de que un incidente la convierta en una decisión urgente. En el propio recorrido, la elección se hizo —y a la luz del tiempo transcurrido, fue la equivocada.</p>
+<h2>Divulgación, CVEs y elburnout de los desarrolladores</h2>
+<p>En el plano ofensivo, la pregunta es qué hacer con un hallazgo: ¿ventana de 90 días de divulgación responsable aunque el equipo amenace con acciones legales, o publicación inmediata como 0-day? Quien publicó la falla de Log4j que llegó a Minecraft no calibró que miles de personas trabajarían en Navidad. Mientras tanto, la curva de CVEs anuales sigue creciendo de forma que se aproxima a una asíntota: insostenible para cualquier equipo de AppSec, y con culpa repartida entre desarrollo, gestión y producto —sin que los desarrolladores sean los villanos.</p>
+<p>El eslabón más frágil es humano: según datos de Stack Overflow, la satisfacción de los desarrolladores está en mínimos. Cuando funciona el código, hay presión por más features; cuando falla, hay presión por arreglarlo. El desarrollador que pasa 80 horas extra para meter a producción una feature que ventas vendió sin consultar, y luego rompe producción, acaba con otras 10 horas de crisis encima. El caso límite es elocuente: el autor de Neofetch archivó todos sus proyectos y "se dedicó a la agricultura". Con la recesión económica, los desarrolladores se van más rápido, y cuando se van se llevan el conocimiento de por qué los sistemas funcionan como funcionan: no se puede proteger lo que no se entiende.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las soluciones puramente tecnológicas han fracasado sistemáticamente porque el factor humano estaba ausente del diseño; escribir software es difícil y escribirlo seguro es aún más difícil.</li>
+<li>Las grandes disyuntivas —IA, homogeneidad, liderazgo, divulgación— deben decidirse con antelación y en frío: en el momento de la presión nadie piensa con claridad, y en muchas organizaciones la decisión ya se tomó sin consultar a seguridad.</li>
+<li>Acercar desarrolladores al ecosistema de seguridad —llevarlos a las conferencias, compartir almuerzos, construir relación con memes y sin condescendencia— es la inversión de mayor retorno para AppSec.</li>
+<li>La empatía no es un adorno: los profesionales de seguridad son los adultos de la sala, y eso implica defender al equipo de desarrollo cada vez que alguien quiera culparlo por romper producción.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Secure by Design (CISA)</strong>: guías internacionales de diseño seguro firmadas por 12 países y las principales agencias de seguridad de EE. UU.</li>
+<li><strong>Log4j</strong>: vulnerabilidad en la librería de logging de Java que se convirtió en el arquetipo del incidente de supply chain, con impacto inmediato en Minecraft.</li>
+<li><strong>CrowdStrike</strong>: incidente de 2024 con 8,5 millones de máquinas fuera de línea por una actualización defectuosa, caso emblemático de monocultura tecnológica.</li>
+<li><strong>Ingeniería de prompts</strong>: técnica de modulación de la salida de modelos de lenguaje; en seguridad, determina la calidad del código generado y su hardening.</li>
+<li><strong>Ventana de 90 días</strong>: plazo estándar de divulgación responsable antes de publicar una vulnerabilidad.</li>
+<li><strong>Pipeline de CI/CD</strong>: punto de aplicación de controles de seguridad; la decisión es si uniformarlos o adaptarlos al threat model de cada equipo.</li>
+<li><strong>Stack Overflow Developer Survey</strong>: fuente de los datos sobre el descontento creciente de los desarrolladores.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/iN1c0j4nGvo">«DEF CON 32 - Navigating the Cyber Security Labyrinth Choose Your Own Security Adventure - punkcoder»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

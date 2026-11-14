@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>De 1,8 millones de prompts a 30 alertas: cazar abuso en un ecosistema agéntico multi-tenant — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">De 1,8 millones de prompts a 30 alertas: cazar abuso en un ecosistema agéntico multi-tenant</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/PtWwrOm3BeE">«Matt Rittinghouse &amp; Millie Huang - 1.8M Prompts, 30 Alerts | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/PtWwrOm3BeE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> PtWwrOm3BeE · <strong>URL:</strong> https://youtu.be/PtWwrOm3BeE · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Matt Rittinghouse &amp; Millie Huang - 1.8M Prompts, 30 Alerts | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>La era del chatbot terminó. Los agentes ya no son cajas negras ni prompts enriquecidos: son ejecutores privilegiados de sistemas capaces de correr código y manipular infraestructura. Cuando un agente puede invocar APIs y consultar bases de datos de forma autónoma, la superficie de amenaza explota, y el problema deja de ser "palabras malas" para convertirse en ejecución no autorizada de sistemas.</p>
+<p>La escala del problema en Salesforce —plataforma desplegada tanto en organizaciones de clientes como internas— es la siguiente: 55.000 organizaciones monitoreadas por día y más de 12.000 agentes únicos activos diarios. De ahí surgen dos desafíos estructurales:</p>
+<ul>
+<li><strong>Defensa de caja negra</strong>: la lógica de cada agente es custom y el comportamiento válido varía salvajemente entre organizaciones; las firmas estáticas no sirven, y no se puede ajustar manualmente agente por agente.</li>
+<li><strong>Confianza</strong>: no se puede mirar —ni entrenar con— los datos de prompts, que pertenecen al cliente. Lo que se protege son las acciones invocadas por las salidas de los LLM generadas a partir de esos prompts.</li>
+</ul>
+<p>La solución construida se ubica en la <strong>capa de ejecución</strong>, fuera de pero en diálogo permanente con la capa de razonamiento. El resultado del funnel: de casi 2 millones de prompts diarios, tras el filtro de la trust layer y el modelo de detección de anomalías comportamentales, quedan menos de 30 alertas activas para investigar.</p>
+<h2>Dos buckets de amenaza</h2>
+<p>En un entorno SaaS multi-tenant con agentes autónomos, el panorama se divide en:</p>
+<ol>
+<li><strong>Ataques que apuntan a la plataforma</strong>: el atacante busca grietas en la implementación —un permission set mal configurado, un flaw en skills custom de Apex expuestos al motor de razonamiento—.</li>
+<li><strong>Abuso de una agencia legítima</strong>: el actor de amenaza usa las capacidades nativas del agente para ejecutar acciones válidas pero maliciosas en contexto.</li>
+</ol>
+<p>La moderación de contenido sobre la capa de razonamiento (el diálogo usuario-LLM) es necesaria pero insuficiente por tres razones:</p>
+<ul>
+<li><strong>Razonamiento no es ejecución</strong>: puede filtrar toxicidad e inyecciones de prompts, pero no ve las llamadas al sistema que el agente dispara después.</li>
+<li><strong>El dilema del bloqueo</strong>: la moderación suele capturar la intención maliciosa pero carece de la señal de alta fidelidad que exige el bloqueo automático en línea en un contexto empresarial; el contexto comportamental del modelo es lo que permite pasar de "marcar" a "responder automáticamente con confianza".</li>
+<li><strong>Ceguera post-generación</strong>: aun con un prompt juzgado como seguro, el plan resultante puede implicar acceso no autorizado a datos o escalada de privilegios, invisible para los filtros de contenido.</li>
+</ul>
+<h2>Un ensemble con tres ejes de identidad</h2>
+<p>La innovación metodológica es simple de enunciar: a los ejes clásicos de detección de anomalías (usuario, tablas, entidades) se suma <strong>el propio agente como eje</strong>, y todo ello en el contexto de la organización que construyó y desplegó ese agente. Tres niveles de contexto —usuario, agente, organización— combinados en un modelo ensemble, donde cada flujo reduce el ruido de los otros dos.</p>
+<p>La hipótesis de partida fue deliberadamente simple: buscar agentes accediendo a cosas a las que normalmente no acceden. Las features medían:</p>
+<ul>
+<li><strong>Frecuencia</strong> con que las sesiones agénticas tocan datos, y tipo de acceso (selección, actualización, borrado).</li>
+<li><strong>Profundidad y amplitud</strong>: qué proporción de los datos se accede —exfiltrar la base entera no se ve igual que leer un registro—.</li>
+<li><strong>Sensibilidad y rareza</strong>: flags de campos con PII o datos sensibles, y perfiles de frecuencia con que los agentes tocan cada columna.</li>
+<li><strong>Perfilado histórico incremental</strong>: un perfil de todas las sesiones por día, que arma una línea de base contra la cual puntuar desviaciones estándar —puntuando sesiones en curso o recién cerradas, y priorizando alertas por magnitud de desviación—.</li>
+</ul>
+<h2>Lo que no funcionó</h2>
+<ul>
+<li><strong>Explosión de features</strong>: considerar cada feature en los tres ejes de identidad multiplica el espacio y genera ruido y complejidad rápidamente.</li>
+<li><strong>El calculador de complejidad de queries</strong>: un modelo custom y costoso que confundía capas de identidad —se asumía que los actores maliciosos correrían queries complicadas, pero las queries las construye el agente—. Lección: verificar que cada feature mide lo que se cree que mide.</li>
+<li><strong>Joins caros con tablas de metadatos</strong>: refactorizar el modelo para operar sobre una sola tabla lo hizo entrenar en un tercio del tiempo.</li>
+</ul>
+<h2>Triage agéntico y el camino al hot path</h2>
+<p>Cada alerta se materializa como un payload JSON estructurado que ingiere otro agente, que sintetiza en lenguaje llano por qué la sesión es anómala —útil de cara al cliente y para investigadores sin background de seguridad—.</p>
+<p>Hoy el piloto acepta una latencia de detección de 12 a 24 horas (entrenamiento e inferencia en batch). La arquitectura, sin embargo, está diseñada para el <strong>hot path</strong>: empujando las líneas de base a una caché de alta velocidad, la inferencia puede correr en vuelo, y si una sesión cruza el umbral crítico —estadísticamente imposible que sea normal— no se espera al triage humano: se mata la sesión, se revoca el token o se dispara un lockdown a nivel de bot de inmediato. El despliegue del piloto a clientes arranca este mismo mes, y el ajuste de la respuesta automática vendrá de un ejercicio purple team: un red team generando ataques reales para que el modelo los cace en vivo.</p>
+<h2>Lecciones</h2>
+<ol>
+<li><strong>Cerrá la brecha de observabilidad</strong>: los logs de ingeniería deben ser eventos estructurados que vinculen el ID del usuario invocador con el ID del agente, no strings de debug; sin eso, un power user y un agente comprometido son indistinguibles.</li>
+<li><strong>No esperes al ataque conocido</strong>: con 12.000 agentes activos, las firmas son un fracaso garantizado; perfilá lo normal hoy para tener la media estadística lista cuando llegue la desviación.</li>
+<li><strong>Cuidado con la feature perfecta</strong>: telemetría simple (conteo de invocaciones, frecuencia sobre activos sensibles) dio señales de mayor fidelidad sin reventar los SLAs.</li>
+<li><strong>El funnel vale lo que su línea de base</strong>: esperá ruido los primeros 14 días de vida de un agente nuevo e incorporá ese warm-up al playbook del SOC.</li>
+</ol>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Detección de anomalías comportamentales</strong> en la capa de ejecución de sistemas agénticos.</li>
+<li><strong>Modelo ensemble de tres ejes</strong>: usuario × agente × organización para reducción de ruido mutua.</li>
+<li><strong>Perfilado histórico incremental</strong> con puntuación por desviación estándar.</li>
+<li><strong>Features de profundidad, amplitud, sensibilidad y rareza</strong> sobre accesos a datos.</li>
+<li><strong>AgentForce trust layer</strong>: moderación de contenido en la capa de razonamiento, complementaria al modelo.</li>
+<li><strong>Triage asistido por agente</strong>: resúmenes en lenguaje natural generados desde payloads JSON estructurados.</li>
+<li><strong>Auto-containment en hot path</strong>: kill de sesión, revocación de token, lockdown de bot sobre umbral crítico.</li>
+<li><strong>Ejercicio purple team</strong> para calibrar la respuesta automática.</li>
+<li><strong>Culling de features tipo PCA</strong>: rondas iterativas de creación, medición de poder predictivo y descarte, con loops programáticos de ajuste.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La defensa de ecosistemas agénticos multi-tenant exige modelo comportamental, no firmas: cada agente es una lógica custom distinta.</li>
+<li>La capa de ejecución es la única donde se ven las acciones; la moderación de prompts siempre llegará tarde o ciega.</li>
+<li>La simplicidad gana: features simples de alta fidelidad, algoritmos de distancia interpretables y summaries generados por IA hacen la alerta accionable.</li>
+<li>De ~2 millones de prompts diarios a menos de 30 alertas: el funnel comportamental convierte ruido masivo en trabajo investigable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/PtWwrOm3BeE">«Matt Rittinghouse &amp; Millie Huang - 1.8M Prompts, 30 Alerts | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

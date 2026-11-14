@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deepfakes contra la biometría facial: cómo se atacan (y cómo se defienden) los sistemas de prueba de vida — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Deepfakes contra la biometría facial: cómo se atacan (y cómo se defienden) los sistemas de prueba de vida</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TyVO8eL0KtA">«Deepfakes contra la biometría facial: cómo se atacan (y cómo se defienden) los sistemas de prueba de vida»</a> · ver el <a class="nz-link" href="https://youtu.be/TyVO8eL0KtA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> TyVO8eL0KtA · <strong>URL:</strong> https://youtu.be/TyVO8eL0KtA · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Deepfakes contra la biometría facial: cómo se atacan (y cómo se defienden) los sistemas de prueba de vida</li>
+</ul>
+<h2>Resumen</h2>
+<p>La escena es real y reciente: en el área de cuentas a pagar de una empresa suena una videollamada del jefe, nervioso y apurado, pidiendo una transferencia urgente a un proveedor. La cara es la de él, la voz también. La transferencia se hace. Solo que no era él: era un deepfake generado con IA. Ese punto de partida enmarca el problema que esta experiencia con sistemas de validación biométrica muestra a fondo: los sistemas de prueba de vida se intentan vulnerar todo el tiempo, y las herramientas de generación de video con motores de inteligencia artificial crecieron tanto en un año que lo que parecía ciencia ficción pasó a ser del día a día.</p>
+<p>El análisis recorre la clasificación de los sistemas biométricos faciales, los tres componentes que hacen robusto un sistema híbrido, la taxonomía de ataques (presentación, inyección de datos y manipulación de tráfico), y cierra con demos en vivo donde un sistema débil cae ante cada vector y un sistema robusto detecta y bloquea todos los intentos en el dispositivo o en el backend.</p>
+<h2>Por qué contraseñas y OTP ya no alcanzan</h2>
+<p>Cuando la información es sensible —y el ecosistema financiero lo es por definición— la validación por contraseñas quedó obsoleta. Los OTP agregan un factor, pero tienen una debilidad estructural que se resume en una frase cruda: hoy te toman el teléfono y se desata la tragedia. Esa sensibilidad, más que los requerimientos normativos, es lo que empuja la adopción masiva de sistemas biométricos.</p>
+<p>La tecnología no es nueva: desde el año 2000 se ven sistemas biométricos en cámaras de seguridad de aeropuertos. El despegue comercial llegó recién a mediados de la década de 2010, con el auge de dispositivos móviles, aplicaciones y plataformas de pago que empezaron a ser vulneradas por deficiencias en los controles. Desde entonces organismos no gubernamentales y agencias de investigación trabajan en cómo implementar la tecnología correctamente, con lineamientos en la NIST y la ISO/IEC 30107.</p>
+<h2>Clasificación de los sistemas biométricos faciales</h2>
+<p>Los organismos distinguen tres grandes grupos:</p>
+<ul>
+<li><strong>Activos</strong>: piden una acción al usuario frente al dispositivo —acercarse, alejarse, abrir y cerrar los ojos, parpadear.</li>
+<li><strong>Pasivos</strong>: piden quedarse inmóvil unos segundos mientras el sistema contrasta indicadores y determina la "vivacidad": que del otro lado hay una persona viva y real.</li>
+<li><strong>Híbridos</strong>: combinación específica de características de los dos anteriores.</li>
+</ul>
+<h2>Los tres componentes de un sistema híbrido robusto</h2>
+<h3>1. Prueba de vida con mapa 3D del rostro</h3>
+<p>Ya no alcanza con una selfie. El sistema debe generar un mapa tridimensional del rostro en el dispositivo del usuario, para lo que pide una mínima actividad. Sobre ese mapa se aplica la biometría pasiva, que verifica la vivacidad con factores de asombroso nivel de detalle:</p>
+<ul>
+<li>Seguimiento del flujo sanguíneo del rostro.</li>
+<li>Micromovimientos de los ojos y microdilatación de pupilas.</li>
+<li>Análisis del contexto de luz sobre el rostro para determinar ángulos que permitan construir el mapa.</li>
+</ul>
+<p>Todo esto sucede —o debe suceder— en el dispositivo del usuario, combinando seguridad con experiencia de usuario fluida.</p>
+<h3>2. Transmisión segura y privacidad</h3>
+<p>El mapa 3D debe viajar al servidor para usarse en autenticación o en validación de identidad contra fuentes de verdad o burós. Los requisitos: transformar el mapa en un archivo de caracteres que <strong>no contenga datos biométricos</strong> (privacidad), encriptarlo y transmitirlo por un protocolo seguro.</p>
+<h3>3. Medición con métricas estándar</h3>
+<p>La eficacia se mide con indicadores de la NIST (guía de implementación de sistemas de identidad, NIST 800-63) y la ISO/IEC 30107. Los dos más relevantes:</p>
+<ul>
+<li><strong>APCER / tasa de éxito de ataques</strong>: objetivo cero; el sistema debe demostrar que no puede ser vulnerado.</li>
+<li><strong>BPCER / tasa de rechazo de intentos genuinos</strong>: objetivo 1% o menos. Cubre la experiencia de usuario: cámaras inestables o rostros que no enfocan bien no deben bloquear usuarios legítimos.</li>
+</ul>
+<h2>La superficie de ataque: tres frentes</h2>
+<p>La biometría se divide en lo que ocurre en el dispositivo (captura de la cara y primer mapa biométrico) y lo que ocurre en el servidor (segundo chequeo de seguridad). De ahí salen tres vectores:</p>
+<ol>
+<li><strong>Engañar a la cámara en el dispositivo</strong> (ataques de presentación).</li>
+<li><strong>Modificar los datos mientras viajan</strong> (inyección de video y manipulación de tráfico).</li>
+<li><strong>Atacar la lógica del servidor directamente</strong> (bypass del backend).</li>
+</ol>
+<h3>Ataques de presentación</h3>
+<p>El más simple y común: una imagen de alta calidad sacada de las redes sociales. El más elaborado: una <strong>máscara 3D</strong> que simula la profundidad de un rostro real. En las demos, el sistema débil ("Fraudmaster 2000", que solo detecta presencia de una cara) validó la máscara como exitosa y la registró en el back office. El sistema robusto frenó el intento durante la validación en el dispositivo, sin siquiera llegar a enviar la solicitud al backend: sus scripts verifican que no haya cámara virtual, que el dispositivo no esté rooteado y que el código no haya sido modificado.</p>
+<h3>Inyección de video con cámara virtual</h3>
+<p>Con una herramienta como OBS se inyecta un video pregrabado, se modifica lo que ve la cámara o se inyecta un deepfake en vivo; con Deep Face Live se hace face swapping en tiempo real. En la demo, el sistema débil capturó y validó el rostro inyectado con éxito. El robusto detectó la cámara virtual y bloqueó todo en el dispositivo, sin solicitud al backend.</p>
+<h3>Manipulación de tráfico con Burp Suite</h3>
+<p>Para atacantes con más expertise: interceptar el llamado al servidor, analizarlo y modificarlo para bypassear la biometría del backend. La demo intercepta el request de la selfie (una imagen en base 64), la reemplaza por el rostro de otra persona y la reenvía. Resultados:</p>
+<ul>
+<li>Sistema débil: la imagen inyectada pasó como exitosa y quedó registrada en el back office.</li>
+<li>Sistema robusto: el backend detectó la modificación en la request y rechazó la conexión completa; ni rastro de imagen en el registro.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante] --> B{Vector}
+    B -->|Presentación| C[Imagen de redes / máscara 3D]
+    B -->|Cámara virtual| D[OBS / Deep Face Live con deepfake]
+    B -->|Tráfico| E[Burp Suite: reemplazo de imagen base64]
+    C --> F{Sistema}
+    D --> F
+    E --> F
+    F -->|Débil: solo detecta cara| G[Válido en back office]
+    F -->|Robusto: chequeos en dispositivo y backend| H[Bloqueo antes o en el servidor]
+
+</pre>
+
+<h2>Qué mirar al elegir o implementar</h2>
+<ul>
+<li>La prueba de vida debe generar un mapa 3D del rostro con biometría pasiva (flujo sanguíneo, micromovimientos, análisis de luz) y ejecutarse en el dispositivo del usuario.</li>
+<li>El mapa nunca debe viajar con datos biométricos: conversión a caracteres, encriptación y protocolo seguro son innegociables.</li>
+<li>Las métricas importan: tasa de éxito de ataques en cero y tasa de rechazo de usuarios genuinos en 1% o menos.</li>
+<li>Los controles en el dispositivo —detección de cámara virtual, root, modificación de código— son la primera línea: el sistema robusto bloqueó la mayoría de los ataques antes de que la solicitud llegara al backend.</li>
+<li>Los sistemas robustos publican bug bounty (hasta 600.000 dólares en el caso mencionado), lo que permite a quien quiera intentarlo hackearlo con reglas claras.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los deepfakes pasaron de la ciencia ficción a la operación criminal en menos de un año, y el fraude con videollamadas falsas de ejecutivos ya es un caso de uso real contra áreas financieras.</li>
+<li>La biometría facial híbrida bien implementada resiste los tres vectores básicos —presentación, inyección de video y manipulación de tráfico—, pero la diferencia entre un sistema que "detecta una cara" y uno con prueba de vida real es, en la práctica, la diferencia entre ser vulnerable y no serlo.</li>
+<li>La privacidad es parte del diseño: el mapa biométrico se transforma en datos no biométricos antes de salir del dispositivo.</li>
+<li>Contraseñas y OTP siguen siendo necesarios pero insuficientes frente a amenazas que suplantan cara y voz en tiempo real; la prueba de vida con métricas verificables es la capa que sostiene la validación de identidad en el ecosistema financiero.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TyVO8eL0KtA">«Deepfakes contra la biometría facial: cómo se atacan (y cómo se defienden) los sistemas de prueba de vida»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

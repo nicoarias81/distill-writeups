@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Android root explotando la GPU Adreno: CVE-2024-23380 — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Android root explotando la GPU Adreno: CVE-2024-23380</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/BN07rjaNqXk">«DEF CON 32 - The Way To Android Root: Exploiting Smartphone GPU - Xiling Gong, Eugene Rodionov»</a> · ver el <a class="nz-link" href="https://youtu.be/BN07rjaNqXk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> BN07rjaNqXk · <strong>URL:</strong> https://youtu.be/BN07rjaNqXk · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - The Way To Android Root: Exploiting Smartphone GPU - Xiling Gong, Eugene Rodionov</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los drivers de GPU son el blanco favorito de quien busca privilegios en Android por tres razones: <strong>no requieren ningún permiso</strong> (las librerías de OpenGL y Vulkan del proceso de la aplicación hablan directamente con el device node, sin mediación de IPC ni binder), su exigencia de rendimiento les da acceso a la <strong>RAM física del sistema</strong> (mapean memoria de usuario a kernel y a hardware sin copiar — la primitiva que todo atacante quiere), y su complejidad los hace propensos a bugs y a arreglos incompletos. El Android Red Team de Google — cuyo trabajo consiste en simular adversarios contra las features clave de Android para que cada dolor que sufren en la investigación se traduzca en seguridad para el usuario final — elegó Qualcomm Adreno como objetivo: es la GPU más usada en los SoC del mercado, acaba de estrenar una arquitectura nueva (generación 7 en adelante), y sus security bulletins muestran un goteo constante de issues cada trimestre.</p>
+<p>El resultado de la investigación: más de nueve issues reportadas a Qualcomm durante el engagement, y una explotación completa a root desde un usuario sin privilegios en un smartphone de gama alta con el último security patch — vía CVE-2024-23380, parcheada en el boletín de julio de 2024 (con aviso a los vendors desde abril).</p>
+<h2>La arquitectura nueva agranda la superficie</h2>
+<p>El driver KGSL es la capa de pegamento entre user space y hardware: expone interfaces de contexto, memoria (básica, de user space, DMA — la sparse ya no se usa), comandos y sincronización. El flujo clásico: cola de comandos → software dispatcher → ring buffer → firmware del GPU.</p>
+<p>La generación 7+ cambió las piezas: el <strong>software dispatcher fue reemplazado por un hardware scheduler</strong> — el driver ya no toca el ring buffer, sino que envía los comandos a una cola HFI y un firmware (sin código fuente disponible) se encarga del trabajo que antes hacía el driver. Se sumaron hardware fences (con su cola y eventos propios), un nuevo objeto de memoria virtual (VBO) y un IOMMU propio de Qualcomm que reemplaza al ARM IOMMU. Cada feature nueva es capacidad nueva — y superficie de ataque nueva.</p>
+<h2>Los objetos de memoria y el VBO</h2>
+<p>Tres tipos de memoria, con roles distintos:</p>
+<ul>
+<li><strong>Basic memory object</strong>: el caso general. Un ioctl pide N páginas físicas; el driver las asigna, reserva un rango en el espacio virtual del GPU y arma el mapeo físico→virtual vía IOMMU; el user space además hace mmap y obtiene el mapeo vía MMU. La misma página física accesible desde el GPU y desde la app.</li>
+<li><strong>User space memory object</strong>: importa memoria existente del proceso al GPU.</li>
+<li><strong>Virtual buffer object (VBO)</strong>: no tiene memoria física propia — es solo un rango de direcciones virtuales del GPU mapeado inicialmente a una página cero dummy. Su función es ser un lienzo: vía bind_range, se ligan basic memory objects al VBO en offsets específicos. Al bindear, el driver elimina los mapeos previos, registra la conexión (que impide liberar el objeto ligado) y arma los mapeos físico→virtual de todas las páginas.</li>
+</ul>
+<p>Poderoso, flexible — y vulnerable.</p>
+<h2>CVE-2024-23380: la carrera del mapeo</h2>
+<p>Al bindear, dos pasos deben protegerse con el mismo mutex: la inserción en el interval tree (la conexión objeto↔VBO) y el mapeo físico→virtual. El fix muestra cuál faltaba: el mapeo estaba <strong>fuera del lock</strong>. La secuencia de carrera:</p>
+<pre class="mermaid">
+flowchart TD
+    A[Thread A: lock + bind<br/>conexion objeto-VBO en interval tree] --> B[Thread A: UNLOCK<br/>mapeo fisico-virtual todavia pendiente]
+    B --> C[Thread B: lock + unbind<br/>conexion eliminada, objeto y paginas liberadas]
+    C --> D[Thread A: mapea la pagina victima<br/>al VBO sobre el espacio ya liberado]
+    D --> E[Mapping colgante: pagina fisica libre<br/>accesible lectura/escritura via GPU VA]
+
+</pre>
+
+<p>El resultado es un <strong>use-after-free de página física</strong>: lectura y escritura sobre una página ya devuelta al kernel, a través de la dirección virtual del GPU. Es una race condition, pero con propiedades de lujo: se dispara sin ajustar prioridades de threads ni trucos, es <strong>estable</strong> (se repite decenas de veces sin colgar el kernel) y tiene <strong>oráculo de feedback</strong> — el exploit sabe en cada momento si el disparo funcionó y cuántas páginas controla.</p>
+<h2>De páginas controladas a root</h2>
+<p>Controlar páginas físicas arbitrarias es el punto de partida; el método de elevación es lo novedoso. La cadena completa:</p>
+<ol>
+<li><strong>Acumular</strong>: disparar la race unas 200 veces → 200 páginas físicas controladas.</li>
+<li><strong>Forzar low memory</strong>: alocar memoria masivamente desde user space; el cache del kernel se devuelve al sistema y las 200 páginas controladas vuelven al heap del kernel.</li>
+<li><strong>Heap spray dirigido</strong>: sembrar estructuras KGSL memory entry — que contienen una memory description con <strong>dirección física, tamaño y puntero a ops</strong> — más metadata mágica para identificarlas.</li>
+<li><strong>Escanear y hallar</strong>: recorrer las páginas controladas buscando las estructuras sembradas por su metadata.</li>
+<li><strong>Parchear la descripción</strong>: cambiar dirección física y tamaño por los del kernel completo → un mmap de ese objeto mapea <strong>toda la memoria física del kernel en user space</strong> → lectura/escritura arbitraria del kernel.</li>
+<li><strong>Root</strong>: parchear versión y código del kernel.</li>
+</ol>
+<p>El paso 4 depende de la suerte (que alguna entrada caiga en una página controlada), pero el método es repetible hasta acertar. Y la técnica es <strong>genérica</strong>: cualquier kernel heap overflow o race condition puede usarla — sembrar memory descriptions, desbordar sobre dirección física y ops, y mapear el kernel entero, reintentando hasta lograrlo.</p>
+<h2>Bypass de KASLR "gratis"</h2>
+<p>El puntero a ops parece exigir derrotar KASLR primero. No hace falta: KASLR opera a nivel de página, y el valor original y el objetivo suelen vivir en la <strong>misma página</strong> — los bytes altos coinciden, así que basta sobrescribir los bytes bajos. El byte más bajo es conocido del binario del kernel. En el caso residual de páginas contiguas distintas, la diferencia se reduce a ~4 bits: 16 intentos de fuerza bruta. Otros punteros de la estructura (page table, host ptr, SGT) no se usan en el flujo normal y pueden sobrescribirse con basura.</p>
+<h2>Metodología de caza y camino a mitigar</h2>
+<ul>
+<li><strong>Patch analysis + revisión manual</strong>: leer los fixes de los boletines de Qualcomm y las publicaciones de otros investigadores; el estado del GPU es demasiado grande y con demasiadas piezas móviles para entenderlo sin el contexto de otros. La variante analysis rinde: un fix interno de Qualcomm → un blog de un investigador sobre un issue relacionado → otro issue más en la misma zona (detalles retenidos porque seguía en remediación).</li>
+<li><strong>Fuzzing con obstáculos propios del GPU</strong>: esta clase de bug (mapeo colgante en el IOMMU) exige fuzzing on-device, menos escalable; no crashea, ningún sanitizer reporta entradas MMU colgantes, y el estado (secuencias precisas de syscalls, syzkaller custom, código concurrente) resiste la automatización. Algunos vendors permiten compilar el kernel-mode component independiente de la arquitectura para fuzzear sin hardware; la emulación es alternativa pero exige trabajo manual.</li>
+<li><strong>Mitigaciones estructurales</strong>: mover el acceso al GPU de in-process a <strong>out-of-process vía IPC/binder</strong> (como hace Android para aislar componentes) — con costo de rendimiento y compatibilidad hacia atrás — y <strong>lenguajes memory-safe</strong> en los drivers, que eliminan la mayoría de las causas raíz.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El acceso sin permisos al device node del GPU, combinado con la gestión directa de páginas físicas por rendimiento, convierte a los drivers de GPU en el camino más corto de app sin privilegios a kernel.</li>
+<li>Una ventana de carrera entre la conexión en el interval tree y el mapeo IOMMU produce un use-after-free de página física accesible por el GPU: una primitiva estable, repetible y con oráculo, ideal para explotación determinista.</li>
+<li>El spray de estructuras con memory description del kernel (dirección física + tamaño + ops) es una receta genérica que convierte cualquier overflow o race de heap en lectura/escritura total del kernel — con KASLR esquivado por aritmética de páginas y a lo sumo 16 intentos.</li>
+<li>Las mitigaciones realistas son arquitectónicas (aislar el GPU detrás de IPC) y de lenguaje (memory safety), no parches puntuales: el patrón "páginas liberadas con mapeo IOMMU vivo" es recurrente en los bugs del GPU reportados.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/BN07rjaNqXk">«DEF CON 32 - The Way To Android Root: Exploiting Smartphone GPU - Xiling Gong, Eugene Rodionov»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

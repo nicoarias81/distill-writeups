@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cerrojos mal puestos: abuso de operaciones de archivo privilegiadas en SCADA — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Cerrojos mal puestos: abuso de operaciones de archivo privilegiadas en SCADA</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WGtRLqwlkaY">«Detouring Danger: Finding and Exploiting Privileged File Operations in SCADA Systems -Vyas y Davila»</a> · ver el <a class="nz-link" href="https://youtu.be/WGtRLqwlkaY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> WGtRLqwlkaY · <strong>URL:</strong> https://youtu.be/WGtRLqwlkaY · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Detouring Danger: Finding and Exploiting Privileged File Operations in SCADA Systems -Vyas y Davila</li>
+</ul>
+<h2>Resumen</h2>
+<p>Imaginarse como ingeniero de campo llegando a una industria donde todas las máquinas se reinician en bucle: pantallazo azul, modo de reparación, un driver corrupto y ninguna pista de por qué. No es malware de ICS ni un incidente de EDR — es el resultado de una clase de vulnerabilidades lógicas en las operaciones del sistema de archivos, difícil de erradicar incluso en código refactorizado o recompilado para otras arquitecturas.</p>
+<p>El patrón es simple de enunciar: un proceso de altos privilegios accede a un archivo o carpeta donde usuarios o procesos de bajo privilegio también tienen acceso. El ejemplo clásico es el DLL hijacking, pero las operaciones de crear, copiar, mover o borrar archivos — incluso escribir, abrir o sobrescribir — pueden derivar en negación de servicio, filtración de información o escalada a SYSTEM. Los casos típicos son antivirus y EDRs, pero instaladores, desinstaladores y todo software que escriba constantemente en logs es igual de propenso.</p>
+<p>Este artículo recorre una metodología de hunting masivo de estas fallas mediante instrumentación nativa, su aplicación sobre Engineering Workstations de SCADA, y la explotación concreta de un software de Mitsubishi/ICONICS: seis CVEs y dos advisories reconocidos por el fabricante, con un ataque que deja la estación de trabajo inservible.</p>
+<h2>Hunting masivo con instrumentación nativa</h2>
+<p>El análisis estático no es el mejor enfoque para esta clase de fallas: crear un archivo en sí no es ni malicioso ni una mala práctica, así que un linter no va a encontrar nada. Las pruebas dinámicas manuales (ProcMon, la suite de Windows Internals) son excelentes pero lentas, y el hunting masivo exige una estrategia que no vaya vulnerabilidad por vulnerabilidad contra el reloj.</p>
+<p>La respuesta es la <strong>instrumentación</strong>: modificar un programa durante su ejecución, sin código fuente, sin recompilar y sin preparación previa. Se agrega una función intermediaria ("detour") en cada llamada que interesa, capaz de alterar los parámetros a la entrada o el valor de retorno. Aunque Frida es el framework de cajón, para análisis masivo conviene un enfoque minimalista que altere el sistema lo menos posible: <strong>Detours</strong>, la librería de Microsoft, probada en todas las versiones de Windows NT, fácil de usar vía una DLL inyectada. Su API esencial tiene tres partes: la transacción (delimitar inicio y fin de la operación, como en una base de datos), la actualización de apuntadores del thread, y la intercepción (puntero a la función original más la función propia que se ejecuta antes).</p>
+<p>¿Qué instrumentar? Reversando <code>CreateFileW</code> se descubre que es una pila de wrappers que termina en <code>NtCreateFile</code>, el syscall que engloba casi toda manipulación de archivos: sobrescribir, copiar o mover un archivo es, al final, una creación de archivo. Instrumentar un único símbolo cubre, entonces, la mayoría de los casos.</p>
+<p>El flujo del detector queda así:</p>
+<ol>
+<li>Definir los SIDs de interés — Anonymous, Guest, usuarios de Internet y demás cuentas de bajo privilegio comunes en Windows.</li>
+<li>Buscar la función con la API <code>FindFunction</code> de Detours y definir los punteros.</li>
+<li>Al interceptar cada llamada a <code>NtCreateFile</code>, chequear el <em>integrity level</em> del proceso: si es menor o igual a medium, no hay nada que hacer — sin privilegios no hay explotación posible.</li>
+<li>Si es mayor a medium, obtener los parámetros de la llamada y, opcionalmente, filtrar por máscara de bits (por ejemplo, solo operaciones de apertura sobre archivos sensibles).</li>
+<li>Chequear el ACL del archivo: si un SID de bajos privilegios accede a un recurso operado por un proceso de altos privilegios, loguear el evento.</li>
+</ol>
+<p>Para el logging se usa <strong>ETW (Event Tracing for Windows)</strong>, el servicio que Windows ya trae para sus propios eventos, en formato ETL y visible con cualquier ETW Viewer de código libre. No daña el disco — escribe a buffer y vuelca según tamaño, número de bytes o tiempo — y la configuración elegida fue <em>flush time</em>: cada siete días escribir el log y analizar qué encontró la DLL. La inyección masiva se logra con la infraestructura <strong>AppInit_DLLs</strong>: se apunta al detector y se activa <code>LoadAppInit_DLLs=1</code>, y a partir del boot la DLL se inyecta en todos los procesos del sistema.</p>
+<pre class="mermaid">
+flowchart TD
+    A[DLL detector con Detours sobre NtCreateFile] --> B[AppInit_DLLs: inyección en todos los procesos tras boot]
+    B --> C[7 días de telemetría ETW / ETL]
+    C --> D[ETW Viewer + Windows Internals: validar hallazgos]
+    D --> E{¿Proceso privilegiado escribiendo\nrecurso accesible a SIDs bajos?}
+    E -- sí --> F[Candidato a explotación]
+    E -- no --> C
+
+</pre>
+
+<h2>El objetivo: ICONICS/Mitsubishi en el modelo Purdue</h2>
+<p>Tras siete días de monitoreo, un proceso se repetía constantemente en las Engineering Workstations analizadas: un ejecutable diseñado por ICONICS. La pregunta siguiente es qué es ICONICS: el sistema SCADA crítico de Mitsubishi, con 375.000 instalaciones en unos 100 países, especializado en gobierno, militar, crudo, diseño automotriz, manufactura y agua. Comprometer ese software vale la pena.</p>
+<p>Dos características del producto encajan con lo buscado: dos tipos de usuarios (uno administrador y otro sin privilegios) y capacidades de SCADA regional y local — monitoreo remoto por internet desde celular o computadora, y agregación de datos de servidores SCADA locales. En el modelo Purdue de redes industriales, el software vive entre los niveles 2 y 3: en el nivel 2 como sistema de monitoreo y análisis (HMI, paros de emergencia, tablets para el ingeniero de planta), y en el 3 con funcionalidades de historian y manejo de usuarios a nivel de software. El modelo mismo explica el contexto: nivel 0 con sensores y actuadores, nivel 1 con PLCs y RTUs como cerebro de la automatización, nivel 3 con historians y domain controllers, un 3.5 de DMZ y el 4 de oficina — donde idealmente nada debería tener contacto directo con los actuadores, aunque la realidad no siempre es así.</p>
+<h2>Explotación: symlink al driver crítico</h2>
+<p>Lo primero encontrado fueron DLL hijackings por todas partes — Windows busca librerías en un orden fijo, y si el atacante puede escribir en una carpeta de esa búsqueda, su librería se carga en lugar de la legítima — y eso bastó para una escalada de privilegios. Lo jugoso vino después, con redirección de sistemas de archivos apoyada en las Symbolic Testing Tools de James Forshaw, que pivotan sobre el object manager para crear symlinks sin privilegios de administrador.</p>
+<p>El vector concreto: un archivo de log en <code>C:\Users\ICONICSUser\AppData\Local\Temp\Logs\Logs.txt</code>, accesible para todos pero escrito constantemente por un proceso privilegiado. El script lo localiza, crea un enlace especial apuntando a <code>cng.sys</code> — un driver crítico presente en casi todos los sistemas, objetivo clásico para provocar denegación de servicio — y espera.</p>
+<p>El programa vulnerable manda alertas por SMS o push a los celulares de los ingenieros de campo, en dos escenarios: automáticamente cuando el PLC reporta un error configurado, o manualmente cuando el administrador pulsa "Send SMS". En cualquiera de los dos, en el momento del envío el proceso privilegiado escribe en "su" archivo de log, que en realidad es el driver:</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant U as Usuario sin privilegios
+    participant L as Logs.txt (enlace especial)
+    participant P as Proceso SCADA (alto privilegio)
+    participant D as cng.sys
+    U->>L: Crea symlink hacia cng.sys
+    P->>L: Envío de alerta SMS escribe el log
+    L->>D: Escritura redirigida al driver
+    Note over D: "Connection Closed" sobrescribe binario crítico
+
+</pre>
+
+<p>El ataque en vivo: un local account sin ningún privilegio crea el enlace y cierra sesión. Llega el administrador, eleva privilegios, manda el mensaje de texto — para él el path del log no cambió. En System32, el último archivo escrito es <code>cng.sys</code> con menos de un kilobyte, y un hex editor revela el contenido: "Connection Closed". No es código válido. Al reiniciar, la máquina no vuelve a levantar: quedará en bucle de pantallazos azules.</p>
+<p>La recuperación es tan dolorosa como el incidente reciente de un EDR con driver corrupto: saber cuál driver se corrompió no facilita borrarlo, sobre todo si la computadora no la administra personal técnico o está protegida con BitLocker y la contraseña no está a mano. Y hay una capa extra: en OT la triada de la ciberseguridad se invierte. Los datos que viajan — temperaturas, humedad — tienen poco valor para un atacante que los lea; lo crítico es la disponibilidad. Dejar inhabilitada una SCADA es la peor parte del impacto.</p>
+<h2>Reconocimiento, mitigación y límites</h2>
+<p>ICONICS y Mitsubishi dieron reconocimiento: seis CVEs y dos advisories, con más publicaciones por venir. La colaboración fue buena, pero la mitigación completa es complicada por dos razones. Primero, al instalar el software existe una opción de "herramientas adicionales" que incluye Gembroker, ya preinstalada en los sistemas y pensada solo para servidores OPC legacy — y nada indica al usuario que no deba instalarla. Segundo, aun sin Gembroker el software sigue siendo vulnerable: solo se complica localizar el archivo de log, hay que monitorear el sistema de archivos de forma continua para ver cuándo se escribe. Y muchos clientes de Mitsubishi corren sistemas legacy donde ese componente no se puede quitar sin bajar la operación — el dilema de parchar SCADA en producción sin disrumpirla.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Privileged file operations abuse</strong>: clase de vulnerabilidad lógica donde un proceso privilegiado opera archivos accesibles a usuarios de bajos privilegios; deriva en DoS, leakage de información o escalada a SYSTEM.</li>
+<li><strong>DLL hijacking</strong>: plantar una DLL maliciosa con el nombre de una legítima en una carpeta del orden de búsqueda de Windows; en este caso, escalada de privilegios.</li>
+<li><strong>TOCTOU (time-of-check/time-of-use)</strong>: la forma típica de explotación, aunque no la única; escribir, abrir o sobrescribir también sirven.</li>
+<li><strong>Instrumentación / detours</strong>: modificación de un programa en ejecución con una función intermediaria que altera parámetros de entrada o valores de retorno.</li>
+<li><strong>Detours (Microsoft)</strong>: framework de instrumentación nativo, código libre, probado en todas las versiones de Windows NT; uso vía DLL inyectada.</li>
+<li><strong>NtCreateFile</strong>: syscall de Windows que engloba la mayoría de operaciones de archivo; punto único de instrumentación.</li>
+<li><strong>SID (Security Identifier)</strong>: identificador que define a qué grupo pertenece un usuario; se usaron Anonymous, Guest e Internet Clients como marcadores de bajos privilegios.</li>
+<li><strong>Integrity level</strong>: medición de privilegios del proceso; solo procesos mayores a medium son candidatos a explotación.</li>
+<li><strong>ETW / ETL</strong>: Event Tracing for Windows y su formato de logs, usados como logger nativo sin escribir software propio; análisis con ETW Viewer cada 7 días (flush time).</li>
+<li><strong>AppInit_DLLs / LoadAppInit_DLLs</strong>: infraestructura de Windows para inyectar una DLL en todos los procesos tras el boot.</li>
+<li><strong>Symbolic Testing Tools (James Forshaw)</strong>: herramientas que crean symlinks sin privilegios de administrador pivotando sobre el object manager.</li>
+<li><strong>ProcMon / Windows Internals</strong>: útiles para validación manual posterior, no para hunting masivo.</li>
+<li><strong>Frida</strong>: framework de instrumentación alternativo, descartado aquí por alterar más el sistema.</li>
+<li><strong>cng.sys</strong>: driver crítico objetivo de la redirección; su corrupción provoca bucle de pantallazos azules permanente.</li>
+<li><strong>Modelo Purdue</strong>: arquitectura de referencia de redes industriales (niveles 0 a 4 más DMZ) donde vive el software analizado.</li>
+<li><strong>ICONICS / Mitsubishi</strong>: fabricante SCADA con 375.000 instalaciones en ~100 países; 6 CVEs y 2 advisories emitidos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las operaciones de archivo privilegiadas sobre recursos accesibles a usuarios de bajos privilegios son una mina abierta: el análisis estático no las ve y las herramientas manuales no escalan, pero la instrumentación nativa (Detours + NtCreateFile + ETW + AppInit_DLLs) permite cazarlas masivamente con cambios mínimos al sistema.</li>
+<li>Un software SCADA crítico como el de ICONICS/Mitsubishi resultó explotable de extremo a extremo: un usuario sin privilegios corrompe un driver del kernel mediante un symlink y deja la estación de trabajo en bucle de reinicio permanente.</li>
+<li>En OT la prioridad se invierte respecto a la TI clásica: la confidencialidad importa menos que la disponibilidad, y una negación de servicio sobre SCADA en producción es el escenario más crítico — y el más difícil de revertir con BitLocker, personal no técnico y sistemas legacy.</li>
+<li>Parchar estas fallas choca con la realidad industrial: componentes legacy que no se pueden quitar sin disrumpir la operación y opciones de instalación que el usuario común no sabe evitar; la coordinación con el fabricante y los advisories son parte necesaria del remedio.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WGtRLqwlkaY">«Detouring Danger: Finding and Exploiting Privileged File Operations in SCADA Systems -Vyas y Davila»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

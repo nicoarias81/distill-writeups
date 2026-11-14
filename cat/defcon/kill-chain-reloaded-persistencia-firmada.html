@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kill Chain Reloaded: persistencia silenciosa abusando de binarios firmados — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Kill Chain Reloaded: persistencia silenciosa abusando de binarios firmados</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/6D29iw3B2nM">«DEF CON 33 - Alejandro Hernando &amp; Borja Martinez - Kill Chain Reloaded: Abusing Legacy Paths for Stealth Persistence»</a> · ver el <a class="nz-link" href="https://youtu.be/6D29iw3B2nM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 6D29iw3B2nM · <strong>URL:</strong> https://youtu.be/6D29iw3B2nM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Alejandro Hernando &amp; Borja Martinez - Kill Chain Reloaded: Abusing Legacy Paths for Stealth Persistence</li>
+</ul>
+<h2>Resumen</h2>
+<p>Alejandro Hernando y Borja Martinez (departamento de hacking de Accenture Spain, red team e investigación) presentan una cadena de persistencia sigilosa que abusa de caminos legítimos de arranque: hunting de software firmado vulnerable, un bootkit que funciona con Secure Boot activado gracias a un bootloader legítimo (Reboot Restore XP "Shield Loader") no revocado en la DBX, instalación de un driver vulnerable desde el pre-boot vía tablas ACPI propietarias (WPBT + LUFT de Lenovo), y una explotación final de un driver de Huawei que actúa como rootkit de facto. La tesis: Secure Boot no basta — todos los componentes que usan son legítimos y firmados; no hay malware clásico, solo componentes de confianza usados ofensivamente.</p>
+<h2>Por qué importa: Secure Boot no es una muralla</h2>
+<ul>
+<li>Amenazas que parecían teóricas son reales: <strong>BlackLotus</strong> ejecutó malware en Windows 11 con Secure Boot habilitado.</li>
+<li>Secure Boot funciona con una lista de binarios confiables y otra (la <strong>DBX</strong>) de binarios revocados. Si un binario vulnerable firmado no está en la DBX, Secure Boot lo carga igual. Y muchos vendors tardan meses en revocar binarios críticos.</li>
+<li>Lo contrario también daña: el incidente de <strong>CrowdStrike de julio de 2024</strong> tumbo computadoras del mundo entero (aeropuertos, bancos, hospitales) sin malware ni exploit — un solo binario corriendo en la parte crítica del sistema.</li>
+<li>Los <strong>bootkits</strong> conocidos operan por debajo del sistema operativo: antes de que arranque el kernel no hay EDR, antivirus ni soluciones de seguridad que los vean; controlan el sistema desde el momento del encendido.</li>
+</ul>
+<h2>Hunting de artefactos firmados vulnerables</h2>
+<p>La metodología para encontrar material útil:</p>
+<ul>
+<li><strong>VirusTotal Enterprise con retrohunt</strong>: búsquedas YARA sobre el corpus retroactivo, seleccionando funciones interesantes (acceso a memoria física, escritura en memoria, etc.), con una blacklist de drivers ya revocados o conocidos como vulnerables. Corrieron varias tareas: 4.000 y 10.000 resultados.</li>
+<li><strong>Búsqueda por certificado</strong>: por ejemplo, binarios firmados con "Microsoft Windows UEFI Driver Publisher" o "Microsoft Corporation UEFI CA 2011".</li>
+<li><strong>Catálogo de Microsoft</strong>: un script propio consulta el catálogo, pagina resultados y descarga los <code>.cat</code> que matchean keywords, para analizar drivers y archivos EFI.</li>
+</ul>
+<h2>El pre-boot: la zona ciega</h2>
+<p>Al encender, lo primero que corre no es Windows ni el EDR: es el <strong>firmware UEFI</strong>, una mini-OS con memoria, heap, servicios y drivers propios. La fase más interesante es <strong>DXE</strong>, donde se cargan los módulos EFI; después corre el bootloader (bootmgfw.efi en Windows) y recién entonces el kernel. Todo lo que ocurre antes de ExitBootServices está fuera del radar de casi todas las soluciones de seguridad. Si se logra poner un EFI firmado en el camino de carga, se puede interceptar, redirigir, persistir o explotar el arranque antes de que el SO pueda defenderse.</p>
+<pre class="mermaid">
+flowchart TD
+    FW[Firmware UEFI fase DXE] --> SL[Shield Loader<br>firmado, no revocado en DBX]
+    SL --> SM[Shield Manager<br>firmado, carga shield.efi sin verificar]
+    SM --> SHELL[shell.efi_ <br>shell UEFI firmado con comandos limitados]
+    SHELL --> S0[Stage0: enrola loader.efi en la Machine Owner Key]
+    S0 --> PAY[Payload final: shell UEFI completo]
+    PAY --> ACPI[Backdoor ACPI: WPBT + LUFT de Lenovo]
+    ACPI --> DRV[Driver vulnerable firmado instalado como servicio]
+    DRV --> KERN[Acceso a kernel: persistencia + evasión]
+
+</pre>
+
+<h2>El bootloader abusado: Reboot Restore XP (Shield Loader)</h2>
+<p><strong>Reboot Restore</strong> es software que restaura la computadora a un estado predefinido en cada reinicio; su binario EFI principal es el <strong>Shield Loader</strong>, firmado. La ruta de abuso:</p>
+<ol>
+<li>El firmware busca el bootloader en la <strong>ESP</strong> (EFI System Partition).</li>
+<li>Shield Loader se copia o renombra sobre el bootloader: cuando el firmware invoca el boot manager, en realidad corre primero Shield Loader.</li>
+<li>El loader aplica su lógica propia (compresión, verificación de firma) y termina cargando el boot manager real.</li>
+</ol>
+<p><strong>Cuatro fases de Shield Loader</strong>: (1) abre el volumen ESP, localiza <code>shield_manager.efi_</code> (formato propietario), lo lee a memoria — si falla, recorre los firmware volumes instalados; (2) <code>parse_header</code> inspecciona un header de 200 bytes con magic ASCII y longitudes comprimida/descomprimida, y descomprime los chunks (el formato incluye chunks comprimidos o raw y una firma de trailer en los últimos 800 bytes); (3) <code>check_signature</code> valida el trailer y aborta con <code>EFI_SECURITY_VIOLATION</code> si falla; (4) delega en los boot services estándar: <code>LoadImage</code> + <code>StartImage</code> transfieren el control a la imagen cargada.</p>
+<p><strong>La pieza clave</strong>: en una versión del software, el contenedor <code>shell.efi_</code> es un <strong>shell UEFI firmado</strong> con solo un subconjunto de comandos habilitado. Y <strong>Shield Manager carga cualquier <code>shield.efi</code> que exista en la ESP sin verificación</strong>: no llama a <code>check_signature</code> ni parsea contenedores. Compilar un EFI propio, nombrarlo <code>shield.efi</code> y ponerlo en la ESP basta para que se ejecute con Secure Boot activo.</p>
+<p>Demo: con Secure Boot verificado como activo (<code>Confirm-SecureBootUEFI</code> devuelve True), el instalador reemplaza los archivos de la ESP; tras el reinicio, Shield Loader → Shield Manager → <code>shield.efi</code> propio muestra una pantalla custom y encadena el boot manager original: Windows arranca normalmente.</p>
+<h3>ByPass de BitLocker</h3>
+<p>BitLocker sella la VMK en el TPM contra los PCRs actuales; con Secure Boot, PCR 7 registra el hash de todo EFI ejecutado antes del kernel: si algo cambia, la máquina cae en recovery. El PoC evita la pantalla de recovery así:</p>
+<ol>
+<li><strong>Suspender BitLocker indefinidamente</strong> vía WMI (<code>DisableKeyProtectors</code> con disable count 0) antes de tocar la ESP.</li>
+<li>Montar la ESP, backupear los bootloaders originales (bootmgfw/bootx64).</li>
+<li>Sobrescribir el bootloader con Shield Loader; reemplazar el esperado <code>shield_manager.efi_</code> por <code>shell.efi_</code> (el shell firmado limitado); copiar <code>stage0.efi</code> (firmado, enrola binarios unsigned en la Machine Owner Key) y el payload final <code>loader.efi</code> (shell UEFI completo) en la ESP.</li>
+<li>Desde el shell restringido, correr Stage0 para enrolar <code>loader.efi</code>; al fallar la carga unsigned (Secure Boot sigue activo), localizar los handles de los <strong>security architecture protocols</strong> y parchear sus opcodes (XOR RAX,RAX + return) para desactivar la validación de Secure Boot en caliente.</li>
+<li>Cargar el binario unsigned ya sí, y encadenar el boot manager original: Windows arranca sin pantalla de recovery.</li>
+</ol>
+<p>Nota: Microsoft publicó en 2024 el <strong>Secure Boot object repository</strong> en GitHub con el contenido de la DBX; comparando hashes, algunas versiones de Shield Loader sí están revocadas (CVE conocida), pero otras versiones del mismo bootloader tienen hashes distintos y <strong>no aparecen en la DBX</strong>: variantes vulnerables que Secure Boot todavía confía.</p>
+<h2>Persistencia vía ACPI: WPBT y la tabla LUFT de Lenovo</h2>
+<p>Con el pre-boot comprometido, la cadena de persistencia:</p>
+<ul>
+<li><strong>WPBT (Windows Platform Binary Table)</strong>: tabla ACPI que permite al firmware colocar una aplicación nativa en <code>C:\Windows\System32</code> y ejecutarla en el contexto del Session Manager. En Windows 11 24H2 ya no funciona con certificados revocados (y la mayoría de certificados de code-signing filtrados están revocados).</li>
+<li>El twist: en vez de dropear un binario propio, encontrar una <strong>aplicación nativa firmada y vulnerable</strong> — un binario de <strong>Lenovo</strong> usado por Lenovo Service Engine, que procesa una tabla ACPI propietaria, la <strong>LUFT</strong>, para "contrabandear" binarios, claves de registro y datos de configuración del firmware hacia Windows.</li>
+<li><strong>Construcción del ataque desde el shell EFI</strong> (con memoria aún disponible en el post-boot):</li>
+<li>Construir una tabla LUFT nueva que haga dropear <code>hell.sys</code> — un <strong>driver firmado vulnerable</strong> encontrado en el hunting — y crear una clave de servicio (p. ej. bajo <code>Services\helldriver</code>) con Display Name, Image Path, Type, Start y ErrorControl; reusar el slot 6 de la SDT (que apuntaba a la entrada OEM) para que apunte al buffer con la LUFT, y arreglar el checksum.</li>
+<li>Construir la WPBT: reservar espacio legible, copiar ahí la aplicación nativa firmada de Lenovo, y <strong>sobrescribir los primeros 16 bytes de la SRAT con el header de WPBT</strong> (convirtiendo silenciosamente la SRAT en WPBT), con checksum arreglado.</li>
+<li><strong>Flujo en el boot</strong>: el firmware post-boot escanea la SDT, encuentra la tabla Lenovo propietaria, ve que la página que era SRAT ahora empieza con WPBT (longitud y checksum válidos) y la procesa como WPBT. El <strong>Session Manager</strong> copia la aplicación firmada de Lenovo desde la WPBT a System32 y la ejecuta como proceso NT antes del login. La app de Lenovo parsea la LUFT, dropea <code>hell.sys</code> en System32\drivers, escribe las claves de registro y arranca el servicio (o lo agenda para el próximo boot según flags). En el siguiente boot, Windows ve una entrada de driver legítima, carga <code>hell.sys</code> y el sistema queda comprometido.</li>
+</ul>
+<p>Demo: se verifica que el servicio no existe, se corre el instalador EFI (modificación de ESP + deshabilitado de BitLocker por WMI), se reinicia; el shell UEFI custom parchea la WPBT y crea la LUFT; después del boot aparecen <code>hell.sys</code> y la app renombrada de Lenovo (con firma de Lenovo verificable), y el servicio del driver queda instalado y cargándose en cada arranque.</p>
+<h2>El driver de Huawei: un rootkit "por diseño"</h2>
+<p>La parte final cierra la cadena: con kernel access vía drivers firmados vulnerables (hallados con la misma metodología — catálogo de Microsoft, retrohunt de VirusTotal — y no reportados antes como vulnerables), se logra:</p>
+<ul>
+<li><strong>Escalada y evasión</strong>: bypass de Driver Signature Enforcement, bypass de EDR, hooks de funciones clave del driver modificando la Import Address Table desde kernel, y callbacks de sistema para ocultar actividad.</li>
+<li>El caso estrella: un driver firmado de <strong>Huawei</strong> (instalado con Huawei AI Service, que <strong>permanece activo aun después de desinstalar el software</strong>). Registra callbacks de creación/terminación de procesos (<code>PsSetCreateProcessNotifyRoutine</code>) y un filtro de acceso a procesos (<code>ObRegisterCallbacks</code>) que elimina al vuelo permisos peligrosos como <code>PROCESS_TERMINATE</code>: protege procesos de ser matados o inyectados.</li>
+<li><strong>Control desde userland sin validación</strong>: el driver crea un device object accesible por cualquier proceso y expone un IOCTL (0x222004) que recibe una Unicode string con el path del proceso a proteger (Huawei provee incluso una herramienta, Eagle Check X, que lo usa). La "validación" es una comparación de texto de la command line leída del PEB del proceso (<code>PsGetProcessId</code> + <code>KeStackAttachProcess</code> + <code>RtlCompareUnicodeString</code>): <strong>case sensitive, sin normalización de paths, sin manejo de symlinks ni variantes, sin verificación de firma ni hash ni identidad del caller ni límite de procesos protegidos</strong>. Basta alterar el path o el casing para proteger (o dejar de proteger) cualquier proceso, incluido malware.</li>
+<li><strong>Auto-reinicio de procesos</strong>: si el proceso protegido muere, el driver lo reinicia automáticamente inyectando un APC en un proceso legítimo (services.exe), ejecutando un comando (<code>sc start &lt;servicio&gt;</code>) silenciosamente desde kernel space — la creación de proceso ocurre desde kernel, evadiendo la mayoría de los EDR.</li>
+<li>Remoción manual del driver requiere comandos específicos (<code>sc stop</code>, <code>sc delete</code> y equivalentes del software); mientras tanto queda cargado con privilegios de kernel.</li>
+</ul>
+<p>Demo final: un PoC instala un servicio malicioso "HELL" que habla con el driver de Huawei y establece una reverse shell, mostrando "Hello DEFCON 33". Intentar matar el proceso desde Task Manager devuelve "Access denied" — protección en kernel. Y con un EDR operativo en el nivel máximo de enforcement: ejecución remota de payload, protección contra terminación, <strong>cero alertas</strong> en la consola del EDR. Segunda variante: otro driver vulnerable permite invocar <code>ZwTerminateProcess</code> desde kernel para matar procesos protegidos como PPL (antivirus/EDR), también sin alertas.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Secure Boot / DBX</strong>: lista de confianza y lista de revocación de binarios UEFI; revocaciones tardías = ventana de abuso. Repositorio oficial de la DBX en GitHub para auditoría.</li>
+<li><strong>VirusTotal retrohunt + catálogo de Microsoft</strong>: hunting masivo de drivers y EFI firmados con funciones peligrosas, con blacklist de ya-revocados.</li>
+<li><strong>Reboot Restore XP / Shield Loader + Shield Manager</strong>: bootloader firmado no revocado que carga cualquier <code>shield.efi</code> de la ESP sin verificar firma.</li>
+<li><strong>shell.efi_</strong>: shell UEFI firmado con comandos limitados como punto de entrada confiable al entorno EFI.</li>
+<li><strong>Stage0 / enrolamiento en Machine Owner Key + parcheo de security architecture protocols</strong>: carga de binarios unsigned con Secure Boot activo, y neutralización de BitLocker vía WMI (DisableKeyProtectors) para evitar recovery por PCR 7.</li>
+<li><strong>WPBT + LUFT (ACPI propietario de Lenovo)</strong>: instalación de driver y servicio desde el pre-boot, abusando de una app nativa firmada que procesa la tabla propietaria.</li>
+<li><strong>hell.sys y drivers firmados vulnerables</strong>: kernel access primitivo; bypass de DSE y EDR, hooks de IAT desde kernel, callbacks para ocultar actividad.</li>
+<li><strong>Driver de Huawei (ObRegisterCallbacks + IOCTL 0x222004)</strong>: protección de procesos sin validación — auto-reinicio vía APC injection en services.exe, terminación de EDR/AV vía ZwTerminateProcess desde kernel.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Secure Boot mejora la seguridad pero tiene límites claros: mientras haya binarios legítimos firmados sin revocar, el pre-boot es un vector de persistencia.</li>
+<li>UEFI sigue siendo una superficie de ataque crítica y desatendida: ejecución de código muy temprano, antes de que cualquier herramienta de seguridad reaccione.</li>
+<li>El uso de drivers vulnerables firmados permite acceso directo al kernel; las implementaciones pobres de IOCTL (sin autenticación, sin validación) habilitan escalada de privilegios y desactivación de protecciones.</li>
+<li>La cadena completa usa solo componentes legítimos, firmados y cargados silenciosamente: sin malware tradicional, solo binarios de confianza usados ofensivamente. Por eso es tan difícil de detectar — y de remover.</li>
+<li>Para defensores: auditar la DBX, revisar qué queda en la ESP, monitorear tablas ACPI no estándar, y tratar los drivers firmados con IOCTLs sin validar como el vector de riesgo que son.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/6D29iw3B2nM">«DEF CON 33 - Alejandro Hernando &amp; Borja Martinez - Kill Chain Reloaded: Abusing Legacy Paths for Stealth Persistence»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

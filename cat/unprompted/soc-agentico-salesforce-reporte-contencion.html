@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SOC agéntico en Salesforce: de un reporte de inteligencia a la contención en menos de diez minutos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">SOC agéntico en Salesforce: de un reporte de inteligencia a la contención en menos de diez minutos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XKKFje5IkGs">«Peter Smith &amp; RK Sharma - Beyond the Chatbot (including demo) | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/XKKFje5IkGs">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> XKKFje5IkGs · <strong>URL:</strong> https://youtu.be/XKKFje5IkGs · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Peter Smith &amp; RK Sharma - Beyond the Chatbot (including demo) | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Pete Smith (product manager, ingeniero, "un poco de todo" en temas agénticos de Salesforce) y RK Ramanathan (equipo core del AI SOC de la casa) presentan su SOC agéntico: una colección de <strong>digital teammates</strong> trabajando juntos, típicamente en Slack, cazando, detectando, conteniendo y colaborando junto a humanos. Evocan la cita de Kevin Mandia sobre la app para smartphone que permitiera ir de alerta a contención en diez minutos: misión cumplida y superada. La demo completa —sobre un reporte real de CrowdStrike del actor patrocinado por un estado Venomous Bear (reporte 2026035, unos ocho IOCs entre dominios y hashes MD5)— corre en menos de diez minutos.</p>
+<h2>La demo, paso a paso</h2>
+<p>RK pide por Slack a Kestrel —el agente de cara al usuario— que evalúe el reporte de CrowdStrike; el número con siete dígitos en su formato típico basta para que el agente sepa qué buscar. Se crea un <strong>hunt task</strong> (registro Salesforce) con los metadatos de la cacería y quién la lanzó. Sobre el backend de orquestación se despliega la maquinaria:</p>
+<ol>
+<li><strong>Normalizer</strong>: pseudo-determinismo de por medio —"el determinismo está de moda"—, extrae todos los IOCs del reporte.</li>
+<li><strong>Hunt planning agent</strong>: con los IOCs y el contexto del actor, arma el plan de cacería —qué se sabe de la amenaza, qué fuentes de datos consultar (SIEM, sistemas de threat intel, redactados para el legal)—.</li>
+<li><strong>Human in the loop</strong>: el plan requiere aprobación; se captura la justificación de negocio no solo como memoria para futuras corridas sino como <strong>audit trail para reguladores</strong> —imprescindible si vas a buscar en entornos, desplegar detecciones o contener hosts—. El plan queda read-only y se pasa al ejecutor.</li>
+<li><strong>IOC investigation agent</strong>: un agente de una sola cosa —tomar un IOC y cazar en las fuentes asignadas—, determinista en herramientas e inputs. La parte más realista de la demo: el humano impaciente pregunta el estado a los seis minutos, y Kestrel revisa el registro y resume qué hace cada agente.</li>
+<li><strong>Findings review agent</strong>: verdicto sobre si los IOCs están en el entorno (spoiler: sí; entorno demo, no el de producción) y empaquetado del reporte.</li>
+<li><strong>Hunt concluder</strong>: cierra la cacería y la devuelve al humano.</li>
+<li><strong>Remediación autónoma</strong>: tres pasos recomendados —<strong>threat detection engineer agent</strong> (escribe detecciones a partir de los IOCs), <strong>remediation execution agent</strong> (bloquea IOCs, contiene endpoints vía nombres de host en CrowdStrike) e <strong>incident communication agent</strong> (pagea al incident commander, abre canal de Slack, suma agentes y humanos)—. Todo con aprobación humana por paso, todo conversacional: "no me gusta este plan, hacé esto otro" dispara un reasoning loop que propone uno mejor.</li>
+<li>Y el final: el caso agradece al agente, el agente contesta que nunca duerme y que es tu mejor amigo. Cero metalenguaje: así trabajan los equipos mixtos.</li>
+</ol>
+<h2>Arquitectura: ocho primitivas y cero infraestructura nueva</h2>
+<p>Toda la experiencia destilada en una lámina: los bloques 1 y 4 forman la <strong>capa cognitiva</strong>; el 2 y 3, la de <strong>ejecución y orquestación</strong>; el 5 y 6 evitan romper producción; el 7 y 8 instalan las buenas prácticas de ingeniería. Los componentes:</p>
+<ul>
+<li><strong>Sobre lo existente</strong>: nada de re-imaginar la infraestructura —si un vendor dice que hay que tirar todo, no es verdad—. La demo corre sobre la infraestructura actual más un par de módulos nuevos. No usan <strong>MCP ni A2A</strong>: construir y mantener esa infraestructura toma tiempo; se puede hacer un SOC agéntico sin ellos.</li>
+<li><strong>Orquestación dual</strong>: workflows simples y de alto riesgo van por <strong>orquestación determinista</strong>; los abiertos (caza de amenazas, detección de anomalías) por <strong>cadenas autónomas</strong>.</li>
+<li><strong>Agent executor</strong>: carga el contexto desde agent cards, state files y goal files; usa el LLM para razonar y planear; y <strong>capability executor</strong> para actuar sobre la librería de acciones de seguridad —buscar, traer reportes de vendors, accionar aplicaciones internas, leer registros—. Toda la ejecución queda en el system of records para auditoría.</li>
+<li><strong>Agent card</strong>: define persona, objetivo y configuración de cada agente —modelo, iteraciones, temperatura, máximo de tokens, masking de PII, capacidades de tools permitidas—, mapeado a un workload individual para prevenir <strong>scope creep y context drift</strong>. Una "iteración" no es una llamada al LLM sino el ciclo completo (input, razonamiento, plan, ejecuciones de tool, salida). Al llegar al máximo, la capa de gobernanza cierra la sesión del agente con gracia, guarda el estado y sigue.</li>
+<li><strong>Tool config</strong>: define el schema de cada tool, qué integraciones debe conocer el LLM, y <strong>abstrae las llamadas a API</strong> —las credenciales jamás llegan al LLM base—. Permisos en ambos extremos: la agent card declara qué tools puede usar el agente; la tool config declara qué agentes pueden usar la tool.</li>
+<li><strong>Accountability</strong>: registro completo de conversaciones, objetivos, cumplimiento, metadata de sesión, tools invocadas con argumentos, y <strong>quién aprobó cada tool call riesgosa, por qué y cuándo</strong>.</li>
+<li><strong>Digital teammates como agentes de primera clase</strong>: piensan, razonan y planean como parte del equipo; como entrenar a un recién ingresado nivel 5 en 90 días, aprenden de los humanos igual que un humano en cada etapa del ciclo de respuesta a incidentes.</li>
+</ul>
+<h2>Takeaways</h2>
+<ul>
+<li><strong>Orquestación determinista</strong> donde corresponda: los agent chains y chain of thought están bien, pero dentro de guardrails —no dejar que los LLMs se desboken.</li>
+<li><strong>Nada de agentes monolíticos</strong>: nueve agentes en la demo y un registro de agent cards de 600 líneas; muchos agentes, muy enfocados y especializados.</li>
+<li><strong>Humanos en el loop siempre</strong>, sobre todo mientras se entrenan los sistemas.</li>
+<li><strong>Modo ask y modo plan</strong> para los agentes, como en todo IDE: que trabajen con la gente, no siempre en su nombre.</li>
+<li><strong>Reasoning loops</strong>: la primera versión del plan nunca es la final; usar el feedback humano, aprender e incorporarlo a la próxima corrida.</li>
+<li><strong>Reusar la infraestructura existente</strong>: no tiraron el SOAR —257 integraciones Python—; le enseñaron a los agentes a hablarle, y ahora los agentes hacen todo lo que hacía el SOAR pero razonando en vez de seguir un workflow fijo.</li>
+<li><strong>Dejar que los agentes ganen confianza</strong>: no agentificar todo de golpe si los resultados pueden ser mediocres.</li>
+<li><strong>AI constitution</strong>: un documento que codifica las reglas de entrega del SOC agéntico, con artículos —el primero, las primitivas, porque es donde se empieza—.</li>
+</ul>
+<h2>Preguntas del público</h2>
+<ul>
+<li><strong>Horas de ingeniería, KTLO y costos</strong>: toda la configuración y el código los escribió Claude —ni una línea escrita a mano, aunque hace falta saber Python básico y qué se quiere construir—; no pueden cuantificar el tiempo. Los KPIs se miden como <strong>mean time to reduce/improve X</strong>, las métricas clásicas del SOC: se trata de ser mejores con el SOC agéntico. Y sí: vale la pena.</li>
+<li>El cierre: "todo lo que viste realmente pasa; si es correcto, puede hacerlo y es más rápido que un humano, es una fuerza del bien".</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Slack como interfaz</strong> del SOC agéntico, con Kestrel como agente de cara al usuario y orquestación backend multiagente.</li>
+<li><strong>Agent cards, state files y goal files</strong> como primitivas de contexto y configuración; agent executor + capability executor como motor.</li>
+<li><strong>Librería de acciones de seguridad y SOAR existente</strong> (257 integraciones Python) reutilizada vía agentes; sin MCP ni A2A.</li>
+<li><strong>CrowdStrike</strong> para intel (reporte real de Venomous Bear) y contención de endpoints por hostname.</li>
+<li><strong>Controles</strong>: human in the loop con justificación de negocio capturada, audit trail para reguladores, permisos bidireccionales agente↔tool, máximos de iteraciones, masking de PII, credenciales nunca expuestas al LLM base.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El sueño de Mandia —alerta a contención en diez minutos— ya es realidad operativa, con humanos aprobando cada paso riesgoso y agentes haciendo el trabajo pesado.</li>
+<li>No hace falta infraestructura nueva: la capa agéntica se construye sobre la librería de seguridad y el SOAR que ya existen.</li>
+<li>Agentes muchos y chicos, orquestación determinista donde hay riesgo, autonomía guardada donde hay exploración: esa es la receta que escala.</li>
+<li>La confianza se gana con evidencia: justificaciones capturadas, auditoría completa de tool calls y KPIs de mean time que demuestren la mejora.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XKKFje5IkGs">«Peter Smith &amp; RK Sharma - Beyond the Chatbot (including demo) | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

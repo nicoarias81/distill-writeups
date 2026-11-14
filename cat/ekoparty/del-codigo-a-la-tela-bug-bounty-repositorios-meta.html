@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del código a la tela: bug bounty en repositorios de Meta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Del código a la tela: bug bounty en repositorios de Meta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/5bPtEMcU-RQ">«When giants fall: XSS in Meta through code review - Ileana Maricel Barrionuevo»</a> · ver el <a class="nz-link" href="https://youtu.be/5bPtEMcU-RQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 5bPtEMcU-RQ · <strong>URL:</strong> https://youtu.be/5bPtEMcU-RQ · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> When giants fall: XSS in Meta through code review - Ileana Maricel Barrionuevo</li>
+</ul>
+<h2>Resumen</h2>
+<p>El programa de bug bounty de Meta se percibe como territorio imposible: un programa enorme, súper revisado, con un equipo de seguridad propio. La pregunta del punto de partida era justamente esa: ¿qué se le puede encontrar a Meta? La respuesta que esta investigación demuestra es que todavía quedan espacios, y un camino concreto para encontrarlos: los repositorios de código abierto.</p>
+<p>La mayoría de los researchers apunta al enfoque black box sobre las aplicaciones, porque en parte gusta entender qué hay detrás de escena, ver qué prácticas están implementadas y cuáles no. Pero el análisis de código tiene una ventaja enorme: se puede ver todo. Este artículo reconstruye el recorrido completo: cómo elegir el repositorio adecuado, qué herramientas de análisis estático aplicar, cómo validar que una vulnerabilidad explota de verdad, y cómo un XSS en una aplicación de mapas terminó impactando a producción y a proyectos de terceros.</p>
+<h2>El mapa del programa: scope, organizaciones y criterios de elección</h2>
+<p>En el sitio del programa hay aplicaciones, programas y repositorios con distintos stacks para analizar. En GitHub existen dos organizaciones en scope — Facebook y Facebook Incubator, este último con varios proyectos comprados a terceros bastante interesantes. Ojo con Facebook Archive: <strong>no está en scope y no pagan si encontrás algo ahí</strong>.</p>
+<p>Criterios para elegir el repositorio:</p>
+<ul>
+<li><strong>Buscar por famosos strings</strong> que puedan conducir a una vulnerabilidad, con herramientas como GrepApp — que filtra incluso mejor que GitHub Advanced Search — o SourceGraph. Con expresiones regulares se pueden encontrar, por ejemplo, las funciones que seguramente conducen a asignación masiva por ausencia de validaciones. Los filtros por organización, repositorio y rutas permiten segregar la búsqueda hacia dónde apuntar.</li>
+<li><strong>No tocar repositorios archivados</strong>: por lo general no entran en el programa y no pagan. En Facebook no estaba claro si pagarían por archivados en las otras organizaciones, así que, por las dudas, no se tocaron.</li>
+<li><strong>Filtrar por un lenguaje cómodo</strong>: uno con el que se haya trabajado o que se quiera aprender.</li>
+<li><strong>Mirar los últimos commits</strong>: si está en scope pero los commits son de hace años, quizás el repo no tiene mantenimiento — más chances de vulnerabilidades — o quizás se olvidaron de marcarlo como fuera de scope. Todo depende del programa.</li>
+<li><strong>Mirar las estrellas</strong>: algunas plataformas pagan más por repositorios con muchas, porque el impacto es mayor.</li>
+<li><strong>Elegir un tipo de aplicación cómodo</strong>: en Facebook hay bastantes aplicaciones que no está claro qué hacen; conviene no perder tiempo con eso e ir por lo conocido — aplicaciones web o móviles.</li>
+</ul>
+<p>El caso elegido fue Rapid, una aplicación web para editar los mapas de OpenStreetMap, fácil de levantar en local y sin necesidad de registrarse ni de API keys. En producción permite buscar ciudades y lugares, y <strong>editar cualquier propiedad de un elemento</strong> — un abanico muy grande de cosas modificables, incluso la posibilidad de falsificar información en un mapa que después otros consumen.</p>
+<h2>Preparar el terreno: reglas, issues y levantamiento local</h2>
+<p>Antes de analizar código, dos fuentes de oro:</p>
+<ul>
+<li><strong>Las reglas de contribución</strong>: detallan cómo levantar el proyecto, qué configurar antes y qué tener en cuenta para reportar problemas de seguridad.</li>
+<li><strong>Las issues del repositorio</strong>: a veces hay reportes de seguridad ahí — ya se ahorra buscar algo que otro reportó, o se busca si lo solucionaron para bypasearlo. En este caso, una alerta temprana: no había ningún label de seguridad, y en el label de "bug" tampoco aparecía ningún reporte. Muy raro.</li>
+</ul>
+<p>El levantamiento son pocos pasos con Visual Studio Code y ya anda en localhost. Lo que sigue es invertir tiempo en mirar la estructura del proyecto para saber dónde está cada cosa, familiarizarse con la parte de UI — todo muy client-side — y recién entonces empezar a tirar herramientas.</p>
+<h2>Análisis estático: el abanico de herramientas</h2>
+<p>Varias corrieron sobre el repo, cada una aportando su capa:</p>
+<ul>
+<li><strong>Nuclei</strong>: usada sobre todo para black box, tiene algunos templates para analizar código. Faltan más templates de análisis estático, pero como diagnóstico a grandes rasgos trae bastante: en este caso, muchas cosas relacionadas a DOM, XSS — con la advertencia obvia de que puede ser falso positivo y hay que validar.</li>
+<li><strong>Semgrep</strong>: como extensión, detectó un open redirect y algunas otras cositas. Todo hay que testearlo: no es cuestión de levantarle a Facebook un reporte solo porque el escáner lo tiró.</li>
+<li><strong>TruffleHog</strong>: encontró credenciales hardcodeadas, pero eran API keys "públicas" — tampoco reportables. Los comandos quedan documentados para lanzar sobre cualquier otro repo con programa de bug bounty.</li>
+<li><strong>Gitleaks</strong>: encontró otro secret y cuestiones de prototype pollution, problemas de regex y más cosas que se repetían con los otros escáneres — posiblemente también asignación masiva.</li>
+<li><strong>CodeQL, la herramienta estrella</strong>: algo compleja de usar, pero en línea de comandos permite correr packs de queries para muchísimos tipos de vulnerabilidades, mientras la extensión de VS Code se limita a unas 20 queries por vez. Sobre este proyecto se lanzó un pack de calidad y seguridad en JavaScript, con resultados exportados a CSV.</li>
+</ul>
+<p>Entre las muchas señales de calidad que tiró CodeQL, una destacó: <strong>un posible cross-site scripting a través del DOM</strong>, en el módulo de UI. Ahí empezó la caza.</p>
+<h2>De la lectura al impacto: breakpoints, payloads y una sorpresa</h2>
+<p>Validar es la parte que separa el hallazgo del reporte: de nada sirve mirar solo el código sin saber si eso explota desde el usuario final — una función interna que nunca se invoca no tiene impacto.</p>
+<p>El proceso: levantar la aplicación, setear breakpoints en Visual Studio Code y ver qué pasa con cada payload en las funciones relevantes. El estudio previo de los módulos ya indicaba por dónde pasan los inputs. Se probaron notas, lugares para comentarios en el mapa, tags — valores simples que uno agrega. Y la sorpresa: <strong>en absolutamente todas las partes explotaba lo mismo</strong> — un cross-site scripting súper básico, sin ningún tipo de ofuscación. La reacción inicial es la esperable: "no puede ser, es Facebook, seguro esto ya lo recontravi". Y, sin embargo, la payload quedaba embebida; las primeras veces no pasaba nada, pero al recargar la página aparecían todas las explotaciones.</p>
+<pre class="mermaid">
+flowchart TD
+    A["Payload inyectada en Rapid (dev, localhost)"] --> B["Sin validación ni output encoding en la interfaz"]
+    B --> C["Se almacena en OpenStreetMap"]
+    C --> D["OpenStreetMap retorna el contenido sin validar"]
+    D --> E["Se recarga y ejecuta en la interfaz"]
+    E --> F["Explota también en producción y en apps de terceros que consumen OpenStreetMap"]
+
+</pre>
+
+<p>La interacción con el backend reveló lo más interesante: filtrando todo por localhost en Burp Suite, las payloads no aparecían pasando por ahí — había una <strong>comunicación con OpenStreetMap por detrás</strong>. No era solo un problema reflected: la payload <strong>se almacenaba en OpenStreetMap</strong>, que la retornaba y se recargaba en la interfaz. Culpa compartida: la interfaz no tenía output encoding, ni validación de caracteres, ni ningún tipo de validación; y OpenStreetMap tampoco validaba lo que se le cargaba.</p>
+<h2>Dev contra prod: el impacto real</h2>
+<p>Otra sorpresa al ir a producción: sin haber probado nada ahí, con la ubicación de la propia casa en el mapa, al recargar apareció una payload dejada en dev. <strong>Lo que se probaba en dev explotaba en producción</strong> — el ambiente de desarrollo estaba pegando contra prod.</p>
+<p>Para dimensionar el impacto había que comprobar que a otros también les explotara. Con payloads de tipo blind dejadas en distintas partes — casas, edificios — empezaron a llegar reportes a lo largo del tiempo desde <strong>aplicaciones que nada que ver con Rapid pero que por detrás usaban OpenStreetMap</strong>: proyectos de rutas, apps de gente en moto, proyectos personales de cualquier país. Todo medio roto por culpa de las payloads.</p>
+<p>Lo que se pudo obtener: ubicaciones de otras personas, contenido de localStorage y algunas cookies de otros usuarios — que no se utilizaron. Lo que no: información personal, porque OpenStreetMap no maneja sesiones con datos de perfil más allá de nombre y apellido. Impacto básicamente no crítico, pero real y multilateral.</p>
+<h2>El reporte y el bounty</h2>
+<p>Reportar a Meta redirige a la sesión de Facebook y ofrece un template muy simple: a quién afecta, qué usuarios, qué ambiente. Se explicó que se estaba probando en dev pero explotó en prod, con pasos de reproducción y capturas — sin complicarse. Reportado en junio.</p>
+<p>El proceso: primero Meta no podía reproducir — las payloads no les explotaban —, después de un rato confirmaron, pidieron no seguir probando, y más tarde confirmaron que estaba todo OK con un bounty: <strong>el primer bounty de esta investigadora en Meta</strong>. En septiembre informaron que estaba arreglada — aunque, inspiradas en la ponencia de Brute Logic de la misma conferencia, ya hay ideas para intentar bypassear las correcciones. Un saludo especial quedó registrado para el triager del reporte.</p>
+<h2>Lecciones: no mates tímido con grandes compañías</h2>
+<ul>
+<li><strong>No asumas que "es Facebook, nadie lo puede hackear"</strong>: hay researchers en todo el mundo mirando, pero justo ese repositorio no tenía absolutamente nada de seguridad.</li>
+<li><strong>Elegí targets con código fuente que se puedan desplegar en tu máquina</strong>: tener la imagen completa da muchas más chances de encontrar bugs.</li>
+<li><strong>Mirá todas las interacciones, no solo localhost</strong>: filtrar todo por localhost en Burp Suite — como ocurrió en este caso — te hace perder el tráfico hacia terceros que muchas veces es donde está el problema.</li>
+<li><strong>Mirá issues y labels antes de empezar</strong>: te ahorran tiempo y te avisan del nivel de madurez en seguridad del proyecto.</li>
+<li><strong>Empezá cómodo, pero animate cada vez un poco más</strong>: confiá en los procesos y en lo que ya sabés hacer, y tratá de bypassear los fixes de los hallazgos propios.</li>
+<li><strong>La validación es obligatoria</strong>: un escáner que tira un hallazgo no es un reporte; breakpoints, pruebas en vivo y comprobación del impacto en el usuario final son lo que convierte un posible bug en un bounty.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/5bPtEMcU-RQ">«When giants fall: XSS in Meta through code review - Ileana Maricel Barrionuevo»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

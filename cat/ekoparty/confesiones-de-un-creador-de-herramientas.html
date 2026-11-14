@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Confesiones de un creador de herramientas: filosofía Unix para el bug bounty — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Confesiones de un creador de herramientas: filosofía Unix para el bug bounty</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lFBAo9TKRY8">«Confessions of a Toolmaker - Tom Hudson (tomnomnom) - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/lFBAo9TKRY8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> lFBAo9TKRY8 · <strong>URL:</strong> https://youtu.be/lFBAo9TKRY8 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Confessions of a Toolmaker - Tom Hudson (tomnomnom) - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Tom Hudson (tomnomnom), conocido en el ecosistema de bug bounty por herramientas como <code>anew</code> y <code>gron</code>, cuenta cómo pasó de desarmar todo lo que tuviera tornillos a los cuatro años a convertirse en una de las referencias del tooling unix-friendly para cazadores de vulnerabilidades. La tesis central: las herramientas amplifican habilidades y, a diferencia de los mutantes de las películas, al construir las propias se eligen los superpoderes.</p>
+<p>Detrás hay una filosofía completa: herramientas pequeñas que hacen una sola cosa bien, que componen entre sí vía stdin/stdout, que se escriben solo cuando el problema aparece por segunda vez y que se terminan cuando no queda nada más que quitar.</p>
+<h2>Del 486 al bug bounty</h2>
+<p>La historia empieza con una 486DX2-66 con 4 MB de RAM y Windows 3.11: romperla y arreglarla antes de que llegara el padre enseñó más que cualquier manual. Después llegó try2hack.nl — el equivalente de época a un CTF — y un conflicto escolar por un archivo .reg que restauraba las restricciones del registro de Windows: los docentes entendieron que había alterado "el registro de asistencia" y el problema creció proporcionalmente.</p>
+<p>La definición de hacker que enmarca todo el recorrido: alguien que encuentra formas de usar lo que ya existe de manera que el diseñador no previó — especialmente si el diseñador lo prohibió explícitamente.</p>
+<p>Tras una década como ingeniero de software PHP, un programa de bug bounty interno en su propio empleador fue el punto de inflexión: conocer un sistema a fondo era una ventaja enorme, pero había demasiado que revisar a mano. Necesitaba herramientas, y encontrar más natural escribirlas que aprender las existentes: interfaz gráfica versus command line,[Burp Suite] y su extensión Piper para pipetear requests y respuestas hacia herramientas de consola.</p>
+<h2>Meg, comb, fff: la lección de composición</h2>
+<p>Su primera herramienta fue <code>meg</code>: pide una lista de rutas contra una lista de servidores, repartiendo la carga para no levantar alertas en los gráficos de tráfico del empleador. Funciona y técnicamente hace una sola cosa, pero no compone: si se quiere hacer otra cosa con las URLs, no sirve. El reemplazo fueron dos herramientas más simples y menos código en total:</p>
+<ul>
+<li><code>comb</code>: combina dos archivos de texto cruzándolos (el nested while loop de siempre, pero sin reescribirlo).</li>
+<li><code>fff</code>, "the fairly fast fetcher": pide URLs y filtra por código de respuesta.</li>
+</ul>
+<p>El resultado funcional es idéntico, pero <code>fff</code> sirve para cualquier fuente de URLs — waybackurls, getallurls — no solo para la salida de <code>comb</code>.</p>
+<p>En contraste, <code>anew</code>: unas 100 líneas que agregan líneas a un archivo si no existen todavía. No es ni siquiera una herramienta de seguridad, y es consistentemente la favorita de la gente. Simplicidad gana.</p>
+<h2>Ultron versus Iron Man</h2>
+<p>La cita de Thomas Limoncelli que ordena el criterio: la automatización suele escribirse como Ultron — totalmente autónoma, hace todo, y tan compleja de depurar que la única opción es destruirla — en lugar de como Iron Man — un exoesqueleto que toma las habilidades existentes y las amplifica. Las herramientas Ultron elevan el piso de seguridad de toda la industria y son valiosas, pero son aburridas: apretar un botón y esperar un resultado no es divertido. Las herramientas Iron Man, en cambio, terminan: "la perfección no se alcanza cuando no hay nada más para agregar, sino cuando no hay nada más para quitar".</p>
+<p>El proceso recomendado:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Problema real] --> B[One-liner mas simple posible]
+    B --> C{Problema reaparece?}
+    C -- No --> B
+    C -- Si --> D[Mejorar la solucion previa]
+    D --> E[Nuevo problema? Nueva herramienta]
+    E --> B
+
+</pre>
+
+<p>Puntos clave del ciclo: no partir de "¿qué herramienta escribo?" sino de un problema concreto que no se puede resolver; no reutilizar algo "cercano pero insuficiente"; y aceptar que a veces se necesita una rueda muy específica, aunque el manual diga que no hay que reinventarla.</p>
+<h2>Pragmatismo sobre pureza</h2>
+<ul>
+<li><strong>Composición</strong>: leer de stdin y escribir salida machine-readable. Dos herramientas de dos autores que nunca se conocieron pueden trabajar juntas, y eso es hermoso.</li>
+<li><strong>Excepciones razonables</strong>: <code>gron</code> tiene un cliente HTTP incorporado aunque técnicamente podría usar curl, porque mucha gente lo usa en Windows o no conoce la sintaxis alternativa. Ser amable con los usuarios gana sobre la pureza del enfoque Unix.</li>
+<li><strong>Salida computer-readable, no human-readable</strong>: JSON lines, procesado con <code>jq</code> si se conoce la estructura o <code>gron</code> si no.</li>
+<li><strong>Ayuda con ejemplos</strong>, no solo 50 parámetros; códigos de salida diferenciados para cada modo de fallo (diez formas de fallar, una de funcionar); parámetros largos y cortos; copiar convenciones de curl (<code>-H</code> para headers) para que la gente ya sepa usar la herramienta.</li>
+<li><strong>Sin banners ASCII</strong> dentro del ejecutable: al readme de GitHub, no al stdout que rompe scripts.</li>
+</ul>
+<p>Casi todo su código en Go empieza igual: abrir stdin, leer línea por línea, hacer algo con cada línea. Lo tipea cada vez a mano — es parte del proceso de pensar la herramienta.</p>
+<h2>Aprender haciendo, y otras herejías útiles</h2>
+<ul>
+<li><strong>Intentar resolverlo uno primero</strong>: mirar la solución ajena "envenena" el cerebro y dificulta pensar alternativas. A veces la solución propia es mejor, y siempre es buen entrenamiento para cuando no hay solución previa.</li>
+<li><strong>Just-in-time learning</strong>: aprender justo lo necesario para el problema actual. Terminar el curso antes de empezar a cazar bugs es procrastinación disfrazada — nunca se termina el curso.</li>
+<li><strong>Convertir unknown unknowns en unknown knowns</strong>: la mayoría del conocimiento humano son cosas que no se sabe que no se saben; googlearlas las convierte en cosas buscables.</li>
+<li><strong>No saber que algo es imposible es una ventaja</strong>: el estudiante que resolvió dos grandes problemas abiertos de estadística creyendo que eran tarea, o los chicos que aprendieron trucos de skate de Tony Hawk Pro Skater porque no sabían que "no se podían".</li>
+<li><strong>Leer fuera del nicho</strong>: la seguridad ya es un nicho dentro de un nicho; las herramientas de análisis de datos o las pinzas quirúrgicas de alcance largo (perfectas para un tornillo caído dentro de un cárter) no aparecen en los blogs de bug bounty.</li>
+<li><strong>No predecir necesidades</strong>: el software es infinitamente remodelable. La primera versión de <code>gron</code> fue PHP pegado con cinta, escrita para extraer un valor de un megabyte de JSON; después se reescribió en Go porque era lenta y alguien no tenía PHP, y hoy se instala con <code>apt</code> en Ubuntu.</li>
+</ul>
+<p>Sobre Go: distribución trivial, concurrencia accesible para trabajo intensivo en HTTP, y la cita de Rob Pike sobre lenguajes para programadores que no son investigadores. Las restricciones inspiran creatividad: el canvas infinito paraliza, y el hacking es puro manejo de restricciones.</p>
+<h2>Open source, trabajo y psicología</h2>
+<p>Escribir software libre devuelve lo recibido (Vim, el sistema operativo), y tiene un efecto lateral cínico y real: publicar una versión mala es la forma más rápida de que alguien enojado publique una mejor. Así nació <code>gau</code> de Corben, reemplazo superior de <code>waybackurls</code> — y así hay que celebrar las herramientas ajenas: "el mundo es lo suficientemente grande para que todos tengamos éxito".</p>
+<p>Sobre tener empleo en vez de freelance o bug bounty a tiempo completo: suena estresante; elegir un empleador amigable con el open source y usar el equipo para cubrir las debilidades propias permite trabajar en las fortalezas — multiplicador de fuerza en vez de mediocridad repartida. Y sobre el síndrome del impostor: hasta los investigadores más impactantes del web temen que su próximo proyecto sea el último. Aceptar los elogios sin rebajarlos también es una habilidad.</p>
+<p>El marco final: ser un "herrero del bug bounty" mientras otros empuñan las espadas es legítimo, aunque duele ver el premio de 40k para un RCE conseguido con herramientas propias. La distribución es de cola larga: los visibles son el 1% superior y no hay que compararse con ellos; alguien con un bounty de 500 es mejor que el 99% que no tiene ninguno. Y el skill stacking matemático: percentil 90 en dos habilidades combinadas da percentil 99, y tres de esas combinaciones bordean la élite mundial en esa intersección específica.</p>
+<p>Para empezar sin saber programar: meter el one-liner en un shell script ya es programar; con variables, condicionales y loops se cubre el 90% del tooling personal. Un repo de "hacks" para scripts sueltos baja la barrera de publicar — varias herramientas exitosas nacieron ahí. Y cuando la herramienta funciona: saber decir no a las ideas ajenas, porque cada "estaría bueno que también..." suma camino hacia el Ultron que nunca se quiso construir.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Herramientas propias</strong>: <code>meg</code>, <code>comb</code>, <code>fff</code> (fairly fast fetcher), <code>anew</code>, <code>gron</code>, <code>waybackurls</code>, repo público de <code>hacks</code>.</li>
+<li><strong>Ecosistema</strong>: Burp Suite + extensión Piper, <code>jq</code>, <code>getallurls</code>/<code>gau</code> (Corben), waybackurls/archive.org como fuente de URLs.</li>
+<li><strong>Prácticas</strong>: stdin/stdout y JSON lines para composición; help con ejemplos; códigos de salida diferenciados; parámetros largos y cortos; convenciones de curl; repos de scripts sueltos.</li>
+<li><strong>Conceptos</strong>: filosofía Unix (hacer una cosa bien), herramientas Ultron vs Iron Man, just-in-time learning, skill stacking, distribución de cola larga del bug bounty.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Escribir herramientas empieza por un problema real y reaparecido, no por la idea especulativa de "algo útil que escribir".</li>
+<li>La composición via stdin/stdout convierte herramientas pequeñas de autores distintos en un sistema; la salida machine-readable vale más que la human-readable.</li>
+<li>La simplicidad es la etapa más difícil: primero que funcione, después quitar hasta que no quede nada más por quitar — y estar dispuesto a tirar código.</li>
+<li>El aprendizaje justo a tiempo, mirar fuera del nicho y no compararse con la cola larga visible son tantas herramientas del oficio como el código mismo.</li>
+<li>Con los LLMs, sentimientos mixtos: deprimen cuando resuelven en segundos lo que costó media hora, pero hacen viables tareas imposibles de codificar, como tokenizar subdominios o clasificar si una URL es un panel de administración.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lFBAo9TKRY8">«Confessions of a Toolmaker - Tom Hudson (tomnomnom) - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

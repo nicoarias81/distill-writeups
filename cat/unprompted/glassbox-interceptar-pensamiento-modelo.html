@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glass box: interceptar el pensamiento del modelo antes de la acción — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Glass box: interceptar el pensamiento del modelo antes de la acción</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JZlaijmG-Ng">«Carl Hurd - Glass-Box Security: Operationalizing Mechanistic Interpretability | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/JZlaijmG-Ng">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> JZlaijmG-Ng · <strong>URL:</strong> https://youtu.be/JZlaijmG-Ng · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Carl Hurd - Glass-Box Security: Operationalizing Mechanistic Interpretability | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>La industria de detección sobre LLMs tiene, pese al marketing, solo dos familias de soluciones: host-based y network-based, como en toda la ciberseguridad. Las host-based usan eBPF o ETW; si un vendedor promete ver todo el uso de IA de la organización sin cambios de código, es una de esas. Las network-based —el "prompt firewall"— piden un cambio de código o un certificado confiable para inspeccionar tráfico. Ambas comparten las mismas herramientas: regex, detección sobre texto plano, sanitización de entrada, LLM as judge. El problema de fondo: cuando un LLM es "explotado", sigue generando tokens como siempre —no hay crash ni comportamiento anómalo—; lo que define el abuso es el caso de uso y el contexto, y eso es invisible desde afuera.</p>
+<p>La propuesta es la glass box security: capturar la intención (intent) y medir su fuerza (strength) desde adentro del modelo. Se apoya en la interpretabilidad mecanicista: hooks sobre el forward pass que recolectan activaciones durante la inferencia —la misma base de linear probes, sparse autoencoders y análisis diferencial de prompts que publican Anthropic y DeepMind—. En lugar de blocklists de palabras ("no dejes que pregunten por robo"), se detectan conceptos enteros: ante "¿cómo robo un banco?", el concepto de ilegalidad existe en las activaciones del prompt y se puede decidir sobre él.</p>
+<h2>Dónde hay que mirar: casi todo el ciclo está en texto plano</h2>
+<p>Del ciclo de vida completo de un prompt, solo una parte transcurre en texto plano: del host a la API, del gateway al enrutamiento —casi todos los proveedores enrutan preguntas simples a modelos baratos—. Todo lo demás —embedding, routing embebido, el paso por cada capa— es el estado mental natural del modelo. De unos diez bloques del pipeline, solo cinco son "círculos" de texto visible, y ahí se concentra hoy toda la detección. Y el diagrama mostraba un modelo de tres capas, algo que ya no existe: GPT-OSS-20B, relativamente chico, tiene 24. Cualquier attestation seria de seguridad exige introspección entre esas capas.</p>
+<h2>Las dos métricas: dirección y sombra</h2>
+<ul>
+<li><strong>Intent (dirección).</strong> Similitud coseno entre las activaciones y el vector del concepto: da un valor entre −1 y 1 que indica si el prompt apunta hacia el intent.</li>
+<li><strong>Strength (magnitud).</strong> El coseno solo dice dirección, no cuánto pesa el concepto. El producto punto —proyección escalar— mide el tamaño de la "sombra" del intent sobre la activación: cuánta parte del tensor corresponde realmente a ese concepto. Esto combate la superposición, el problema estructural de la interpretabilidad donde tantos conceptos comprimidos conviven que ninguna neurona o dirección única puede representar cada idea.</li>
+</ul>
+<p>Ejemplo ilustrativo: "cómo robar un banco" activa con fuerza el concepto de ilegalidad; "cómo robar un bolígrafo de un banco" apenas —y los modelos lo saben, con respuestas socarronas que terminan en "pedile uno al cajero". Elegir en qué capa hookear es empirismo puro: correr prompts de prueba, ver qué capas se activan más para cada concepto, y no existe umbral universal —nada como "si la magnitud supera 10, alerta"—; cada modelo hookeado exige recolección empírica propia.</p>
+<h2>Del concepto al manifold: detección basada en comportamiento</h2>
+<p>Combinar intent y strength en múltiples puntos del modelo produce un manifold de alta fidelidad, y sobre él se construyen tripwires dentro del propio modelo: bloquear cualquier request con alineación mayor a 0,85 con el intent de ilegalidad cuya fuerza domine la magnitud del prompt. No solo detección: también remediation —detener la generación o corregirla y continuar—. Esto es, en esencia, llevar al mundo de los LLMs el estado del arte que EDR ya demostró: las mejores detecciones no son firmas ni texto plano, sino análisis de comportamiento. No hace falta repetir el ciclo de madurez completo que la industria ya vivió.</p>
+<h2>Las cuatro barreras y sus soluciones de ingeniería</h2>
+<ol>
+<li><strong>Los modelos frontera no exponen activaciones.</strong> Exige inferencia propia, nada trivial. Solución pragmática: el canary model —instrumentar modelos chicos self-hosted, en línea o asincrónicos, para la recolección y alertado sin sacrificar los modelos grandes de nube que la gente quiere usar.</li>
+<li><strong>Las activaciones son un torrente de datos.</strong> GPT-OSS-20B genera ~4 MB por primer token; un context window completo son ~10 TB. Solución: hookear solo el residual stream —evitando el costo cuadrático de las cabezas de self-attention— y solo las capas relevantes a cada detección.</li>
+<li><strong>¿Quién escribe el contenido de detección?</strong> Un detection engineer no necesita ser experto en reversing para escribir buenas reglas hoy; debe ser igual con IA. La vía es la mejora progresiva del contexto: las detecciones host/network alimentan al modelo instrumentado, enriqueciendo el contexto capa a capa.</li>
+<li><strong>Ninguna regla es universal.</strong> Lección heredada de los controles industriales: distintos agentes y usuarios requieren distinto contexto de qué es correcto. Solución: extender herramientas open source —YARA y Cedar—; hay un caso fuerte para hacer YARA AI-native con módulos que razonen sobre conceptos: "si existe intent de eliminación de archivos en estas capas con esta magnitud, bloquear".</li>
+</ol>
+<h2>Agentes: modelos en bucle OODA</h2>
+<p>Un agente es un modelo dentro de un OODA loop, y eso rompe las reglas sintácticas: ¿cómo se bloquea algo que el agente decidió como objetivo? Hay que cubrir todos los lenguajes que el modelo conoce y todas las herramientas —incluidos los trucos de CTF donde el packet capture sirve para ejecutar binarios con privilegios elevados, conocimiento que los agentes van a intentar usar porque está disponible—. Además, la observabilidad semántica trasciende la seguridad: medir qué partes del modelo se activaron y cuáles se ignoraron permite verificar trazabilidad semántica —que el agente hizo el trabajo como debía y no estaba reward-hackeando o borrando tests—.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los agentes autónomos atraviesan los perímetros tradicionales: los guardrails sintácticos estáticos no duran; hay que interceptar el pensamiento antes de la acción.</li>
+<li>La observabilidad semántica es la nueva base de la seguridad de IA, y conviene adoptarla pronto.</li>
+<li>La infraestructura soberana —controlar la inferencia— es requisito para quien tome en serio la seguridad del uso de modelos; si no, el canary model es el puente.</li>
+<li>Cerrar la brecha es un desafío de toda la industria: los detection engineers deben poder contribuir en la frontera sin aprender estándares nuevos cada semana.</li>
+<li>Limitaciones honestas: las medidas son relativas al modelo —se calibra contra intents capturados del mismo modelo, apples to apples—; la defensa en profundidad sigue mandando (identidad y autorización de agentes fuera del modelo); y un fine-tuning que congele capas donde viven los manifolds obliga a recapturar o retunear la detección.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JZlaijmG-Ng">«Carl Hurd - Glass-Box Security: Operationalizing Mechanistic Interpretability | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

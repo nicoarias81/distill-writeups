@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amber64: minería forense de medio millón de discos de Commodore 64 — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Amber64: minería forense de medio millón de discos de Commodore 64</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/PqPMyhA4NSI">«DEF CON 33 - Amber64 - Mining Hacker History from Over 500k Commodore 64 Disks - Wesley McGrew»</a> · ver el <a class="nz-link" href="https://youtu.be/PqPMyhA4NSI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> PqPMyhA4NSI · <strong>URL:</strong> https://youtu.be/PqPMyhA4NSI · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Amber64 - Mining Hacker History from Over 500k Commodore 64 Disks - Wesley McGrew</li>
+</ul>
+<h2>Resumen</h2>
+<p>El Commodore 64 fue la primera computadora de toda una generación de hackers: máquina de juegos, de pirateo, de bulletin board systems y de phreaking. Cuarenta años después, ese ecosistema dejó un rastro físico enorme —disquetes de 5¼ pulgadas con juegos, cracks, logs de BBS, códigos robados y basura cotidiana— que ningún archivo oficial preservó de forma sistemática. El proyecto Amber64 reúne más de 500.000 imágenes de discos de C64 (deduplicadas por hash, sin importar cuántas copias de <em>Commando</em> existan) y las convierte en un corpus buscable con técnicas forenses modernas.</p>
+<p>El problema técnico central es que un disco de Commodore no es un blob de bytes: usa un sistema de archivos propio con encadenamiento de sectores, codificación PETSCII (más dos tablas de screen codes y ASCII plano) y toda clase de rarezas deliberadas de copy protection. Aplicar <code>strings</code> y <code>grep</code> directamente pierde muchísimo contenido. La solución fue un parser completo del formato, que extrae todos los encadenamientos posibles por disco —archivos vivos, borrados, huérfanos, slack space— y normaliza todo a texto indexable en Elasticsearch.</p>
+<p>El resultado es una herramienta de arqueología digital que recupera lo que nadie decidió preservar: media perdida, códigos de calling card robados, esquemas para phakear con el chip SID, entrevistas a figuras históricas de la escena y fragmentos crudos de la vida cotidiana de la era.</p>
+<h2>Una máquina que era dos computadoras</h2>
+<p>El C64, producido de agosto de 1982 a abril de 1994 (unas 12,5 a 17 millones de unidades según estimaciones conservadoras, récord Guinness de modelo único más vendido), esconde un detalle que muchos usuarios ignoraban: con la unidad de disquetes 1541 conectada, había dos computadoras en la mesa. La C64 monta un 6510 con 64 KB de espacio de direcciones, 20 KB de ROM (el "kernal", con esa ortografía que Commodore convirtió en marca por orgullo tras un error de documentación) y coprocesadores dedicados: el VIC-II para gráficos y el SID, un sintetizador analógico controlado digitalmente que marcaría la historia del sonido de 8 bits.</p>
+<p>La 1541 es una computadora en sí misma: un 6502 a 1 MHz con 2 KB de RAM y 16 KB de ROM donde vive Commodore DOS. Se comunica con la máquina principal por un bus serie IEC lento, lo que generó todo un mercado de fast loaders y firmwares alternativos como Jiffy DOS. Los disquetes guardan 170 KB distribuidos en 35 pistas concéntricas, con densidad variable: las pistas exteriores alojan 21 sectores de 256 bytes y las interiores 17.</p>
+<h2>Por qué strings y grep no alcanzan</h2>
+<p>El formato de disco de Commodore impone tres obstáculos a cualquier análisis superficial:</p>
+<ol>
+<li><strong>Encadenamiento de sectores ("sector chaining")</strong>: los primeros dos bytes de cada sector apuntan a la pista y sector siguiente de la cadena. Los sectores de un mismo archivo no son contiguos —están deliberadamente separados por varios sectores para que el cabezal, que sigue girando mientras procesa, encuentre el siguiente bloque sin dar una vuelta completa—. Muchos strings quedan cortados justo en esos límites entre sectores.</li>
+<li><strong>Estructura tipo FAT</strong>: la pista 18 contiene el directorio y el block availability map (BAM). Los borrados solo marcan entradas, no limpian datos: los archivos eliminados siguen ahí, igual que en un disco moderno.</li>
+<li><strong>Codificación de texto</strong>: PETSCII no es exactamente ASCII, con dos fuentes conmutables (una solo mayúsculas con caracteres gráficos). Encima, la memoria de video usa screen codes, otra tabla distinta, y hay software que codifica texto en ASCII plano. Cualquier byte puede ser un carácter, y no hay forma de saber desde el disco qué tabla pretendía usar el programa.</li>
+</ol>
+<p>A esto se suman las rarezas: discos de 40 pistas, punteros inválidos, cadenas que se repiten en bucle o se fusionan, datos escritos directamente en sectores sin respetar el sistema de archivos, y el formato GEOS con su propia organización. El principio rector del proyecto: si algo raro puede hacerse con un disco de C64, alguna imagen del corpus lo hace. El código se escribió iterando contra el corpus completo hasta tolerar todos esos casos.</p>
+<h2>De disco a índice buscable</h2>
+<p>Por cada disco se genera, de forma exhaustiva:</p>
+<ul>
+<li>las cadenas de sectores de archivos allocados y <strong>borrados</strong>, más cadenas huérfanas sin archivo asociado;</li>
+<li>el <strong>slack space</strong> al final de archivos secuenciales, REL y PRG (donde el buffer sin llenar del drive volcó a disco lo que tenía antes: a veces el sector previo, a veces cualquier otra cosa);</li>
+<li>un volcado ingenuo de strings de la imagen completa, por si alguien hizo algo fuera de todo lo previsto;</li>
+<li>hashes SHA-256 por disco y por cadena, que permiten buscar un mismo archivo en todo el corpus.</li>
+</ul>
+<p>Cada disco produce una estructura JSON con nombre de imagen, hash, nombre de disco, archivos y texto de cada cadena, que se indexa en Elasticsearch. El índice resultante ocupa unos 30 GB y permite búsqueda global en segundos sobre medio millón de imágenes —algo inviable recorriendo los discos en crudo.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Imágenes D64<br/>500k discos] --> B[Parser: cadenas,<br/>borrados, slack]
+    B --> C[Normalización<br/>PETSCII/screen/ASCII]
+    C --> D[JSON por disco<br/>+ SHA-256]
+    D --> E[Elasticsearch<br/>índice ~30 GB]
+    E --> F[Consultas y<br/>cross-referencing]
+
+</pre>
+
+<p>Las imágenes provienen de proyectos de preservación públicos: TOSEC, C64 Preservation Project, Internet Archive, los FTP históricos (Zimmers, Arnold, Padua) y, sobre todo, los foros de la Commodore Scene Database, donde veteranos del pirateo de los 80 donaron colecciones personales de miles de discos que otros digitalizan tras su muerte. La revista en disco <em>Loadstar</em> (~260 números) también está en el corpus.</p>
+<h2>Hallazgos: la historia no controlada</h2>
+<p>Lo valioso del corpus es que captura lo que los archivos oficiales nunca eligieron preservar:</p>
+<ul>
+<li><strong>Media perdida.</strong> Un juego de texto sexual tipo quiz del que existía una versión pirateada ofuscada pudo recuperarse en forma limpia y editable para un proyecto académico de historia de los videojuegos; siguiendo el rastro de la empresa se recuperó <em>Asteroid Miner</em>, una aventura de texto ausente de TOSEC. Es un juego mediocre, pero alguien dedicó horas a hacerlo y merece preservarse.</li>
+<li><strong>Phreaking documentado.</strong> Herramientas completas de war dialing con listas de BBS, escaneo de códigos de calling card de distintos operadores, generadores de tonos blue box (señal de colgado de las redes telefónicas antiguas) y red box (monedas en teléfonos públicos). Todo era posible gracias al chip SID, cuyos tonos DTMF eran limpios; incluso hay diagramas de cableado para inyectar la salida del SID directamente en un módem C64.</li>
+<li><strong>Ephemera de la escena.</strong> Logs de sesiones de BBS grabados para ahorrar telefonía (usuarios leían todo de golpe y se desconectaban para responder offline), solicitudes de ingreso a BBSs ("tengo este software para compartir, tengo acceso a este BBS europeo"), revistas del under con crónicas de detenciones por robo de códigos de MCI, y hasta una entrevista al mítico Cheshire Catalyst en un disco-magazine, material imposible de encontrar hoy en internet.</li>
+<li><strong>Curiosidades sin explicación.</strong> Un anuncio de la revista <em>2600</em> escondido en la pista 26, sector 0 de un disco de un juego de señales ferroviarias; autor y contexto desconocidos.</li>
+</ul>
+<p>El corpus también contiene datos personales de hace 40 años: números de teléfono, códigos (hoy todos invalidados), handles. La advertencia es explícita: no llamar a esos números.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Forense de sistemas de archivos</strong>: análisis de metadatos, recuperación de borrados, slack space y espacio sin asignar (concepts de Brian Carrier, <em>File System Forensic Analysis</em>).</li>
+<li><strong>Sector chaining</strong>: estructura de encadenamiento track/sector del formato Commodore DOS; clave para reconstruir archivos y strings fragmentados.</li>
+<li><strong>PETSCII y screen codes</strong>: tablas de codificación del C64; la ambigüedad entre ellas obliga a extraer todas las interpretaciones posibles.</li>
+<li><strong>Elasticsearch</strong>: índice de ~30 GB para búsqueda rápida de texto en el corpus completo.</li>
+<li><strong>Formatos de imagen</strong>: D64 (datos por sector) como base; imágenes de flujo magnético (G64/NIB) se convierten a D64, reservando el nivel magnético para quien quiera investigar trampas de copy protection.</li>
+<li><strong>TOSEC / C64 Preservation Project / Internet Archive / CSDB</strong>: fuentes públicas de imágenes de discos.</li>
+<li><em>Inside Commodore DOS</em> (Immers &amp; Neufeld): referencia del formato de disco.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Tratar discos vintage como blobs binarios destruye la mayor parte de su contenido; el valor está en entender el formato a fondo y reconstruir todas las estructuras, incluidas las rotas.</li>
+<li>El software pirata fue, paradójicamente, el vehículo de preservación: los juegos que sobrevivieron sobrevivieron porque los crackers rompieron su protección. Y lo que sobrevive va mucho más allá de los juegos: comunicaciones, códigos, herramientas y documentación de una subcultura completa.</li>
+<li>La búsqueda indexada a escala convierte medio millón de discos en un motor de investigación histórica: un handle, un hash de archivo o una frase pueden hilar descubrimientos a través de todo el corpus.</li>
+<li>La misma metodología es aplicable a otras plataformas: Amiga, PC temprana —y ya existen discos de instalación de Microsoft con correos internos escondidos en sectores aleatorios.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/PqPMyhA4NSI">«DEF CON 33 - Amber64 - Mining Hacker History from Over 500k Commodore 64 Disks - Wesley McGrew»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

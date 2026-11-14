@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fundamentos de hacking y defensa en Linux: lo que pasa abajo del hello world — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Fundamentos de hacking y defensa en Linux: lo que pasa abajo del hello world</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/l4CS6JKIqAw">«Ekoparty Hackademy | Clase abierta: Fundamentals of Hacking and Defense | Facundo de la Cruz»</a> · ver el <a class="nz-link" href="https://youtu.be/l4CS6JKIqAw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> l4CS6JKIqAw · <strong>URL:</strong> https://youtu.be/l4CS6JKIqAw · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Ekoparty Hackademy | Clase abierta: Fundamentals of Hacking and Defense | Facundo de la Cruz</li>
+</ul>
+<h2>Resumen</h2>
+<p>En la época de Kubernetes, contenedores y capas de abstracción, se está perdiendo de vista la base: el kernel. Este recorrido baja hasta el fondo del sistema operativo para desarmar qué ocurre realmente cuando se ejecuta un hello world en Linux: la libc, las llamadas al sistema, los anillos de privilegio, los file descriptors, el formato ELF y las secciones de memoria de un proceso. Y muestra por qué ese conocimiento decide quién encuentra lo que otros esconden: desde una shell reversa camuflada en una "calculadora" hasta un hook con LD_PRELOAD capaz de ejecutar cualquier cosa — incluso controlar las luces inteligentes de una casa.</p>
+<h2>Por qué bajar tan abajo</h2>
+<ul>
+<li>Linux está en todas partes: supercomputadoras, equipos que viajaron a Marte, servidores, teléfonos. Es el descendiente más trascendente de Unix, nacido inspirado en ese modelo.</li>
+<li>La abstracción actual oculta lo que pasa en el fondo, y el pentesting serio exige entenderlo: cuando se ataca un binario hay que trabajar contra sus protecciones y segmentos de memoria.</li>
+<li>El formato a.out — el de los viejos binarios compilados — inspiró el recorrido: son horas y días de investigación, y lo que queda afuera siempre es más que lo que entra.</li>
+</ul>
+<h2>Los anillos de seguridad y las llamadas al sistema</h2>
+<p>El modelo de anillos separa lo privilegiado de lo que no lo es:</p>
+<ul>
+<li><strong>Ring 3 (user space)</strong>: cualquier aplicación — una consola, un navegador.</li>
+<li><strong>Rings 1 y 2</strong>: drivers, entre el kernel y el user space.</li>
+<li><strong>Kernel</strong>: el único con acceso directo al hardware; agarra interrupciones y le ordena al hardware qué hacer.</li>
+</ul>
+<p>La <strong>syscall</strong> es la interfaz entre el user space y el kernel: <code>read</code>, <code>write</code>, <code>stat</code>, <code>fork</code>, <code>clone</code>, <code>mmap</code>, <code>ioctl</code>, <code>brk</code>, entre muchas. Cada una tiene un número; en ARM, la número 64 es <code>write</code> y la 93 es <code>exit</code>.</p>
+<p><strong>Fork</strong> es cómo nacen los procesos: duplica el espacio de memoria del padre, clona sus estructuras y reemplaza el comando antiguo por el nuevo, con copy-on-write — solo copia un segmento cuando hay que modificarlo — para no arrastrar gigabytes. Todo proceso tiene un PID y un PPID: existe una jerarquía que antes descendía de <code>init</code> y hoy de <code>systemd</code>.</p>
+<p>Clásico obligado del bajo nivel: la <strong>fork bomb</strong> — <code>:(){ :|:&amp; };:</code> — una recursión que llena todo el espacio de procesos hasta colgar el equipo. Se previene limitando la cantidad de llamadas recursivas por proceso.</p>
+<h2>El /proc y la regla de oro: todo es un archivo</h2>
+<p>En Linux existe un sistema de archivos virtual que expone la metadata de cada proceso como mecanismo de IPC:</p>
+<ul>
+<li><code>/proc/&lt;PID&gt;/cmdline</code> muestra el comando ejecutado; la entrada existe solo mientras vive el proceso — al cerrar la terminal, desaparece.</li>
+<li><code>/proc/&lt;PID&gt;/fd</code> lista los file descriptors: <strong>0</strong> entrada estándar (el teclado), <strong>1</strong> salida estándar (la pantalla), <strong>2</strong> salida de errores.</li>
+<li>Porque para el kernel los nombres de archivos no existen: los mapea a file descriptors, números que identifican lo que el proceso tiene abierto.</li>
+</ul>
+<p>Y la regla que organiza todo: <strong>en Linux todo es un archivo</strong>. Un disco, la memoria, una placa de red, un módem y una conexión TCP son archivos. La demostración más elocuente: abrir el file descriptor 3 hacia <code>google.com:80</code> con la sintaxis de socket, mandarle un <code>GET /</code> y leer la respuesta HTTP desde el <code>/proc</code> de otro proceso. Si las conexiones son archivos, todo se puede redirigir y encadenar — esa es la forma de trabajar de Unix.</p>
+<h2>La syscall por dentro: de la libc al ensamblador</h2>
+<p>El mismo "hola hackademy" escrito tres veces, cada vez más abajo:</p>
+<ol>
+<li><strong>Por la libc</strong>: <code>printf</code> es la puntita del iceberg. Bajo <code>strace</code> se ve el desfile completo: <code>fstat</code> para verificar archivos, apertura de ld.so.cache y librerías compartidas, <code>mmap</code> de memoria con permisos de lectura/escritura, <code>brk</code> para ubicar el heap, y al final un <code>write</code> al file descriptor 1 con la cantidad exacta de caracteres.</li>
+<li><strong>Por el wrapper</strong>: llamando directamente a <code>write</code> en C — que aún es un wrapper de la libc sobre la syscall del kernel. Detalle instructivo incluido: contar mal el largo del string recorta el salto de línea, y lo corrige en vivo compilando de nuevo.</li>
+<li><strong>En ensamblador</strong>: secciones <code>.text</code> (instrucciones, solo lectura) y <code>.data</code> (variables y constantes); se carga 64 (write) en el registro de syscall, los argumentos en los siguientes registros, y una interrupción de supervisor hace el switch del ring 3 al kernel space. Después, la syscall 93 (<code>exit</code>) con código 0. Compilado con <code>as</code> y enlazado, el binario hace exactamente lo mismo.</li>
+</ol>
+<pre class="mermaid">
+flowchart TD
+    A["printf (libc)"] --> B["write (wrapper libc)"]
+    B --> C["syscall 64: write"]
+    C -- "interrupcion de supervisor" --> D["KERNEL: mapea memoria de video"]
+    E["Assembler: mov syscall + args + svc"] --> C
+
+</pre>
+
+<p>Comparando el código objeto de ambas versiones queda a la vista por qué el assembler es más eficiente: el binario de C arrastra la inicialización de la libc, la PLT (tabla de enlace dinámico) y las secciones init/fini; el de assembler es un puñado de instrucciones. Y en la metadata del ELF aparecen las defensas: el <strong>magic number</strong> <code>\x7fELF</code> que identifica el formato, y el <strong>ASLR</strong> (Address Space Layout Randomization), que carga el programa cada vez en una dirección distinta para frustrar los buffer overflow.</p>
+<h2>Anatomía aplicada: la calculadora que llama a casa</h2>
+<p>Todo esto sirve para una cosa: entender qué hace realmente un proceso. Caso demostrativo:</p>
+<ul>
+<li>La víctima descarga un binario que se supone una calculadora. El atacante deja una shell a la escucha con <code>netcat</code> en el puerto 4444 — un socket, que también es un archivo, visible como file descriptor extra en <code>/proc/&lt;PID&gt;/fd</code>.</li>
+<li>La víctima ejecuta la calculadora: se establece una <strong>reverse shell</strong> y el atacante tiene acceso completo (<code>uname -a</code> incluido).</li>
+<li>¿Cómo la detecta la víctima? Con <code>strace -f</code> — siguiendo también los procesos hijos — se ve el intento cíclico de conexión al puerto 4444: <code>connection refused</code> mientras nadie escucha, y al abrir el puerto, el fork de la bash y cada byte escrito y leído en la shell.</li>
+</ul>
+<p>El mensaje es directo: cuando se esté en un pentest o auditando código, hay que entender qué hace el binario en el fondo — y con las herramientas de bajo nivel nada se puede esconder. Complemento ofensivo/defensivo del propio kernel: <strong>BPFtrace</strong>, que permite colocar sondas dentro del kernel y auditar cuántas syscalls ejecuta cada proceso y cuánto demoran.</p>
+<h2>LD_PRELOAD: si podés hacer aparecer un trenecito, podés hacer cualquier cosa</h2>
+<p>La demo final encadena todo:</p>
+<ol>
+<li><code>objdump</code> sobre el binario <code>ls</code> para inspeccionar sus funciones, y captura de la función <code>opendir</code>.</li>
+<li>Una librería compartida (<code>sl.so</code>) que redefine <code>opendir</code> y, vía la variable de entorno <code>LD_PRELOAD</code>, reemplaza la función original: al ejecutar <code>ls</code>, en vez de archivos aparece el trencito del clásico <code>sl</code>.</li>
+<li>El principio: si se puede hacer que aparezca un trencito, se puede ejecutar cualquier cosa — una shell, capturar todo lo que se teclea y mandarlo a una ubicación remota, reiniciar servidores, persistir en la inicialización del sistema. Solo una auditoría completa del sistema de archivos y de las librerías linkeadas por cada comando lo delata.</li>
+<li>La demostración lúdica: la misma técnica inyectando llamadas a los comandos de las luces inteligentes del cuarto — y todo el flujo de la casa manejado desde el <code>ls</code> de la terminal.</li>
+</ol>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>GCC, <code>as</code> y enlace de binarios</strong> — el mismo hello world compilado en C y en ensamblador ARM.</li>
+<li><strong>strace / strace -f</strong> — trazado de syscalls de un proceso y de sus hijos; base de la detección de la reverse shell.</li>
+<li><strong>/proc</strong> — filesystem virtual de procesos: PID, cmdline, file descriptors, redirección entre procesos.</li>
+<li><strong>File descriptors y sockets</strong> — entrada/salida/errores (0/1/2) y conexiones de red como archivos.</li>
+<li><strong>Formato ELF, readelf y magic number</strong> — estructura del binario ejecutable y metadatos de carga.</li>
+<li><strong>mmap, brk y copy-on-write</strong> — mapeo de memoria, heap y duplicación eficiente de procesos.</li>
+<li><strong>ASLR</strong> — aleatorización de direcciones contra buffer overflow.</li>
+<li><strong>Netcat</strong> — shell a la escucha y sockets como archivos.</li>
+<li><strong>BPFtrace</strong> — sondas dentro del kernel para auditar syscalls por proceso.</li>
+<li><strong>LD_PRELOAD + objdump</strong> — hooking de funciones de un binario (opendir) con librería compartida.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un hello world que parece trivial es, debajo, una cadena completa: libc, wrapper, syscall, interrupción y kernel mapeando memoria de video. Conocer esa cadena es la diferencia entre usar Linux y entenderlo.</li>
+<li>"Todo es un archivo" no es un eslogan: es la llave que permite redirigir memoria, conexiones y dispositivos entre procesos, y la que hace de <code>/proc</code> el mapa de todo lo que corre.</li>
+<li>Los binarios se auditan en el fondo: <code>strace</code> convierte una "calculadora" sospechosa en una reverse shell visible, syscall por syscall. Fuera del ensamblador no se puede esconder nada.</li>
+<li>LD_PRELOAD muestra el poder del hooking: capturar una función de un comando cotidiano y ejecutar cualquier cosa con ella — del trencito al keylogger, y del keylogger a las luces de la casa.</li>
+<li>El conocimiento es poder: entender lo que sucede en el fondo del sistema operativo permite entender — y hacer — todo lo demás. No se aprende en un día, pero es la base que el hacking y la defensa serios exigen.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/l4CS6JKIqAw">«Ekoparty Hackademy | Clase abierta: Fundamentals of Hacking and Defense | Facundo de la Cruz»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

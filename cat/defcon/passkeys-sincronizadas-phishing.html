@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tu passkey es débil: phishing a lo "inphishable" — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Tu passkey es débil: phishing a lo "inphishable"</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/xdl08cPDgtE">«DEF CON 33 - Your Passkey is Weak: Phishing the Unphishable - Chad Spensky, Ph D»</a> · ver el <a class="nz-link" href="https://youtu.be/xdl08cPDgtE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> xdl08cPDgtE · <strong>URL:</strong> https://youtu.be/xdl08cPDgtE · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Your Passkey is Weak: Phishing the Unphishable - Chad Spensky, Ph D</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las passkeys se vendieron como el fin del phishing: criptografía asimétrica, clave privada atada al hardware, imposible de robar. La investigación presentada demuestra lo contrario con el ataque más simple imaginable: una página de phishing que roba las passkeys sincronizadas de Google Password Manager y Bitwarden mediante emulación de teclado y ratón, y luego las exporta, importa en la máquina del atacante y usa para iniciar sesión en servicios como Discord con la credencial "resistente al phishing" de la víctima.</p>
+<p>La tesis central es más incómoda todavía: una passkey filtrada es peor que una contraseña filtrada, porque los sitios asumen que la passkey no puede phisherase y eliminan los segundos factores adicionales. Con la clave privada replicada en la nube del gestor, un único punto débil —un infostealer en la computadora de casa, por ejemplo— compromete la identidad digital completa. El diagnóstico: la sincronización rompió la promesa fundacional de FIDO2, y la salida es volver al modelo original de claves ligadas al dispositivo.</p>
+<h2>Del sueño FIDO2 al golpe de timón</h2>
+<p>La historia técnica: U2F en 2014 (token USB que se toca como segundo factor), FIDO2 anunciado en 2015 con dos criterios explícitos en sus borradores de 2017 —debe resistir phishing y debe estar atado a la máquina: un ticket de identidad de un equipo no debe poder usarse en otro—. Investigadores celebraron: claves privadas en el TPM, nada que phishar.</p>
+<p>El cambio llegó hacia 2022-2023: las passkeys sincronizadas. La clave privada, en lugar de quedarse en el hardware, se replica vía Chrome o iCloud "por conveniencia". La crítica directa: un cambio de reglas sin transparencia sobre el riesgo —un "baite y switch" que reemplaza la resistencia al phishing prometida por la comodidad del ecosistema. El detonante personal: la tarjeta de crédito apareciendo sola al iniciar sesión en la tienda, y luego el caso real de un CISO —empleado con higiene impecable, laptop siempre en la red corporativa, VPN siempre activa— que guardó su contraseña corporativa en Chrome, se sincronizó a la computadora de casa, había un infostealer ahí, y la empresa quedó comprometida.</p>
+<h2>El ataque: phishar el login del gestor, no la passkey</h2>
+<p>La cadena no toca la criptografía: ataca la sesión del gestor de contraseñas.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Sitio de phishing identico al login de Google/Bitwarden] --> B[Victima escribe credenciales + 2FA]
+    B --> C[Emulacion de teclado/raton en Chrome real]
+    C --> D[Activar sincronizacion y phishar el PIN de 6 digitos]
+    D --> E[Sesion del gestor en la maquina del atacante]
+    E --> F[Exportar passkeys o extraerlas del LevelDB]
+    F --> G[Importar a Bitwarden propio y loguearse como la victima]
+
+</pre>
+
+<p>Detalles que hacen viable la cadena:</p>
+<ul>
+<li><strong>Emulación de entrada, no APIs</strong>: el atacante opera un Chrome real dentro de una instancia Flask, tecleando y haciendo clic como un usuario; ni los bloqueos de API ni las defensas del navegador distinguen nada anómalo.</li>
+<li><strong>El PIN se phisha igual</strong>: el PIN de seis dígitos que protege las passkeys se pide en el navegador con una apariencia idéntica a la de cualquier phishing; el mismo golpe captura credenciales, código SMS y PIN.</li>
+<li><strong>Chrome</strong>: las passkeys viven cifradas en un LevelDB local, pero la clave de descifrado está en la misma máquina; extraerlas de memoria y exportarlas es un ejercicio de ingeniería inversa accesible.</li>
+<li><strong>Bitwarden, aún más fácil</strong>: no hace falta RE — la app exporta la clave privada de cada servicio (algoritmo y curva incluidos) con interfaz gráfica; importarla en el Bitwarden del atacante y loguearse en Discord toma minutos.</li>
+<li><strong>Prueba de concepto pública</strong>: cuenta de Google nueva con checkup de seguridad en verde y 2FA activada, passkeys de webauthn.io, atacante tras VPN; repositorio en github.com/authenticate/yourpasskeyisweak.</li>
+</ul>
+<p>Un hallazgo lateral sobre los segundos factores: un método de recuperación de Google que consiste en "confirmar el número de teléfono" es más débil que el SMS mismo — el número aparece en resultados de búsqueda con solo los cuatro dígitos finales ocultos, y esos cuatro dígitos se obtienen de filtraciones o de un segundo sitio que los entrega sin taparlos.</p>
+<h2>Por qué una passkey robada es peor que una contraseña robada</h2>
+<p>Con una contraseña filtrada, cada sitio añade sus propias capas de seguridad porque "las contraseñas son riesgosas". Con una passkey, el sitio asume que ya hay segundo factor integrado (PIN, Touch ID) y no vuelve a pedir ningún otro: quien tiene la clave entra a todo. Algunos sitios incluso desactivan el login por contraseña al enrolar una passkey —contra ataques de degradación—, con lo cual borrar la passkey del gestor de la víctima la deja fuera de su propia cuenta. Y al ser el protocolo WebAuthn estándar, la misma passkey robada sirve en todos lados sin adaptación.</p>
+<p>La raíz conceptual: la sincronización rompe el supuesto central de la criptografía asimétrica —que la clave privada permanece privada—. Copiada por todas partes, cualquier sistema comprometido (malware, TPM defectuoso, cifrado débil) tumba la identidad completa. Con una clave por dispositivo, en cambio, se revoca el equipo afectado y la vida sigue. A eso se suma la ausencia de canal confiable de entrada/salida: ni los sitios ni los navegadores prueban que el diálogo que pide el PIN es el proceso local y no una web — Chrome ejecutándose en la propia máquina se presenta con la misma cara que un sitio de phishing—. Y el login y la recuperación siempre serán vulnerables a ingeniería social: el nombre del perro, la calle de la infancia.</p>
+<h2>La salida: claves ligadas al dispositivo</h2>
+<p>Existen dos tipos de passkeys. Las sincronizadas son las problemáticas; las ligadas al dispositivo se generan en el dispositivo, nunca lo dejan y pueden vivir en hardware seguro portátil —teléfono o token USB— para no quedar atadas a un solo equipo. Esas sí son inphishables: la clave está en el bolsillo.</p>
+<p>El problema práctico: el usuario no puede distinguirlas. Al generar una passkey no hay UI que diga "esta se queda en tu equipo" o "esta se sube a tu gestor"; los metadatos existen en el protocolo, pero nadie los muestra. La recomendación operativa mientras tanto: repositorios comunitarios que documentan qué gestores sincronizan y cuáles no, y exigir UIs que permitan elegir "para esta cuenta, nunca sincronizar". La lectura de fondo: los grandes jugadores no quieren matar sus gestores de contraseñas —control sobre el usuario—, así que el control vuelve al usuario: generar claves en el dispositivo, una por servicio, con backups descentralizados y preservación de privacidad.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Passkeys sincronizadas vs. ligadas al dispositivo (device-bound)</strong>: distinción central; las primeras se replican vía Chrome/Bitwarden/iCloud, las segundas viven en hardware seguro.</li>
+<li><strong>FIDO2/WebAuthn/U2F/UAF</strong>: línea histórica de estándares de autenticación asimétrica (2014-2017) y su giro hacia la sincronización (2022-2023).</li>
+<li><strong>Phishing con emulación de entrada</strong>: instancia Flask que opera un Chrome real con teclado y ratón emulados; captura de credenciales, 2FA por SMS y PIN en un solo flujo.</li>
+<li><strong>Extracción de passkeys de Chrome</strong>: LevelDB local cifrado con clave de descifrado residente en la misma máquina.</li>
+<li><strong>Exportar/importar passkeys en Bitwarden</strong>: la app entrega clave privada, algoritmo y curva; importación directa al gestor del atacante.</li>
+<li><strong>webauthn.io</strong> para enrolar passkeys de prueba; <strong>Flask</strong> para el sitio de phishing; VPN para el origen del atacante.</li>
+<li><strong>Infostealers como vector inicial</strong>: caso real de sincronización corporativa a equipo personal comprometido.</li>
+<li><strong>Repositorio público</strong>: github.com/authenticate/yourpasskeyisweak y sitio yourpasskeyisweak.com con análisis y listado de gestores que sincronizan.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las passkeys sincronizadas son phishables con el ataque más simple del mundo, y el daño es mayor que con contraseñas: al asumirse inphishables, los sitios eliminan segundos factores y el ladrón de la clave entra a todo.</li>
+<li>La sincronización rompe el supuesto de que la clave privada permanece privada; con claves replicadas, un solo sistema comprometido es compromiso total, sin revocación granular.</li>
+<li>Falta un canal confiable de entrada/salida: navegadores y sitios presentan diálogos indistinguibles, de modo que hasta el PIN local se phisha como cualquier web.</li>
+<li>"Los amigos no dejan que sus amigos usen passkeys sincronizadas": para cuentas de alto valor, claves ligadas al dispositivo (teléfono con app o token USB), control propio de las claves y de sus backups, y exigencia de UIs que distingan ambos tipos de passkey.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/xdl08cPDgtE">«DEF CON 33 - Your Passkey is Weak: Phishing the Unphishable - Chad Spensky, Ph D»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

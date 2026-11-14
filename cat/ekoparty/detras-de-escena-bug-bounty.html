@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El detrás de escena de un bounty: qué pasa entre que enviás el reporte y cobrás — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">El detrás de escena de un bounty: qué pasa entre que enviás el reporte y cobrás</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/xh06m3y2x5M">«El detrás de escena de un bounty - Leandro Pintos &quot;L34r00t&quot; - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/xh06m3y2x5M">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> xh06m3y2x5M · <strong>URL:</strong> https://youtu.be/xh06m3y2x5M · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> El detrás de escena de un bounty - Leandro Pintos "L34r00t" - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Leandro Pintos —L34r00t— lleva cinco años como triager y trabaja el Red Team de una empresa de delivery que corre su propio programa de bug bounty. Su experiencia muestra el lado que casi nadie cuenta: mientras el hunter envía el reporte y espera la respuesta, adentro de la empresa se enciende toda una maquinaria de bots, tickets, debates internos y validaciones.</p>
+<p>El recorrido abarca el ciclo completo —cómo funciona un programa, qué mirar antes de reportar, cómo se gestiona un ticket internamente y qué errores arruinan reportes técnicamente buenos— y termina con números internos que desmienten la excusa más común de los hunters principiantes: "ya está todo reportado".</p>
+<h2>Cómo funciona un programa de bug bounty</h2>
+<p>Un bug bounty es un sistema de recompensas: las empresas se registran en plataformas como HackerOne, Bugcrowd o Intigriti, y los hunters reportan issues; según la severidad, el programa paga dinero —o remeras, millas, latas—. Hay programas públicos y privados; en los privados hay que ser invitado, y esa invitación suele llegar por reputación acumulada.</p>
+<p>Antes de tocar nada, hay que leer la policy: define qué se puede hacer, qué no —nada de denegaciones de servicio, identificarse en fuzzing con un header propio—, qué vulnerabilidades son reportables y cuáles no. Reportar algo excluido termina en un "no aplica" y en pérdida de reputación. La <strong>bounty table</strong> fija los montos por severidad —en el programa de referencia, de 100 dólares un low a 1.000 un crítico—. Y el <strong>scope</strong> delimita los assets: qué dominios y aplicaciones son válidos, con qué severidad máxima y si son elegibles para pago o solo para puntos.</p>
+<p>Algunos programas publican su hacktivity: reportes cerrados, a veces completos con el paso a paso. Es material de estudio gratuito, tanto para arrancar como para mantenerse al día.</p>
+<h2>Lo que ve el triager cuando llega tu reporte</h2>
+<p>El flujo interno del programa de referencia: un bot de Slack —levantado en una instancia EC2, escrito en Python, con un webhook— detecta el reporte nuevo en HackerOne, lo sincroniza con un ticket de Jira y menciona al triager de turno. El ticket llega con título, descripción y capturas completas.</p>
+<p>Desde ahí:</p>
+<ol>
+<li>El ticket pasa a estado <em>pending program review</em>: aún no está confirmado.</li>
+<li>Empieza el análisis. Si el reporte no se entiende o falta información, se pide <em>more info</em>.</li>
+<li>Si la vulnerabilidad es desconocida para el equipo, se debate con el Red Team interno.</li>
+<li>Si es un information disclosure dudoso —un documento filtrado, por ejemplo— entra compliance o legales para determinar si es real y qué criticidad tiene.</li>
+<li>Si nadie entiende la funcionalidad afectada, se consulta al equipo de desarrollo.</li>
+<li>Solo entonces se triagea: se confirma la validez, la severidad y el impacto, y se pasa al desarrollo.</li>
+</ol>
+<p>Los desarrolladores fixean; el Red Team valida el fix —a veces encuentra un bypass o un parche mal aplicado y el ticket vuelve—; recién entonces se cierra en la plataforma, se cierra el ticket interno y se paga el bounty según el SLA interno.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Hunter envía el reporte] --> B[Bot de Slack<br/>sincroniza a Jira]
+    B --> C{Análisis del<br/>triager}
+    C -- falta info --> D[more info<br/>al hunter]
+    D --> C
+    C -- válida --> E[Desarrollo<br/>corrige]
+    E --> F{Fix validado por<br/>Red Team}
+    F -- bypass --> E
+    F -- ok --> G[Cierre y pago<br/>del bounty]
+
+</pre>
+
+<h2>Duplicados, transparencia y vanidad de cero</h2>
+<p>El eterno dilema: "me lo marcaron duplicado, ¿me están mintiendo?". La política del programa es enlazar el ticket original en la plataforma y, encima, dejar evidencia adicional —capturas del reporte interno previo—. Y un dato que baja la ansiedad: hasta los hunters más famosos, con automatizaciones y videos propios, reciben duplicados. Todo el mundo los recibe.</p>
+<p>Cuando es el propio Red Team interno quien encuentra una vulnerabilidad, se crea el ticket en Jira y otro bot lo sincroniza con la plataforma: ese ID es el que luego se cita cuando el reporte de un hunter resulta duplicado.</p>
+<h2>Los errores que arruinan un reporte</h2>
+<p>La colección de reportes críticos descartados es la parte más didáctica:</p>
+<ul>
+<li>Un "information disclosure de tarjetas de crédito" cuya prueba de concepto era... el nombre de un archivo PNG. El hunter vio un falso positivo del escáner, lo interpretó como tarjeta y lo reportó como crítico sin verificar nada.</li>
+<li>Otro igual, esta vez con una herramienta de OWASP como fuente del falso positivo y el mismo archivo renombrado detrás.</li>
+<li>Un cross-site scripting cuya POC era un archivo de texto que decía "vulnerable: true". Sin alerta, sin cookie robada, sin nada.</li>
+<li>Un buffer overflow crítico cuya POC era un check que decía "host vulnerable". Sin explotación, sin script, sin evidencia.</li>
+</ul>
+<p>La moraleja: probar la prueba de concepto antes de enviar. El escáner tira falsos positivos; reportar sin analizar delata que se reporta por cobrar el crítico, no por entender el issue.</p>
+<p>Para que un reporte triagee rápido y bien: descripción clara de qué se encontró, cómo y dónde —endpoint, microservicio, aplicación—; paso a paso con URLs, requests, capturas o video; recomendación de remedio si se tiene; e impacto demostrado, porque un crítico sin impacto justificado no se sostiene. Y usar Markdown: queda prolijo, separa secciones y se lee mucho mejor que texto plano.</p>
+<h2>Los números que desmienten "ya está todo reportado"</h2>
+<p>Del análisis interno del programa, entre enero de 2019 y noviembre de 2024: 466 invitaciones enviadas, 388 vistas, 270 aceptadas, 98 hunters enviaron al menos un reporte, 66 enviaron al menos uno válido. De esos, apenas unos 10 reportan con regularidad —y son conocidos de la casa—. Del top 10, solo dos reportan a full.</p>
+<p>El corolario es directo para quien duda de meterse a un programa "porque está todo encontrado": con diez personas activas, hay espacio de sobra. Uno de esos hunters de Brasil llevaba cuatro años en el top 10 y terminó contratado.</p>
+<p>Las métricas del programa en ese periodo: primera respuesta promedio en 9 horas, triage en un día y 10 horas, pago del bounty en una semana y 18 horas; 409.000 dólares gestionados, unas 800 vulnerabilidades resueltas y una eficiencia de respuesta del 99% según la plataforma.</p>
+<h2>Lecciones</h2>
+<ul>
+<li>Los triagers son humanos: piden más información para entender, no para trabar el pago. Si entienden el impacto, entienden la severidad — y si la severidad se sostiene, se paga.</li>
+<li>Bajarle la criticidad a un reporte no le conviene al programa: un crítico real se quiere resolver rápido.</li>
+<li>El debate de severidad se resuelve con datos: conocer el negocio, consultar a legales, compliance y desarrollo.</li>
+<li>Para lanzar un programa propio: primero un equipo de seguridad que entienda lo que está pasando, después un programa privado de a poco y recién entonces un programa público.</li>
+<li>"Ya está todo reportado" es un mito: los números de participación real son mucho más bajos de lo que se imagina.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/xh06m3y2x5M">«El detrás de escena de un bounty - Leandro Pintos &quot;L34r00t&quot; - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

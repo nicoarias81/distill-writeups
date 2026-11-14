@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bypass universal de ASLR en Windows: PEB walking con return-oriented programming — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Bypass universal de ASLR en Windows: PEB walking con return-oriented programming</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/NrTNNi9PP5Y">«DEF CON 33 - Can&#x27;t Stop the ROP: Automating ASLR Bypass - Bramwell Brizendine»</a> · ver el <a class="nz-link" href="https://youtu.be/NrTNNi9PP5Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> NrTNNi9PP5Y · <strong>URL:</strong> https://youtu.be/NrTNNi9PP5Y · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Can't Stop the ROP: Automating ASLR Bypass - Bramwell Brizendine</li>
+</ul>
+<h2>Resumen</h2>
+<p>La alta entropía de ASLR (Address Space Layout Randomization) es la pieza central de la defensa de Microsoft contra la corrupción de memoria en código no memory-safe. Pero el diseño del proceso de Windows guarda un talón de Aquiles de décadas: el PEB (Process Environment Block) y sus listas de módulos, legibles desde modo usuario y con offsets fijos y predecibles. Un bypass que recorra esas estructuras convierte un bug de corrupción de memoria con gadgets ROP en acceso a las direcciones base de ntdll, kernel32 y kernelbase — un multiplicador de superficie de ataque portable a casi cualquier binario de Windows.</p>
+<p>La técnica se apoya en cuatro vías de obtención del PEB (registro GS, instrucción <code>rdgsbase</code>, y las syscalls <code>NtQueryInformationProcess</code> y <code>NtQueryInformationThread</code>), nueve variantes de recorrido según DLL y lista de módulos, y una herramienta que automatiza la generación de las 36 cadenas ROP resultantes. Probada con 100% de éxito en las builds de Windows 10 y 11 testeadas. Microsoft reconoció el reporte como válido en mayo de 2024 y decidió no pagar ni parchear: el bypass depende de una vulnerabilidad previa y no cruza un boundary de seguridad según su criterio de bounty.</p>
+<h2>ROP y las rutas clásicas contra ASLR</h2>
+<p>Return-oriented programming encadena fragmentos de código ya presentes en los binarios (gadgets terminados en <code>ret</code>) para superar mitigaciones como DEP y ejecutar cómputo arbitrario sin escribir shellcode. ASLR, surgido con PaX en 2001 y adoptado tardíamente por Microsoft, complica ese encadenamiento al aleatorizar las direcciones base; la alta entropía de 64 bits deja obsoletas las estrategias clásicas:</p>
+<ul>
+<li><strong>Memory disclosure</strong> — un use-after-free que reutiliza memoria e imprime un function pointer permite extrapolar la base de un módulo.</li>
+<li><strong>Heap/stack spraying y fuerza bruta</strong> — con alta entropía, la probabilidad se vuelve inviable.</li>
+<li><strong>Side channels micro-arquitectónicos</strong> — línea de investigación activa y sofisticada.</li>
+<li><strong>Direcciones hardcodeadas</strong> — solo válidas en ausencia de ASLR.</li>
+</ul>
+<p>El bypass presentado ocupa otra categoría: no vulnera ASLR por sí solo, sino que exige una vulnerabilidad de corrupción de memoria previa y la capacidad de ejecutar gadgets ROP. Con esos dos requisitos, un bug de impacto limitado se convierte en acceso a todo el espacio de las system DLLs: miles de gadgets adicionales y, con ello, la capacidad de realizar cómputo sustancial donde antes apenas había nada útil.</p>
+<h2>Del registro GS al DLL base</h2>
+<p>El PEB se alcanza en x64 desde el registro de segmento GS: el TEB (Thread Environment Block) vive en <code>gs</code>, y en su offset 60 está el puntero al PEB (en 32 bits sería <code>fs:0x30</code>; bajo WOW64, la transición a 64 bits conocida como Heaven's Gate deja el puntero al TEB en R12). Un gadget de fuga típico combina una aritmética fea pero funcional: restar a RCX un <code>qword ptr gs:[rsi+big_number]</code> donde RSI se fuerza a 60 mediante overflow de enteros (se suman dos números grandes cuyo resultado es 60), RCX se pone a cero y un <code>neg rcx</code> restaura el valor en complemento a dos — el PEB.</p>
+<p>Desde el PEB el camino es un recorrido de estructuras con offsets fijos: +18 hasta el PEB LDR data, +30 hasta la lista de módulos de inicialización, y luego un número determinado de recorridos por los <code>Flink</code> de las listas doblemente enlazadas — cada desreferenciación devuelve un puntero al siguiente nodo — hasta la entrada cuyo campo <code>DllBase</code> contiene la dirección base. Con esa base, ASLR queda burlado: cualquier API o gadget del módulo se alcanza con offsets fijos.</p>
+<pre class="mermaid">
+flowchart LR
+    A[GS / rdgsbase / syscalls] --> B[TEB]
+    B -->|+0x60| C[PEB]
+    C -->|+0x18| D[PEB LDR data]
+    D -->|+0x30| E[InInitializationOrderModuleList]
+    E -->|Flink x N| F[LDR data table entry]
+    F --> G[DllBase: kernel32 / kernelbase / ntdll]
+    G --> H[ASLR bypass: offsets fijos sobre la base]
+
+</pre>
+
+<p>Las tres DLL objetivo están cargadas en prácticamente cualquier aplicación real de Windows, y su orden dentro de cada una de las tres listas de módulos (in-load order, in-memory order, in-initialization order) es predecible. De ahí las nueve variantes: tres DLLs por tres listas, cada una con su número de <code>Flink</code> a recorrer y sus offsets — que en todos los casos suman 0x40 entre lista y base, una regularidad ilustrativa del diseño.</p>
+<h2>Cuatro vías hacia el PEB</h2>
+<p>No todo binario ofrece un gadget que toque el registro GS. El enfoque contempla cuatro rutas, todas implementadas en la herramienta:</p>
+<ul>
+<li><strong>Registro GS</strong> — la vía clásica descrita arriba.</li>
+<li><strong><code>rdgsbase</code></strong> — instrucción x86 que deposita la dirección del TEB directamente en un registro; trivial en shellcode, poco común como gadget ROP. SYNOC la hizo pública para uso ofensivo en 2024.</li>
+<li><strong><code>NtQueryInformationProcess</code></strong> — syscall que devuelve el PEB: RDX a 0 (ProcessBasicInformation), R8 con memoria escribible cualquiera, R9 con el tamaño de la estructura, R10 con -1 (handle del proceso actual, en complemento a dos) y el SSN 19. El PEB queda en el offset 8 de la estructura. Un matiz de la convención: el wrapper de la native API mueve RCX a R10, así que el handle se carga directamente en R10, y el quinto parámetro (return length) es opcional.</li>
+<li><strong><code>NtQueryInformationThread</code></strong> — variante análoga (SSN 25, handle -2 para el hilo actual) que devuelve el TEB; requiere sumar 0x60 y desreferenciar para llegar al PEB.</li>
+</ul>
+<p>En Windows 10 y 11 los SSNs de estas syscalls son estables entre builds, así que no hace falta resolverlos dinámicamente (técnicas tipo SysWhispers, Hell's Gate o Halo's Gate); para cubrir Windows 7 habría que añadir esa resolución.</p>
+<p>Los gadgets necesarios son deliberadamente básicos: una fuga del PEB, una forma de sumar offsets (una serie de <code>inc</code> sirve igual que un <code>add</code> entre registros) y una desreferenciación — un único gadget <code>mov</code>-desreferencia reutilizado varias veces alcanza, y las variantes XOR/ADD/SUB también valen. Cargar valores admite <code>pop</code>, overflow de enteros o negación. Si nada de eso existe, queda la síntesis del propio gadget: escribir <code>rdgsbase</code> en memoria ejecutable (vía <code>VirtualAlloc</code> y escritura de bytes) y llamarlo, técnica ya usada en el trabajo previo de proceso inyección vía ROP.</p>
+<h2>Automatización: 36 cadenas en segundos</h2>
+<p>La herramienta, integrada en ROP Rocket (libre como mini tool independiente), genera automáticamente los gadgets y las cadenas ROP completas para las 4 vías × 9 variantes = 36 bypasses, en 64 bits y con salida como script de exploit en Python. No sigue recetas hardcodeadas: usa búsqueda semántica de gadgets (dado "necesito cargar este valor en este registro", explora todas las formas disponibles) y emulación para calcular parámetros que dependen del estado del stack, como la distancia a memoria escribible o el offset donde queda el resultado de la syscall. El demo generó las 36 cadenas y verificó en WinDbg (<code>!peb</code>, <code>lmf</code>) que el valor obtenido correspondía a la base real de kernel32.</p>
+<h2>¿Por qué importa más allá de la explotación?</h2>
+<p>Fixear este bypass tendría un efecto colateral mucho mayor que proteger contra ROP: gran parte del malware nativo C/C++ actual resuelve direcciones en runtime con exactamente estas técnicas de PEB walking, precisamente porque son invisibles al análisis estático (a diferencia de imports normales, <code>GetProcAddress</code> o <code>LoadLibrary</code>, que PE Studio enumera sin esfuerzo). Un PEB no legible en modo usuario rompería esa capa de evasión y forzaría a los atacantes a elegir entre funcionalidad estáticamente obvia o syscalls directas — más complejas de implementar y con menos cobertura de la API. En cualquier dirección, una ganancia enorme para defensores.</p>
+<p>Las mitigaciones propuestas:</p>
+<ul>
+<li><strong>Offsets impredecibles en el LDR data table entry</strong> (por proceso o por arranque del SO) — rompe los recorridos con offsets fijos; el arreglo más directo.</li>
+<li><strong>Acceso privilegiado al PEB</strong>: bloquear la lectura directa de segmentos en modo usuario o una syscall que valide el control flow graph antes de exponer PEB/TEB — erradica la familia de bypasses, pero exige un levantamiento arquitectónico.</li>
+<li><strong>Ofuscación o cifrado de punteros</strong> — ni siquiera hace falta la infraestructura existente de la API de Windows; un XOR key bastaría para que el valor no sea utilizable al vuelo.</li>
+<li><strong>ASLR fino y dinámico</strong> — shuffle de funciones y bloques básicos, o rebasing periódico que caduque el bypass; complementan, no sustituyen, a ASLR.</li>
+<li><strong>Páginas execute-only del PEB y del loader</strong> vía soporte de hardware, y <strong>heurísticas adicionales tipo EAF/EAF+</strong> que marquen los recorridos anómalos de listas.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>PEB walking</strong> — recorrido de PEB → LDR data → listas de módulos con offsets fijos; columna vertebral del bypass y del ecosistema de malware que resuelve APIs en runtime.</li>
+<li><strong>ROP (return-oriented programming)</strong> — encadenamiento de gadgets para cómputo arbitrario sin shellcode.</li>
+<li><strong><code>rdgsbase</code></strong> — instrucción que devuelve el TEB; publicada para uso ofensivo por SYNOC en 2024.</li>
+<li><strong><code>NtQueryInformationProcess</code> / <code>NtQueryInformationThread</code></strong> — syscalls que exponen PEB y TEB; SSNs 19 y 25, estables en Windows 10/11.</li>
+<li><strong>Heaven's Gate</strong> — transición WOW64 de 32 a 64 bits para alcanzar el TEB (R12).</li>
+<li><strong>ROP Rocket + ASLR bypass mini tool</strong> — generación automática de las 36 variantes de bypass con búsqueda semántica de gadgets y emulación.</li>
+<li><strong>WinDbg</strong> — verificación de estructuras (<code>!peb</code>, <code>!teb</code>) y módulos (<code>lmf</code>) durante el desarrollo y el demo.</li>
+<li><strong>ShellWasp</strong> — framework de shellcode con syscalls de Windows del mismo autor; contexto de las técnicas de syscalls.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El PEB y sus listas de módulos son un punto único de fallo con décadas de antigüedad: offsets fijos, legibles desde modo usuario, y explotables con gadgets ROP triviales y reutilizables.</li>
+<li>El bypass es un multiplicador, no una vulnerabilidad independiente: requiere corrupción de memoria previa, pero convierte cualquier binario afectado en una puerta a las system DLLs.</li>
+<li>Cuatro vías de obtención del PEB (GS, <code>rdgsbase</code>, dos syscalls) y nueve recorridos cubren prácticamente cualquier binario real de Windows; la automatización reduce todo a segundos.</li>
+<li>Microsoft reconoció el reporte como válido en 2024 y optó por no pagar ni arreglar: el criterio de bounty (no cruzar boundary de seguridad) deja fuera a los multiplicadores de vulnerabilidades, en contraste con un bypass anterior de 2013 que sí parchearon.</li>
+<li>Arreglarlo rompería además la evasión por PEB walking de gran parte del malware C/C++ actual — posiblemente el mayor beneficiario de un fix que, según el autor, no está en el horizonte.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/NrTNNi9PP5Y">«DEF CON 33 - Can&#x27;t Stop the ROP: Automating ASLR Bypass - Bramwell Brizendine»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portar un driver de RS-232 a RS-485 en 90 días: la historia de las cajas de retail — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Portar un driver de RS-232 a RS-485 en 90 días: la historia de las cajas de retail</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/-3_SOX6NfGw">«Cómo crear un driver para RS485 - Chiche Pardiñas - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/-3_SOX6NfGw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> -3_SOX6NfGw · <strong>URL:</strong> https://youtu.be/-3_SOX6NfGw · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Cómo crear un driver para RS485 - Chiche Pardiñas - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Esta historia empieza en un asado en Guatemala —después del karaoke y de repoblar la canción Azul de Cristian Castro, entre anécdotas de speakers— y termina en la técnica que permitió portar en 90 días el software de cajas de un fabricante a hardware de otro, reescribiendo capa por capa los drivers de periféricos. Es la crónica de dos reinos tecnológicos —Bull en Francia e IBM en Estados Unidos—, de un departamento de desarrollo que quedó reducido al 50% justo en el peor momento, y de la lección de arquitectura que hace posible (o imposible) un porting: cuando el software está bien estratificado, cambiar el bus de comunicaciones de abajo es casi magia; cuando es propietario, es una pared.</p>
+<h2>El contexto: 40 años de tecnología de retail</h2>
+<p>El relator lleva más de 40 años en tecnología, empezó cuando en electrónica aún se enseñaban válvulas, y transitó el mundo del retail desde hace cuatro décadas. Retail por definición es la venta a minoristas, y esa venta necesita tecnología que funciona en el mundo desde hace unos 100 años: contar plata, algo más urgente incluso que que funcione un hospital. La evolución: registradoras mecánicas, equipos electrónicos, y hoy las redes de cajas interconectadas de las grandes superficies —equipos con doble función, controlan la mercadería vendida y sirven a las agencias de recaudación de impuestos de todos los países—. Última generación: los self-checkout, que asumen confianza en que la gente no va a robar.</p>
+<p>Todo el cobro con medios electrónicos (tarjetas, celulares, QR) trae además la normativa PCI (del 2006) y sus auditorías —la famosa PCI DSS, pero eso es historia de otra charla—. Y como toda charla de hacking que se precie, el disclaimer: los lugares, países, empresas y nombres son ficticios, en un universo alternativo donde cualquier semejanza con la realidad es meramente casual.</p>
+<h2>Reino 1: Bull, el Eurotúnel y el estándar abierto</h2>
+<p>Allá por los primeros años 90, Bull —que había participado en el proyecto del Eurotúnel, con la masa de dinero que genera un proceso multinacional— desarrolló un sistema propio de registradoras de última generación: el proyecto <strong>BRIS</strong> (Bull Retail Information System Equipment), con su primer prototipo de hardware, el <strong>BRT5000</strong>.</p>
+<p>La arquitectura: una CPU de PC adaptada con más puertos seriales RS-232 para sumar periféricos no convencionales —torreta, escáner para códigos EAN12/UPC (no QR, que vinieron después), lector de banda magnética, teclados, impresoras de POS (llamadas así por sus secuencias de escape POS)—, más una tarjeta Ethernet con PROM de boot que cargaba el sistema operativo por red. El software: DOS para los terminales, UNIX para el frontend, comunicaciones TCP/IP, C y CISAM (con una idea de SQL que nunca se implementó).</p>
+<p>El detalle técnico clave: DOS es monousuario y monotarea, pero una caja necesita procesar muchos eventos al mismo instante —el escáner y el teclado mientras la impresora imprime el artículo vendido—. La solución fue un entorno multitarea propio, el RCPI, generado como kernel del sistema de cajas. Bull eligió <strong>estándares abiertos</strong> y RS-232 punto a punto como conexión de periféricos. Esas cajas funcionaron durante años en los dos extremos del Eurotúnel; después el proyecto sucumbió, pero no antes de que Uruguay entrara en escena.</p>
+<h2>Reino 2: IBM, token ring y RS-485</h2>
+<p>IBM arrancó el proyecto <strong>4690OS</strong> en 1984, pedido por una cadena grande (desarrollado en conjunto con Walmart). La estrategia de IBM fue la opuesta: todo con tecnología propia —token ring, terminales con placa especial que hacía todo el driveado de los periféricos, el estándar <strong>RS-485</strong> en vez de RS-232—. La diferencia física importa: RS-232 es punto a punto, con una interrupción y área de memoria por puerto, velocidad más limitada y dúplex completo; RS-485 es un bus que trabaja por diferencial con dos tensiones, menos permeable al ruido.</p>
+<p>En Uruguay —el país que, gracias a una cesión de Francia tras la Segunda Guerra Mundial, es el único de América Latina que puede fabricar coñac y champán— el CEO para América Latina de Bull era uruguayo, y con sus contactos se trajo todo el sistema. La empresa del relator portó el sistema a la legislación uruguaya, las fuentes completas vinieron con una pequeña instrucción, y el equipo… era de dos personas: uno a cargo de infraestructura y conexión de equipamiento, otro a cargo del desarrollo.</p>
+<p>Cuando IBM decidió comprar en vez de competir, la alianza estratégica obligó a portar el sistema de Bull sobre los sistemas IBM. Y en medio del porting, el 50% de la fuerza laboral —el compañero, que hablaba siete idiomas incluido el francés— se fue a la UNESCO.</p>
+<h2>Dos estrategias para cruzar el río</h2>
+<p>Cruzar un río tiene dos estrategias válidas: un puente o un túnel, con más o menos trabajo cada una. El compañero eligió una muy loable: pararse abajo del todo, un poquito antes del fierro, y <strong>escribir un emulador de la máquina de abajo</strong>. Y se fue, dejando un problema: los eventos que ocurrían en los periféricos no llegaban a las capas superiores, porque esa estrategia no los implementaba.</p>
+<p>La alternativa apareció por dos caminos. Primero, en el apéndice C del manual de IBM —unas 500 hojas— una función llamada <strong>CESICOL</strong>: al que viene del mundo UNIX, todo lo que suena a syscall llama la atención. La documentación apenas explicaba; investigar reveló que era una función en assembler que hacía un read y un write sobre el bus RS-485. Segundo, el estudio del código de Bull —más de 500.000 líneas de lógica de venta, driveado de periféricos y hardware—, donde los franceses lo habían hecho <strong>en capas</strong>: programa, administración, dispositivo, controladores de hardware.</p>
+<p>La decisión, comunicada por teléfono al ex-compañero ("voy a portar el RS-232 arriba del RS-485"), recibió la respuesta más motivadora posible: "estás loco". Y no hay peor cosa que te digan que estás loco, cuando sí lo estás.</p>
+<p>La implementación: en lugar de emular la máquina, escribir <strong>driver a driver los controladores de hardware para RS-485</strong>, cortando solo la capa de drivers. La ventaja de la estrategia: el resultado final servía para los dos mundos —al compilar se elegía qué drivers usar, y el desarrollo era el mismo para un Bull que para un IBM, y la empresa tenía aún equipamiento de ambos—. Los franceses habían estimado seis meses en Francia para entender el sistema (con requisito de francés, que el relator no habla, como tampoco mucho inglés) más seis meses para el porting; el ultimátum del CEO ("si no terminás rápido, al pelado, el gerente técnico, le van a meter todas las cajas…") dio el empujón final. En 90 días, todos los drivers estaban escritos y el sistema portado al RS-485.</p>
+<h2>Lo que quedaría hoy</h2>
+<p>Todo lo contado sigue vivo: RS-485 y RS-232 se usan a nivel industrial, y hasta en el PC moderno hay un RS-232 escondido detrás del USB —con velocidades y paridad que a veces hay que setear a mano—. Y hoy no haría falta escribir driver a driver: la <strong>National Retail Federation</strong> creó estándares para que el trabajo de periféricos no sea tan difícil: <strong>OPOS</strong> (para la plataforma Microsoft, del DOS al Windows), <strong>JavaPOS</strong> (para el mundo del hardware libre), y finalmente <strong>UPOS</strong>, el estándar unificado que surgió cuando las corrientes volvieron a divergir.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El diseño por capas es lo que hace portable el software.</strong> Cuando los franceses de cultura UNIX estratificaron su sistema —capa superior habla con la inferior y viceversa—, cortar la capa de drivers y reescribirla sobre otro bus se volvió viable. El lector de código aprendió además a leer el perfil de quien escribe código: esos programadores venían del mundo UNIX y dejaron sus conceptos en la arquitectura.</li>
+<li><strong>No se puede ir de lo propietario a lo abierto.</strong> Si el porting hubiera sido al revés —de la plataforma IBM propietaria con estándares cerrados a la abierta—, habría sido imposible. El sentido de la migración importa tanto como la técnica.</li>
+<li><strong>Hay dos tipos de programadores ante el código ajeno:</strong> los que no soportan leerlo, se aburren y reinventan la rueda, y los que entienden que hay maestros que hacen obras de arte y que uno puede hacer un cuadrito con palitos.</li>
+<li>Un syscall documentado en dos carillas de un apéndice puede valer más que 500 hojas de manual, si sabés qué preguntarle.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/-3_SOX6NfGw">«Cómo crear un driver para RS485 - Chiche Pardiñas - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

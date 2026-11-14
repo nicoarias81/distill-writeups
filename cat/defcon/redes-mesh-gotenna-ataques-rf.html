@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redes mesh goTenna: explotación RF de la Gen 1 a la Pro — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Redes mesh goTenna: explotación RF de la Gen 1 a la Pro</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/KqKj_VY-AHY">«DEF CON 33 - RF Village - goTenna MobileMesh - Erwin Karbenczyk, Woody»</a> · ver el <a class="nz-link" href="https://youtu.be/KqKj_VY-AHY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> KqKj_VY-AHY · <strong>URL:</strong> https://youtu.be/KqKj_VY-AHY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - RF Village - goTenna MobileMesh - Erwin Karbenczyk, Woody</li>
+</ul>
+<h2>Resumen</h2>
+<p>goTenna es un radio mesh fuera de banda que crea redes móviles entre dispositivos cuando no hay celular ni satélite. Siete años después del exploit original contra la versión 1, un equipo compuesto por un investigador en RF y hardware/software RE y un ex-operador de operaciones especiales reexaminó las tres generaciones del dispositivo para responder una pregunta simple: ¿qué se arregló de verdad y qué sigue igual?</p>
+<p>La respuesta: la nueva dirección de goTenna mejoró lo identificable (ya no expone el número de teléfono, ya no depende solo de Bluetooth), pero la cadena criptográfica completa —broadcast, punto a punto y grupo— sigue siendo derribable con hardware open source de ~100 dólares, y los metadatos sin cifrar (GID, call sign, longitudes, timestamp) son oro para rastrear organizaciones y personas. La divulgación, en cambio, cambió de signo: goTenna respondió en un día y colabora en las correcciones; el código completo se publicará dos meses después del anuncio público.</p>
+<h2>Por qué importan los identificadores únicos</h2>
+<p>Un GID es, a efectos prácticos, una dirección MAC que te sigue. La industria ya generalizó el rotado de MAC por eso mismo: los identificadores fijos permiten rastrear a alguien sobre espacio y tiempo y fingerprintearlo. En goTenna el problema escala:</p>
+<ul>
+<li>En Gen 1 y 2, el GID por defecto <strong>era el número de teléfono</strong> del usuario, visible en el aire incluso con mensajes cifrados — el exploit original lo extraía en directo.</li>
+<li>En Gen 3 (goTenna Pro) el GID ya no es el teléfono, y si se pide uno aleatorio resulta ser, simplemente, <strong>epoch</strong>. Se puede cambiar, pero sigue siendo el rastro persistente del mismo dispositivo.</li>
+<li>El <strong>call sign</strong> en claro permite inferir cuántas personas hay en una organización (suelen llevar secuencia numérica) y vincular equipo → organización → individuo → momento de uso.</li>
+<li><strong>Longitud de mensaje</strong> y <strong>longitud de payload</strong>: en organizaciones que usan mensajes breves de procedimiento, la longitud por sí sola distingue comprobaciones de comunicación, envío de coordenadas o comandos. Con colección a largo plazo, es inteligencia de por sí.</li>
+</ul>
+<h2>Setup de laboratorio</h2>
+<p>Pruebas en cámara anecoica (universidad), representación de iPhones y Androids conectados a goTenna Pro, y hardware 100% open source: HackRF One con software open source sobre laptop Ubuntu. Nada caro: dongles de TV de $30 y radios de $100 bastan para empezar.</p>
+<pre class="mermaid">
+flowchart LR
+    A[goTenna Pro<br/>4FSK] -->|140-170 / 445-480 MHz| B[HackRF One]
+    B --> C[GNU Radio<br/>demodulador 4FSK custom]
+    C --> D[Bytes crudos + dewhitening]
+    D --> E[Protobuf decode<br/>GID, call sign, payload, tags]
+    E --> F[Descifrado AES / ECDH<br/>y TX spoofing]
+
+</pre>
+
+<h2>Cadena de reversa del protocolo</h2>
+<h3>1. Demodulación</h3>
+<p>goTenna Pro usa <strong>4FSK</strong> (cuatro niveles de desviación de frecuencia, entre -1,5 y +1,5). Un flow graph custom de GNU Radio decodifica exactamente esa modulación, validado comparando contra capturas de referencia.</p>
+<h3>2. Dewhitening</h3>
+<p>Al enviar dos mensajes idénticos, casi todo el stream coincide salvo unos pocos bytes: síntoma clásico de <strong>data whitening</strong> (XOR con bytes estáticos generados por un LFSR; no confundir con cifrado — no es criptográficamente seguro, solo evita secuencias largas de ceros). Proceso:</p>
+<ol>
+<li>Transmitir varias <code>A</code> (0x41) y luego varias <code>B</code> (0x42).</li>
+<li>XOR de cada byte capturado con 0x41 → keystream candidato; verificarlo contra el mensaje de <code>B</code> y conservar solo los bytes que producen 0x42.</li>
+<li>El payload arranca en el offset 42. Aplicando la clave parcial se recuperan las <code>A</code> y la longitud; del offset 42 hacia adelante todo se decodifica, pero el header custom (bytes 0-41) queda opaco.</li>
+</ol>
+<p>El truco del fragmentado: con un mensaje de 100 <code>A</code>, el radio lo parte en dos fragmentos, y el segundo fragmento arranca en el offset 2. XOR contra él revela 40 bytes más de clave; combinando, clave de 2 a 96. Con ella aparecen payload y <strong>call sign</strong>. Para el GID (conocido de antemano por la app) se descubrió su codificación: 7 bits de dato por byte con el MSB marcando continuación — un varint estilo protobuf.</p>
+<p>Los bytes 0 y 1: la documentación FCC revela el radio <strong>Si4460</strong>, cuyo datasheet indica que el byte 0 es la longitud. Longitud 69 → 68 (restado el propio byte de longitud) → 0x44 → XOR con el cifrado 0x47 → clave en byte 0 = 0x03. El byte 1 salió por tanteo: 0x96.</p>
+<p>Los últimos 10 bytes: 2 son <strong>CRC16-CCITT</strong> (polinomio 0x1021, inicialización a ceros) y 8 son <strong>Reed-Solomon</strong> (8 símbolos de corrección, primera raíz consecutiva 1). Cifrado XOR menos CRC = clave CRC; cifrado XOR menos RS = clave RS. Clave completa de 0 al final.</p>
+<h3>3. Burlekamp-Massey: la clave es matemática</h3>
+<p>La secuencia completa la genera un <strong>LFSR</strong>. Con el algoritmo de Berlekamp-Massey se recupera el polinomio (grado 23). Implicación potente: incluso con una secuencia parcial —sin conocer el byte 1, sin ver fragmentos— es posible reconstruir el polinomio y derivar los bytes que faltan. Con solo el payload, se puede llegar al header entero.</p>
+<h3>4. Tags y el atajo de la app</h3>
+<p>Sin conocer los bytes 0-41, la observación de condiciones especiales reveló <strong>tags</strong> dentro del header: tras el tag 57 (0x39) viene un timestamp UTC. El salto metodológico vino de algo que nadie había mirado: <strong>la app móvil</strong>. Descompilada, contiene firmware y código fuente completos, sin cifrar ni ofuscar. El tag 57 aparecía exactamente donde el black-boxing lo había colocado — validación de la metodología — y junto a él todo el resto: coordenadas, claves, PB broadcast.</p>
+<h3>5. Protobuf</h3>
+<p>En los descompilados aparece <code>proto3</code>: protocol buffers de Google. Con <strong>PBTK</strong> (herramienta open source) sobre el binario extraído se obtienen todos los archivos <code>.proto</code>. El enum de tipos de mensaje —imposible de inferir por muestreo (¿texto = 3?, ¿ping = 5?)— queda definido, y los tags resultan ser los <code>case</code> del switch del compilador Java. Los <code>.proto</code> se compilan para <strong>Python</strong> (GNU Radio es Python) y el decode pasa a ser automático: GID, call sign, payload incluso multi-fragmentado, coordenadas (campos <code>bytes</code> que decodifican con little-endian + doble), frecuencia, mensajes de emergencia. Todo lo que goTenna cifró y todo lo que no.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Captura 4FSK] --> B[Dewhitening<br/>mensajes A/B + fragmentos]
+    B --> C[Clave LFSR 0-96<br/>+ CRC16 + Reed-Solomon]
+    C --> D[Berlekamp-Massey<br/>polinomio x^23]
+    D --> E[Header decodificado<br/>tags: 57 = timestamp]
+    F[App descompilada] --> G[PBTK + proto3]
+    G --> E
+    E --> H[Decode completo en vivo<br/>GID, call sign, payload, coords]
+
+</pre>
+
+<h2>Las tres rutas de cifrado y cómo caen</h2>
+<h3>Broadcast</h3>
+<p>La clave se comparte manualmente (nombre + código de validación de 8 caracteres: minúsculas y números, con un espacio consistente en medio — el diccionario es minúsculo). El mensaje de setup QR viaja <strong>sin cifrar por el aire</strong>, y en él va la key data cifrada con IV y salt identificables. La key data pasa por PBKDF2-HMAC con 10.000 iteraciones — buen KDF, protegido por una contraseña de 8 caracteres.</p>
+<p>Cálculos de fuerza bruta reales (worst case, o sea el doble en promedio):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>GPU(s)</th>
+<th>Tiempo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1 × RTX 4090</td>
+<td>15,33 días</td>
+</tr>
+<tr>
+<td>12 × RTX 4090 (grid comercial)</td>
+<td>1,27 días</td>
+</tr>
+<tr>
+<td>10.000 × A100</td>
+<td>5,31 minutos</td>
+</tr>
+</tbody>
+</table></div>
+<p>Con la clave en mano, el AES-GCM entrega el plaintext y el HMAC se verifica por higiene. La clave se integra al script y el descifrado de broadcast pasa a ser <strong>en vivo</strong> — incluido todo lo capturado en el pasado.</p>
+<h3>Punto a punto (P2P) y grupo</h3>
+<p>ECDH P-384 para la clave compartida, usada como primer input de HMAC-SHA-256. El segundo input se sacó con <strong>Frida</strong> instrumentando un Android físico: es GID + public key + shared key concatenados. Las claves del teléfono están en AES-GCM... pero con un <strong>IV estático</strong>, lo que permite saltarse el cifrado por completo: XOR de la clave pública conocida con su versión cifrada → keystream → XOR contra la clave privada cifrada → clave privada. En la base de datos del teléfono quedan después claves públicas, compartidas y de broadcast, además del PIN. Con P-384 + las dos claves: shared key → encryption key → plaintext. El mismo ataque funciona para cifrado de grupo (misma construcción).</p>
+<h2>Resumen de hallazgos</h2>
+<ul>
+<li><strong>Broadcast:</strong> descifrado no autorizado vía mensaje QR capturado + fuerza bruta, o extracción de clave de un teléfono comprometido.</li>
+<li><strong>P2P y grupo:</strong> descifrado no autorizado con teléfono comprometido (IV estático + known-plaintext).</li>
+<li><strong>Sin autenticación de clave pública:</strong> man-in-the-middle posible.</li>
+<li><strong>Mensajes cortos (&lt;~35-45 caracteres, un solo fragmento) usan AES-CTR</strong> en lugar de GCM: cifrado sin integridad.</li>
+<li><strong>TX spoofing:</strong> desde GNU Radio se pueden falsificar GID, call sign y mensaje — un HackRF, un Ettus o un Blade se convierten en un goTenna propio.</li>
+<li>Todo el decodificado se redirige también a <strong>Wireshark</strong> (el dissector aún pendiente).</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Mobile mesh networking</strong>: comunicación multi-salto sin infraestructura (goTenna, Meshtastic, LoRa).</li>
+<li><strong>4FSK</strong>: modulación de desviación de frecuencia de cuatro niveles, decodificada con GNU Radio.</li>
+<li><strong>Data whitening / LFSR</strong>: XOR con secuencia de registro de desplazamiento; inversible con Berlekamp-Massey (grado 23).</li>
+<li><strong>CRC16-CCITT (0x1021)</strong> y <strong>Reed-Solomon (8 símbolos)</strong>: códigos de detección y corrección cuyos residuos completan la clave de whitening.</li>
+<li><strong>Varint / protobuf (proto3)</strong>: serialización de Google; extraída con <strong>PBTK</strong>, compilada a Python.</li>
+<li><strong>PBKDF2-HMAC (10k iteraciones) + AES-GCM/CTR</strong>: KDF y cifrado del modo broadcast; password de 8 caracteres minúsculas/números.</li>
+<li><strong>ECDH P-384 + HMAC-SHA-256</strong>: intercambio de claves P2P/grupo.</li>
+<li><strong>IV estático en AES-GCM</strong>: error que habilita keystream recovery por known-plaintext.</li>
+<li><strong>Frida</strong>: instrumentación del teléfono para recuperar el segundo parámetro del HMAC.</li>
+<li><strong>HackRF One, GQRX, GNU Radio, Wireshark</strong>: captura, análisis, decodificación e inyección.</li>
+<li><strong>Documentación FCC / datasheet Si4460</strong>: fuente del byte 0 del header.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Tener cifrado no basta: la configuración y la implementación mandan. Un IV estático vale tanto como no cifrar; una contraseña de 8 caracteres devalúa un KDF de 10.000 iteraciones; AES-CTR en mensajes cortos elimina la integridad.</li>
+<li>Los metadatos no cifrados (GID, call sign, longitudes, timestamp) son suficiente para mapear organizaciones y rutinas sin leer un solo mensaje.</li>
+<li>La documentación FCC, la app descompilada y protobuf transformaron una reversa artesanal en un decodificador automático; los hackers miran donde los fabricantes no.</li>
+<li>El disclosure funcionó: goTenna (nueva dirección) respondió en un día y está corrigiendo; el código se publicará tras un plazo de dos meses. El de Gen 1/2 ya circula.</li>
+<li>Mandato para la comunidad: probar el equipo aunque diga ser seguro, recrear exploits antiguos contra versiones nuevas, y acudir al fabricante cuando encuentre algo — a veces sí escucha.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/KqKj_VY-AHY">«DEF CON 33 - RF Village - goTenna MobileMesh - Erwin Karbenczyk, Woody»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escanear todo cuesta: arquitectura multiagente para hallazgos de primera parte con menos ruido — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Escanear todo cuesta: arquitectura multiagente para hallazgos de primera parte con menos ruido</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bxwEZMhqeR0">«Scott Behrens &amp; Justice Cassel - Source to Sink: Improving LLM Vuln Discovery | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/bxwEZMhqeR0">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> bxwEZMhqeR0 · <strong>URL:</strong> https://youtu.be/bxwEZMhqeR0 · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Scott Behrens &amp; Justice Cassel - Source to Sink: Improving LLM Vuln Discovery | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando los modelos de lenguaje se volvieron capaces de razonar sobre código, la primera reacción del mundo ofensivo fue euforia: se le pedían vulnerabilidades y las encontraba —server-side request forgery, deserialización insegura— y parecía magia. El trabajo de este equipo, con base en la experiencia de escaneo de código de primera parte a escala corporativa, documenta lo que vino después: la euforia se topó con la inconsistencia, la varianza enorme, los falsos positivos constantes, hallazgos sin severidad correcta y clases enteras de vulnerabilidades que el modelo simplemente ignoraba.</p>
+<p>La tesis de partida es más alcanzable que "encontrar todo": revisar menos, mejor. Eso significa priorización contextual (no marcar software de gestión de bases de datos por inyección SQL cuando esa es la funcionalidad del producto) y repetibilidad con determinismo, sacando falsos positivos y dejando solo lo que vale el tiempo humano. La cobertura total es posible hoy, pero con trade-offs arquitectónicos serios, y el costo es una variable de primera clase: un escaneo exhaustivo de todo el código puede rondar los 400-500 dólares por repositorio por pasada.</p>
+<h2>Evaluación y benchmarking: el cambio de mentalidad</h2>
+<p>El giro metodológico fue tratar el escaneo con modelos como un problema de evaluación, no de prompting. Para saber qué funcionaba hacía falta saber qué buscar: un benchmark con una lista fija de vulnerabilidades conocidas, una lista de trampas —código muerto, rutas comúnmente malinterpretadas, clases de vulnerabilidad confundidas— y recolección automática de métricas para correr los tests una y otra vez. El motivo: cambiar una línea del prompt puede transformar un resultado brillante en uno pésimo, y agregar una herramienta puede funcionar en la primera corrida y fallar en la segunda. Cuando los modelos cambian, también cambian las configuraciones óptimas.</p>
+<p>El avance del equipo muestra ese aprendizaje en el tiempo: de prompts simples en febrero de 2025, a orquestación con seguimiento de archivos y estado, a migración al IDE con el stack interno, a una arquitectura agnóstica del IDE basada en MCP con inyección de contexto, hasta el framework de orquestación actual.</p>
+<h2>Experimentos: qué funcionó y qué no</h2>
+<ul>
+<li><strong>Agente único vs. agentes especializados</strong>: un "superagente" —una regla monolítica con mucho contexto de seguridad— encontró 36 de los 41 true positives del benchmark, a costo mucho menor. Con modelos tipo Sonnet, el monolito es costo-efectivo; pero la configuración multiagente encuentra más vulnerabilidades reales.</li>
+<li><strong>Filtrado de falsos positivos dedicado</strong>: un escaneo orquestado sin verificación de falsos positivos asignaba severidad correcta solo en 26% de los casos; con un agente dedicado a falsos positivos después del análisis, subía a 74%. Recomendación directa: el análisis post dedicado vale los tokens extra porque hace triageable el resultado.</li>
+<li><strong>Agrupar por categoría de vulnerabilidad</strong>: la hipótesis de agrupar agentes (bugs de red, inyecciones) para ahorrar tokens fracasó: solo 34 de 41 encontradas, con tasa de fallo altísima. Recomendación: no agrupar; posiblemente los modelos sobreajustan al nombre de la categoría.</li>
+<li><strong>Enumeración, discovery y tracing</strong>: gestión de contexto cuidadosa —saltar archivos irrelevantes, cargar solo agentes que matchean la arquitectura, trazar sources y sinks— produjo una reducción de costo de ~26% en la mayoría de las corridas, con mejor profundidad.</li>
+<li><strong>Evaluación forzada por lotes (batching)</strong>: exigir a cada agente requisitos línea por línea para cubrir todo el código funciona muy bien y cuesta mucho. Uso recomendado: reservarlo para los código bases más críticos o como segunda pasada cuando un escaneo liviano marca code smells.</li>
+</ul>
+<h2>El factor Opus 4.6: modelos potentes contra flujos bien diseñados</h2>
+<p>A mitad de la preparación, Opus 4.6 salió al mercado, y el equipo corrió la comparación inevitable. En código bases chicas (1.000-2.000 líneas), con prompting fino, Opus encuentra ~38 de 41 vulnerabilidades: excelente. Pero en código bases grandes (más de 30.000 líneas o más de 125 archivos) la foto cambia: de los 191 hallazgos esperados en el repositorio extra grande, Opus solo encuentra 40; el superagente monolítico con un modelo menos potente encuentra 80; y el workflow orquestado llega a 116. La conclusión es provocadora: en código bases grandes, la gestión de contexto y el diseño del workflow producen resultados de mayor fidelidad que un modelo más potente sin estructura.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Enumeración de archivos<br/>sin tests, build artifacts, imágenes] --> B[Fase 2 en paralelo:<br/>análisis estático + discovery de arquitectura + tracing de datos]
+    B --> C[Discovery gates:<br/>agentes obligatorios + relevantes por arquitectura]
+    C --> D[Agentes especializados en paralelo<br/>XSS, SQLi, ...]
+    D --> E[Deduplicación y corroboración<br/>con findings de herramientas estáticas]
+    E --> F[Agente de falsos positivos<br/>descarta allowlists, código muerto, no alcanzable]
+    F --> G[Triage priorizado por facetas<br/>request única, output observable, multi-step]
+
+</pre>
+
+<h2>El workflow de producción</h2>
+<p>La arquitectura final apuesta por determinismo programático en todos los puntos posibles: al recorrer el árbol de archivos se omiten tests, build artifacts y ejemplos; la fase de discovery y priming aprovecha herramientas clásicas —AST, LSP, regex, Semgrep, CodeQL— para dar a los modelos una comprensión mejor del código base antes de priorizar. Los discovery gates solo abren agentes que matchean la arquitectura real: no se escanea por inyección SQL si no hay base de datos, y no se le pasan sinks de salida HTML/DOM al agente de SQLi. El batching de archivos agrupa archivos con cross-imports y uso cruzado, para que el análisis trabaje sin exploración adicional que queme tokens. Abajo del pipeline, la schematización y el tool calling programático fuerzan al agente a reevaluar cuando alucina una severidad o una clase de vulnerabilidad que no está en el enum permitido; y cada agente recibe solo las herramientas que necesita. El demo cierra con el agente de falsos positivos detectando que un parámetro validado contra una allowlist antes de la query SQL no merece atención, y con un triage ordenado por facetas: hallazgos de request única con output observable se validan primero, flujos multi-step quedan para después.</p>
+<h2>Descubrimientos reales y fricciones del día a día</h2>
+<p>Entre los hallazgos con disclosure responsable sobre proyectos populares (filtro: más de 5.000 estrellas y APIs remotas típicas de entornos de primera parte): una condición time-of-check/time-of-use en una plataforma de trading que permitía doble gasto y dinero gratis, y una inyección de comandos en un stack VIP —con resultado de RCE arbitrario "por fax"— útil para pruebas internas. También hubo fricción de herramienta cotidiana: sesiones abortadas en el IDE que perdían todo el historial de prompts, auto-compacts a 0% en el medio de escaneos de 45 minutos, corridas de cientos de dólares que había que cortar a mano antes de que saltara la alerta de gasto, y la disciplina de correr tests una y otra vez porque el modelo parece ganar "un par de neuronas" en una corrida y perderlas en las cinco siguientes.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Benchmark propio de escaneo</strong>: repos con 41 y 191 true positives anotados, score sheets, código muerto y trampas de falsos positivos, métricas automáticas de TP, costo y duración.</li>
+<li><strong>Orquestación multiagente</strong>: agentes obligatorios + relevantes por arquitectura, ejecución en paralelo, discovery gates.</li>
+<li><strong>Análisis estático clásico como priming</strong>: AST, LSP, regex, Semgrep, CodeQL alimentando el contexto de los agentes.</li>
+<li><strong>Tracing de fuentes y sinks</strong> para priorizar archivos y abortar candidates fuera de source, en comentarios o no alcanzables.</li>
+<li><strong>Agente dedicado de falsos positivos</strong> (26% → 74% de severidad correcta) y fase de triage por facetas (facilidad de validación, observabilidad del output, pasos del flujo).</li>
+<li><strong>Schematización y enums programáticos</strong> para forzar reevaluación ante severidades o clases alucinadas.</li>
+<li><strong>Chaining de modelos por costo</strong> (Haiku → Sonnet → Opus según triggers) con transferencia de la ventana de contexto.</li>
+<li><strong>Escaneo incremental de diffs</strong> con persistencia de traces y decisiones de falsos positivo para re-escanear PRs sin repetir el repositorio completo.</li>
+<li><strong>Release de referencia</strong>: repo público con skills, repos de evaluación con score sheets y un subconjunto de agentes, pensado para evaluar workflows con harnesses (no solo modelos base).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El escaneo de vulnerabilidades con modelos ya es viable, pero la diferencia entre 40 y 116 hallazgos en un repositorio grande no la hace el modelo: la hace la arquitectura del workflow.</li>
+<li>Un agente dedicado a falsos positivos triplica casi la calidad del triage; agrupar vulnerabilidades por categoría en un mismo agente la hunde.</li>
+<li>La cobertura exhaustiva existe, pero a precio de consultoría: el batching línea por línea se reserva para código crítico o señales de escaneos livianos.</li>
+<li>Las vulnerabilidades esotéricas no se encuentran solas: sin contexto específico en el prompt, los modelos rara vez detectan time-of-check/time-of-use o clases fuera del top 10 de OWASP, porque el peso del entrenamiento está en lo común.</li>
+<li>La evaluación continua es la única defensa contra la varianza: cada vez que cambia el modelo, cambian las configuraciones óptimas, y los benchmarks de workflows con harnesses son la pieza que falta en el ecosistema.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bxwEZMhqeR0">«Scott Behrens &amp; Justice Cassel - Source to Sink: Improving LLM Vuln Discovery | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

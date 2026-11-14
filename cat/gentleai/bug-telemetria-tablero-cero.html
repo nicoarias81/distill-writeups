@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El tablero que marcaba cero: anatomía de un bug de telemetría — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">El tablero que marcaba cero: anatomía de un bug de telemetría</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/qAVc4HNY9OE">«Artificial Intelligence: The bug that zeroed out my server»</a> · ver el <a class="nz-link" href="https://youtu.be/qAVc4HNY9OE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> qAVc4HNY9OE · <strong>URL:</strong> https://youtu.be/qAVc4HNY9OE · <strong>Conferencia:</strong> 05_gentleai · <strong>Título original:</strong> Artificial Intelligence: The bug that zeroed out my server</li>
+</ul>
+<h2>Resumen</h2>
+<p>El tablero público de telemetría de Gentle AI, que muestra cuántos tokens atraviesan el sistema, empezó a marcar cero mientras el tráfico seguía entrando. No era una caída de usuarios: los datos llegaban, pero nunca aparecían en el gráfico. Detrás del síntoma había dos problemas encadenados — un límite de tamaño en la lectura de métricas y una cardinalidad creciendo sin control — y detrás de ambos, una lección de método: antes de tocar nada, hay que medir el recorrido completo de la señal.</p>
+<p>Este artículo reconstruye ese recorrido paso a paso: qué mide la telemetría y qué no, cómo migró el almacenamiento de filas crudas en SQLite a contadores en VictoriaMetrics, dónde se rompía la lectura, y qué principios separan arreglar un síntoma de curar la enfermedad.</p>
+<h2>Dónde se pierde la señal</h2>
+<p>La arquitectura de la telemetría tiene cuatro pasos, y cada uno puede fallar por su lado:</p>
+<pre class="mermaid">
+flowchart LR
+    C[Cliente] -->|observación vía HTTPS| A[Apache]
+    A --> L[Colector: clasifica y suma contadores por categoría]
+    L --> V[(VictoriaMetrics)]
+    V -->|scrape cada 15 s| G[Grafana]
+
+</pre>
+
+<p>El cliente envía una observación pequeña por HTTPS; Apache la recibe y se la pasa al colector, que clasifica cada entrega y suma cada categoría en un contador. VictoriaMetrics va a retirar esos contadores — un scrape cada 15 segundos — y Grafana los dibuja. La metáfora que ordena el diagnóstico: una carta en el buzón todavía no es un número en el tablero. Si los datos existen en el buzón pero el aviso marca cero, el problema está en el retiro, no en la llegada. Fundir el buzón con el aviso lleva a arreglar el problema equivocado.</p>
+<p>Como la llegada estaba descartada (los datos existían) y la clasificación también, la búsqueda se centró en el retiro: por qué Grafana no mostraba lo que VictoriaMetrics sí tenía.</p>
+<h2>Qué mide la telemetría — y qué no</h2>
+<p>Antes de perseguir el cero, conviene saber qué representa cada "carta". La unidad de análisis es la entrega por máquina: no es una persona (una misma persona puede instalar en dos máquinas), no es una sesión, y no trae contenido. En ese flujo no viajan prompts, ni código, ni rutas de proyecto — la telemetría registra provider, modelo, esfuerzo y nada más.</p>
+<p>Ahí está la trampa de interpretación: si se lee cada entrega como una persona, la suma queda perfectamente mal y la conclusión sale rota. Primero la unidad, después el número.</p>
+<h2>De filas crudas a contadores</h2>
+<p>Al principio, cada entrega se guardaba como una fila cruda en SQLite: una fila por carta. A más de 1000 cartas por minuto, eso daba unos 2 GB por día, y se sentía en cada purga y cada backup. El 17 de septiembre cambió el modelo: VictoriaMetrics — open source, hecho para observabilidad — pasó a llevar un contador por categoría. La fila cruda era la carta entera; el contador es un palito en la planilla que le corresponde. Se retrocargaron casi 750.000 entregas del registro viejo, y SQLite quedó para la parte de adopción y deduplicación.</p>
+<p>Parecía terminado. Al día siguiente, el tablero marcó cero.</p>
+<h2>El límite de 16 MB</h2>
+<p>Cada 15 segundos, VictoriaMetrics va a buscar los contadores; ese retiro periódico es el scrape, y tiene un límite de tamaño de 16 MB. La respuesta del colector ya pesaba más que eso: el cartero llegaba, veía un paquete más grande de lo permitido y se iba con las manos vacías. Buzón lleno, aviso en cero.</p>
+<p>Tener control del propio VPS (HostGator, en este caso) convirtió el arreglo en una operación de minutos: subir el límite a 64 MB y redeployar la configuración mediante el agente conectado a un script de SSH, sin exponer claves. Sin ese control, el camino habría sido abrir un ticket y esperar a que otra persona tocara el servidor.</p>
+<h2>La enfermedad detrás del síntoma</h2>
+<p>Subir el límite curaba el síntoma, pero ¿por qué había engordado tanto la respuesta? Cada combinación nueva de etiquetas — cliente, modelo, esfuerzo — abre su propia serie en VictoriaMetrics, aunque no tenga ni una carta anotada. La cantidad de combinaciones tiene nombre: cardinalidad. Más cardinalidad, más series, más peso en la respuesta del scrape, más difícil el retiro.</p>
+<p>El 24 de septiembre se sumaron dos medidas: una guardia que evita abrir series nuevas vacías (si no pasó nada, no se crea la combinación), y un vencimiento de un día — toda serie que no reciba cartas en 24 horas se retira. Tras un reinicio, el registro quedó en alrededor de medio mega.</p>
+<p>¿Eso prueba que quedó arreglado para siempre? No. El reinicio vacía el registro en memoria, y con actividad vuelve a crecer. Lo que importa no es el número post-reinicio: es que el próximo retiro funcione cuando vuelve a entrar el correo. La guardia evita series nuevas vacías, pero no borra las que ya existían. No hace falta memorizar la línea de configuración; hace falta entender por qué la lectura pesaba.</p>
+<h2>Publicar no es lo mismo que guardar</h2>
+<p>Con la lectura interna sana, ¿se puede publicar todo lo que se guarda? No. El export público es un boletín: agregados con fecha, no el archivo interno, y aplica un piso de 10 a los grupos publicados. Ese piso de privacidad no es anonimato absoluto, y tampoco dice cuánto tiempo se conserva el dato interno. Son dos decisiones distintas — qué se guarda para operar y qué se muestra afuera — y mezclarlas es describir mal el dato y sus limitaciones.</p>
+<p>El snapshot público expone cuatro campos: <code>generated</code> (cuándo se armó el boletín), <code>runtime</code> (la ventana de 15 minutos), el <code>privacy floor</code> (el piso configurado) y los tokens procesados en esa ventana. Dos reglas de lectura: primero la fecha — un boletín con fecha es orientativo, uno sin contexto manda a investigar, y quizás equivocado — y ojo con comparar totales si cambiaron los campos que llegan: dos totales pueden no medir lo mismo. Y si el comando falla, ese intento no aprueba nada, ni para bien ni para mal.</p>
+<h2>Lecciones para el próximo cero</h2>
+<p>Cuando un tablero marque cero, el reflejo no debe ser preguntarle a la IA "¿qué pasa acá?" y aceptar el primer parche — "subile el límite y listo" es una curita sobre la herida. El método que funcionó:</p>
+<ol>
+<li><strong>Medir el recorrido</strong>: recorrer todo el camino de la señal antes de tocar nada. Las cartas estaban llegando; el retiro fallaba; detrás del retiro fallido había series vacías y cardinalidad creciendo sin freno. Ningún número aislado contaba esa historia; el recorrido, sí.</li>
+<li><strong>Chequear tres cosas en orden</strong>: si llegaron entregas, si el lector pudo retirarlas, y qué ventana se está mirando.</li>
+<li><strong>Separar síntoma de enfermedad</strong>: el límite de 16 MB era el síntoma; la cardinalidad, la enfermedad.</li>
+</ol>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Grafana</strong> — tablero que dibuja las métricas de telemetría; el punto donde el bug era visible.</li>
+<li><strong>VictoriaMetrics</strong> — base de series temporales open source para observabilidad; guarda un contador por categoría y es objeto del scrape.</li>
+<li><strong>Scrape</strong> — retiro periódico de contadores (cada 15 segundos) con límite de tamaño de 16 MB, origen del cero.</li>
+<li><strong>SQLite</strong> — almacenamiento original de filas crudas (~1000 entregas/minuto, ~2 GB/día); hoy queda para adopción y deduplicación.</li>
+<li><strong>Cardinalidad</strong> — cantidad de combinaciones de etiquetas; cada combinación abre una serie propia, con o sin datos.</li>
+<li><strong>Guardia y vencimiento de 24 h</strong> — medidas contra el crecimiento de cardinalidad: no abrir series vacías y retirar las que no reciben cartas en un día.</li>
+<li><strong>Boletín público y privacy floor</strong> — export agregado con fecha y piso de 10 para grupos publicados, distinto del registro interno de operación.</li>
+<li><strong>VPS (HostGator)</strong> — infraestructura propia que permitió subir el límite del scrape a 64 MB sin depender de un ticket.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un cero en el tablero no significa que nadie usó nada: significa que en algún punto de la cadena la señal se perdió, y el punto más frecuente es el retiro, no la llegada.</li>
+<li>La unidad de análisis manda: una entrega no es una persona ni una sesión, y no viaja contenido. Leer mal la unidad produce sumas rotas y conclusiones peores.</li>
+<li>Arreglar el síntoma (subir el límite) sin entender la enfermedad (cardinalidad sin control) garantiza la recaída; el reinicio limpia la memoria, no el problema.</li>
+<li>Qué se guarda para operar y qué se publica son decisiones separadas; el boletín público con agregados y piso de privacidad no es el registro interno ni pretende serlo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/qAVc4HNY9OE">«Artificial Intelligence: The bug that zeroed out my server»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

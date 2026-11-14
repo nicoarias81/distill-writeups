@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hackear como verbo: herramientas abiertas, comunidad y el hack que cifró internet — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hackear como verbo: herramientas abiertas, comunidad y el hack que cifró internet</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/f_OqU3JWcV0">«Lado B - Entrevista STÖK y JOOHOI - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/f_OqU3JWcV0">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> f_OqU3JWcV0 · <strong>URL:</strong> https://youtu.be/f_OqU3JWcV0 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Lado B - Entrevista STÖK y JOOHOI - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Detrás de las herramientas y el contenido que la comunidad de seguridad usa a diario hay personas, y el encuentro con ellas tiene un efecto singular: quien construye una herramienta o graba un video rara vez dimensiona que alguien del otro lado lo está usando y agradeciéndolo. "Somos todos humanos" — dice quien lleva años creando contenido de bug bounty — y ese reconocimiento mutuo es lo que mantiene el ciclo de creación.</p>
+<p>La conversación entre dos creadores con trayectorias distintas —uno dedicado al contenido y la divulgación de bug bounty, otro autor de herramientas de línea de comandos fundamentales— deja una tesis central: el hackeo, entendido como verbo, es encontrar una solución creativa a un problema y generalizarla para que otros la repliquen fuera del contexto de escasez original. Y no siempre ese hack apunta a un sistema: a veces apunta a la cultura, a la adopción o a la burocracia.</p>
+<h2>Certbot: el hack que nadie vio como hack</h2>
+<p>El ejemplo más contundente de "hackear un problema que no parece de seguridad" es Certbot y el ecosistema que lo rodea. Hace unos diez años, desplegar HTTPS era costoso: había que pagar certificados, instalarlos a mano y renovarlos manualmente, y la mayoría de la web simplemente no cifraba. La combinación de Let's Encrypt —una autoridad de certificación gratuita— y herramientas cliente automatizadas resolvió el problema por capas:</p>
+<ol>
+<li><strong>Quitar la barrera monetaria</strong>: el certificado es gratis.</li>
+<li><strong>Resolver el problema técnico</strong>: con certificados de validez corta (90 días), la renovación debe automatizarse — eso es exactamente lo que hace el cliente.</li>
+<li><strong>Arreglar las configuraciones rotas</strong>: en lugar de exigirle al usuario que configure TLS correctamente, la herramienta instala una configuración segura por defecto.</li>
+</ol>
+<p>El resultado cambió el comportamiento de los navegadores y de los usuarios: en lugar de castigar con advertencias a quien no tenía el candado, la web se volvió segura por defecto. Nadie tuvo que "poner la S a HTTP": se le quitaron los obstáculos de en medio. Ese es el patrón del hack: habilitar en vez de exigir.</p>
+<h2>Curación: el eslabón que sostiene el open source</h2>
+<p>En la comunidad open source, construir la herramienta más genial no alcanza: si nadie la conoce, la pasión invertida se vuelve soledad. Faltan curadores —personas que muestren al mundo qué existe—, porque nadie tiene tiempo de revisar los cientos de miles de proyectos nuevos que aparecen cada mes. Un programa como Bounty Thursdays nació con esa lógica: nunca trataba del trabajo propio, sino de destacar proyectos ajenos y mostrar qué se podía hacer con ellos, para que más gente los use, los modifique y los extienda.</p>
+<p>El efecto eco funciona: los proyectos iniciales generan spin-offs, adaptaciones y bifurcaciones que los mejoran. Y la comunidad a veces supera al autor: alrededor de herramientas como ffuf surgió espontáneamente alguien que respondía las preguntas de la comunidad sin que nadie se lo pidiera, y terminó siendo una parte esencial del proyecto. El mensaje a quien quiere empezar es directo: no hace falta ser el autor para sumar valor — empezar por lo que ya se sabe hacer (documentar, traducir, filmar, responder) es el escalón de entrada.</p>
+<h2>El costo real de crear contenido técnico</h2>
+<p>Un video de 10 a 15 minutos representa alrededor de una semana de trabajo activo —40 horas— de investigación, verificación de código y cuidado de la reputación de lo que se afirma. Y lo que nadie ve de la creación abierta: no hay una empresa detrás, el tiempo de una persona no escala, y responder las mismas preguntas básicas una y otra vez es un uso pésimo de ese tiempo no escalable. Documentar las funciones ocultas importa: en más de una herramienta, alguna funcionalidad estuvo más de un año sin documentación y nadie sabía que existía, simplemente porque el autor nunca lo contó.</p>
+<p>El frente contrario también existe: publicar en línea garantiza trolls. Nadie está entrenado para eso, y poner 40 horas en un video para recibir un "es una mierda" duele. La salida práctica fue dejar de leer los comentarios y las métricas de vistas — abrir el teléfono a ver los números generaba ansiedad y no aportaba nada—.</p>
+<h2>Atención, ritmo y el trabajo en equipo</h2>
+<p>En la era del contenido corto diseñado para generar dopamina, la respuesta personal de varios creadores fue la misma: quitarse ese consumo de la vida e invertir el tiempo limitado del día en algo que aporte —hackear, aprender, mirar algo con contenido educativo—. Presentar en cambio exige lo opuesto: mantener la atención de la audiencia a propósito, con presentaciones de ritmo altísimo (264 slides en 45 minutos) donde un solo descuido de la audiencia implica perder el hilo.</p>
+<p>Trabajar en dúo mostró otra lección: fuerzas complementarias, opiniones distintas y diálogo constructivo producen resultados muy superiores a trabajar solo. La analogía es una banda de jazz: se ensaya tanto que el guion casi no hace falta, y recién ahí se puede improvisar —agregar swing— porque el resto conoce la base. La responsabilidad compartida y la apropiación colectiva de un proyecto es lo que lo vuelve rico.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Certbot</strong>: cliente que automatiza la emisión y renovación de certificados TLS; pieza central de la adopción masiva de HTTPS.</li>
+<li><strong>Let's Encrypt</strong>: autoridad de certificación gratuita que eliminó la barrera monetaria del cifrado web.</li>
+<li><strong>ffuf</strong>: herramienta de fuzzing web open source cuyo ecosistema de comunidad creció espontáneamente alrededor del proyecto.</li>
+<li><strong>Bounty Thursdays</strong>: formato de contenido dedicado a curar y destacar proyectos de la comunidad de bug bounty.</li>
+<li><strong>Open source como modelo de escala</strong>: herramientas gratis y extensibles que multiplican el impacto de una sola persona.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El hackeo más profundo no siempre rompe un sistema: habilitar (quitar fricción, asegurar por defecto, democratizar) es la forma de hackear la adopción, como demostró el ecosistema Certbot/Let's Encrypt al cifrar la web.</li>
+<li>El open source necesita curación y comunidad tanto como código: una herramienta sin difusión muere sola, y las preguntas de los usuarios son una señal de tracción que conviene canalizar, no ignorar.</li>
+<li>Crear contenido técnico de calidad cuesta semanas de trabajo invisible, y gestionar trolls y métricas es parte del oficio; la respuesta sana es enfocarse en el impacto y dejar de medir en exceso.</li>
+<li>Para entrar en la comunidad, el camino corto es empezar por lo que ya se domina —documentar, filmar, responder— y hacerlo por gusto genuino: la fama llega después del trabajo, no antes.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/f_OqU3JWcV0">«Lado B - Entrevista STÖK y JOOHOI - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

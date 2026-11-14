@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Convertir los filtros de spam en tu peor enemigo: intrusiones zero-click por RCE en filtros de correo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Convertir los filtros de spam en tu peor enemigo: intrusiones zero-click por RCE en filtros de correo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lvFG05H45l8">«DCSG1 - Turning Spam Filters Into Your Enemy  Intrusions Via RCEs in  Spam Filters - Ting-Wei Hsieh»</a> · ver el <a class="nz-link" href="https://youtu.be/lvFG05H45l8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> lvFG05H45l8 · <strong>URL:</strong> https://youtu.be/lvFG05H45l8 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DCSG1 - Turning Spam Filters Into Your Enemy  Intrusions Via RCEs in  Spam Filters - Ting-Wei Hsieh</li>
+</ul>
+<h2>Resumen</h2>
+<p>Ting Wei, analista de malware en CHT Security, presenta tres casos reales de respuesta a incidentes en los que actores de amenazas obtuvieron acceso inicial atacando los filtros antispam y antimalware de correo en lugar de a los usuarios. Dos son ataques zero-day contra el filtro HGIGA iSherlock; el tercero convierte una escritura arbitraria por path traversal de 7-Zip en una ejecución remota de código completa, sin interacción del usuario y con privilegios de root. Más del 90% de las intrusiones exitosas llegan por phishing según KnowBe4, así que las soluciones anti-APT que filtran el correo en el servidor se volvieron muy populares en Taiwán, con clientes de perfil alto como agencias gubernamentales. El giro siniestro: esos productos terminaron siendo el punto de entrada y el punto de fallo de los atacantes.</p>
+<h2>El patrón común</h2>
+<p>Cada caso empieza igual: un usuario recibe un spam evidente, lo tira a la papelera gracias a su formación en ciberseguridad, y el día sigue. Pero el atacante nunca fue tras el usuario: fue tras el servidor, y el servidor ya está comprometido en el momento en que recibe el correo. En los tres incidentes, <strong>un solo correo contiene el exploit y todos los payloads</strong>: no hay descargas posteriores, ni conexiones salientes inmediatas, ni interacción del usuario.</p>
+<h2>Caso 1: RCE zero-day por el campo charset (RFC 2047) en HGIGA iSherlock</h2>
+<p>La raíz está en el manejo incorrecto de la línea de asunto RFC 2047 —la codificación tipo <code>=?charset?encoding?datos?=</code> que permite asuntos en chino o cualquier alfabeto—. El parser envía los títulos aún sin decodificar a la función de logging, y ahí explota todo: para un conjunto de charsets, el código vulnerable invoca el comando <code>iconv</code> del sistema para convertir a UTF-8, y la detección del charset no usa una regex propiamente acotada, sino que solo verifica que la palabra clave <code>shift_jis</code> esté presente en el campo. Al ser una comprobación por presencia, se puede inyectar un punto y coma y un comando arbitrario en el campo "confiable".</p>
+<p>En los logs del EDR aparece el detalle sabroso: el código vulnerable pasa el campo por <code>uc</code> de Perl antes de ejecutarlo, así que <strong>todo comando llega en mayúsculas al shell</strong>. La ofuscación del exploit está diseñada exactamente para eso: con sintaxis de shell se baja a minúscula el primer carácter de una variable si coincide con el sufijo indicado, y desde puro mayúsculas y símbolos se reconstruyen comandos en minúscula como <code>ls</code>. El comando decodificado copia el adjunto —que se llama <code>.jpeg</code> pero es un binario ELF— a un directorio propio y lo detona. Todo sigue contenido en el único correo del exploit.</p>
+<p>Lecciones: ejecutar comandos de sistema con entrada externa es peligroso, y ni el gatekeeping del código ni el cifrado de código funcionan —la seguridad por oscuridad no funciona—.</p>
+<h2>Caso 2: RCE zero-day por nombres de archivos anidados, con web shell en SMTP</h2>
+<p>Segunda falla zero-day en el mismo producto, ahora en la subrutina de escaneo antimalware, que no sanitiza los nombres de entradas de archivos anidados: extrae el archivo externo (un <code>jpeg.jpg</code> que en realidad es un 7z) a un directorio temporal sin renombrar las entradas, y al procesar el archivo interno anidado, el nombre malicioso —con comilla simple, punto y coma y comandos— rompe el shell por inyección.</p>
+<p>El payload es un script Perl que <strong>envenena la biblioteca SSL del propio producto</strong>: copia la función <code>getline</code> original de la biblioteca a un archivo temporal, inserta una <code>getline</code> maliciosa en el medio, y sobrescribe la biblioteca legítima con la versión backdoor. Esa función intercepta los comandos SMTP <code>NOOP</code> —que en condiciones normales funcionan como un ping— y ejecuta los comandos maliciosos que llegan en sus parámetros: un web shell escondido en una biblioteca tocada, pero que habla SMTP en vez de HTTP. Muy silencioso, muy escondido, muy letal.</p>
+<p>Y remata la lección sobre oscuridad: el actor abusó del <strong>cifrado de código propio del vendor</strong> para ocultar su malware. El artefacto interceptado es un archivo cifrado del que solo se ven las dos primeras líneas; al descifrarlo, reaparece la puerta trasera original. El atacante no solo rompió el cifrado del fabricante: lo reutilizó como infraestructura de ocultamiento. Moraleja adicional: los nombres y rutas de archivos provistos externamente también son entrada peligrosa.</p>
+<h2>Caso 3: de path traversal de 7-Zip a root sin clics en OpenFind MailGates</h2>
+<p>El caso favorito del autor: un ataque dirigido contra OpenFind MailGates, otro filtro anti-APT de otro fabricante. El punto de partida es <strong>CVE-2025-11001</strong> —descubierto por otros cazadores de bugs—, un fallo de 7-Zip que no maneja bien los enlaces simbólicos maliciosos; el producto víctima no había actualizado su binario de 7-Zip incluido. Al extraer adjuntos maliciosos, el enlace simbólico corrupto apunta fuera del directorio de destino —al directorio <code>webmailmgutil</code>— y las carpetas y archivos siguientes se escriben donde el atacante elige. En versiones previas el ataque traía dos payloads; en la posterior, cinco, todo en un solo correo.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Correo con 7z y\nsymlink malicioso CVE-2025-11001] --> B[Escritura arbitraria\nen directorio del sistema]
+    B --> C[Sobrescribe script programado\nmgAuditMultiplyManager]
+    C --> D[Se ejecuta cada hora\ncon mgSudo propio del producto]
+    D --> E[Hash reproducido\nescalada a root]
+    E --> F[5 payloads: plugin Apache,\ninroot, sudoers, inyector, rootkit]
+
+</pre>
+
+<p><strong>De escritura a ejecución.</strong> El atacante sobrescribe un script con nombre específico, <code>mgAuditMultiplyManager</code>, que se ejecuta cada hora; la próxima corrida detona el malware. Para escalar usa <code>mgSudo</code>, la implementación propia de sudo del producto pensada para actualizaciones: valida un checksum del script y deniega root si no coincide, pero el malware simplemente recalcula y reproduce el hash de su propio script y pasa la verificación.</p>
+<p><strong>Los cinco payloads.</strong> El script con root instala: (1) un plugin del Apache HTTP daemon llamado <code>modremote</code> que intercepta peticiones con un header específico del producto y ejecuta comandos descifrados que llegan en ese header; (2) setuid a root en un ejecutable simple que es un ejecutor de comandos, usado como puerta trasera persistente de escalada; (3) la adición del usuario webmail al perfil de sudoers sin contraseña, para volver a root en futuros accesos de baja privilegio; (4) un <strong>inyector de shellcode parasitario</strong>; y (5) un <strong>rootkit de kernel</strong>.</p>
+<p><strong>El inyector parasitario.</strong> Apunta al daemon SMTP del producto, <code>mgsmtpd</code>, en ejecución: recorre <code>/proc</code> buscando el ejecutable, localiza en <code>/proc/&lt;pid&gt;/maps</code> la región de memoria respaldada por el binario objetivo, se adjunta con <code>ptrace</code> para obtener privilegios de depuración, y usa <code>pread</code> para localizar las instrucciones a hookear y comprobar si el proceso ya está infectado (si encuentra la marca del mismo malware, sale). La búsqueda "egg-hunting" divide la memoria en bloques de 64 KB buscando dos patrones específicos; encontrados —proceso susceptible y aún no infectado—, el inyector escribe stubs de syscall temporales con <code>ptrace</code>: el stub empieza con <code>0f 05</code> (syscall), se escribe con <code>poke_data</code>, se parametriza con <code>set_registers</code> (syscall 9 = mmap para reservar memoria en el proceso víctima), se detona con <code>continue</code> y el resultado llega en RAX vía <code>get_registers</code>. Finalmente escribe el shellcode y los hooks en chunks alineados a 8 bytes, leyendo de la memoria objetivo los tramos desalineados.</p>
+<p><strong>Los hooks.</strong> Dos modificaciones sobre el código del servidor: el manejador de NOOP, que en vez de responder el fijo <code>250 OK</code> ahora envía el contenido del buffer global en la dirección 23BA00; y la llamada de logging <code>logFPSTR</code> del manejador principal de comandos SMTP, que ahora salta al shellcode malicioso. El shellcode parasitario entiende dos comandos, ambos camuflados en comandos NOOP, sin C2 y sin puertos extra:</p>
+<ul>
+<li><strong>read</strong>: <code>NOOP read:&lt;ruta&gt;</code> hace que el shellcode lea los primeros 20 KB del archivo elegido al buffer global; el hook del NOOP devuelve ese contenido al atacante en lugar del <code>250 OK</code>. Mientras tanto, el módulo desarma la función de logging para que no registre nada, y devuelve el control al flujo normal como si nada.</li>
+<li><strong>execute</strong>: el buffer global se usa para armar los argumentos de un <code>execve</code> que corre el comando a ciegas, sin devolver salida.</li>
+</ul>
+<h2>Lecciones y defensa</h2>
+<ul>
+<li><strong>El filtro de correo es superficie de ataque de primer orden</strong>: procesa todo lo que entra, con parser complejos, archivos anidados y nombres controlados por terceros, y a menudo con privilegios elevados. Tratarlo como activo crítico: actualización prioritaria de sus componentes incluidos (como el 7-Zip embebido), monitorización y segmentación.</li>
+<li><strong>La seguridad por oscuridad no funciona, dos veces</strong>: ni el cifrado de código del vendor impidió el análisis, ni impidió que el atacante lo reutilizara para ocultar su propia puerta trasera.</li>
+<li><strong>Toda entrada externa es peligrosa</strong>: no solo campos de asunto; también nombres de archivos y rutas dentro de archivos anidados. Sanitizar y escapar antes de tocar shell o sistema de archivos.</li>
+<li><strong>Detectar lo anómalo en lo cotidiano</strong>: comandos NOOP con parámetros, scripts programados que cambian de hash, binarios tocados, plugins de servidor inesperados y procesos SMTP con memoria inyectada son señales concretas de estos tres incidentes.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>RFC 2047 / iconv</strong>: inyección de comandos vía campo charset sin acotar por regex.</li>
+<li><strong>Obfuscación tolerante a mayúsculas</strong>: sintaxis de shell para reconstruir minúsculas cuando el código vulnerable aplica <code>uc</code> de Perl antes de ejecutar.</li>
+<li><strong>Archivos anidados 7-Zip</strong>: inyección de comandos vía nombres de entradas no sanitizados.</li>
+<li><strong>Web shell sobre SMTP</strong>: envenenamiento de la función <code>getline</code> de una biblioteca del producto, activada por comandos NOOP.</li>
+<li><strong>CVE-2025-11001</strong>: path traversal por enlaces simbólicos maliciosos en 7-Zip.</li>
+<li><strong>mgSudo con checksum reproducido</strong>: escalada a root abusando del sudo propio del producto.</li>
+<li><strong>Persistencia múltiple</strong>: plugin de Apache con comandos en headers, binario setuid, sudoers sin contraseña, inyector parasitario y rootkit de kernel.</li>
+<li><strong>Inyección de procesos en Linux</strong>: <code>/proc/&lt;pid&gt;/maps</code>, <code>ptrace</code> (attach, poke_data, set_registers, get_registers, continue), stubs de syscall, mmap y <code>execve</code>, hooks sobre NOOP y sobre la función de logging.</li>
+<li><strong>Exfiltración por el protocolo legítimo</strong>: lectura de archivos de 20 KB devueltos en la respuesta <code>250 OK</code> del NOOP, sin C2 ni puertos adicionales.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los productos de seguridad pueden ser el punto de fallo: instalar un filtro anti-APT con parsers complejos y privilegios altos frente a todo el correo entrante crea un objetivo mejor que los usuarios que intenta proteger.</li>
+<li>Un solo correo basta: los tres incidentes completan la intrusión con el exploit y todos los payloads en el mismo mensaje, sin interacción del usuario y sin tráfico saliente inmediato, lo que invalida defensas centradas en detectar la exfiltración temprana.</li>
+<li>La defensa útil pasa por higiene clásica aplicada con rigor —actualización de dependencias incluidas, sanitización de toda entrada externa incluidos nombres de archivo, principio de mínimo privilegio en componentes de filtro— y por monitorear las anomalías silenciosas: NOOPs con parámetros, hashes de scripts programados, memoria de procesos SMTP.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lvFG05H45l8">«DCSG1 - Turning Spam Filters Into Your Enemy  Intrusions Via RCEs in  Spam Filters - Ting-Wei Hsieh»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

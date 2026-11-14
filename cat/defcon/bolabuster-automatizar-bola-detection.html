@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BOLABuster: automatizar la detección de BOLA con LLMs — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">BOLABuster: automatizar la detección de BOLA con LLMs</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/9bNv3XkhjQA">«DEF CON 32 - BOLABuster-Harnessing LLMs for Automating BOLA Detection - Ravid Mazon, Jay Chen»</a> · ver el <a class="nz-link" href="https://youtu.be/9bNv3XkhjQA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li>
+<p><strong>Video:</strong> 9bNv3XkhjQA · <strong>URL:</strong> https://youtu.be/9bNv3XkhjQA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - BOLABuster-Harnessing LLMs for Automating BOLA Detection - Ravid Mazon, Jay Chen
+<em>Palo Alto Networks · API security research</em></p>
+</li>
+<li>
+<p><strong>TL;DR</strong></p>
+</li>
+<li>Broken Object Level Authorization (BOLA) encabeza el OWASP API Security Top 10 y es la cuarta vulnerabilidad más reportada en HackerOne, pero no existía una herramienta que la detecte de forma fiable y a escala.</li>
+<li>La propuesta toma como única entrada una especificación OpenAPI/Swagger y encadena cinco etapas: selección de endpoints potencialmente vulnerables, descubrimiento de dependencias productor→consumidor, cálculo de rutas de ejecución, generación de scripts de prueba con LLMs y ejecución contra un servidor de pruebas.</li>
+<li>Contra tres aplicaciones deliberadamente vulnerables, el enfoque encontró todos los casos de BOLA con menos del 1 % de las peticiones que generó RESTler (el fuzzer de APIs de Microsoft), que no detectó ninguno.</li>
+<li>En proyectos reales se documentaron 17 BOLA nuevas: una en Harbor, una en Grafana y 15 en Easy!Appointments (siete críticas, CVSS 9.9, que permiten a un usuario sin privilegios escalar a admin).</li>
+</ul>
+<h2>Por qué BOLA es difícil de automatizar</h2>
+<p>BOLA es un fallo de autorización a nivel de objeto: un usuario accede, modifica o elimina un recurso que no le pertenece (por ejemplo, borrar el comentario de otro usuario). No es un patrón de payload malicioso como XSS o SQL injection: es un error lógico, y eso complica el análisis. Los principales obstáculos son cuatro:</p>
+<ol>
+<li><strong>Mecanismos de autorización complejos</strong>: aplicaciones con múltiples usuarios, roles y recursos, donde decidir "quién puede hacer qué" no es trivial.</li>
+<li><strong>Estado compartido y dependencias</strong>: las APIs son stateful; para probar el borrado de un comentario hay que crear primero el artículo y el comentario. El orden de ejecución importa y no se puede aislar un endpoint.</li>
+<li><strong>Falta de indicador de vulnerabilidad</strong>: la respuesta "éxito" del servidor no distingue entre un ataque y un uso legítimo.</li>
+<li><strong>Contexto</strong>: entender qué endpoint y qué parámetro transporta datos sensibles, y cuál es el impacto real de cada acción, exige razonamiento semántico.</li>
+</ol>
+<p>Ese último punto es el que hace viable el uso de LLMs: extraer lógica e intención de texto (la descripción de la spec) es justo su punto fuerte.</p>
+<h2>La metodología en cinco etapas</h2>
+<pre class="mermaid">
+flowchart LR
+    A[OpenAPI / Swagger spec] --> B[Selección de PVEs<br/>endpoints con parámetros sensibles]
+    B --> C[Descubrimiento de dependencias<br/>productores y consumidores]
+    C --> D[Árbol de dependencias y<br/>rutas de ejecución hoja→raíz]
+    D --> E[Generación de scripts bash<br/>con LLM, ~1,5 s por test]
+    E --> F[Ejecución contra el servidor<br/>registro, login y tokens automatizados]
+    F --> G{PVE responde éxito<br/>al usuario B?}
+    G -- Sí --> H[BOLA potencial<br/>→ análisis y verificación]
+    G -- No --> I[Endpoint protegido]
+
+</pre>
+
+<ul>
+<li><strong>Identificación de endpoints objetivo (PVE)</strong>: se buscan endpoints con parámetros que referencian información privada o confidencial (<code>username</code>, <code>email</code>…), porque un BOLA ahí permitiría, por ejemplo, resetear la contraseña de otro usuario. Un prompt con reglas y ejemplos hace el trabajo que antes hacía un pentester a mano sobre cientos de endpoints.</li>
+<li><strong>Relación productor/consumidor</strong>: un endpoint consumidor necesita como entrada valores que otros endpoints (productores) generan. Probar <code>delete user</code> con un nombre de usuario inexistente solo produce errores sin valor; hay que alimentarlo con un usuario real creado antes. El emparejamiento heurístico de nombres de parámetros no basta (los desarrolladores reutilizan nombres para objetos distintos y viceversa), así que se combinan heurísticas con análisis semántico del LLM.</li>
+<li><strong>Árbol de dependencias y rutas de ejecución</strong>: para cada PVE se construye un árbol donde el nodo raíz es el objetivo y cada arista padre→hijo es una relación consumidor→productor. Cada camino de hoja a raíz es un escenario de prueba ejecutable; se busca cubrir todos los caminos posibles.</li>
+<li><strong>Generación y ejecución</strong>: cada ruta se convierte en un script bash autónomo (generación asíncrona, ~1,5 segundos por test). Antes de ejecutar, se aísla del spec solo el subconjunto relevante para el test —reducción del 90-95 % del documento—, lo que baja el costo en tokens y mejora la precisión. Registro de usuarios, login y refresco de tokens están automatizados, y cada actor (Alice, Bob) recibe un token único.</li>
+<li><strong>Orquestación del orden</strong>: los tests que crean datos se ejecutan primero; las operaciones update y delete se empujan al final, para que un fallo se deba a la lógica de autorización y no a razones técnicas.</li>
+</ul>
+<p>El test canónico: Alice crea un artículo y un comentario (guardando slug e id), y Bob intenta borrar el comentario de Alice con su propio token. Si la operación tiene éxito, hay un BOLA potencial.</p>
+<h2>Resultados: laboratorio y proyectos reales</h2>
+<p>Como referencia se usó RESTler, el fuzzer de APIs open source de Microsoft, sobre tres aplicaciones deliberadamente vulnerables al OWASP API Top 10. RESTler no identificó ningún BOLA pese a lanzar miles o cientos de miles de peticiones; la metodología aquí descrita encontró todos los BOLA de las tres aplicaciones con menos del 1 % de las llamadas, con el objetivo puesto en una tasa de verdaderos positivos del 100 % (se asumen falsos positivos controlables).</p>
+<p>En proyectos reales, el balance fue de 17 BOLA nuevas:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Proyecto</th>
+<th>Qué es</th>
+<th>Hallazgo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Harbor</td>
+<td>Registro de contenedores cloud-native (CNCF graduado)</td>
+<td>1 BOLA: la API permite a un maintainer modificar la configuración del proyecto (visibilidad pública/privada, escaneo de imágenes) aunque la UI lo bloquee; violación de la integridad del proyecto. Con CVE publicado.</td>
+</tr>
+<tr>
+<td>Grafana</td>
+<td>Visualización y monitoreo (~20 M de usuarios)</td>
+<td>1 BOLA nueva.</td>
+</tr>
+<tr>
+<td>Easy!Appointments</td>
+<td>Gestión de citas (~200 k descargas)</td>
+<td>15 BOLA nuevas, 7 críticas (CVSS 9.9): un usuario con privilegios bajos obtiene acceso de administrador.</td>
+</tr>
+</tbody>
+</table></div>
+<p>El caso de Harbor ilustra un patrón frecuente: la UI aplica correctamente las políticas y la API no. Cualquier auditoría de autorización que solo pruebe la interfaz gráfica deja expuesta exactamente esta clase de fallos.</p>
+<h2>Implicaciones prácticas</h2>
+<ul>
+<li>Las pruebas de BOLA se pueden automatizar a partir de la especificación OpenAPI que casi toda organización ya produce, sin tocar el código fuente.</li>
+<li>La combinación heurísticas + LLM supera a cualquiera de los dos por separado: las heurísticas son baratas y deterministas, el LLM resuelve la ambigüedad semántica de nombres de parámetros.</li>
+<li>Reducir el spec al subconjunto relevante por test (90-95 % menos de texto) es la palanca principal de costo y calidad.</li>
+<li>Todo test de BOLA es malicioso por definición: solo debe ejecutarse contra servidores de prueba controlados.</li>
+<li>Revisar la paridad UI/API: discrepancias entre ambas son un indicador directo de autorización inconsistente.</li>
+</ul>
+<h2>Lecciones sobre el uso de LLMs</h2>
+<ul>
+<li><strong>La IA no siempre es la respuesta</strong>: si un problema (ordenar, resolver ecuaciones) tiene solución heurística óptima, úsela.</li>
+<li><strong>No confiar, validar</strong>: la salida del modelo debe verificarse antes de pasarla a la etapa siguiente; confiar ciegamente es peligroso.</li>
+<li><strong>Divide y vencerás</strong>: tratar al modelo como un junior muy capaz —excelente en tareas simples, propenso a errores en tareas complejas— y partir el trabajo en pasos pequeños.</li>
+</ul>
+<h2>Límites y suposiciones</h2>
+<ul>
+<li>La metodología asume una especificación OpenAPI/Swagger disponible y de calidad; sin ella no hay punto de partida.</li>
+<li>La detección marca BOLA <em>potenciales</em>: la confirmación final (impacto real, contexto de negocio) sigue requiriendo análisis humano.</li>
+<li>El objetivo declarado es maximizar verdaderos positivos, no eliminar falsos positivos.</li>
+<li>Las mediciones de eficiencia (menos del 1 % de las llamadas de RESTler, 1,5 s por test) corresponden a las aplicaciones evaluadas, no a una garantía general.</li>
+</ul>
+<h2>Para profundizar</h2>
+<ul>
+<li>OWASP API Security Top 10: https://owasp.org/API-Security/</li>
+<li>RESTler, el fuzzer de APIs de Microsoft: https://github.com/microsoft/restler-fuzzer</li>
+<li>Harbor (registro de contenedores CNCF): https://goharbor.io/</li>
+<li>Grafana: https://grafana.com/</li>
+<li>Easy!Appointments: https://easyappointments.org/</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/9bNv3XkhjQA">«DEF CON 32 - BOLABuster-Harnessing LLMs for Automating BOLA Detection - Ravid Mazon, Jay Chen»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

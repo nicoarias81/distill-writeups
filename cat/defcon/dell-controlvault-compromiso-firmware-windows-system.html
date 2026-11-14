@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dell Control Vault: de un firmware sin documentar a shell SYSTEM en Windows — cifrado roto, claves filtradas e implante persistente — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Dell Control Vault: de un firmware sin documentar a shell SYSTEM en Windows — cifrado roto, claves filtradas e implante persistente</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SRALfyEspms">«DEF CON 33 - Automated Attack Surface Discovery for Secure Signal Processing Pipelines - Philippe Laulheret (Cisco Talos)»</a> · ver el <a class="nz-link" href="https://youtu.be/SRALfyEspms">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> SRALfyEspms · <strong>URL:</strong> https://youtu.be/SRALfyEspms · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Automated Attack Surface Discovery for Secure Signal Processing Pipelines - Philippe Laulheret (Cisco Talos)</li>
+</ul>
+<h2>Resumen</h2>
+<p>En muchos laptops Dell de la línea empresarial (Latitude, Precision) hay una placa pequeña cubierta de cinta a la que se conectan el lector de huellas, el de NFC y el de smart cards. Es <strong>Control Vault 3</strong> —oficialmente "USH Edge / Unified Secure Hub"—: un chip Broadcom 58202 corriendo un RTOS, con flash cifrada que guarda firmware y secretos, diseñado precisamente para ser un almacenamiento seguro. Está presente en ~100 modelos y decenas de millones de dispositivos; existe desde hace 15 años sin documentación pública ni investigación previa. Control Vault 3 Plus, en los Dell Pro más recientes, hereda todos los hallazgos.</p>
+<p>La cadena completa reportada a Dell y Broadcom a principios de año —con advisory en junio y múltiples CVEs— encadena:</p>
+<ol>
+<li><strong>Descifrado del firmware</strong>: el mecanismo de actualización usa claves por defecto hardcodeadas cuando no hay material de claves propio, con un IV derivado de la dirección de mapeo de cada chunk — suficiente para descifrar el firmware de aplicación completo.</li>
+<li><strong>Corrupción de memoria en el firmware</strong>: un handle de sesión que es literalmente una dirección de heap, un free arbitrario con el tag "SESS", y un stack overflow en <code>secureBioIdentify</code> alcanzable superponiendo objetos del heap. Sin ASLR, sin stack cookies y con regiones RWX en el chip, eso es ejecución de código.</li>
+<li><strong>Fuga de claves de los fuses del SoC</strong> vía <code>sotpReadKey</code>, incluidas las claves que cifran la flash y la RSA del Secure Code Descriptor que firma las actualizaciones.</li>
+<li><strong>Escritura arbitraria de flash</strong> desde Windows sin privilegios (<code>cvFlashUpdate</code>), que habilita forjar un SCD propio con una RSA controlada y <strong>modificar el firmware de forma persistente</strong>.</li>
+<li><strong>Compromiso de Windows desde el firmware</strong>: el host confía ciegamente en los tamaños y tipos que el firmware devuelve al deserializar, lo que produce overflows y type confusion en procesos de Windows; encadenado con la DLL del Windows Biometric Framework (corriendo como SYSTEM) termina en shell SYSTEM.</li>
+<li>Como postre: el firmware modificado acepta cualquier dedo en el lector de huellas — un bypass del login de Windows Hello con un dedo de plástico y un trozo de cebollín pegado para el detector de tejido orgánico.</li>
+</ol>
+<h2>Reconocimiento: puntos de partida con cero documentación</h2>
+<p>Sin datasheets ni firmware públicos, las dos fuentes iniciales fueron: la implementación Linux de las APIs de host de Control Vault en GitHub —compilada con símbolos de debug, lo que entrega estructuras, enums y códigos de estado que el firmware comparte con el host— y una certificación FIPS del módulo criptográfico del SoC, que define siglas como SBI (Secure Boot Image, extensión del boot ROM que debe ser confiable).</p>
+<p>El proyecto empezó con una observación mundana del Process Manager: los servicios Broadcom que hablan con Control Vault <strong>no tienen ASLR</strong> en 2025 (ni varias de sus DLLs). A partir del instalador se extraen drivers USB, servicios, DLLs huérfanas y una carpeta de firmware con el SBI en texto claro (importable directamente en IDA) y el firmware de aplicación "Citadel" cifrado.</p>
+<p>La arquitectura: boot ROM verifica el SBI → el SBI obtiene material de claves del <strong>Secure Code Descriptor (SCD)</strong> → arranca el firmware de aplicación. El firmware corre <strong>ejecutándose en sitio en la flash</strong>, cifrado, con descifrado en una pasada. Hacia el host habla por USB: el driver kernel-mode crea un dispositivo de archivo que <strong>cualquier usuario</strong> puede abrir y manejar con IOCTLs; encima hay una DLL con ~150 comandos CV de alto nivel (CVOpen, CVClose, CVCreateObject, CVDeleteObject, CVGetObject…), una superficie de ataque enorme. La mitigación del firmware: sin ASLR, sin stack cookies, DEP parcial (saltar al stack crashea, pero <strong>hay memoria RWX</strong>): una sola primitiva de corrupción basta.</p>
+<h2>Descifrar Citadel: claves por defecto e IV por dirección</h2>
+<p>La actualización de firmware es un protocolo de tres pasos: <code>FieldUpgradeStart</code> con un header cifrado (descifrado y verificado criptográficamente; <strong>sin clave propia usa claves por defecto hardcodeadas</strong>, y genera material nuevo para almacenar el firmware), <code>Update</code> con blobs cifrados sucesivos, y <code>Complete</code> que verifica la firma y commitea a flash. El gotcha del segundo paso: el IV de AES-CBC se deriva de la <strong>dirección de mapeo del chunk</strong> de flash, con una función conocida que basta reimplementar en Python.</p>
+<p>Con eso, <code>strings</code> sobre el firmware de aplicación descifrado y carga en IDA. El análisis del ciclo de sesiones revela el primer olor: <code>cvOpen</code> aloca memoria, escribe el tag "SESS" y <strong>devuelve la dirección de heap como handle de sesión</strong> — fugando direcciones de heap al usuario desde el arranque—. <code>cvClose</code> valida el handle comprobando rango de heap y el tag, y lo libera.</p>
+<h2>De free arbitrario a stack overflow</h2>
+<p>La cadena de primitivas que construye la explotación:</p>
+<ul>
+<li><strong>Colocar datos en el heap</strong>: <code>CVCreateObject</code> aloca un blob controlado (sin control total del metadata; el handle devuelto es aleatorio, no la dirección).</li>
+<li><strong>Oráculo de sesiones</strong>: <code>CVGetRandom</code> devuelve "invalid session" o datos según si el puntero apunta a una sesión válida; sin efectos secundarios, barre todo el heap en ~30 segundos y localiza el objeto propio.</li>
+<li><strong>Free arbitrario</strong>: <code>CVClose</code> solo verifica que los primeros 4 bytes del puntero sean "SESS" — con <code>CVCreateObject</code> se siembra un objeto con ese tag y se libera lo que sea.</li>
+<li><strong>Superposición de objetos</strong>: liberar el objeto grande (agujero en el heap) y alocar uno más chico dentro del hueco. El objeto chico queda dentro del grande; modificando el contenido del grande se altera el <strong>metadata del chico</strong>, algo que nunca debería ser posible.</li>
+<li><strong>Stack overflow</strong>: <code>secureBioIdentify</code> (comando CV alcanzable desde userland) copia una propiedad del objeto con memcpy a un buffer de stack. Con el metadata corrompido del objeto superpuesto, el campo pasa a ser controlable: overflow de stack en un firmware sin ASLR, sin stack cookies y con RWX → ejecución de código.</li>
+</ul>
+<p>La comunicación bidireccional con el payload es elegante: el exploit escribe su salida dentro de otra zona del objeto grande y se recupera con <code>CVGetObject</code>. Eso permite volcar RAM (incluido el boot ROM, función normalmente inaccesible) y llamar a <code>sotpReadKey</code>, que lee material de claves de los fuses del SoC. En la demo se filtraron una clave HMAC y una AES: las que cifran el almacenamiento en flash y el SCD —que contiene la RSA que firma las actualizaciones—.</p>
+<h2>Escritura arbitraria de flash y firmware persistente</h2>
+<p>El eslabón que convierte la fuga de claves en takeover total: <code>clear-scd.bin</code>, un archivo de bytes repetidos que el host flashea legítimamente sobre el SCD para reiniciar en modo SBI durante actualizaciones. Lo hace la función <strong><code>cvFlashUpdate</code>, invocable por cualquier usuario sin privilegios: escritura arbitraria de flash desde Windows</strong>. Con las claves ya filtradas, el requisito de cifrado no protege nada.</p>
+<p>El plan para modificar el firmware sin romper el dispositivo (reescribir la imagen en caliente mientras corre es receta de ladrillo): forjar un <strong>SCD propio</strong> —cifrado y HMAC con el material correcto— con una <strong>RSA controlada por el atacante</strong>, de modo que las siguientes actualizaciones de firmware se firmen con la clave del atacante. El primer intento falló por byte order del SCD y ladrilló el laptop (salvado por un backup previo de la flash hecho con flash programmer). El segundo funcionó: el firmware modificado se anuncia a Windows como "Control Pond" y <strong>la modificación es persistente</strong> — sobrevive reinstalación de Windows; solo reflashear el firmware la deshace.</p>
+<pre class="mermaid">
+flowchart TD
+    A[ASLR ausente en servicios host] --> B[Análisis del instalador<br/>SBI en claro + Citadel cifrado]
+    B -- claves default + IV por dirección --> C[Descifrado del firmware]
+    C --> D[Session handle = heap ptr<br/>free arbitrario con tag SESS]
+    D --> E[Objetos superpuestos en heap]
+    E -- secureBioIdentify memcpy --> F[Stack overflow en firmware<br/>sin ASLR/cookies, RWX]
+    F -- CVGetObject de vuelta --> G[sotpReadKey: claves de fuses<br/>HMAC + AES + RSA del SCD]
+    G -- cvFlashUpdate sin privilegios --> H[SCD forjado con RSA propia]
+    H --> I[Firmware persistente modificado]
+    I -- deserialización host confiada --> J[Overflow/type confusion en Windows<br/>WinBio = SYSTEM → shell]
+    I -- CVFingerprintIdentify --> K[Login por huella acepta todo]
+
+</pre>
+
+<h2>Windows Hello: de la huella al shell SYSTEM</h2>
+<p>Con firmware controlado, el canal de regreso hacia Windows es la deserialización: los argumentos host→firmware viajan en TLVs (tag-length-value) y <strong>el host prepara también los tamaños y tipos de lo que espera recibir</strong>; al volver, el firmware redefine la encapsulación y los tamaños antes de responder, y <strong>el host confía en eso</strong>. Cambiando el tipo de encapsulación, un entero de tamaño se confunde con el buffer de datos: overflow directo, o type confusion. Con el firmware backdoorado condicionalmente (payload solo si se pide un "magic size", comportamiento normal en el resto), un binario de juguete que llama a <code>CVGetRandom</code> pop-a-calc demuestra la corrupción de Windows.</p>
+<p>El target serio para privilegios máximos requería: proceso privilegiado que use la DLL de Control Vault + función sin stack cookie. Encontrado: la <strong>DLL de interfaz con el Windows Biometric Framework</strong> (el glue code entre los servicios de biometría y el firmware, corriendo bajo svchost como SYSTEM). Una función que recupera el header de un objeto vía <code>CVGetObject</code> y cuyo stack frame —sin cookie— es corrompible en línea recta hasta el return address: ROP chain. Con el firmware ya malicioso, el backdoor es pedir el objeto 1337. Resultado de la demo: <strong>netcat reverse shell como SYSTEM</strong> desde la lectura de un objeto biométrico, alcanzable por IOCTL por cualquier usuario.</p>
+<p>Y el bypass de login: el firmware modificado responde "sí" siempre a <code>CVFingerprintIdentify</code> —la función que Windows Hello consulta al desbloquear por huella—. Un dedo de plástico con cebollín pegado (para el detector de tejido orgánico) abre la sesión.</p>
+<p>El remate físico: la placa ControlVault se conecta por un ribbon con cables de 3/5 V y dos de datos USB. Desconectándola de la motherboard y enchufándola a otra máquina, aparece un dispositivo ControlVault nuevo y <strong>todos los ataques funcionan igual</strong> — un atacante físico puede reemplazar la placa por una comprometida, o atacar la original conectándola a su equipo.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Dell ControlVault 3 / 3 Plus (Broadcom 58202)</strong>: secure element en ~100 modelos Dell; RTOS, flash cifrada, ejecución en sitio; decenas de millones de dispositivos, 15 años sin investigación pública.</li>
+<li><strong>Host API Linux con debug symbols</strong>: estructuras, enums y códigos de estado compartidos con el firmware; base para el reversing en IDA/Ghidra.</li>
+<li><strong>Interfaz USB + IOCTL por cualquier usuario + DLL con ~150 comandos CV</strong>: superficie de ataque masiva alcanzable sin privilegios.</li>
+<li><strong>AES-CBC con claves default hardcodeadas + IV derivado de la dirección de mapeo</strong>: descifrado completo del firmware de aplicación Citadel.</li>
+<li><strong>Session handle = dirección de heap (tag "SESS")</strong>: fuga de direcciones + free arbitrario con verificación trivial.</li>
+<li><strong>Primitivas heap</strong>: CVCreateObject (colocar datos), CVGetRandom (oráculo de sesiones para localizar el objeto), CVClose (free arbitrario), superposición de objetos para corromper metadata.</li>
+<li><strong>secureBioIdentify</strong>: memcpy de propiedad de objeto a stack buffer → stack overflow con metadata corrupta.</li>
+<li><strong>sotpReadKey</strong>: lectura de claves de los fuses del SoC (HMAC/AES de flash y SCD, RSA de firma).</li>
+<li><strong>cvFlashUpdate + clear-scd.bin</strong>: escritura arbitraria de flash sin privilegios; SCD forjado con RSA propia → firmware updates firmadas por el atacante.</li>
+<li><strong>Deserialización confiada en el host</strong>: redefinición de TLVs y tamaños por el firmware → overflow y type confusion en procesos Windows.</li>
+<li><strong>Windows Biometric Framework DLL (SYSTEM)</strong>: stack frame sin cookie corrompible vía CVGetObject → ROP → shell SYSTEM por IOCTL de cualquier usuario.</li>
+<li><strong>CVFingerprintIdentify backdoor</strong>: bypass del login de Windows Hello.</li>
+<li><strong>Ataque físico por ribbon cable</strong>: la placa se conecta a otra máquina y todos los ataques se replican; sustitución de hardware posible.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un secure element sin documentación no es un secure element seguro: 15 años de existencia, certificación FIPS y claves en fuses no impidieron que el firmware completo sea descifrable con claves hardcodeadas y un IV derivado de direcciones.</li>
+<li>El diseño del API se sabotea a sí mismo: handles que son direcciones de heap, validaciones de un tag de 4 bytes, y confianza absoluta del host en los metadatos que el firmware devuelve — cada decisión individual parece inofensiva; encadenadas, llegan de un usuario normal a SYSTEM.</li>
+<li>La persistencia en firmware es el peor escenario de un endpoint comprometido: un atacante que modifica el ControlVault sobrevive a reinstalación de Windows y obtiene un implante capaz de recomprometer el sistema operativo a voluntad, además de anular la biometría del login.</li>
+<li>El ataque físico completa el cuadro: la placa es extraíble con un cable, así que el vector cubre tanto post-compromiso (implante de firmware tras un incidente) como acceso físico (sustitución o manipulación de la placa).</li>
+<li>La lección de proceso: sin investigación ni transparencia, la seguridad del firmware depende de que nadie mire. Reversing público, documentación compartida y presión por apertura de los fabricantes son la única ruta alternativa.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SRALfyEspms">«DEF CON 33 - Automated Attack Surface Discovery for Secure Signal Processing Pipelines - Philippe Laulheret (Cisco Talos)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

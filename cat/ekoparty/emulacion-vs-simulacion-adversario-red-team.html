@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emulación frente a simulación: el versus que define un ejercicio de red team — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Emulación frente a simulación: el versus que define un ejercicio de red team</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/coj2n0smGgo">«APT Emulation v/s APT Simulation - César Soto Espinoza - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/coj2n0smGgo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> coj2n0smGgo · <strong>URL:</strong> https://youtu.be/coj2n0smGgo · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> APT Emulation v/s APT Simulation - César Soto Espinoza - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>César Soto Espinoza, Adversary Simulation Team Lead en Dreamlab Technologies e integrante del equipo chileno de CTF Control Z, desarma la idea de que "red team" es una sola cosa. Su tesis central: emular y simular un adversario son actividades distintas, con metodologías, roles, herramientas y resultados diferentes, y elegir mal entre ambas es la forma más rápida de malgastar un presupuesto de seguridad. ¿Por qué importa? Porque el presupuesto se gasta en ejercicios que no responden a la pregunta correcta: una organización sin blue team no obtiene nada de un red team — es probar los guardias de un supermercado que no tiene guardias —, y emular a un grupo de fraude en entornos SWIFT no le sirve de nada a una carnicería. Elegir el ejercicio equivocado es matar una hormiga con una bazooka cuando había dedo.</p>
+<p>El recorrido cubre las diferencias con el pentesting y el vulnerability assessment, la organización interna de un equipo de simulación, una metodología de cuatro etapas, las herramientas de emulación más usadas —Caldera, Atomic Red Team, SCYTHE— y casos reales que van de un HyperFlex de Cisco hasta un incidente con Log4Shell en Argentina.</p>
+<h2>Pentesting, vulnerability assessment y red team: tres cosas distintas</h2>
+<p>Las definiciones conceptuales son el punto de partida. El pentesting es un conjunto de pruebas hechas por profesionales autorizados para buscar vulnerabilidades en servicios, sistemas y aplicativos: es en su mayoría manual —un 90% manual y un 10% automático—, con margen para ir más allá y generar explotación, movimiento lateral y cumplimiento de objetivos dentro del alcance. El vulnerability assessment vive en el extremo opuesto: 90% automático y 10% manual, con herramientas a las que se les entregan segmentos, credenciales y direcciones IP, y que devuelven un reporte de vulnerabilidades sin posibilidad de profundizar mucho más.</p>
+<p>El red team es otra cosa: un conjunto de muchas actividades cuyo objetivo es emular o simular un adversario dentro de una organización para tomar control de objetivos críticos y de información importante. Bajo ese paraguas conviven varias modalidades: la emulación de adversario, la simulación —la más común en consultoras—, los ejercicios de ingeniería social (phishing, llamadas de vishing, portales web para cosechar credenciales, conexión de dispositivos físicos) y el tabletop exercise, orientado a revisar playbooks: qué hacer cuando llega un ransomware, si la metodología de respuesta funciona y cómo la organización toma decisiones a partir de los ataques que recibe.</p>
+<h2>El versus: personificar o crear</h2>
+<p>Aquí aparece el corazón del versus. La emulación de adversario trabaja sobre técnicas, tácticas y procedimientos conocidos, documentados en una matriz y respaldados por investigación sobre adversarios reales: grupos como APT29, APT38, Hafnium o Lazarus. Emular es imitar al 100%: usar las mismas herramientas, los mismos comandos, investigar hasta encontrar el comando específico que ese grupo emplea y ejecutarlo contra la organización objetivo. La clave es la interpretación, la imitación, la personificación: hay que creerse Lázaro.</p>
+<p>La simulación, en cambio, mezcla TTPs de muchos adversarios distintos: toma el acceso inicial de uno, el movimiento lateral de otro, la explotación de otro, o directamente crea técnicas propias. Los ejercicios de red team, a diferencia de una emulación parametrizada, se basan en la creatividad, y el adversario resultante es un APT que no está modelado: no existe con un nombre. Si el equipo quiere bautizar al adversario de su ejercicio, está en todo su derecho — por eso se llama ejercicio de red team y no "APT 25".</p>
+<h2>El equipo: seis roles y una regla poco intuitiva</h2>
+<p>Una simulación es trabajo de equipo, no la hazaña de una sola persona. Los roles:</p>
+<ul>
+<li><strong>Líder técnico</strong>: responsable de la simulación específica; determina la documentación y los escenarios a explotar, dirige la documentación colaborativa y toma las decisiones para que el ejercicio llegue a donde debe.</li>
+<li><strong>Jefe de proyecto</strong>: delimita fechas, recursos, alcance y objetivos, y decide sobre el dinero — decisiones que a veces restringen la creatividad del equipo.</li>
+<li><strong>Ingeniería social</strong>: busca el acceso inicial; recopila información a nivel humano (SOCMINT, GEOINT) y maneja los accesos físicos.</li>
+<li><strong>Infraestructura</strong>: controla todo lo que está "hacia adelante" del acceso.</li>
+<li><strong>Ciberinteligencia</strong>: produce el threat intel packet, la pre-recopilación de información sobre la organización objetivo antes del ejercicio: quién es, cuántos despliegues tiene, dónde se ubica.</li>
+<li><strong>Consultor de seguridad ofensiva</strong>: el rol que cierra el equipo, y que no necesariamente es un red teamer.</li>
+</ul>
+<p>Ese último punto es la regla poco intuitiva: para hacer red team no se necesita ser red teamer. Si la organización objetivo vive en la nube y solo tiene aplicaciones web y móviles, hace falta mucho más a un experto en aplicativos web y móviles que a un especialista en Active Directory. Lo que se necesita son ganas de estar ahí, de participar en el ejercicio, y las habilidades que el trabajo requiere — no un título.</p>
+<h2>Cuatro etapas, del objetivo al compromiso</h2>
+<p>La metodología de simulación se divide en cuatro etapas:</p>
+<pre class="mermaid">
+flowchart TD
+    A["1. Planificación<br>recepción del objetivo y necesidades del cliente"] --> B["2. Preparación<br>pre-recopilación de ciberinteligencia<br>kick-off interno y escenarios propuestos"]
+    B --> C["3. Reconocimiento<br>equipos externo e interno trabajando en conjunto"]
+    C --> D["4. Descubrimiento y puesta en marcha<br>acceso físico, dispositivos o infraestructura de C2"]
+    D --> E{"¿Acceso logrado?"}
+    E -- "Sí" --> F["Ciclo de compromiso y control<br>60-70% del proyecto"]
+    E -- "No" --> G["Desencadenamiento:<br>acercamiento a purple team o acceso de insider"]
+    G --> F
+
+</pre>
+
+<p>La planificación —con la recepción del objetivo y la definición de necesidades: tomar control del dominio, buscar información crítica y exfiltrarla, objetivos donde los clientes suelen ponerse creativos— representa alrededor del 25% de un proyecto; el ciclo de compromiso y control se lleva el 60 o 70% restante. El ejercicio es de caja negra: solo el nombre de la organización y a tomar control. En el descubrimiento y la puesta en marcha se preparan los dispositivos físicos —una Raspberry Pi que se va a conectar— o la infraestructura de comando y control. Y una regla de oro que se repite: un red team es una unión de equipos. Cuesta trabajar con gente de otra área, pero en ese momento hay que ser hermanos, porque todos apuntan al mismo objetivo.</p>
+<h3>Si no hay acceso, el ejercicio no termina</h3>
+<p>Muchas organizaciones cortan ahí: "no pude entrar, aquí está el informe, gracias". La propuesta es el desencadenamiento: hablar con la contraparte y convertir el ejercicio en algo más colaborativo — un acercamiento al purple team, trabajar en conjunto, o un acceso de insider controlado para intentar entrar desde adentro y construir el acceso que faltó, independiente de si el blue team se enteró. Lo importante no es ganar un juego de quién es mejor: es encontrar las brechas que otros no encuentran para que la organización no sea vulnerada.</p>
+<h2>Documentación: del hallazgo técnico al riesgo organizacional</h2>
+<p>No todo es bonito en la vida de un red teamer: hay que documentar. Fotografías, bitácora, historial completo de movimientos y fechas — porque cuando se cae un aplicativo crítico de la contraparte, el primer culpable es el red teamer, y hay que poder demostrar con pruebas que se estaba aún en la etapa de reconocimiento.</p>
+<p>El resumen ejecutivo merece capítulo propio: hay que escribirlo para gente no técnica. Ver funcionar un exploit emociona al equipo, pero hay que saber explicárselo a un ejecutivo que no sabe lo que es un exploit, y eso toma tiempo de elaboración.</p>
+<p>Después viene la revisión técnica: otro consultor con mucha experiencia en red team lee el informe, revisa la tabla de hallazgos y discute —con amabilidad, porque los hallazgos no dependen de lo que a uno le parece crítico— si ese hallazgo marcado como crítico realmente lo es. Los scores salen de una matriz como CVSS 4.0 y deben ser coherentes con el hallazgo. Pero hay un detalle que suele pasarse por alto: el score de CVSS es el riesgo técnico del hallazgo, no el riesgo de la organización. Un hallazgo medio (4.3) puede ser crítico para el negocio si revela información de un servidor clave. Cuando llegue un informe donde algo que parecía grave está marcado como medio, hay que revisarlo con esa distinción en mente. Una última revisión corrige redacción y puntuación, el informe llega al cliente con una presentación de cierre, y queda el recuadro celeste que importa: las lecciones aprendidas, donde el equipo completo revisa qué salió bien y qué salió mal — porque que un ejercicio haya salido bien no significa que internamente todo haya funcionado como debía.</p>
+<h2>Tres preguntas antes de arrancar</h2>
+<p><strong>¿La contraparte tiene blue team?</strong> Si no lo tiene, ¿para qué hacer un red team? La comparación es directa: es como que un supermercado contrate una prueba de los guardias sin tener guardias. Obviamente se va a entrar. Y si la esperanza es "demostrar que necesitan un blue team", hay caminos más proporcionados: ¿por qué matar una hormiga con una bazooka si hay dedo? Empezar con un vulnerability assessment, pruebas controladas, pentesting, ejercicios de purple team, entrenar a ese blue team pequeñito que está creciendo — y recién ahí, simulaciones.</p>
+<p><strong>¿Es el mejor adversario a emular?</strong> Si se elige emulación, hay que elegir bien al adversario. La analogía del dueño de carnicería: ¿de qué sirve emular a un grupo que ataca entidades financieras y perpetra fraudes en entornos SWIFT? Es una carnicería. A veces la contraparte solo quiere comprar el producto con nombre fancy sin saber lo que está adquiriendo, y ahí toca explicarle qué necesita y por qué, entendiendo el riesgo de su organización.</p>
+<p><strong>¿Creer o verificar?</strong> Creer en la contraparte, pero verificar. Si dicen "por acá no, ahí somos súper seguros", hay que preguntar: ¿estás seguro? ¿Podemos probar por ahí? "No, es que por ahí no se puede." "¿Se puede?" "Sí, dale, pero no lo vas a lograr." Y ese suele ser, finalmente, el acceso inicial: creían que estaban tan seguros y no lo estaban. Verificar todos los caminos, configuraciones, parches y segmentación, desde el acceso inicial hasta la explotación final.</p>
+<h2>Simulaciones reales: HyperFlex, SQL Server y PrintNightmare</h2>
+<p>Tres simulaciones muestran la metodología en acción. En una, el vector fue una red Wi-Fi: tras un escaneo apareció un HyperFlex de Cisco con un CVE explotable; el sistema operativo antiguo del equipo permitió una segunda explotación hasta permisos de root, y después de varios días leyendo documentación de Cisco apareció un usuario llamado HXUser. Con eso se tomó control del clúster y, a través de la imagen del controlador, del dominio completo — todo siguiendo los pasos de la metodología, más allá de que el ejercicio sea entretenido o no.</p>
+<p>En otra, sin forma de entrar por Wi-Fi ni por llamadas, el equipo de ingeniería social ejecutó un phishing web scan que encontró servidores SQL Server sin contraseña. De ahí salieron credenciales robadas: uno de los tickets SPN correspondía a un usuario de respaldo de certificados cercano al controlador de dominio, y la relación de confianza entre dominios terminó entregando el control de varias partes de la organización.</p>
+<p>La tercera, en 2021, usó PrintNightmare, la ejecución de comandos en el servicio de spooler de impresión. No había forma de entrar por Wi-Fi ni por llamadas: había que ir físicamente a la organización y conectar un dispositivo. Lo hizo el equipo de ingeniería social; la enumeración interna encontró muchos equipos con el puerto 445 abierto y la explotación de PrintNightmare creó un usuario local — nada obvio, nada que delatara a su creador. La reutilización de credenciales terminó creando un usuario Domain Admin y el control del dominio.</p>
+<h2>Herramientas para automatizar la emulación</h2>
+<p>Para quien no tiene los recursos de un equipo completo, hay caminos. SCYTHE es una herramienta paga, cara, pero emula adversarios de manera concreta y permite ejercicios de purple team continuos. Caldera, gratuita y ligada a MITRE, trabaja de la mano con la matriz: es normativa, y las técnicas, tácticas y procedimientos de un informe pueden llevarse a otra organización sin cambios. Atomic Red Team también sirve para emulación, con la desventaja de requerir un servidor propio corriendo ya dentro de la red interna. Todas se pueden probar en laboratorios propios.</p>
+<p>También existe un repositorio de GitHub mantenido por Abdul Rehman Ali, de Alejandría, con campañas de simulación de adversarios —algunas rusas, otras en construcción— que se acerca bastante a lo que podría ser una emulación, aunque sigue siendo simulación porque no usa los mismos comandos que los APTs reales. La advertencia obligada: nada de ejecutar nada en un controlador de dominio porque alguien lo recomendó. Todo se prueba primero en un sandbox.</p>
+<h2>El contexto 2023: herramientas firmadas y actores activos</h2>
+<p>El panorama cambió con las herramientas firmadas que trae el propio sistema. Curve, que permite llamadas a nivel web, viene habilitada por defecto en Windows 10 y 11: es firmada y por eso el EDR probablemente no la toque, y los adversarios lo aprovechan. Algo parecido pasa con 7-Zip, cada vez más adoptada por las organizaciones para comprimir archivos: firmada y útil en conjunto con Curve para exfiltrar información. Cobalt Strike, pensada como herramienta de ciberseguridad, es el comando y control que muchos APTs ocupan.</p>
+<p>En el primer trimestre de 2023 los actores activos incluían a APT29, APT41 y Blind Eagle — este último activo en Latinoamérica, con Colombia en la mira. Recordar la taxonomía: APT es el grupo ya conocido; antes de serlo fue un UNC, y si ataca entidades financieras se clasifica como FIN. Estas nomenclaturas las creó Mandiant en los años 2000; Microsoft las llama Dev o Storm, y hay compañías que usan nombres de animales o colores. Al final, investigando, todas llegan a lo mismo. Los sectores más apuntados en ese período: manufactura, finanzas, salud y telecomunicaciones. Y entre los ransomware activos en la región: LockBit, BlackCat, Royal y Medusa. Todo eso alimenta la pregunta del adversario correcto: si se es una carnicería, no hay que emular a un grupo de fraude financiero.</p>
+<h2>Emulación en la práctica: un incidente en Argentina</h2>
+<p>Kaspersky publicó un informe con incidentes de todo el mundo, y uno de ellos cayó en Argentina: el número 5, una industria gubernamental atacada en 2022 por el actor conocido como Holy Ghost —clasificado por Microsoft con un código Storm o Dev, según la nomenclatura—. El vector inicial fue Log4Shell, una vulnerabilidad conocida por todo el mundo del pentesting. Después del acceso inicial se generaron tareas programadas y se descargaron credenciales guardadas en memoria de los equipos.</p>
+<p>Y aquí está la diferencia concreta con la simulación: para emular este incidente habría que ejecutar exactamente lo que dice el reporte, comando por comando, generando logs de ejemplo idénticos a los que muestra el informe. Las herramientas también: el dump de credenciales con ProcDump (el <code>pd64.exe</code>) y Mimikatz a continuación, con el dump final de NTDS en el controlador de dominio. Obviamente, un adversario real no ejecuta Mimikatz tal cual: lo ofusca hasta que el EDR ya no lo encuentra y le cambia el nombre para poder ejecutarlo. En engagements propios se puede preferir trabajar de manera manual; pero esto es una emulación, y hay que regirse por la metodología, el framework y las etapas específicas.</p>
+<h2>Entonces, ¿emular o simular?</h2>
+<p>No hay una respuesta mejor que otra: depende del contexto. Son cosas completamente diferentes, y saber la diferencia es lo que permite elegir bien.</p>
+<p>Tres preguntas frecuentes quedan respondidas en el camino. Sobre los recursos: un ejercicio de red team puede exigir más que un pentest, y cuando llegan varios servicios a la vez, jefe de proyecto y líder técnico negocian fechas —no recursos— con el cliente, y reparten equipos por experiencia para correr simulaciones en paralelo según la madurez del objetivo. Sobre adversarios con herramientas propias y no públicas: ahí no hay emulación posible — nunca se va a llegar a sus comandos específicos — y hay que simular, dejándole claro a la contraparte que no se ejecutarán los mismos comandos, con la responsabilidad de advertir que si ese APT específico llega con herramientas mejores que las usadas en el ejercicio, el parche del hallazgo puede no alcanzar. Y sobre compartir el one-liner: sí, siempre. Todos los comandos, fechas, historial y herramientas van al informe; si hubo desarrollos propios, el código va también. La contraparte tiene que poder reproducir, de manera controlada y junto a su blue team, exactamente lo que se explotó.</p>
+<p>Creer pero verificar, documentar todo el proceso y extraer lecciones en cada ejercicio: el resto es creatividad.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Vulnerability assessment</strong>: evaluación mayormente automatizada de vulnerabilidades, sin profundizar en explotación.</li>
+<li><strong>Pentesting</strong>: pruebas mayormente manuales sobre servicios, sistemas y aplicativos, con explotación dentro del alcance.</li>
+<li><strong>Red team</strong>: emulación o simulación de un adversario para tomar control de objetivos críticos y de información importante.</li>
+<li><strong>Emulación de adversario</strong>: imitación al 100% de un APT real —mismas herramientas, mismos comandos— a partir de su documentación.</li>
+<li><strong>Simulación de adversario</strong>: mezcla de TTPs de varios actores y técnicas propias, con un adversario no modelado.</li>
+<li><strong>Tabletop exercise</strong>: revisión de playbooks y toma de decisiones ante ataques como ransomware.</li>
+<li><strong>Threat intel packet</strong>: pre-recopilación de ciberinteligencia sobre la organización objetivo antes del ejercicio.</li>
+<li><strong>SOCMINT y GEOINT</strong>: recopilación de información a nivel humano y geográfico para el acceso inicial.</li>
+<li><strong>Matriz ATT&amp;CK</strong>: el marco donde se documentan las TTPs de adversarios reales y que herramientas como Caldera automatizan.</li>
+<li><strong>Caldera</strong>: herramienta gratuita de MITRE para automatizar emulaciones de adversario de forma normativa.</li>
+<li><strong>Atomic Red Team</strong>: biblioteca de pruebas para emulación, requiere un servidor propio dentro de la red interna.</li>
+<li><strong>SCYTHE</strong>: plataforma paga de emulación de adversarios con ejercicios de purple team continuos.</li>
+<li><strong>CVSS 4.0</strong>: matriz de puntuación del riesgo técnico de un hallazgo, distinto del riesgo organizacional.</li>
+<li><strong>Log4Shell</strong>: la vulnerabilidad del vector inicial en el incidente argentino emulado.</li>
+<li><strong>ProcDump (<code>pd64.exe</code>) y Mimikatz</strong>: herramientas del dump de credenciales descrito en el reporte de Kaspersky.</li>
+<li><strong>Dump de NTDS</strong>: extracción de la base de credenciales del controlador de dominio.</li>
+<li><strong>PrintNightmare</strong>: explotación del servicio de spooler de impresión usada para crear un usuario local.</li>
+<li><strong>HyperFlex de Cisco</strong>: equipo con CVE explotable y usuario HXUser que abrió el control del clúster y del dominio.</li>
+<li><strong>Curve y 7-Zip</strong>: herramientas firmadas de Windows aprovechadas para llamadas web y exfiltración comprimida.</li>
+<li><strong>Cobalt Strike</strong>: comando y control preferido de muchos APTs, pensado originalmente como herramienta de seguridad.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Emular y simular no son sinónimos: la emulación personifica a un APT documentado ejecutando sus mismos comandos; la simulación mezcla TTPs y creatividad con un adversario sin nombre.</li>
+<li>No hay una opción mejor en abstracto: depende del contexto de la organización, de su blue team y de cuál es el adversario relevante para su riesgo real.</li>
+<li>Un red team sin acceso no termina: se convierte en purple team o en acceso de insider controlado; el objetivo son las brechas, no el juego de quién es mejor.</li>
+<li>El score de CVSS mide riesgo técnico, no riesgo de negocio: un hallazgo medio puede ser crítico para la organización.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/coj2n0smGgo">«APT Emulation v/s APT Simulation - César Soto Espinoza - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

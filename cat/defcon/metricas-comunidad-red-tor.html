@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo medir una red de anonimato sin poner en riesgo a sus usuarios — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cómo medir una red de anonimato sin poner en riesgo a sus usuarios</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/n8w85LpRplY">«DEF CON 32 - Measuring the Tor Network - Silvia Puglisi, Roger Dingledine»</a> · ver el <a class="nz-link" href="https://youtu.be/n8w85LpRplY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> n8w85LpRplY · <strong>URL:</strong> https://youtu.be/n8w85LpRplY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Measuring the Tor Network - Silvia Puglisi, Roger Dingledine</li>
+</ul>
+<h2>Resumen</h2>
+<p>Hay una historia que condensa por qué importa entender qué pasa dentro de la red Tor. Un formador enseñaba en Irán herramientas para eludir la censura: proxies abiertos, VPNs, Tor. Con el tiempo comprobó que todas las personas a las que había enseñado cualquier cosa que no fuera Tor estaban muertas o presas. Desde entonces, solo enseñaba Tor. La lección tiene dos caras: hay que entender qué está ocurriendo en la red —por ejemplo, cuándo aparece una ola de usuarios desde un país determinado— y hay que hacerlo sin poner en riesgo a quienes la usan.</p>
+<p>Ese doble objetivo estructura todo el trabajo: entender la red mediante métricas públicas y estimaciones que nunca expongan usuarios, y sostener la comunidad de operadores de relays que hace funcionar todo lo demás. Y termina en una petición concreta: sumarse a la red con relays, bridges, Snowflakes o contribuciones de código.</p>
+<h2>Qué es Tor y por qué no basta una VPN</h2>
+<p>Tor es muchas cosas a la vez: una organización sin fines de lucro, un proyecto de software libre y una red de voluntarios. El objetivo técnico es proteger los metadatos de las comunicaciones —quién se comunica con quién, cuándo—, un dato tan sensible que los documentos de Snowden atribuían a la NSA la frase "matamos personas basándonos en metadatos".</p>
+<p>La manera de presentarlo cambia según la audiencia, aunque el sistema sea el mismo:</p>
+<ul>
+<li>Con investigadores, se habla de anonimato.</li>
+<li>Con familias, de sistemas de privacidad.</li>
+<li>Con corporaciones, de seguridad en las comunicaciones.</li>
+<li>Con gobiernos, de redes de comunicación resistentes al análisis de tráfico.</li>
+</ul>
+<p>Y hay una cuarta audiencia que últimamente pesa mucho: quienes no pueden siquiera alcanzar la red porque un censor la bloquea. La meta es que todos estos grupos —activistas, personas que buscan información sobre derechos reproductivos o violencia doméstica, sobrevivientes de cáncer, cualquiera que valore su privacidad— compartan el mismo sistema de anonimato y se mezclen entre sí. Un sistema de anonimato solo para un colectivo delata, por el solo hecho de instalarlo, por qué se usa.</p>
+<p>El diseño responde a dos fallas del modelo centralizado tipo VPN: la "privacidad por promesa" (la empresa jura que no mira tu tráfico, que no registra nada, que no responde a citaciones judiciales, pero tiene los datos) y el punto único por donde entra y sale el mismo cable, que habilita análisis de tiempos y volúmenes. Tor distribuye la confianza en tres relays por circuito: ningún punto individual conoce a la vez quién eres y qué destinos visitas. Y lo sostiene con transparencia deliberada: código abierto, especificaciones, documentos de diseño y desarrolladores que se identifican públicamente, porque tanto la privacidad como la transparencia se reducen a poder elegir.</p>
+<h2>La comunidad de relays: diversidad como requisito de seguridad</h2>
+<p>La red mueve hoy unos 250 gigabits por segundo de carga real, con capacidad en crecimiento sostenido. Sostienen esa red unos 4.000 relays con distintos roles o <em>flags</em> (un relay estable suele ser también <em>guard</em>, el primero que elige el navegador al entrar a la red).</p>
+<p>Un episodio reciente ilustró un riesgo poco comentado: cierto mes de junio, la red perdió 2.000 relays de golpe. La causa fue una actualización de Debian que reinició el daemon de Tor y les hizo perder un flag. Detrás del episodio hay un problema de monocultivo: la mayoría de los relays corre Debian, porque es la forma más fácil de montar uno. No es un problema exclusivo —el incidente de CrowdStrike afectó a 8,5 millones de dispositivos según la propia Microsoft—, pero marca la agenda.</p>
+<p>Por eso la diversidad es un requisito, no un adorno, y abarca cuatro dimensiones:</p>
+<ul>
+<li><strong>Hardware y software</strong>: si todos usan el mismo sistema, un bug derriba gran parte de la red; el objetivo es una distribución uniforme de sistemas operativos.</li>
+<li><strong>Ubicación geográfica</strong>: los circuitos deben cruzar regiones distintas para dificultar observar origen y destino a la vez, y los relays deben repartirse para que un problema local no desestabilice el conjunto.</li>
+<li><strong>Operadores</strong>: una comunidad repartida por el mundo sostiene el crecimiento y la sustentabilidad a largo plazo.</li>
+<li><strong>Usuarios</strong>: se estiman 400.000 usuarios diarios solo en Estados Unidos, con patrones de uso y perfiles muy variados.</li>
+</ul>
+<p>Para cultivar esa comunidad se apuesta por la comunicación directa (IRC, listas de correo, foros, meetups mensuales en línea con operadores), políticas transparentes discutidas abiertamente en GitLab, y asociaciones de operadores: organizaciones sin fines de lucro en Francia, Suiza, Alemania, Suecia, Luxemburgo, Islandia y dos en Canadá, donde hackspaces y personas se agrupan para operar relays de salida grandes y sustentables. Además de escala, estas asociaciones establecen relación con las policías locales —para explicar cómo funciona Tor— y son conocidas: se las encuentra en conferencias y forman parte de la comunidad.</p>
+<p>Ese "conocernos" es una herramienta de seguridad en sí misma. El desafío de fondo es una asimetría: la red necesita miles de relays en lugares diversos operados por gente que nadie conoce personalmente, pero los motivos para montar relays maliciosos se han multiplicado —operadores en Rusia montando ataques man-in-the-middle contra tráfico de salida es el caso documentado—. La respuesta combina varias líneas: eliminar vulnerabilidades de aplicación (el navegador ahora fuerza HTTPS por defecto, cerrando de raíz el ataque SSL-strip), apoyarse en el grafo social de operadores que se conocen entre sí, y extender el modelo asociativo. La EFF lanzó además una campaña para que las universidades operen relays: libertad de expresión, formación práctica para administrar computadoras conectadas al Internet real, investigación, y hasta una moneda conmemorativa para quienes lo hagan.</p>
+<p>En incentivos se explora de todo: gamificación estilo Reddit o Stack Exchange (insignias por antigüedad, por ser relay de salida, por estar en un ISP con pocos relays), tablas de clasificación, atención directa en meetups, e incluso incentivos estructurales del protocolo. Lo que se descarta es la vía cripto: el capitalismo maximiza beneficio, el voluntariado Tor es altruismo, y las lógicas son incompatibles —un modelo de lucro terminaría concentrando relays en el hosting más barato o vendiendo datos para redondear ganancias.</p>
+<h2>Salud de la red: del relay malicioso a la corrección estructural</h2>
+<p>Entre mayo y junio de 2020 se detectaron relays de salida ejecutando un ataque SSL-strip: dejaban pasar la mayor parte del tráfico, pero interceptaban lo dirigido a sitios de exchanges de criptomonedas que llegaba por HTTP sin redirección a HTTPS. Quien no notaba la ausencia del candado en el navegador enviaba sus credenciales directamente al atacante. Se expulsó al grupo, y semanas después apareció otro idéntico y también fue expulsado. La conclusión fue que expulsar relays es necesario pero insuficiente: junto con el equipo del navegador se habilitó HTTPS por defecto —apoyándose en HTTPS Everywhere y en versiones recientes de Firefox capaces de usar HTTPS y caer a HTTP solo cuando es imprescindible—, protegiendo a los usuarios también a nivel de aplicación.</p>
+<p>De esos episodios nació el equipo de salud de la red: expulsar relays maliciosos, trabajar con la comunidad de operadores, colaborar con activistas en terreno, y sostener la recolección de métricas que permite detectar cuándo algo no anda bien.</p>
+<h2>Métricas: estimar sin exponer</h2>
+<p>El principio rector es simple y radical: no se recolecta ningún dato que no pueda ser público. A diferencia de una VPN, que cuenta usuarios reales, Tor solo publica estimaciones agregadas. El mecanismo: los clientes piden a los relays la lista de descriptores para construir circuitos, los relays registran esas peticiones de forma agregada y las reportan; asumiendo que un cliente conectado 24 horas hace 10 peticiones, se divide el total por 10. La estimación puede estar subestimada en un orden de magnitud, y así se quiere: es el precio de no poner usuarios en riesgo.</p>
+<p>Sobre esa base, el servicio Collector archiva todos los documentos que la red ha producido, otro servicio los procesa en una base de datos y extrae series temporales y estadísticas de red. Todo es público y la metodología está documentada: quien descargue los datos y los procese debe llegar a los mismos resultados, y si no llega, esa discrepancia puede obligar a cambiar algo del lado de Tor. Hay dos excepciones deliberadas a la publicación: datos que podrían ayudar a los censores en la carrera en curso, y cifras por país con muy pocos usuarios (el umbral ronda los 100), que podrían combinarse con otros datos para desanonimizar.</p>
+<p>Las métricas no son solo curvas de usuarios. Las <em>bandwidth authorities</em> construyen circuitos de dos saltos hasta el relay medido, descargan archivos y comparan el resultado con el ancho de banda que el relay declara en sus descriptores: así se detecta a quien intenta hacer trampa prometiendo más capacidad de la que tiene. Las mediciones de rendimiento se hacen, además, desde distintas partes del mundo y especialmente desde regiones censuradas, para entender cómo le va a la red en las situaciones más adversas.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Clientes Tor] -->|peticiones agregadas| B[Relays]
+    B -->|descriptores y stats| C[Directory authorities]
+    C -->|documentos| D[Collector archiva]
+    D -->|parseo| E[Base de datos y series temporales]
+    E -->|publicacion| F[Metrics web y API]
+    G[Researchers] -->|mismos resultados verificados| E
+
+</pre>
+
+<p>Para bajar la barrera de entrada de investigadores y operadores se lanzó la <em>Network Status API</em> (sí, NSA): endpoints <code>details</code> y <code>summary</code> sobre los relays, con soporte de consultas históricas pasando una fecha en la URL, que devuelve todos los relays y bridges activos en la semana de esa fecha. Está en desarrollo, se esperan reportes de bugs, y forma parte de la misión del proyecto: avanzar la comprensión científica y popular de la tecnología de anonimato, no solo construir la tecnología.</p>
+<h2>Censura observada: Rusia, Irán, Myanmar</h2>
+<p>Las métricas permiten ver la censura desde afuera, y a veces antes de que sea noticia:</p>
+<ul>
+<li><strong>Rusia (2021-2022)</strong>: los usuarios con conexión directa empezaron a declinar entre noviembre y diciembre, meses antes de la invasión de Ucrania. En paralelo se trabajó con el equipo anti-censura y con activistas para que la gente usara bridges, y el uso de bridges creció en picada: la gente pudo seguir accediendo a noticias.</li>
+<li><strong>Irán (2022)</strong>: durante las protestas de Mahsa Amini, con internet severamente restringido, se enseñó a usar Snowflake y cientos de miles de personas lo adoptaron durante el evento. Para muchas fue la única vía de comunicación disponible.</li>
+<li><strong>Myanmar (reciente)</strong>: ante apagones de internet decretados por la junta militar, se distribuyeron bridges directamente en el país y el uso pasó de casi cero a varios cientos en pocos días.</li>
+</ul>
+<p>Un bridge es un relay que no está en la lista pública: transforma el tráfico para que parezca un protocolo que el censor no quiere bloquear y habla con IPs que el censor no asocia con Tor —esa es la carrera armamentista permanente—. Snowflake es un <em>pluggable transport</em> dentro de esa familia que usa proxies voluntarios temporales, difíciles de bloquear por su naturaleza efímera; cualquiera puede sumarse como proxy en snowflake.torproject.org, como extensión de navegador o en modo headless para Linux.</p>
+<p>Cada pico en los gráficos, sin embargo, exige escepticismo: ¿fue real, o fue un bug, o una base de datos GeoIP que clasificó mal a usuarios alemanes como birmanos durante una semana? El principio es contrastar el mismo fenómeno desde múltiples ángulos —incluido preguntar a personas en el terreno qué pasó realmente en el país— antes de dar por buena una lectura.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Medir sin dañar es posible y es una decisión de diseño.</strong> Solo datos agregados, estimaciones deliberadamente conservadoras (dividir por 10 las peticiones de descriptores), cero datos no publicables y umbral de ~100 usuarios por país: la privacidad de los usuarios vale más que la precisión de las cifras.</li>
+<li><strong>La diversidad es el blindaje de la red.</strong> Monocultivos de software derriban miles de relays de un golpe; concentraciones geográficas crean puntos únicos de falla y facilitan la observación; y cuanto más peso tengan los operadores legítimos, menor impacto tendrá quien monte relays con intenciones hostiles.</li>
+<li><strong>Las estructuras comunitarias son controles de seguridad.</strong> Asociaciones de operadores, el grafo social, los meetups y las campañas en universidades no son solo gobernanza: son la defensa práctica contra relays maliciosos, complementada con correcciones estructurales como HTTPS por defecto en el navegador.</li>
+<li><strong>La invitación es directa</strong>: correr un relay (mejor fuera de Alemania y Países Bajos, y EE.UU. tiene margen enorme), un bridge o un Snowflake; sumarse al equipo de salud de la red para cazar relays maliciosos; o aportar código —hay parser en migración de Java a Rust, herramientas para operadores como Tor Weather y visualizaciones de datos por construir—. Toda la documentación está en community.torproject.org, y cada contribución sostiene a quienes no tienen ejército ni guardaespaldas pero quieren cambiar su sociedad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/n8w85LpRplY">«DEF CON 32 - Measuring the Tor Network - Silvia Puglisi, Roger Dingledine»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

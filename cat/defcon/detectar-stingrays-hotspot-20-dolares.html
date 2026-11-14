@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cazando stingrays con un hotspot de 20 dólares — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cazando stingrays con un hotspot de 20 dólares</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/meC2JqNAbCA">«DEF CON 33 - Recording PCAPs from Stingrays With a $20 Hotspot - Cooper Quintin, oopsbagel»</a> · ver el <a class="nz-link" href="https://youtu.be/meC2JqNAbCA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> meC2JqNAbCA · <strong>URL:</strong> https://youtu.be/meC2JqNAbCA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Recording PCAPs from Stingrays With a $20 Hotspot - Cooper Quintin, oopsbagel</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los <em>cell site simulators</em> —stingrays, IMSI catchers— suplantan antenas móviles para que los teléfonos se conecten a ellos y entreguen sus identificadores (IMEI, IMSI), y en el proceso pueden degradar la conexión a 2G o interceptar e inyectar contenido. Se sabe que espías extranjeros los operan alrededor de Washington D.C., que mercenarios como NSO Group los han usado para instalar Pegasus, y que agencias como ICE y DHS poseen decenas y los usan cientos de veces al año. En paralelo, las estafas por SMS también se apoyan en catchers de 2G, como el caso de la mujer detenida en París en 2023 que conducía con uno emitiendo SMS suplantando al ministerio de salud francés.</p>
+<p>El problema de detectarlos siempre ha sido doble: las herramientas existentes (como SnoopSnitch) se centraban en 2G, que ya está apagada en Estados Unidos mientras los catchers comerciales operan nativamente en 4G; y los intentos previos de monitoreo activo —como Crocodile Hunter, la primera herramienta del equipo, con una SDR de 300 dólares sobre un portátil Linux— resultaban caros, difíciles de instalar y de interpretar, generando falsos positivos masivos. RayHunter, el proyecto de la EFF, es la respuesta revisada: un detector de stingrays escrito en Rust que corre en un hotspot móvil de 20 dólares, graba PCAPs analizables y avisa en tiempo real cuando algo huele a suplantación de estación base.</p>
+<h2>Cómo funciona un catcher moderno (y por qué 5G no lo arregla)</h2>
+<p>En 2G, el teléfono se autenticaba ante la red, pero la red nunca se autenticaba ante el teléfono: cualquiera podía presentarse como operador y el teléfono enrutaría llamadas y SMS a través de él. 4G introdujo la autenticación mutua, pero quedó una brecha enorme: decenas de mensajes se envían, reciben y confían antes de que ocurra la autenticación, o sin que ocurra jamás. En la capa RRC (con sus System Information Blocks, que dicen a qué red estás conectado y cómo conectarte) y en la capa NAS (attach, identidad, IDs temporales) vive la gran mayoría de los ataques LTE.</p>
+<p>El white paper "Gotta Catch Them All", del equipo, documenta en profundidad cómo operan probablemente los catchers 4G nativos. ¿Y 5G? No resuelve nada relevante: muchos países y regiones de EE.UU. siguen sin cobertura 5G, mucha gente tiene teléfonos que no lo soportan, y siendo un protocolo de radio puede simplemente atascarse (<em>jamming</em>) o apagarse. Group 2000 vende un producto, LIMA 5G Cell Pro, que se instala en el centro de la operadora y da a la policía una app con la que geocercar un área y desactivar el 5G, degradando a todos los presentes a 4G, 3G o 2G —exactamente donde opera el catcher.</p>
+<p>El uso documentado es extenso: departamentos de policía locales como Oakland (3 usos en 2016-2017) conviven con otros como San Bernardino (231 usos en 2017) y Fontana (más de 300 entre 2022 y 2023, según un flyer de ventas de Jacobs Technologies encontrado en Document Cloud). El Atlas of Surveillance de la EFF recoge agencias con catchers en prácticamente cada área metropolitana de EE.UU.</p>
+<h2>RayHunter: detección donde vive el modem</h2>
+<p>La pieza clave es el protocolo de diagnóstico Qualcomm. RayHunter lee los mensajes DIAG del modem, capturando el tráfico entre el dispositivo y la estación base, analiza esos mensajes con heurísticas y reporta los resultados por pantalla y por una interfaz web sencilla: avisos, botón de inicio/parada de captura, y descarga de PCAP o ZIP para análisis manual. Todo ocurre automáticamente al encender el dispositivo; el usuario solo lo lleva consigo.</p>
+<p>Bajo el capó, el software lee tramas DIAG sin parsear desde el archivo <code>dev/diag</code> en espacio de usuario, las almacena en archivos QMDL y las analiza en busca de indicadores. Bajo demanda, las tramas se envuelven con cabecera GSMTAP en un PCAP descargable. El hardware objetivo son hotspots baratos con modem Qualcomm: SoCs MDM que combinan un DSP para hablar LTE y un núcleo ARM corriendo Linux embebido, donde RayHunter vive en espacio de usuario con unos pocos megabytes de memoria y almacenamiento para logs. Hay dos dispositivos recomendados (el Orbit y un modelo TP-Link) y tres más oficialmente soportados, pero corre en casi cualquier cosa con modem Qualcomm que exponga mensajes DIAG —incluido un hotspot con Linux 5.x al que le hicieron hack durante el vuelo.</p>
+<p>Un criterio de diseño deliberado: el dispositivo debe ser <em>covert</em>, no deniable. Debe pasar el "sniff test": si alguien revisa la mochila de un periodista o activista y ve un hotspot normal, no hay preguntas incómodas —a diferencia de una Raspberry Pi con dongles LTE y GPS.</p>
+<h2>Las cuatro heurísticas de detección</h2>
+<p>La red móvil está llena de comportamientos legítimos que parecen ataques: las operadoras piden el IMSI o el IMEI aunque tengan un ID temporal válido, te degradan, se apagan. La detección es threat hunting mitad lógica, mitad intuición. RayHunter usa cuatro categorías:</p>
+<ul>
+<li><strong>Degradación a 2G</strong>: el ataque de los catchers criminales para enviar SMS o interceptar contenido. En EE.UU., donde 2G ya no existe, cualquier degradación es una bandera roja enorme; en países con 2G vivo es inútil y se pide desactivarla.</li>
+<li><strong>Uso de null cipher</strong>: la estación base sugiere cifrado nulo, sin encriptación entre teléfono y torre. Es legítimo para llamadas de emergencia sin servicio, pero fantástico para interceptar o inyectar contenido. Desde un hotspot es improbable marcar al 911, así que la señal es fiable.</li>
+<li><strong>Cadenas SIB incompletas</strong>: las torres reales envían 5, 6 o 7 de los ~12 SIBs posibles al inicio; las estaciones base falsas solo codifican los imprescindibles (SIB 1, 2 y 3). Combinada con otras heurísticas, es prácticamente concluyente.</li>
+<li><strong>Petición de IMSI sin autenticación</strong>: el "hijo problemático", porque las redes legítimas también piden identidad (roaming, primer attach tras mucho tiempo). La versión ingenua —contar peticiones— generaba falsos positivos. La versión refinada busca el patrón completo: petición de IMSI, cero autenticación posterior y desconexión inmediata. El apodo: el ataque del "inspector de billeteras".</li>
+</ul>
+<p>La validación llegó con un PCAP real de un catcher comercial, cedido por la empresa Cape, que fabrica redes móviles seguras. La secuencia capturada es un manual de ataque: la estación falsa emite SIBs con un <em>tracking area code</em> distinto del legítimo (EE6 frente a 3703), el teléfono cree que saltó de región y envía un <em>tracking area update</em>, la torre responde con una <em>identity request</em> tipo IMSI, el teléfono entrega su IMSI, y la torre lo desconecta con el mensaje "illegal UE". El teléfono se reconecta a una torre legítima sin enterarse. RayHunter detecta el patrón: SIBs 1-2-3 incompletos y desconexión tras identity request sin ningún handshake de autenticación.</p>
+<h2>Hallazgos en estado salvaje</h2>
+<p>El caso más extremo viene de Zero Chaos, durante un crucero por las islas Turcas y Caicos: en alta mar aparecieron varias <em>identity requests</em> sin <em>auth accept</em>, seguidas de desconexiones —posible falso positivo al pasar junto a islas y redes nuevas—. Pero al atracar en el puerto, durante una hora, llegó una petición de conexión con null cipher cada tres segundos, acompañada de SIBs malformados y más peticiones de identidad. Es la única vez que se ha visto null cipher a ese ritmo en la naturaleza, y con un 95% de confianza, una estación base sumamente sospechosa.</p>
+<p>En EE.UU., un usuario en el centro de Chicago registró docenas de peticiones de identidad con desconexión inmediata y sin autenticación durante una hora, en mayo, desde una cafetería; luego cesó el resto del día. La policía de Chicago tiene catchers, y ICE opera en la ciudad con los suyos.</p>
+<h2>Rust puro y cómo contribuir</h2>
+<p>El proyecto terminó siendo 100% Rust, incluida la capa USB: se reemplazaron los bindings Rust de libUSB por una librería pura en Rust llamada nUSB, y sin enlazar a objetos compartidos de C se pudo usar directamente el linker LLVM de Rust. Consecuencia práctica para contribuidores: solo hacen falta las herramientas de RustUp, sin glibc ni toolchains cruzados. Más allá del código, se buscan personas para pruebas de campo en más ciudades de EE.UU. y el resto del mundo, distribuidores en zonas de alto riesgo, y expertos en telefonía que ayuden a analizar PCAPs y refinar heurísticas para reducir falsos positivos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La ventana de ataque es anterior a la autenticación.</strong> Aunque 4G autentica mutuamente, decenas de mensajes RRC y NAS se procesan antes o sin autenticación; ahí operan los catchers modernos. 5G no cierra la brecha: cobertura insuficiente, teléfonos antiguos, jamming y productos comerciales que apagan el 5G por geocerca.</li>
+<li><strong>La detección asequible existe.</strong> RayHunter convierte un hotspot Qualcomm de 20 dólares en un sensor pasivo de estaciones base falsas, con cuatro heurísticas afinadas —degradación 2G, null cipher, SIBs incompletos, IMSI sin autenticación seguido de desconexión— y PCAPs descargables para verificación humana.</li>
+<li><strong>Los catchers están por todas partes y ya se han visto en acción.</strong> De mercenarios que instalan Pegasus a departamentos policiales con cientos de usos anuales, y con detecciones en estado salvaje en Turcas y Caicos y Chicago, la vigilancia a nivel de señal de radio no es hipotética.</li>
+<li><strong>La mitigación individual sigue siendo la más simple</strong>, como resumió el hijo de seis años del investigador: apagar el teléfono. Mientras tanto, contribuir a RayHunter —código, pruebas de campo o análisis de PCAPs— amplía la red de detección comunitaria.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/meC2JqNAbCA">«DEF CON 33 - Recording PCAPs from Stingrays With a $20 Hotspot - Cooper Quintin, oopsbagel»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

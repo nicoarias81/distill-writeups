@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Más allá del asistente digital: asegurar sistemas de IA agéntica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Más allá del asistente digital: asegurar sistemas de IA agéntica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/5fJ6u--GkSk">«Beyond Digital Assistance: Securing Agentic AI Systems and Multi-Agent Workflows for High-Stakes Environments - Jeremiah Nwokoro &amp; Andra Lezza&#x27;»</a> · ver el <a class="nz-link" href="https://youtu.be/5fJ6u--GkSk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 5fJ6u--GkSk · <strong>URL:</strong> https://youtu.be/5fJ6u--GkSk · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> Beyond Digital Assistance: Securing Agentic AI Systems and Multi-Agent Workflows for High-Stakes Environments - Jeremiah Nwokoro &amp; Andra Lezza'</li>
+</ul>
+<h2>Resumen</h2>
+<p>Entre agosto de 2023 y agosto de 2025 el ecosistema pasó de copilotos —entrada en lenguaje natural, RAG, llamadas a APIs, sugerencias— a agentes y servidores MCP desplegados "a velocidad récord", conectados a más datos que nunca. Jeremiah (líder de un equipo global de entrega de IA) y Andra (AppSec en Sage, OWASP London) repasan el estado de la seguridad de la IA agéntica y proponen un método: tratarla como un problema de threat modeling clásico con límites de confianza, tomando como caso de estudio un agente conectado a un sistema de nómina.</p>
+<p>El mensaje central: no hay que reinventar la seguridad —cerca del 75% de la seguridad de agentes es seguridad tradicional bien hecha— pero sí hay que reconocer qué introduce de nuevo la agencia (estado persistente, invocación de herramientas, escalada de privilegios, flujos multiagente) y diseñar en consecuencia: proxy de permisos, cliente MCP propio, servidores MCP segregados por nivel de confianza y, si no es imprescindible, ni siquiera una interfaz de chat.</p>
+<h2>Del asistente al agente: qué cambia de verdad</h2>
+<p>El salto de los copilotos a los agentes añade tres cosas que multiplican el impacto de cada vulnerabilidad conocida: estado persistente (memoria entre sesiones — el incidente temprano de AutoGPT con escalada de privilegios no intencionada por memoria persistente es el ejemplo canónico), invocación dinámica de herramientas externas, y autonomía sobre flujos completos. El resultado: inyección de prompts, fuga de datos, envenenamiento de modelo y consumo ilimitado de recursos dejan de ser problemas "de respuesta" y pasan a poder ejecutar acciones reales sin intervención humana.</p>
+<p>Los autores se apoyan en tres marcos de OWASP: el Top 10 de LLM, el documento de amenazas y mitigaciones de IA agéntica, y el recién lanzado Top 10 de IA agéntica (kickoff la misma semana de la divulgación, lista esperada para noviembre de 2025). Un dato útil para priorizar: comparando el Top 10 de web con el de LLM, solo tres riesgos son genuinamente nuevos — fuga del system prompt, debilidades de vectores/embeddings y desinformación. En el mundo agéntico, esos tres se agravian: el system prompt filtrado permite suplantar agentes y romper trazas de auditoría; un vector store manipulado envenena flujos sin señales visibles; y la desinformación se amplifica por cadenas de agentes y memoria persistente, donde cada recarga de memoria re-ejecuta el "poison pill".</p>
+<p>Sobre la definición de "agente": nadie se pone de acuerdo (OpenAI, Anthropic, NVIDIA y Google tienen versiones distintas, y todos tienen algo que vender). La taxonomía clásica desde 2003 —agentes reflexivos, basados en modelo, basados en objetivos, basados en utilidad, agentes que aprenden— sigue siendo útil, porque cada escalón añade amenazas: los agentes con memoria abren fuga de estado interno y tomas de control incrementales; la autonomía abre todos los ataques de supply chain imaginables, porque la selección de herramientas pasa a ser dinámica.</p>
+<h2>MCP: el USB-C de la IA, con todo lo malo que eso implica</h2>
+<p>El Model Context Protocol estandariza cómo los LLM invocan herramientas y datos, y acelera la integración — pero añade una capa entera de riesgo. El símil favorito del ecosistema ("MCP es el USB-C de la IA") es exacto en el mal sentido: enchufás código de terceros de niveles de confianza diversos a un motor de ejecución dinámica, y esperás que no explote. Como resume un chiste muy citado: "la S de MCP es de Security".</p>
+<p>La arquitectura típica —usuario → UI con chat → backend con MCP client y server → herramientas (sistema de archivos, búsqueda web, envío de email)— cruza un límite de confianza en el lugar peor: toda la conversación del usuario viaja directa a los sistemas de LLM y agentes del lado servidor, sin la posibilidad de interceptar en el cliente para inyectar guardrails o reglas simples. Eso habilita inyección de prompts, escape del system prompt y overrides. Además, las herramientas que se enchufan casi nunca fueron diseñadas con IA en mente: APIs y bases de datos con modelos de RBAC distintos y tecnologías de autenticación heterogéneas, todas colgando de un único plano de control (el MCP server) que decide cómo invocarlas.</p>
+<h2>Threat modeling: el caso de la nómina</h2>
+<p>El corazón práctico del análisis es un threat model de un agente conectado a un sistema de payroll con cuatro endpoints: consultar recibos, actualizar datos de nómina, ajustar recibos y salarios, y generar reportes. Tres límites de confianza: externo (usuarios), entorno del agente (host + LLM) y backend empresarial (MCP client, MCP server, aplicación). Tres escenarios:</p>
+<ul>
+<li><strong>Prompt injection.</strong> El payload viaja usuario → app → agent host → LLM → MCP client → herramienta; la descripción de la herramienta que recibe el backend puede contener datos arbitrarios (inyección a nivel de aplicación), y toda salida sin sanitizar de los endpoints regresa por la cadena hasta el LLM, que confía implícitamente en lo que le llega del MCP client (inyección vía tool output). Controles: sanitización de entrada y guardrails del LLM como capa extra de defensa en profundidad.</li>
+<li><strong>Data leak.</strong> El usuario malicioso pide su recibo y obtiene los de toda la empresa. No es hipotético: el MCP server público de GitHub, por su modelo de permisos heredado heterogéneo, permitió engañar al agente para leer repos privados a los que el usuario no tenía acceso. Controles: uniformizar permisos, PII fuera de logs y del tránsito MCP, least privilege y ACLs.</li>
+<li><strong>Business logic.</strong> Un usuario pide ajustar su salario a mil millones de dólares y el agente lo ejecuta. Controles: logging y monitoreo con trazas de auditoría claras, y un kill switch en el producto final antes de que el pago llegue a la cadena.</li>
+</ul>
+<h2>Recomendaciones de diseño</h2>
+<ol>
+<li><strong>¿Realmente necesitás chat?</strong> La ecuación "IA = chat" es un malentendido heredado de ChatGPT. Eliminar la interfaz conversacional elimina por diseño toda una familia de amenazas.</li>
+<li><strong>Traé tu propio MCP client.</strong> Para usos de alto impacto, implementar el cliente MCP dentro de tu infraestructura de confianza —aunque suene contraintuitivo— te da aislamiento de herramientas, control total de la comunicación cliente-servidor a nivel MCP y una vía para transmitir la identidad del usuario desde la UI determinista hasta las herramientas. Los autores lo llaman "shift right on AI": en lugar de solo desplazar seguridad a la izquierda del ciclo de vida, encerrar los componentes de IA dentro del límite de confianza.</li>
+<li><strong>Proxy de permisos.</strong> Un plano de control separado del MCP server que mapee y uniformice los modelos de acceso de todas las herramientas.</li>
+<li><strong>Segregación por confianza.</strong> Servidores MCP y herramientas agrupados por nivel de permisos: lo público en un lado, lo sensible en otro. Añade seguridad y simplifica la implementación.</li>
+<li><strong>Clásicos que siguen funcionando.</strong> Sanitización, guardrails, logging/monitoreo, "constitutional self-critique" (pedirle al LLM que revise su propia salida contra sus principios — no lo resuelve, pero ayuda) y auditoría de la lógica de negocio: es imposible hacer más seguro con IA un sistema inseguro; el envoltorio agéntico solo expone vulnerabilidades legacy que ya estaban.</li>
+</ol>
+<p>Para sistemas multiagente (orquestador + agentes por dominio o nivel de confianza, cada uno con herramientas de múltiples MCP servers, con protocolos como A2A en camino), el consejo es pragmático: todo lo anterior "en esteroides", y empezar por construir bien los bloques de un solo agente. La pregunta del público sobre cómo gestionar el whitelist de servidores y herramientas quedó respondida con el marco mental final: la selección dinámica de herramientas convirtió los flujos clásicos en escenarios de supply chain — no permitás que cualquiera enchufe herramientas de cualquier lado, auditalas regularmente, porque lo que hay detrás de esos servers puede cambiar. "There'll be dragons."</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/5fJ6u--GkSk">«Beyond Digital Assistance: Securing Agentic AI Systems and Multi-Agent Workflows for High-Stakes Environments - Jeremiah Nwokoro &amp; Andra Lezza&#x27;»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

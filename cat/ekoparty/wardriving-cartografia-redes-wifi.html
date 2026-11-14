@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardriving: cartografiar la seguridad inalámbrica de una ciudad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Wardriving: cartografiar la seguridad inalámbrica de una ciudad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/DJ2yu-K1oNc">«Ekoparty Summer Workshops 2025 #1 | Wardriving I Oszi y Tom»</a> · ver el <a class="nz-link" href="https://youtu.be/DJ2yu-K1oNc">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> DJ2yu-K1oNc · <strong>URL:</strong> https://youtu.be/DJ2yu-K1oNc · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Ekoparty Summer Workshops 2025 #1 | Wardriving I Oszi y Tom</li>
+</ul>
+<h2>Resumen</h2>
+<p>Wardriving es relevar redes inalámbricas desde un vehículo: hardware que escanea, software que registra, GPS que geolocaliza. La variante más amplia —warwalking, warbiking, hasta dron— cambia el medio pero no la idea: construir un mapa de qué redes existen, en qué canal emiten, con qué cifrado y con qué potencia. La primera parte del taller de Ekoparty Summer Workshops 2025 cubre la historia del 802.11, la evolución de los cifrados, el hardware y el software para hacerlo, y la segunda es un taller práctico en vivo.</p>
+<p>La parte legal es clara: wardriving es OSINT puro. Escanear y mapear es legal en casi todo el mundo; capturar tráfico ajeno, forjar paquetes de desautenticación o intentar cracks fuera de un entorno propio no lo es, y el taller lo deja explícito desde el arranque.</p>
+<h2>Historia del 802.11 y evolución de los cifrados</h2>
+<p>El estándar 802.11 arrancó en 1997 con 2 Mbps. En 1999 llegó B con 11 Mbps en 2.4 GHz y, con él, <strong>WEP</strong>: el primer intento de cifrado, roto formalmente en 2001 por reutilización de IVs. WPA (2003) fue un parche temporal sobre WEP con TKIP; <strong>WPA2</strong> (2004) lo reemplazó con AES-CCMP y es la versión más popular hasta hoy. <strong>WPA3</strong> (2018) introdujo SAE (basado en Dragonfly), PMF y GCMP-256 para redes de máxima seguridad, pero convive con WPA2 por compatibilidad. En 2019, la transición Dragonblood expuso que SAE tiene sus propias debilidades, en particular vía ataques de downgrade que obligan a negociar WPA2. El problema de fondo: cualquier red que anuncia compatibilidad con cifrados viejos hereda sus riesgos.</p>
+<h2>El 4-way handshake y por qué se puede crackear</h2>
+<p>El mecanismo de autenticación WPA2 es el 4-way handshake: el AP envía un ANonce, el cliente responde con un SNonce y su MIC, el AP confirma con su MIC y reparte el GTK, y el cliente cierra. La clave de sesión (PTK) se deriva del ANonce, del SNonce, del PSK (la contraseña) y de las MACs de ambos. El punto débil es que la verificación del handshake puede hacerse con un diccionario: si se capturan los 4 mensajes —y con ellos los nonces en claro— se puede probar candidato por candidato si la contraseña derivada produce el MIC correcto.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant C as Cliente
+    participant AP as Access Point
+    AP->>C: 1. ANonce
+    C->>AP: 2. SNonce + MIC
+    AP->>C: 3. MIC + GTK
+    C->>AP: 4. Confirmación
+
+</pre>
+
+<p>Para forzar un handshake, la herramienta clásica manda paquetes de deautenticación al cliente (ataque de fuerza bruta offline: el crack se hace después, con hashcat, contra un archivo capturado). Con RockYou y patrones comunes, el éxito en diccionarios razonables es alto; los hashes de contraseñas de 16 a 18 caracteres son técnicamente alcanzables pero inviables en la práctica cotidiana.</p>
+<h2>Canales, bandas y propiedades de la señal</h2>
+<p>En 2.4 GHz hay 14 canales, de los cuales 11 son legales en las Américas, cada uno de 22 MHz con separación de 5 MHz: los canales se solapan, y solo 1, 6 y 11 son verdaderamente no superpuestos. En 5 GHz hay alrededor de 45 canales, con la opción de bonding para duplicar ancho. La 2.4 GHz penetra mejor obstáculos y alcanza más lejos; la 5 GHz ofrece más velocidad y menos alcance. Este mapa de canales es la razón por la que un análisis serio necesita escanear en hopping: la tarjeta solo puede escuchar un canal por vez.</p>
+<h2>Hardware y software del wardriver</h2>
+<p>El setup mínimo se arma así:</p>
+<ol>
+<li><strong>Adaptador con modo monitor e inyección</strong>: los chipsets correctos habilitan escuchar sin asociarse. Nunca conectar la antena con la placa energizada: en las placas de 100 dólares las antenas actúan como disipador.</li>
+<li><strong>Antena</strong>: omnidireccional para cobertura de calle, direccional para apuntar a edificios puntuales.</li>
+<li><strong>GPS</strong>: un mouse GPS (con protocolo NMEA) o compartir el GPS del celular vía app a un puerto serial virtual.</li>
+<li><strong>Software</strong>: <strong>Kismet</strong> (la herramienta de referencia, con exportación a CSV formato wigle), el stack <strong>aircrack</strong> (airmon-ng para poner la placa en modo monitor, airodump-ng para escanear) y <strong>GPSD</strong> para manejar el GPS. En Android, la app de <strong>WiGLE</strong> hace wardriving con el celular y alimenta la base mundial de la comunidad.</li>
+<li><strong>WiFi Pineapple</strong>: con PineAP, tres tarjetas de red integradas, GPSD y Kismet corriendo, es la demo práctica del taller: poner la placa en modo monitor, activar hopping de canales, capturar redes con GPS sincronizado y exportar a wiglecsv.</li>
+</ol>
+<p>El taller muestra la línea de comando real: <code>airmon check kill</code> para detener network managers, <code>-c</code> para capturar, <code>--override wardriving</code> en Kismet para desactivar la captura de paquetes (modo legal puro) y el parámetro <code>-t</code> para titular el log en la interfaz (puerto 2501).</p>
+<h2>Los datos: qué cambió en una década</h2>
+<p>Los relevamientos del propio evento muestran la evolución: en 2012 un 32% de las redes capturadas usaban WEP (hoy prácticamente desaparecido), y el porcentaje de redes abiertas cayó de 10% a casi nada. WPA2 domina, WPA3 aparece creciendo, y lo que sigue siendo alarmante es la cantidad de redes WPA2 con contraseñas débiles que ceden a un diccionario. El wardriving también documenta redes ocultas que no se anuncian en el SSID pero emiten igual.</p>
+<h2>Wardchalking, gadgets y auditoría corporativa</h2>
+<p>Un extra cultural: el <strong>wardchalking</strong> es la práctica de marcar en la vereda o el poste el estado de la red del lugar —código con símbolos OpenNode, WEP y ClosedNode heredado del argot de los viajeros ferroviarios—. La comunidad wardriving tiene campeonatos mundiales (con ganadores en Lituania) basados en cantidad de redes, y en Argentina hay usuarios top del ranking global de WiGLE.</p>
+<p>Para el lado corporativo, la relevancia es directa: un wardriver encuentra APs no autorizados (shadow IT), redes de invitados con acceso a la red interna, APs de oficinas que filtran a la calle, y las empresas serias lo contratan para hacer <strong>auditoría inalámbrica</strong> con herramientas tipo WIDS/WIPS que monitorean continuamente. En el mismo ecosistema conviven gadgets alternativos: WiFi Coconut (14 NICs para escuchar todos los canales a la vez), Flipper Zero con ESP32 Marauder, pwnagotchi, DSTIKE, CatSniffer y BetterCap como suite de ataques inalámbricos.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Kismet</strong>: escaneo, detección y exportación a CSV formato wigle.</li>
+<li><strong>aircrack suite</strong>: airmon-ng (modo monitor), airodump-ng (escaneo y captura).</li>
+<li><strong>WiGLE</strong>: base de datos mundial de redes, app para wardriving móvil.</li>
+<li><strong>GPSD y NMEA</strong>: manejo de GPS en la estación móvil.</li>
+<li><strong>WiFi Pineapple / PineAP</strong>: plataforma portátil para la demo práctica.</li>
+<li><strong>Deautenticación y crack de 4-way handshake</strong>: aircrack-ng y hashcat offline.</li>
+<li><strong>WIDS/WIPS</strong>: monitoreo corporativo de redes inalámbricas.</li>
+<li><strong>WiFi Coconut, ESP32 Marauder, pwnagotchi, BetterCap</strong>: hardware y suites alternativas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Wardriving es OSINT: mapear es legal; capturar tráfico o atacar no lo es. La diferencia define el alcance ético de la práctica.</li>
+<li>La evolución WEP → WPA → WPA2 → WPA3 muestra que la seguridad inalámbrica mejora por reemplazo, no por parcheo, y que la compatibilidad con lo viejo arrastra sus debilidades.</li>
+<li>El 4-way handshake es el eslabón crackeable de WPA2: la contraseña débil es el punto de falla, no el protocolo.</li>
+<li>Un setup de wardriver se arma con placas de monitor mode, GPS y Kismet por menos de 100 dólares, y los datos que produce son útiles tanto para la comunidad (WiGLE) como para auditorías corporativas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/DJ2yu-K1oNc">«Ekoparty Summer Workshops 2025 #1 | Wardriving I Oszi y Tom»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

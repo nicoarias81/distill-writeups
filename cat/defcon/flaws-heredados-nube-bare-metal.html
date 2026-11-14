@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metal-as-a-Disservice: los fallos heredados que socavan la nube bare metal — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Metal-as-a-Disservice: los fallos heredados que socavan la nube bare metal</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/EtGhHCr3VLE">«DEF CON 33 - Metal-as-a-Disservice: Exploiting Legacy Flaws in Cutting Edge Clouds - Bill Demirkapi»</a> · ver el <a class="nz-link" href="https://youtu.be/EtGhHCr3VLE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> EtGhHCr3VLE · <strong>URL:</strong> https://youtu.be/EtGhHCr3VLE · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Metal-as-a-Disservice: Exploiting Legacy Flaws in Cutting Edge Clouds - Bill Demirkapi</li>
+</ul>
+<h2>Resumen</h2>
+<p>El auge del machine learning ha traído una nueva ola de proveedores cloud que ofrecen GPUs a precios competitivos —a veces a una décima parte del coste de AWS, Azure o Google Cloud— mediante servidores <em>bare metal</em>: hardware físico alquilado directamente, sin hipervisor ni capa de virtualización de por medio. Estos proveedores venden el acceso root directo al hardware como una ventaja de rendimiento y, en teoría, de seguridad: el servidor sería "físicamente aislado" del resto.</p>
+<p>La realidad es otra. Un servidor bare metal expone de forma deliberada superficies de ataque que en la nube tradicional están cerradas: firmware UEFI, opciones de arranque, dispositivos PCI onboard, el Baseband Management Controller (BMC) y la red del datacenter. Mientras que los proveedores grandes llevan más de una década invirtiendo en su historia de seguridad de hardware y arranque, los proveedores nuevos de ML rara vez aplican las prácticas de reset y aislamiento que estas superficies exigen.</p>
+<p>Este artículo recorre ese panorama de vulnerabilidades sistémicas: cómo persistir en servidores bare metal sin tocar disco, cómo backdoor de firmware UEFI, NICs y BMCs, cómo la red interna de estos datacenters esconde fallos que evocan ataques de hace dos décadas, y cómo una cadena DHCP→PXE→EFI convierte un problema de segmentación de red en RCE cross-tenant. Incluye el caso especial de RunPod, un proveedor de contenedores que hereda las vulnerabilidades de su proveedor de proveedor.</p>
+<h2>El problema de la superficie de ataque bare metal</h2>
+<p>Un servidor bare metal se distingue de una VM (donde un hipervisor media entre el inquilino y el host) y de un contenedor (donde se ejecuta el SO del host aislado salvo el acceso a la GPU): aquí se ejecuta directamente sobre el metal. Ese acceso root por diseño, el principal punto de venta, expone superficies que en cualquier otro modelo de nube están fuera del alcance del inquilino:</p>
+<ul>
+<li><strong>UEFI/BIOS</strong>: vulnerabilidades en el firmware de la placa, incluido el arranque por red, explotables desde la red local.</li>
+<li><strong>Dispositivos onboard</strong> (NIC, GPU): componentes privilegiados que, si se comprometen, conservan acceso al host incluso después de liberar el servidor al siguiente cliente.</li>
+<li><strong>Firmware backdooreado</strong>: si el proveedor no resetea bien la máquina entre inquilinos, un atacante puede infectar el host y mantener persistencia indefinidamente.</li>
+<li><strong>BMC</strong>: el chip que permite gestión out-of-band y que limpia el entorno entre cambios de inquilino. Comprometido, tiene control casi total sobre el host.</li>
+<li><strong>Red</strong>: sin aislamiento adecuado, el inquilino puede ver tráfico de otros servidores y ataques al flujo de <em>provisioning</em> pueden dar ejecución de código durante la configuración del servidor.</li>
+</ul>
+<p>Es la superficie clásica de seguridad de firmware y hardware, pero con consecuencias peores: los ataques tradicionales de este tipo suelen depender de acceso físico, y aquí el acceso root remoto lo sustituye por diseño.</p>
+<h2>Provisioning con protocolos de hace dos décadas</h2>
+<p>Para gestionar cientos de servidores sin hipervisor, muchos proveedores usan <strong>Canonical Metal as a Service (MAAS)</strong>, que automatiza el provisioning, el despliegue del sistema operativo y los scripts específicos del cliente. El flujo: el servidor arranca en un entorno de provisioning vía <strong>PXE boot</strong> (DHCP que responde con una imagen de arranque), pasa por estados de <em>commissioning</em> hasta <em>ready</em> —momento en que se configura el BMC— y queda disponible para desplegarse al cliente vía la API de MAAS.</p>
+<p>El detalle crítico: MAAS depende de protocolos con casi dos décadas de antigüedad, PXE sobre DHCP y HTTP sin cifrar, para toda su API de provisioning. Esa herencia, combinada con una red interna mal segmentada, es la puerta de entrada a varios de los ataques que veremos.</p>
+<h2>Persistencia en el entorno de arranque</h2>
+<p>Los servidores bare metal suelen carecer de defensas básicas como Secure Boot —el objetivo es control total del cliente—, lo que facilita secuestrar la cadena de arranque. Un vector de persistencia sin tocar disco: crear una <strong>opción de arranque maliciosa</strong> en las variables NVRAM. Si el firmware soporta <strong>HTTP boot</strong> (casi siempre, ya que lleva más de una década en el código de referencia EDK2 y en firmwares UEFI), la opción puede apuntar a un servidor remoto del atacante en lugar del PXE local: el dispositivo obtiene IP por DHCP pero descarga una imagen EFI del atacante.</p>
+<p>Además, UEFI permite <strong>variables autenticadas privadas</strong>: el atacante puede proteger su opción de arranque con su propia clave, de modo que limpiar la configuración sin acceso directo al firmware exige firmar con esa clave. Y si se necesitan cambiar opciones de BIOS sin consola, las estructuras de configuración ocultas de las IBVs (Independent BIOS Vendors) pueden localizarse con herramientas open source de parseo de variables UEFI, y modificarse desde el SO arrancando una imagen EFI propia en el siguiente boot que escriba los offsets deseados.</p>
+<h3>Herramientas para auditar el boot security</h3>
+<p>La enumeración básica en Linux ya da mucho contexto: <code>dmidecode</code> para modelo de placa y versión de BIOS, la ruta <code>/boot/efi</code> (partición EFI con bootloaders y configuración), y <code>/sys/firmware</code> para interactuar con la configuración de firmware. Encima de eso:</p>
+<ul>
+<li><strong>CHIPSEC</strong>: framework de análisis de seguridad de plataforma; comprueba el modo de fabricación de Intel, si la BIOS es escribible, y explica por qué un hallazgo es crítico y cómo explotarlo.</li>
+<li><strong>Intel Boot Guard</strong>: raíz de confianza de Intel al firmware del OEM. Mal configurado o no aplicado (por ejemplo, si el <em>end of manufacturing</em> no se alcanzó y las claves OEM no se fusionaron en el chipset), permite modificar el firmware e implantar persistencia. El firmware se extrae con las utilidades CSME de Intel, con herramientas específicas de la IBV (AFU Linux en placas AMI) o con el volcado SPI ROM integrado en CHIPSEC; <strong>UEFITool</strong> muestra las regiones protegidas y cuáles quedan expuestas para inyectar código.</li>
+<li><strong>Platbox (IOActive)</strong>: equivalente para auditoría en equipos AMD, donde el análogo de Boot Guard es <strong>AMD ROM Armor</strong> — que en la práctica rara vez es seguro. Platbox además habilita lectura y escritura de la flash.</li>
+</ul>
+<p>Con acceso de escritura a la flash y módulos sin protección, <strong>UEFITool 0.28</strong> permite sustituir partes del firmware. La comunidad de game hacking ha publicado trabajo directamente reutilizable: proyectos como <strong>SMM Infect</strong> muestran cómo reemplazar una imagen SMM no utilizada por un driver EFI malicioso que mantiene persistencia tras liberar el servidor.</p>
+<h3>El downgrade como primitiva universal</h3>
+<p>Frente a Boot Guard o ROM Armor que no se pueden romper, hay una técnica de escalada de OS a entorno de arranque que funciona una y otra vez: <strong>downgradear el BIOS a una versión antigua con vulnerabilidades conocidas</strong>. El código sigue firmado —es código legítimo, solo que vulnerable—, así que pasa las verificaciones de integridad. Los contramedidas existen (los <em>secure version numbers</em> de Intel, con anti-rollback), pero empíricamente ningún OEM grande los usa: cuando publica un parche, no incrementa el número de versión segura.</p>
+<h2>Dispositivos PCI: el firmware que nadie resetea</h2>
+<p>Resetear la BIOS no basta: los dispositivos conectados al host —GPUs, adaptadores de red del BMC, controladores— llevan su propio firmware. Su enumeración es trivial (<code>lspci</code>, <code>/sys/bus/pci</code>), y los drivers de Linux a menudo conservan restos de funcionalidad crítica: el driver <code>bnxt_en</code> de los controladores Broadcom, por ejemplo, incluye la capacidad de flashear la NVRAM del adaptador, y volcados con <code>ethtool</code>.</p>
+<p>La pieza clave es la <strong>option ROM</strong>: drivers EFI dentro de la flash del dispositivo que permiten la interoperabilidad con el host y se cargan en el entorno UEFI como cualquier otro driver. Sin raíz de confianza que la proteja, sustituir la option ROM es una vía de persistencia cómoda que no exige hacks de DMA ni del firmware del host. El proyecto <strong>Thundergate</strong>, pese a su década de antigüedad, sigue siendo el punto de partida para reemplazar firmware y option ROMs de adaptadores Broadcom.</p>
+<p>Los flujos de descomisión como OpenStack Ironic pueden resetear la BIOS, pero resetear el firmware de dispositivos onboard es raro fuera de los proveedores grandes. Dell y HP ofrecen al menos una raíz de confianza básica para componentes que vienen con el servidor; los proveedores que empiezan, en general, nada.</p>
+<p><strong>GPU firmware</strong> es el caso especial: los microprocesadores Falcon de NVIDIA, desde Maxwell, imponen raíz de confianza y exigen firmware firmado. Sin la firma, el backdooreo de la GPU de un servidor alquilado está fuera de alcance — la oportunidad queda reducida a la cadena de suministro.</p>
+<h3>Dónde conseguir las herramientas</h3>
+<p>Las utilidades de los fabricantes imponen cada vez más verificación de firma aunque no sea técnicamente necesaria. Fuentes alternativas: los foros de BIOS modding (WinRaid, BadCaps), plataformas de análisis de malware, directorios abiertos con utilidades de Intel y —la más productiva— <strong>scrapear paquetes de drivers OEM</strong>: descargar el catálogo completo de drivers de un fabricante, extraer los ZIP, y buscar utilidades internas que se filtraron dentro de los paquetes. Así se consiguieron herramientas que permitían flashear el BMC sin tropezar con la verificación de firmware de sus equivalentes oficiales.</p>
+<h2>El BMC: el corazón comprometible del servidor</h2>
+<p>El BMC es un mini-PC dentro del servidor que permite gestión remota (consola KVM incluida) aunque el host esté apagado, independiente del SO y del CPU. Encontrar vulnerabilidades que permitan backdoor de su firmware exige inversión de tiempo, pero casi siempre hay alguna.</p>
+<p>Enumeración desde el host con <code>ipmi-config</code> e <code>ipmitool</code>. El fruto maduro son las <strong>customizaciones propietarias</strong> sobre el firmware base: un fabricante como ASUS parte de MegaRAC y añade capas propias, mucho menos auditadas que el código base. Entre los hallazgos tipo: <strong>comandos IPMI indocumentados que resetean el BMC a fábrica</strong>, dejándolo con credenciales por defecto y permitiendo flashear su firmware con lo que se quiera, según la verificación presente.</p>
+<p>Los canales <strong>KCS</strong> (keyboard controller style) y <strong>SOL</strong> (serial over LAN) permiten control desde el host o out-of-band, y algunas herramientas otorgan más acceso si se ejecutan desde una UEFI shell — que un script de arranque en la shell puede automatizar. Cada interfaz es una pregunta de auditoría: ¿permite acceso por defecto y con qué privilegio?</p>
+<p>Dos lecciones sobre verificación de firmware:</p>
+<ul>
+<li>Que la herramienta oficial rechace un firmware modificado no significa que la flash esté protegida: la verificación puede ser <strong>client-side</strong>. Una herramienta de otro fabricante para el mismo chip (un AST2500, en el caso observado) flashea sin problema.</li>
+<li>Que el fabricante documente soporte de firma no significa que esté activa. En sistemas Supermicro X11/H11 la firma existe pero, por compatibilidad hacia atrás, <strong>no está habilitada por defecto</strong>. Alternativas ante un BMC firmado: downgradear a una versión anterior a 2024 con vulnerabilidades conocidas del software BMC de Supermicro, o usar herramientas de otros fabricantes del mismo chip.</li>
+</ul>
+<h2>La red: el camino más corto al cross-tenant</h2>
+<p>El servidor bare metal es, por diseño, acceso root a un datacenter sin necesidad de phishing ni comprometer empleados. Y en los proveedores líderes de precio del espacio ML, la seguridad de red recordaba a los ataques estilo Cain &amp; Abel de hace dos décadas:</p>
+<ul>
+<li><strong>Modo promiscuo</strong>: trivialmente, Wireshark capturaba tráfico de servidores de otros clientes — ni siquiera segmentación básica.</li>
+<li><strong>ARP spoofing</strong> contra el gateway de MAAS: funciona extremadamente bien y desata un flood de tráfico.</li>
+<li><strong>VLANs</strong> aplicadas en el propio host bare metal: irrelevantes, el inquilino tiene root y las salta.</li>
+<li><strong>Firewalls en la gateway</strong> (solo puerto 22 expuesto al exterior): desde la red interna, un Nmap revela superficies mucho mayores de las que el cliente pretendía exponer — daemons SSH de hace una década vulnerables, acceso IPMI a la infraestructura del datacenter.</li>
+</ul>
+<p>Un vector inesperado: alquilando un <strong>Mac Mini</strong> bare metal para inferencia, la barra de menús mostraba el icono de Wi-Fi y el datacenter tenía una red abierta para visitantes. (En AWS el dispositivo Wi-Fi aparece desconectado a nivel hardware.) macOS permite incluso <strong>monitor mode</strong> por defecto, exponiendo frames en crudo del aire: handshakes WPA2 de redes vecinas capturables para cracking. Un puente directo de un escenario de ataque remoto a la superficie física del datacenter.</p>
+<h2>De DHCP descubierto a RCE cross-tenant</h2>
+<p>La red insegura se convierte en ejecución de código a través del provisioning:</p>
+<ol>
+<li>En modo promiscuo, la red muestra las <strong>ofertas DHCP</strong> del gateway cuando otros servidores se provisionan.</li>
+<li>Detectado un DHCP discover, hay dos caminos: responder con una URL PXE maliciosa y un servidor propio para alimentar al servidor una imagen EFI propia en el arranque (RCE), o <strong>registrarse en MAAS suplantando la MAC</strong> del servidor.</li>
+<li>Suplantando la MAC en el registro se reciben las <strong>provisioning keys</strong> del servidor real: acceso a la configuración del cliente — contraseñas personalizadas, scripts de inicialización, credenciales de API del cliente.</li>
+</ol>
+<p>Con ARP spoofing activo, en lugar de falsificar respuestas DHCP basta un <strong>MITM del servidor MAAS</strong> directamente: los protocolos van sin cifrar, así que la imagen <code>bootx64.efi</code> real se sustituye por una backdoor. Además, los servidores MAAS exponen por defecto un <strong>proxy HTTP squid</strong> (caché de paquetes APT) que sirve para tunelizar y escanear la red local incluso si el propio servidor está aislado. Las provisioning keys, si ya se está dentro de un entorno, se extraen en texto claro del fichero pickle en <code>/var/lib/cloud</code>. Y el registro por MAC tiene una <strong>race condition</strong>: competir por el registro y reclamar las claves antes que el servidor legítimo.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Atacante (inquilino)
+    participant S as Servidor víctima
+    participant M as Servidor MAAS
+    S->>M: DHCP discover (provisioning)
+    A->>S: Respuesta DHCP con URL PXE maliciosa
+    S->>A: Descarga imagen EFI del atacante
+    Note over S: RCE en el arranque
+    A->>M: Registro suplantando la MAC de S
+    M-->>A: Provisioning keys + config del cliente
+
+</pre>
+
+<h2>Caso RunPod: heredando las vulnerabilidades del proveedor del proveedor</h2>
+<p>RunPod no ofrece bare metal: alquila contenedores Docker con acceso a GPU, con un "secure cloud" de datacenters vetados. Pero un traceroute desde sus servidores mostró que revenden capacidad —probablemente por contrato mayorista— de un proveedor de bare metal por horas. Comprometiendo ese proveedor subyacente vía ARP/DHCP spoofing, apareció tráfico de clientes de RunPod: ejecuciones de entrenamiento de ML entre nodos <strong>sin cifrar</strong>, y logs sin cifrar del servicio de inferencia gestionado de RunPod con nombres de contenedores Docker incluidos.</p>
+<p>La lección es doble: un entorno de contenedores hereda inherentemente las vulnerabilidades de los proveedores de sus proveedores; y RunPod merece mención por ser de los únicos proveedores que corrigió a tiempo para la divulgación, aislando las redes de sus clientes de las del resto.</p>
+<h2>Qué debería hacer un proveedor bare metal</h2>
+<ul>
+<li><strong>Reflashear todos los dispositivos</strong>, no solo el BIOS: NICs, BMC, GPU. OpenStack Ironic ofrece reset de firmware en el flujo de limpieza; MAAS, según lo observado, no tiene un flujo automatizado por defecto para firmware. Las interfaces Redfish del BMC suelen ofrecer la capacidad — hay que usarla.</li>
+<li><strong>Desconectar físicamente los dispositivos PCI innecesarios</strong>, como el adaptador Wi-Fi de los Mac Mini.</li>
+<li><strong>Aislar la red</strong>: es la medida más crítica, porque los backdoors de BMC o NIC exigen inversión considerable mientras que la red fue el ataque más simple con impacto enorme.</li>
+<li><strong>No usar BMCs legacy</strong>: elegir chips con verificación de firmware integrada (plataformas con chips de resiliencia que detectan manipulación en tiempo real, como las de los proveedores grandes), sabiendo que aun así no hay protección total.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>MAAS (Metal as a Service)</strong>: herramienta de Canonical para provisioning automatizado de servidores bare metal.</li>
+<li><strong>CHIPSEC</strong>: framework de Intel para analizar seguridad de plataforma (Boot Guard, flash SPI).</li>
+<li><strong>Intel Boot Guard / AMD ROM Armor</strong>: raíces de confianza de firmware; protegen el arranque cuando están bien configuradas.</li>
+<li><strong>UEFITool</strong>: parser de firmware UEFI para localizar regiones protegidas e inyectar código.</li>
+<li><strong>Platbox (IOActive)</strong>: kit de auditoría de plataformas AMD.</li>
+<li><strong>PXE boot / DHCP / HTTP boot</strong>: cadena de provisioning heredada, sin cifrar, explotable por MITM.</li>
+<li><strong>ipmitool / ipmi-config</strong>: enumeración y control del BMC desde el host.</li>
+<li><strong>lspci / ethtool</strong>: enumeración de dispositivos PCI y volcado de NVRAM de NICs.</li>
+<li><strong>Thundergate</strong>: herramienta histórica para flashear adaptadores Broadcom.</li>
+<li><strong>SMM Infect</strong>: proyecto público que muestra cómo implantar un driver EFI malicioso en firmware.</li>
+<li><strong>UEFI NVRAM variables autenticadas</strong>: mecanismo usado para persistencia en opciones de arranque firmadas por el atacante.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La superficie de ataque bare metal es en parte imposible de cerrar del todo, y la promesa de "mayor seguridad por aislamiento físico" se desmorona cuando el proveedor no invierte una década en boot security y hardware como los grandes.</li>
+<li><strong>Para cargas de trabajo sensibles, una VM es probablemente más segura que bare metal</strong>: la implementación defectuosa generalizada de los proveedores nuevos hace que el modelo virtualizado gane en la práctica.</li>
+<li><strong>No creer en el confidential computing</strong> vendido sobre estos entornos: es, como mucho, un disuasorio.</li>
+<li>Para la mayoría de organizaciones, la renta por horas de GPUs en estos proveedores sigue siendo razonable — la pregunta honesta es si la carga de trabajo es lo bastante valiosa como para ser objetivo. La alternativa radical: comprar el hardware propio.</li>
+<li>Líneas de investigación abiertas: qué se puede hacer desde un contenedor con acceso PCI a la GPU, vulnerabilidades de red en entornos virtualizados, y automatizar el descubrimiento de estas vulnerabilidades sistémicas, hoy casi todo hecho a mano.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/EtGhHCr3VLE">«DEF CON 33 - Metal-as-a-Disservice: Exploiting Legacy Flaws in Cutting Edge Clouds - Bill Demirkapi»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

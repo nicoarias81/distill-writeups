@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kibana bug bounty: de la ejecución trivial al escape de contenedor — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Kibana bug bounty: de la ejecución trivial al escape de contenedor</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/H-bhmSwnRdY">«DEF CON 33 - Kibana Bug Bounty: Exploitation Deep Dive - Mikhail Shcherbakov»</a> · ver el <a class="nz-link" href="https://youtu.be/H-bhmSwnRdY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> H-bhmSwnRdY · <strong>URL:</strong> https://youtu.be/H-bhmSwnRdY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Kibana Bug Bounty: Exploitation Deep Dive - Mikhail Shcherbakov</li>
+</ul>
+<h2>Resumen</h2>
+<p>Kibana, el componente de visualización del stack ELK (junto a Elasticsearch y Logstash), reúne todas las condiciones para ser un objetivo de bug bounty ideal: es código abierto — analizable estática o manualmente —, uno de los proyectos más grandes escritos en TypeScript, y su programa, gestionado por el equipo de Elastic Security, paga entre 3.000 y 7.000 dólares por vulnerabilidades críticas. La investigación de Mijaíl Shcherbakov, doctorando en KTH (Estocolmo) con una tesis sobre <em>code reuse attacks</em> en lenguajes gestionados y participante en los programas de Microsoft, GitHub y Elastic, demuestra que incluso los hallazgos que parecen cerrados por diseño esconden rutas de explotación completas.</p>
+<p>El trabajo recorre tres historias: una ejecución remota de código trivial en la función de monitorización sintética, aceptada por Elastic como "ejecución arbitraria de código como servicio por diseño" y respondida con un escape de contenedor vía ARP/DNS spoofing en Kubernetes; dos vulnerabilidades de <em>prototype pollution</em> elevadas hasta ejecución remota mediante gadgets en <code>require</code> y en <code>nodemailer</code>, con condiciones de carrera para vencer al colapso inmediato del proceso; y una técnica avanzada de "prototype pollution fijado" que convierte dos código seguros por separado en una cadena de RCE.</p>
+<h2>Historia 1: RCE como servicio y escape de contenedor</h2>
+<p>La función de <strong>monitorización sintética</strong> de Kibana permite crear monitores que visitan sitios periódicamente, comprueban si un sitio está disponible o si un contenido cambió, y generan informes. Su editor de scripts ejecuta JavaScript — sin <code>require</code> en el ámbito, como en un CTF de JS — pero el entorno es Node.js, y ahí basta <code>process.mainModule.require</code> para cargar cualquier módulo, incluido <code>child_process</code>, y obtener una shell inversa contra el agente que ejecuta los monitores. Probablemente el RCE más simple publicado en el programa.</p>
+<p>La respuesta de Elastic Security en octubre fue reveladora: la monitorización sintética es, <em>by design</em>, "Arbitrary Code Execution as a Service", con una batería de características de seguridad pensadas para que el exploit exitoso exija "algo más que una shell". El reto quedó aceptado: el contenedor del agente — uno por tarea, restaurado tras cada ejecución, sin estabilidad ni co-inquilinos — corre en un clúster de Kubernetes sobre Google Cloud Platform, con la API de Metadata bloqueada y una configuración segura que cierra el escape directo. Pero la imagen Docker era la misma que la del propio clúster, lo que permitía replicar el <em>threat model</em> en un entorno propio, y el contenedor tenía capacidad <strong>CAP_NET_RAW</strong>: podía enviar cualquier paquete crudo por la red. Eso significa emular cualquier protocolo — y, en 2024, hacer <strong>ARP spoofing</strong>.</p>
+<p>La limitación es estructural: el <em>bridge</em> de Kubernetes mantiene una tabla ARP por nodo, así que el ataque solo afecta a los pods del mismo nodo — suficiente, porque la red por defecto de Kubernetes (verificada en Microsoft Azure) lo permite. Sobre la idea publicada en el artículo "Attacking Kubernetes clusters through your network plumbing", el exploit sustituye el servidor DNS del clúster por uno propio y secuestra las resoluciones: la petición de la víctima a <code>google.com</code> recibe la respuesta del servidor web del atacante, burlando además las reglas de iptables. El informe actualizado con esta cadena se cerró con cerca de 4.000 dólares de recompensa para un ataque que parecía "no explotable y muy exótico".</p>
+<h2>Historia 2: prototype pollution con gadgets hasta el RCE</h2>
+<p>La segunda historia parte de la línea de investigación del autor — <em>Silent Spring</em>, <em>GHunter</em> (presentada en USENIX Security) y <em>Dusty</em> — sobre <em>prototype pollution</em> del lado servidor. El patrón base: si un controlador construye un objeto vacío (ligado al prototipo de <code>Object</code>, con <code>toString</code>, <code>valueOf</code> y compañía al alcance) y asigna claves y valores controlados por el atacante, puede añadirse cualquier propiedad al prototipo; un <em>gadget</em> es después cualquier código que lea esa propiedad desde la cadena de prototipos y la use de forma peligrosa — el ejemplo canónico: leer <code>options.shell</code> contaminado y ejecutarlo con <code>child_process</code>.</p>
+<p>Con un <em>toolchain</em> basado en <strong>CodeQL</strong> (con un script que relanza el análisis por subcarpetas ante el timeout de la base de datos completa, publicado en el mismo repositorio), el análisis arrojó 77 hallazgos en Kibana, 44 del lado del servidor. Tres casos ilustran la escalada:</p>
+<ul>
+<li><strong>El parser de configuración YAML.</strong> Al arrancar, Kibana expande claves con puntos (<code>a.b</code>) del fichero de configuración en objetos anidados; el código recursivo que lo hace es vulnerable a prototype pollution. Elastic Cloud Enterprise ofrece una interfaz web para editar ese YAML — con privilegios de administrador —, así que el atacante guarda el <em>payload</em> y reinicia Kibana. El problema: el proceso muere inmediatamente después de la contaminación, antes de arrancar el servidor, sin ejecutar nada peligroso. La salida fue el <strong>gadget de <code>require</code></strong>: durante el arranque se cargan módulos, y la lectura de la propiedad <code>main</code> de un <code>package.json</code> parseado puede desviarse hacia un archivo JS arbitrario del sistema si <code>main</code> está contaminado. La primera versión del gadget (detectada y parcheada por el equipo de Node.js mediante lectura de propiedades propias sin subir la cadena de prototipos) resucitó con una variante nueva: cuando el JSON parseado es inválido, la función devuelve <code>false</code>, y el <em>runtime</em> de JS <strong>encapsula el booleano primitivo</strong> enlazándolo al prototipo de <code>Object</code> — de modo que <code>false.main</code> se lee otra vez de la cadena contaminada. El exploit completo, con <em>payload</em> de <code>require</code> inyectado en el YAML original, se cerró con casi 4.000 dólares.</li>
+<li><strong>El <code>WebHandler</code>.</strong> Una contaminación trivial — un objeto vacío, una condición sobre <code>__proto__</code> y un destino controlado por el atacante — sin necesidad de herramienta para encontrarla. El gadget llegó de <strong>Dusty</strong>: análisis dinámico sobre los mil paquetes NPM más populares que identificó 49 gadgets con RCE; uno de ellos está en <strong>nodemailer</strong>, que Kibana usa para enviar correo. Un <code>path</code> contaminado en las opciones del transporte se convierte en el programa lanzado por <code>spawn</code>, con argumentos igualmente controlados: inyección total de comandos.</li>
+<li><strong>La condición de carrera.</strong> El handler que dispara la contaminación mata el proceso en menos de un segundo, así que el único efecto inmediato es una denegación de servicio. La solución: saturar el servicio en paralelo — 20 peticiones que disparan el gadget, la petición de contaminación, y otras 50 peticiones de gadget más — hasta que una caiga en la ventana mínima entre contaminación y colapso. En la demo, ejecutada desde un portátil por Wi-Fi con un conector de correo instrumentado para ejecutar un script en <code>nodemailer</code>, 5 peticiones del atacante atravesaron la ventana antes del crash; desde la misma red que el despliegue cloud el ratio mejora. Esta cadena produjo la mayor recompensa obtenida de Elastic hasta la fecha.</li>
+</ul>
+<pre class="mermaid">
+flowchart TD
+    subgraph PP[Prototype pollution en Kibana]
+        Y[YAML de configuración<br/>claves con puntos] --> G1[Gadget require:<br/>main contaminado → JS arbitrario<br/>+ boxing de false en Node]
+        W[WebHandler<br/>claves y valores controlados] --> G2[Gadget nodemailer:<br/>path/args → spawn]
+    end
+    G1 --> C1[Arranque de Kibana:<br/>RCE antes del crash]
+    G2 --> C2[Crash < 1s tras el trigger]
+    C2 --> R[Condición de carrera:<br/>20 gadget + 1 PP + 50 gadget<br/>en paralelo]
+    R --> X[RCE en la ventana<br/>de ejecución]
+
+</pre>
+
+<h2>Historia 3 (bonus): prototype pollution fijado</h2>
+<p>La técnica avanzada ataca el patrón "seguro" por excelencia: código que comprueba <code>org !== Object.prototype</code> antes de asignar — la <em>prototype pollution</em> fijada (pinned), imposible de dirigir al prototipo. Separadamente, ese código no contamina nada; pero combinado con una contaminación convencional en la misma aplicación, la cadena cambia: primero se contamina el prototipo con una propiedad (<code>runner</code>) apuntando a un objeto vacío; después se dispara la función "segura" con un objeto que ya tiene esa propiedad, de modo que la lectura cae en el prototipo y ahora <strong>el objeto contaminado es el destino</strong> — se le pueden añadir las propiedades peligrosas (<code>path</code>, <code>args</code>) que antes no se podían controlar; por último se dispara el handler con el gadget que lanza el proceso. Dos flujos no explotables por separado, posiblemente en funciones distintas de la aplicación, componen un RCE completo. Las funciones de <em>merge</em> — como la de Lodash, presente en muchísimas aplicaciones — son el patrón de pollution fijado más habitual. La moraleja final: no descartar como "no explotable" un hallazgo que parezca imposible — combinaciones inesperadas son precisamente las que pagan los programas de bug bounty.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong><code>process.mainModule.require</code></strong> — bypass del sandbox del editor de scripts de la monitorización sintética para cargar <code>child_process</code> y ejecutar una shell inversa.</li>
+<li><strong>CAP_NET_RAW + ARP spoofing en Kubernetes</strong> — suplantación ARP limitada al nodo (tabla ARP por <em>bridge</em>), sustitución del DNS del clúster y secuestro de resoluciones, burlando reglas de iptables.</li>
+<li><strong>CodeQL + Silent Spring</strong> — detección estática de <em>prototype pollution</em> en Kibana, con relanzamiento por subcarpetas ante timeouts; 77 hallazgos, 44 server-side.</li>
+<li><strong>Gadget de <code>require</code> / boxing de <code>false</code></strong> — desvío de la propiedad <code>main</code> de <code>package.json</code> hacia JS arbitrario, con la variante de encapsulación booleana que evadió el parche inicial de Node.js.</li>
+<li><strong>Dusty + nodemailer</strong> — análisis dinámico de paquetes NPM (49 gadgets con RCE); el transporte de correo de Kibana como lanzador de procesos vía <code>spawn</code>.</li>
+<li><strong>Condición de carrera por saturación paralela</strong> — window entre contaminación y crash explotada con ráfagas de peticiones de gadget.</li>
+<li><strong>Prototype pollution fijada (pinned)</strong> — combinación de un assignment con guard <code>org !== Object.prototype</code> y una pollution convencional para contaminar objetos intermedios y alcanzar RCE.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un RCE aceptado "por diseño" no cierra el caso: el escape hacia el plano de red del clúster — ARP spoofing y secuestro de DNS dentro del mismo nodo de Kubernetes — reabrió la vía de impacto y duplicó el valor del hallazgo.</li>
+<li>La <em>prototype pollution</em> server-side es una familia de vulnerabilidades en plena madurez: con herramientas como CodeQL estático y análisis dinámico de paquetes, encontrar el punto de contaminación es lo fácil; el arte está en el gadget y en la ingeniería para sobrevivir al colapso del proceso.</li>
+<li>Las condiciones de carrera convierten contaminaciones de segundo de vida útil en ejecución remota real, y la técnica de pollution fijada suma cadenas donde cada eslabón, aislado, parece inofensivo.</li>
+<li>El programa de Elastic Security destaca por la calidad de su triaje y la disposición a premiar cadenas exóticas: casi 4.000 dólares por una explotación que el reporte inicial daba por imposible, y la mayor recompensa del autor por una carrera por Wi-Fi.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/H-bhmSwnRdY">«DEF CON 33 - Kibana Bug Bounty: Exploitation Deep Dive - Mikhail Shcherbakov»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

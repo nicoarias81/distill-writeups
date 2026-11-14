@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fuzzing avanzado con LibAFL: de los mutadores tontos a 500.000 ejecuciones por segundo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Fuzzing avanzado con LibAFL: de los mutadores tontos a 500.000 ejecuciones por segundo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/FI7C37lz4Rg">«Advanced Fuzzing With LibAFL - Dominik Maier - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/FI7C37lz4Rg">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> FI7C37lz4Rg · <strong>URL:</strong> https://youtu.be/FI7C37lz4Rg · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Advanced Fuzzing With LibAFL - Dominik Maier - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>El fuzzing consiste en ejecutar un objetivo una y otra y otra vez hasta que algo se rompe, y hacerlo de forma inteligente. La innovación más importante del área en las últimas dos décadas es el fuzzing guiado por cobertura: se observa qué pasa dentro del programa en cada ejecución y, cuando aparece algo nuevo —una rama de código que no se había recorrido antes—, ese input se guarda en el corpus para mutarlo más adelante. Es un algoritmo de búsqueda de novedades, y por eso es órdenes de magnitud más rápido que la aleatoriedad pura.</p>
+<p>En la práctica, la cobertura se mide con un mapa: la instrumentación inyectada en el binario incrementa un contador por cada salto (arista) que se ejecuta. Si el contador de una arista cambia respecto de ejecuciones anteriores —por ejemplo, se recorrió más veces que antes—, el input es novedoso y se conserva.</p>
+<p>LibAFL es una biblioteca en Rust para construir fuzzers, mantenida por el equipo detrás de AFL++ (el fork de American Fuzzy Lop que nació en 2019 cuando su autor original dejó de mantenerlo). La idea es simple: en vez de un fuzzer monolítico, un conjunto de componentes —feedback, mutadores, schedulers y ejecutores— que se combinan. Es rápido, escalable y portable, y además de crashes permite buscar otras propiedades: inyecciones SQL, condiciones de error, casi cualquier invariante que se pueda expresar como un abort.</p>
+<h2>Ejecutar el objetivo: fork server contra in-process</h2>
+<p>El caso más simple es una herramienta de línea de comandos que lee un archivo y termina. Se compila con instrumentación y se ejecuta una y otra vez con inputs distintos. La técnica clásica es el <strong>fork server</strong>: en lugar de reiniciar el programa desde cero, se bifurca el proceso en <code>main</code> (o más adelante) y cada ejecución es un fork. Todo se resetea en cada ejecución, lo que hace el proceso reproducible —siempre que el objetivo no dependa de la hora o de números aleatorios—. El problema es el costo: cada fork obliga al kernel a copiar tablas de páginas, es lento y no escala bien, porque el kernel no está pensado para hacer miles de forks por segundo en máquinas de 64, 128 o más núcleos.</p>
+<p>La alternativa es el <strong>fuzzing in-process</strong>: se mantiene vivo un proceso que llama una función del objetivo con los datos que le pasa el fuzzer, recolecta la cobertura y vuelve. No hay IPC ni forks, escala de forma natural y es muy rápido. El precio aparece cuando el objetivo crashea: se pierde el estado. La solución de LibAFL es un signal handler sucio que captura el crash, serializa todo el estado a memoria compartida, se reinicia y lo deserializa para seguir. Funciona, pero ese camino de recuperación es lentísimo.</p>
+<p>Un truco útil: una herramienta de línea de comandos es en el fondo una biblioteca compartida, así que el mismo esquema in-process vale para ella; solo hay que resetear su estado entre ejecuciones, lo que requiere ingeniería extra.</p>
+<h2>Mutadores: de los tontos y rápidos a los conscientes de estructura</h2>
+<p>El punto de partida de cualquier fuzzer es el estilo AFL clásico: flips de bits, incrementos y decrementos aleatorios de bytes. Es "estúpido" pero veloz, no requiere conocimiento del objetivo y conviene empezar siempre por ahí. Los mutadores se apilan: sobre un mismo input se aplican cientos de mutaciones antes de ejecutarlo. Los schedulers deciden, además, qué elemento del corpus mutar en cada momento.</p>
+<p>El problema: muchos formatos no toleran una mutación de un solo byte. En XML, cambiar el tag de apertura exige cambiar el de cierre; en JavaScript, mutar un <code>=</code> rompe la validez del programa. Para esos casos existen varias escaleras de sofisticación:</p>
+<ul>
+<li><strong>Partir comparaciones grandes:</strong> si el binario compara un valor de 64 bits, la fuerza bruta tardaría siglos en acertarlo. La instrumentación de cmplog divide cada comparación de N bytes en N comparaciones de 1 byte, de modo que el fuzzer recibe una señal de progreso (una arista nueva) cada vez que acierta un byte. El costo: el corpus crece mucho y, con el tiempo, volver a hallar el input correcto se vuelve más difícil.</li>
+<li><strong>Archivos de tokens:</strong> se le dan tags XML válidos al fuzzer para que los inserte en lugares aleatorios. Simple, sin conocimiento profundo del objetivo, pero útil.</li>
+<li><strong>Registro de comparaciones en runtime:</strong> el fuzzer observa qué valores se comparan en ejecución (por ejemplo, "dog" contra "cat"), ve que el input contiene "dog", y repite la ejecución sustituyéndolo por "cat". Funciona sorprendentemente bien y sigue siendo razonablemente rápido comparado con la ejecución simbólica completa.</li>
+<li><strong>Fuzzing a nivel de tokens:</strong> para un motor de JavaScript, se parsea el corpus inicial, se tokeniza y se asigna un ID a cada token; luego se mutan los IDs (barajar, tomar tokens de otros inputs) en lugar de los bytes. La contra: nunca encontrará nada que no estuviera ya en el corpus inicial.</li>
+<li><strong>Fuzzing consciente de estructura:</strong> se declara al fuzzer que ciertos campos son vectores, valores opcionales o estructuras anidadas, y él los muta respetando el tipo. Requiere bastante ingeniería cuando las estructuras son profundas, pero rinde bien.</li>
+<li><strong>Mutadores de gramática:</strong> se especifica la gramática del lenguaje de entrada; el mutador mantiene la validez sintáctica mientras transforma el árbol abstracto y al final lo materializa en bytes.</li>
+<li><strong>Feedback personalizado:</strong> la cobertura es un proxy pobre para ciertos estados. En motores de JavaScript, el mapa de cobertura se ve igual aunque el objeto tenga funciones distintas asignadas. Un feedback a medida puede avisarle al fuzzer "llegaste a un estado interesante, guardá este input" aunque las aristas no cambien.</li>
+</ul>
+<h2>Sin código fuente: instrumentación binaria</h2>
+<p>No siempre se puede recompilar el objetivo —por licencias, por cadenas de compilación arcaicas, por vagancia—. La instrumentación no tiene que ocurrir en tiempo de compilación: existen motores de instrumentación binaria, y el costo de arrancar es irrelevante frente a los cientos de millones de ejecuciones de una campaña.</p>
+<p>Las opciones binarias de LibAFL:</p>
+<ul>
+<li><strong>LibAFL-Frida:</strong> soporta Android, iOS, macOS, Windows y Linux; permite inyectar y hookear funciones. Incluye un sanitizador de memoria que instrumenta cada acceso y lo verifica contra un mapa de sombra (detecta lecturas/escrituras fuera de límites) y soporte de cmplog. La contra: tiene que correr en el dispositivo real, no se puede rehospedar fácilmente.</li>
+<li><strong>TinyInst (Project Zero):</strong> soporta Android, macOS, Windows y Linux; puede partir comparaciones, pero no tiene cmplog.</li>
+<li><strong>Modo QEMU:</strong> el favorito. Muy activo, multiarquitectura, con hooks de syscalls, debug con GDB, sanitizador de direcciones y cmplog. Su límite: solo corre sobre host Linux (aunque el sistema invitado puede ser cualquier cosa, incluso un RTOS). El costo es la traducción binaria, pero es asumible.</li>
+<li><strong>Modo Nyx:</strong> en lugar de emular, usa virtualización y tracing con Intel PT para obtener cobertura. Mucho más rápido, pero no es multiarquitectura y es más complejo.</li>
+</ul>
+<p>QEMU funciona desensamblando básico a básico: toma cada bloque básico, lo "eleva" a una representación intermedia (al revés de lo que hace LLVM al compilar), y baja esa representación a la arquitectura del host. Y como hay representación intermedia, ahí se puede inyectar la instrumentación: cuando aparece un bloque básico nuevo, se genera su IR con el código de LibAFL dentro. Además de los hooks de aristas para cobertura, hay hooks de comparaciones (para cmplog o incluso para alterar resultados y forzar caminos), de syscalls, de crashes y de creación de hilos. La comunicación con el objetivo es mediante hypercalls: el target avisa "terminé el test case, dame el siguiente input", y el ciclo se repite.</p>
+<p>Un punto medio interesante entre emular un sistema operativo completo (lento, exige introspección de hilos y estado) y nada: copiar un blob de bytes al emulador y ejecutar una sola función. Mucho más rápido y fácil de construir, aunque se pierde el estado de arranque, las asignaciones previas y las llamadas entre tareas que existirían en un sistema embebido real.</p>
+<h2>Caso práctico: fuzzear una biblioteca de Android desde Linux</h2>
+<p>Un blog de Project Zero documentó hace años un códec de imágenes de Samsung explotable remotamente: bastaba mandarle a la víctima un MMS con la imagen malformada para colgar el teléfono. La función interesante del códec, identificada en IDA o Ghidra, era la que obtiene la información de la imagen desde un archivo.</p>
+<p>El procedimiento con LibAFL-QEMU:</p>
+<ol>
+<li>Reconstruir la firma de la función objetivo a partir del análisis estático.</li>
+<li>Escribir un harness que reciba el input del fuzzer y lo pase a la función.</li>
+<li>Cargar el binario con el cargador ELF de LibAFL-QEMU, localizar el símbolo y preparar el estado de la CPU (punteros de pila, registros de argumentos, contador de programa) para ejecutar la función.</li>
+<li>Hookear todas las syscalls: las escrituras devuelven "todo escrito" sin tocar disco, y las lecturas de archivo y las peticiones de números aleatorios se responden desde el fuzzer. Sin interacción con el kernel, la ejecución es completamente repetible y muchísimo más rápida.</li>
+<li>Usar <strong>snapshot restore</strong>: en vez de resetear manualmente el estado (liberar asignaciones, restaurar variables), se toma una instantánea del espacio de direcciones y se hace dirty page tracking —se registran las páginas que el objetivo modificó durante la ejecución— para restaurar solo esas al terminar. Rápido y sin esfuerzo manual.</li>
+<li>Añadir el <strong>sanitizador de direcciones</strong>: hookea malloc/free y funciones de copia de libc, envenena los bytes antes y después de cada asignación del heap y detecta out-of-bounds y use-after-free. Para binarios, el heap es sanitizer-able; la pila no, porque no se sabe dónde empieza y termina cada variable.</li>
+</ol>
+<p>El resultado: el objetivo corriendo sobre el kernel de Linux del host, con todas sus bibliotecas copiadas —no hay Android de por medio—, encontrando en minutos un desbordamiento real: una escritura a 118 bytes de un chunk de 42.</p>
+<h2>Escalar: el problema del kernel y la solución broker</h2>
+<p>Escalar en Linux es duro, y ahí está la razón de tanto hincapié en las syscalls. El AFL clásico pasaba el input por un archivo del sistema y hacía un fork por ejecución: lo peor posible. Su curva de rendimiento escala casi linealmente hasta unos 25 núcleos y, a partir de ahí, el kernel empieza a bloquear cosas internas: entre 25 y 200 núcleos, agregar hardware no da nada, incluso resta.</p>
+<p>La respuesta de LibAFL es un mecanismo IPC sin locks sobre memoria compartida: cada instancia de fuzzing que encuentra un test case nuevo se lo reporta a un <strong>broker</strong>, y el broker lo distribuye al resto de los nodos. Con las syscalls eliminadas del camino caliente, el uso de CPU se ve verde en htop (espacio de usuario) en lugar de rojo (kernel), y el escalado se mantiene casi lineal hasta 80 núcleos. Para la campaña de ejemplo, pasar de ~5.000 ejecuciones por segundo en un núcleo a casi 500.000 por segundo en 80, sobre un objetivo binario puro. El launcher de LibAFL levanta los procesos automáticamente, y brokers pueden conectarse por TCP entre máquinas.</p>
+<p>Para depurar: en vez del launcher se usa un event manager simple que no levanta procesos, se depura con calma, y luego se vuelve a compilar con launcher. Y una lección de experiencia: la intuición sobre qué estrategia de fuzzing va a funcionar casi siempre está equivocada; lo único que queda es probar.</p>
+<h2>Más allá de los crashes</h2>
+<p>Fuzzear solo por crashes será cada vez menos interesante a medida que el código se reescribe en lenguajes seguros de memoria. La idea generalizable es hookear funciones y convertir condiciones "malas" en aborts:</p>
+<ul>
+<li><strong>Inyecciones SQL:</strong> se hookea la función de ejecución de SQLite, se analiza cada consulta y si proviene del input del fuzzer —una comilla escapó hasta la consulta—, se crashea el objetivo a propósito.</li>
+<li><strong>Binarios sin fuente:</strong> con QEMU se puede hookear <code>system()</code> directamente: si el objetivo termina llamándola con datos controlados, hay comando inyectado.</li>
+<li><strong>Con código fuente:</strong> se añaden asserts que detecten estados anómalos aunque no crasheen.</li>
+</ul>
+<p>Mirando hacia adelante:</p>
+<ul>
+<li><strong>REST fuzzing:</strong> mutadores que generan consultas REST válidas más instrumentación inyectada en servidores web que reporta el estado del servidor de vuelta al fuzzer.</li>
+<li><strong>Fuzzing concolic:</strong> combinar ejecución simbólica con fuzzing clásico; poderoso en teoría, todavía poco práctico.</li>
+<li><strong>LLMs:</strong> generar asserts interesantes para estados anómalos o proponer mejores inputs. Hay un dato concreto: colegas encontraron bugs en código real de SQLite que el fuzzer no reprodujo pero un LLM sí, y fueron reportados.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>LibAFL:</strong> biblioteca en Rust para construir fuzzers componiendo feedback, mutadores, schedulers y ejecutores; repositorio abierto con carpeta de fuzzers de ejemplo listos para correr con <code>cargo make run</code> o <code>make test</code>.</li>
+<li><strong>AFL++:</strong> fork comunitario de AFL (2019) que impulsa el proyecto.</li>
+<li><strong>Fork server / in-process:</strong> dos modos de ejecutar el objetivo —aislado y reproducible con forks, o veloz y escalable en un solo proceso con recuperación de estado serializada.</li>
+<li><strong>Cmplog:</strong> partición de comparaciones en bytes y registro de comparaciones en runtime para guiar al fuzzer por condiciones difícilmente adivinables.</li>
+<li><strong>Token-level, estructura y gramática:</strong> tres grados de conciencia del formato de entrada para no desperdiciar ejecuciones en inputs inválidos.</li>
+<li><strong>LibAFL-Frida, TinyInst, QEMU, Nyx:</strong> backends de instrumentación binaria, con distintos equilibrios de portabilidad, velocidad y complejidad.</li>
+<li><strong>Snapshot restore con dirty page tracking:</strong> restauración selectiva de páginas modificadas para reiniciar ejecuciones sin resetear manualmente el estado.</li>
+<li><strong>Sanitizador de direcciones en modo binario:</strong> envenenamiento de memoria alrededor de asignaciones del heap vía hooks de libc.</li>
+<li><strong>Broker IPC sin locks y launcher:</strong> arquitectura de escalado distribuido que mantiene el trabajo en espacio de usuario y escala linealmente por decenas de núcleos.</li>
+<li><strong>Feedback a medida para inyecciones:</strong> hooks de SQLite/system que convierten inyecciones en crashes detectables.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La cobertura guiada sigue siendo el motor del fuzzing moderno, pero el formato de ejecución (fork, in-process, snapshot) y el mecanismo de escalado (broker, syscalls eliminadas) determinan si se aprovechan los núcleos disponibles.</li>
+<li>Sin código fuente no hay excusa: QEMU y Frida permiten instrumentar, sanear y escalar objetivos binarios, incluso binarios de otras arquitecturas o plataformas.</li>
+<li>El fuzzing no termina en los crashes: cualquier invariante violable —una inyección, un comando inesperado, un estado anómalo— puede convertirse en un crash sintético que el fuzzer sepa encontrar.</li>
+<li>La intuición falla: probar estrategias sin prejuicios y medir es la única forma de saber qué funciona en cada objetivo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/FI7C37lz4Rg">«Advanced Fuzzing With LibAFL - Dominik Maier - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

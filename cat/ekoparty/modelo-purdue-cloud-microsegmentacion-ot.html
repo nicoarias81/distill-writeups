@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Del modelo de Purdue al cloud: microsegmentación de OT, NACLs y zero trust — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Del modelo de Purdue al cloud: microsegmentación de OT, NACLs y zero trust</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/i5W4znoaCq4">«Navegando la Seguridad OT en el Cloud:Segmentación y detección de anomalías -M. Manassero y M. Bruno»</a> · ver el <a class="nz-link" href="https://youtu.be/i5W4znoaCq4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> i5W4znoaCq4 · <strong>URL:</strong> https://youtu.be/i5W4znoaCq4 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Navegando la Seguridad OT en el Cloud:Segmentación y detección de anomalías -M. Manassero y M. Bruno</li>
+</ul>
+<h2>Resumen</h2>
+<p>Proteger una planta industrial siempre exigió lo mismo: separar lo crítico, entender cómo se comunican los equipos y vigilar lo que no debería pasar. La norma ISA/IEC 62443 y el modelo de Purdue llevan décadas ordenando ese trabajo. Lo nuevo es dónde se lo puede hacer: con la infraestructura de control migrada al cloud, las subredes, las listas de control de acceso y el monitoreo de la planta se traducen a VPCs, security groups, NACLs y funciones serverless — sin perder la lógica de segmentación que la normativa exige.</p>
+<p>Matías Federico Manacero —ex policía federal, años de experiencia en ICS y hoy SecOps Engineer de cloud— y Martín Bruno, arquitecto e ingeniero de seguridad especializado en monitoreo de amenazas, recorrieron ese camino con una fábrica emulada en dos cuentas de AWS: una haciendo de planta "on-prem", otra con la implementación cloud, comunicadas por VPN site-to-site y con acceso de usuarios filtrado por client VPN y zero trust. La demostración cubre el ciclo completo: segmentación por tipo de equipo, microsegmentación entre SCADA y PLCs, control de postura de los equipos que se conectan, remediación rápida de reglas mal abiertas con una NACL, y alertas de conexiones SSH detectadas por flow logs.</p>
+<h2>IT y OT: dos mundos con prioridades distintas</h2>
+<p>La distinción de partida es simple: IT es toda la infraestructura corporativa —correo, servidores, los sistemas que hacen a la empresa—, mientras OT es todo lo asociado al proceso industrial: los PLC que reciben señales de sensores y accionan salidas (encender una ventilación, enfriar un equipo), los HMI de monitoreo junto al proceso, los dashboards SCADA con los que ingenieros y jefes de planta ven el estado en tiempo real.</p>
+<p>Ese mundo arrastra desafíos propios. Los equipos legacy funcionan y no se tocan; muchos vendors no desarrollan sus productos pensando en seguridad; las ventanas de mantenimiento cuestan conseguirlas; los protocolos son diferentes; y aplicar parches es casi imposible y, en algunos casos, caro, porque exige soporte del proveedor. A ello se suma el pulso entre disponibilidad y seguridad: el equipo de ingenieros prioriza que el proceso siga produciendo, y la seguridad no entra en su roadmap hasta que sucede algo. Y las arquitecturas redundantes, que requerirían una ubicación distinta a la de la planta para que el backup sobreviva a un problema físico, resultan complejas por su costo.</p>
+<p>Esa última tensión es la que motiva la propuesta de la migración: llevar la redundancia al cloud directamente.</p>
+<h2>Segmentación: zonas, niveles y microsegmentación</h2>
+<p>La normativa ISA/IEC 62443 define cómo segmentar una red industrial: habla de zonas y conductos, de la separación entre IT y OT y de los niveles. El modelo de Purdue complementa esa mirada con la jerarquía de la planta: los niveles inferiores son los más críticos, porque contienen los equipos físicos —en una acería, los hornos de fundición que procesan metal a alta temperatura; si un atacante los compromete y modifica variables, el problema deja de ser informático y pasa a ser un accidente con consecuencias físicas.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Nivel 1: equipos de campo y PLC] --> B[Nivel 2: HMI junto al proceso]
+    B --> C[SCADA, historian y servidores de aplicaciones]
+    C --> D[DMZ industrial]
+    D --> E[IT corporativa]
+
+</pre>
+
+<p>La segmentación parte de tres zonas: la zona de producción, con los dispositivos lógicos y físicos de las capas más críticas; la capa de supervisión, donde viven el SCADA y los HMI que muestran el estado del proceso; y la zona de administración, con el Active Directory de OT y los componentes administrativos.</p>
+<p>El objetivo es triple: minimizar el vector de ataque para que un problema no se expanda por la red, impedir el movimiento lateral hacia los dispositivos críticos y construir microsegmentación que aísle cada proceso industrial. El argumento de peso: hay PLCs con vulnerabilidades que hoy no pueden corregirse, y un atacante con acceso a la red podría dejarlos fuera de servicio. Dentro de una planta conviven varios procesos —en un e-commerce, los paquetes que ingresan de proveedores son un proceso; el ordenamiento dentro del almacén es otro— y cada uno debe quedar aislado, para que un compromiso afecte una parte y no toda la compañía.</p>
+<p>Dos condiciones hacen viable esa segmentación:</p>
+<ul>
+<li><strong>Mapeo de dispositivos y flujos.</strong> Los PLC no se comunican con todos los equipos: reciben conexiones de los servidores SCADA y de las estaciones de ingeniería con las que se los programa. Pero no siempre está claro cómo son esas comunicaciones, con qué protocolos y qué puertos; entenderlo permite armar alertas por anomalía y filtrar las comunicaciones legítimas.</li>
+<li><strong>Políticas granulares.</strong> No todas las operaciones deben ser bidireccionales: muchos flujos pueden ir en un solo sentido. Cada segmento se protege con ACLs y firewalls —los controles que en el cloud se traducen a NACLs y security groups—, junto con estrategias de monitoreo y ajuste continuo.</li>
+</ul>
+<p>La importancia del monitoreo tiene ejemplos discretos pero contundentes: que un equipo que no corresponde se comunique con un PLC parece poco, salvo que el firmware de un PLC anticuado tiene un buffer muy pequeño y un simple escaneo con NMAP puede provocarle una denegación de servicio.</p>
+<p>Los beneficios: reducción de la superficie de ataque, protección de los sistemas críticos y cumplimiento normativo — certificar ISA 62443 exige separación de ambientes y segmentación, así que trabajar con microsegmentación alinea a la compañía con el estándar.</p>
+<h2>El traslado al cloud: subnets, security groups y NACLs</h2>
+<p>En una planta, cada proceso tendría su subred. En el cloud, la lógica equivalente es una VPC con subnets que agrupan los equipos por tipo: una subnet para los SCADA, otra para las estaciones de ingeniería, y así por el resto. Encima, los security groups filtran el tráfico según el origen de cada proceso. El resultado es seguridad granular, escalable —sumar equipos es fácil de administrar— y alineada con los segmentos y conductos de la ISA.</p>
+<h2>La demostración: una fábrica emulada en dos cuentas de AWS</h2>
+<p>El ambiente emula una fábrica con dos cuentas: una "on-prem" que hace de planta y una "cloud" con la implementación real. Sobre ellas: varias VPCs, una VPN site-to-site para la comunicación entre ambientes, una client VPN para el acceso de usuarios a la planta y, en la parte cloud, un zero trust implementado con Cloudflare —elegido por un criterio muy concreto: es gratis hasta los primeros 50 usuarios, un detalle decisivo para empresas chicas.</p>
+<p>El ambiente cloud tiene cuatro redes: dos públicas sin uso y dos privadas en operación. En cada ambiente hay un SCADA y una estación de ingeniería; el PLC, simulado, existe únicamente en la cuenta on-prem, que además tiene una tercera red privada. Las tablas de ruteo de ambos lados apuntan hacia sus virtual gateways: esa ruta es la que hace que el tráfico hacia el otro ambiente salga por la VPN site-to-site.</p>
+<p>La demostración de acceso muestra la anatomía del modelo: sin VPN activa, ni el SCADA cloud ni el on-prem son alcanzables. Al activar la client VPN del entorno on-prem, el SCADA on-prem aparece y, al bajar la VPN, la información desaparece. Al dar de alta el zero trust, el entorno cloud pasa a ser accesible. Para hacer amigable el acceso por SSH a los servidores implementaron además un DNS, con algunas particularidades cuando se lo accede desde la client VPN.</p>
+<h2>Controles en capas: security groups, ruteo y postura</h2>
+<p>Cada tipo de equipo tiene su security group. El SCADA permite únicamente SSH para administración y HTTP para el acceso por navegador. La estación de ingeniería, al ser Windows, agrega RDP, más SSH y el puerto 502 —el puerto del protocolo de comunicación industrial— hacia el PLC. El PLC no necesita salir a ningún lado, solo dejar que le busquen la información: acepta SSH y 502 entrantes desde el SCADA, desde la estación de ingeniería y desde el segmento de red de la VPN site-to-site. Esa última regla es la que permite que el SCADA cloud muestre información del PLC on-prem.</p>
+<p>La microsegmentación fina también entra por los security groups: el objetivo es que el SCADA no pueda hablar con todos los PLCs, sino únicamente con los que monitorea, y puede haber más de un SCADA. En el entorno on-prem el equivalente serían políticas de firewall. Y hay una tercera palanca que no exige firewall para todo: el ruteo. Se puede rutear una parte de una red para que llegue por la VPN y descartar el resto, tanto a nivel de la tabla de ruteo de cada subnet en el cloud como de la tabla de la propia site-to-site.</p>
+<p>El acceso, además, no depende solo de identidades. Lo habitual es autorizar por usuario y grupo; lo que muchas veces se omite es la postura del equipo que se conecta: no se quiere que una computadora personal entre a la red de la empresa, pero sí la corporativa. En zero trust ese control es natural, y en la client VPN también resulta sencillo: una Lambda se ejecuta ante cada conexión VPN y decide si autoriza o no; en la demo, revisa la plataforma del sistema operativo —Mac, Windows o Linux— que el cliente envía entre sus campos. Al retirar Windows de la lista de permitidas, la conexión falla. Para controles más sofisticados quedan un EDR o un MDM.</p>
+<h2>Cuando las reglas se abren de más: NACLs y monitoreo</h2>
+<p>En las empresas, los security groups se van abriendo más de lo debido: pruebas, excepciones, urgencias — y de golpe todos los equipos permiten SSH. Remediarlos uno por uno no siempre hay tiempo. La alternativa es una network access control list: en la demo, una NACL que permite todo salvo el puerto 22 —aplicable a todo o a nivel de IP— y que se asocia a la subnet específica del SCADA.</p>
+<p>La diferencia técnica entre ambos controles define cuándo sirve cada uno: los security groups operan en la capa 4, tienen estado y aplican al iniciar una conexión —una vez iniciada, vive hasta que se corta—; las NACLs actúan en la capa 3, no tienen estado y evalúan cada mensaje entrante y saliente. La demostración lo hace visible: con la NACL aplicada, la conexión SSH al SCADA falla, pero el acceso por el puerto 80 sigue funcionando, porque lo único denegado es el 22.</p>
+<p>Y acá entra la pieza de detección de anomalías. La subnet del SCADA tenía flow logs activados —la auditoría de todas las transmisiones de red de una VPC o subnet— y configurados de una forma deliberada: logueando solo las conexiones aceptadas. El objetivo era mostrar el monitoreo del bypass: en un entorno productivo, si una regla deniega SSH, hace falta un elemento que avise cuando alguien intenta saltársela. La evidencia llega como alertas de "Conexión SSH detectada", con destino incluido, a partir de los propios flow logs.</p>
+<p>Sobre la integración con el resto del ecosistema: ingestar alertas de OT en un SIEM es un trabajo complejo, porque normalmente exige un IDS orientado a redes industriales que detecte anomalías. La ventaja de tener la planta integrada al cloud es que, en primera instancia, se pueden crear funciones propias para detectar anomalías —vía notificaciones o, en una versión más elaborada, integrando esas alertas al SIEM.</p>
+<pre class="mermaid">
+flowchart LR
+    U[Usuarios] -->|client VPN + Lambda de postura| ON[Planta on-prem: PLC, estación de ingeniería, SCADA]
+    ON <-->|VPN site-to-site + tablas de ruteo| CL[Cloud: SCADA y estación en subnets privadas]
+    U -->|zero trust Cloudflare + política por identidad| CL
+    CL -.->|flow logs y alertas de SSH| M[Monitoreo y SIEM]
+
+</pre>
+
+<h2>Zero trust de lado a lado</h2>
+<p>La implementación cloud se apoya en Cloudflare: una aplicación con alcance al entorno cloud, una política general y una política restringida que permite llegar únicamente a dos servidores y únicamente desde la identidad corporativa autorizada. Un túnel conecta la red de Cloudflare con el entorno, con rutas que habilitan las dos redes a conectar y la resolución de nombres.</p>
+<p>El detalle que el análisis destaca: el conector es una instancia EC2 desplegada solo para ese fin, y la práctica habitual de publicar ese tipo de instancia en una red pública resulta innecesaria. Puede vivir en una red privada, y de hecho su security group no permite ninguna regla inbound —solo outbound, con los destinos explícitos—, en contraste con soluciones que piden exponer el conector a internet y permitirle conexiones HTTP entrantes.</p>
+<h2>Cómo se protege un PLC</h2>
+<p>En la ronda de preguntas, un planificador industrial de una siderúrgica planteó el problema de fondo: hoy un PLC puede ser atacado desde cualquier parte del mundo, y en los procesos continuos cualquier interrupción afecta la producción; falta, además, un registro que diga cuándo ocurrió un ataque y cómo evitar que vuelva a suceder — porque un problema en la línea puede ser en realidad alguien que cambió la lógica del PLC conectándose directo a la red, sin que saltara ninguna alerta.</p>
+<p>Las respuestas propuestas: un IDS en la red para entender los paquetes que llegan al PLC; y soluciones de zero trust especializadas —como Sage Security, que vende un dispositivo que se coloca delante del PLC, se conecta a una consola en el cloud, establece un intercambio de claves y un túnel, y garantiza que solo las direcciones autorizadas puedan llegar al equipo, acotando el problema de que en una red industrial cualquiera que se conecte tiene acceso. Completan el cuadro revisar los controles de red, limitar las direcciones que pueden entrar al segmento del proceso crítico y el monitoreo de conexiones y cambios de lógica.</p>
+<h2>La responsabilidad sigue siendo del cliente</h2>
+<p>El cierre dejó la idea que ordena todo lo anterior: el problema no es que la nube falle en seguridad. Es que mucha gente se confía en la seguridad que el proveedor se ocupa de mantener y olvida que tiene que segurizar todo lo que implementa encima y sus datos. Las fallas, en general, están en esa capa: errores de configuración.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ISA/IEC 62443</strong>: norma de ciberseguridad industrial; define zonas, conductos, separación IT/OT y niveles; su certificación exige segmentación.</li>
+<li><strong>Modelo de Purdue</strong>: jerarquía de niveles de una planta industrial, de los equipos de campo a la IT corporativa.</li>
+<li><strong>PLC, HMI y SCADA</strong>: controladores que reciben señales de sensores y accionan salidas, monitores junto al proceso y dashboards de supervisión en tiempo real; el historian y los servidores de aplicaciones completan la pila.</li>
+<li><strong>Microsegmentación</strong>: aislamiento por proceso industrial, con mapeo previo de dispositivos, flujos, protocolos y puertos.</li>
+<li><strong>VPC y subnets</strong>: traducción al cloud de la segmentación; subnets agrupadas por tipo de equipo.</li>
+<li><strong>Security groups</strong>: filtros con estado de capa 4 por origen de tráfico; uno por tipo de equipo y reglas que permiten la microsegmentación SCADA-PLC.</li>
+<li><strong>NACLs</strong>: listas de control de acceso sin estado de capa 3, por subred y por mensaje; usadas para remediación rápida (bloqueo del puerto 22).</li>
+<li><strong>VPN site-to-site y client VPN</strong>: comunicación entre la planta on-prem y el cloud, y acceso de usuarios a la planta.</li>
+<li><strong>Lambda</strong>: función de autorización ante cada conexión VPN, con control de postura por plataforma del sistema operativo.</li>
+<li><strong>Cloudflare Zero Trust</strong>: acceso por identidad con políticas restringidas y túnel hacia el entorno; conector EC2 en red privada y security group solo outbound.</li>
+<li><strong>Flow logs</strong>: auditoría del tráfico de red de VPC/subnet; base de las alertas de "Conexión SSH detectada".</li>
+<li><strong>Modbus (puerto 502)</strong>: protocolo de comunicación industrial entre estación de ingeniería, SCADA y PLC.</li>
+<li><strong>EDR y MDM</strong>: controles de postura avanzados mencionados como extensión del control básico.</li>
+<li><strong>NMAP</strong>: herramienta de escaneo; su uso contra un PLC de firmware antiguo puede provocar denegación de servicio.</li>
+<li><strong>IDS de OT</strong>: monitoreo de anomalías en redes industriales y detección de cambios de lógica en PLCs.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La segmentación de una planta industrial tiene un cuerpo normativo maduro —ISA 62443 y modelo de Purdue—, y el cloud no lo reemplaza: lo implementa con las mismas lógicas de zonas, niveles y flujos permitidos.</li>
+<li>La defensa en capas funciona con piezas simples: security groups por tipo de equipo, ruteo que acota qué segmentos se alcanzan, NACLs para remediación rápida y control de postura sobre los equipos que se conectan.</li>
+<li>El monitoreo de anomalías no es un lujo: los flow logs que registran conexiones aceptadas y las alertas por intento de SSH son la diferencia entre una regla burlada en silencio y una detectada a tiempo.</li>
+<li>La migración al cloud traslada la responsabilidad, no la elimina: la seguridad del proveedor cubre la plataforma, y lo que se despliega encima —configuraciones, accesos, datos— sigue siendo responsabilidad de quien lo implementa.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/i5W4znoaCq4">«Navegando la Seguridad OT en el Cloud:Segmentación y detección de anomalías -M. Manassero y M. Bruno»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

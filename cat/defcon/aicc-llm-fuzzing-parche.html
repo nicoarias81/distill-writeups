@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AICC: fuzzing clásico dirigido por ML y parches generados con LLM — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">AICC: fuzzing clásico dirigido por ML y parches generados con LLM</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Ov8GSLqoPvQ">«DEF CON 33 Video Team -  AIxCC 42 Beyond Bugs»</a> · ver el <a class="nz-link" href="https://youtu.be/Ov8GSLqoPvQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Ov8GSLqoPvQ · <strong>URL:</strong> https://youtu.be/Ov8GSLqoPvQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 Video Team -  AIxCC 42 Beyond Bugs</li>
+</ul>
+<h2>Resumen</h2>
+<p>Entrevista con un equipo del AICC (AI Cybersecurity Challenge), la competencia impulsada por DARPA que pide construir un sistema autónomo capaz de encontrar vulnerabilidades y parcharlas por sí mismo. El equipo —una mezcla de veteranos de CTF con base académica— optó por una arquitectura híbrida: herramientas clásicas maduras (fuzzing, análisis estático) orquestadas con agentes sobre modelos de lenguaje, más técnicas de machine learning convencionales para tareas pequeñas.</p>
+<p>El balance final es instructivo: segundos en encontrar bugs y primeros en reportes de verificación, pero flojos en parchear —no por falta de modelos, sino por errores pequeños de integración y por un cambio de código de última hora que arruinó el 80% de sus parches en la final. La lección que repite casi todo el mundo en la competencia: subestimaron cuán rápido mejorarían los LLM durante los dos años que duró el desafío.</p>
+<h2>Arquitectura: orquestación de lo clásico con lo nuevo</h2>
+<p>El punto de partida fue evaluar durante unos tres meses qué podían hacer solas las herramientas existentes —fuzzers maduros, analizadores estáticos— y dónde introducir machine learning como capa de orquestación. El diseño resultante separa el problema en subsistemas:</p>
+<ul>
+<li><strong>Parcheo</strong>: principalmente modelos de lenguaje generan los parches, con herramientas de verificación que comprueban que el patch remedia el bug y no rompe nada.</li>
+<li><strong>Detección</strong>: delta fuzzing sobre diffs de código. Cuando un cambio de código llega, el sistema decide si introduce nuevos bugs; el fuzzing dirigido necesita guía, y ahí entra el ML: los analizadores clásicos generan grafos de llamadas con muchos falsos positivos que diluyen el esfuerzo, y los modelos de ML puntúan las aristas del grafo para concentrar el fuzzing en los caminos más prometedores.</li>
+<li><strong>Generación de semillas</strong>: un sistema híbrido entre técnicas tradicionales y IA que busca rutas efectivas hacia posibles puntos de vulnerabilidad (sink points) para arrancar el fuzzing con buenas semillas iniciales.</li>
+<li><strong>Modo serif (verificación)</strong>: en la final, los organizadores difunden resultados de análisis estático en JSON y piden a los equipos clasificarlos como verdaderos o falsos positivos. El equipo lo resolvió con LLM puros, integrados con rapidez gracias a MCP (Model Context Protocol), que ese año se volvió estándar de facto.</li>
+</ul>
+<p>La capa de agentes usa el razonamiento del modelo para llamar herramientas, encadenar salidas como entradas y coordinar el conjunto; el sistema completo orquesta tanto las herramientas clásicas como los componentes de IA.</p>
+<h2>Dos años de competencia, un salto de modelos</h2>
+<p>El contraste entre la primera y la segunda fase del desafío resume el avance del campo. Al comenzar, con GPT-4 como referencia y sin Claude ni los modelos actuales, el equipo desconfiaba de los LLM y por eso apoyó el sistema en técnicas clásicas. Dos años después, con la eclosión de los agentes, la lectura retrospectiva es explícita: subestimaron la curva de los modelos de lenguaje, no llegaron a aprovecharlos a fondo, y ven en esa línea su dirección futura. La observación del entrevistador coincide: los equipos que mejor les fue fueron los que más se apoyaron en los LLM en lugar de quedarse solo con las herramientas clásicas.</p>
+<h2>Lo que decidió el resultado: ingeniería, no modelos</h2>
+<p>El equipo destaca en lo que su sistema hacía bien —el segundo lugar en hallazgo de bugs, el primero en reportes de verificación— pero el puntaje general quedó lastrado por el parcheo. Las causas no fueron los modelos:</p>
+<ul>
+<li><strong>Errores pequeños pero críticos de integración</strong>: fallas que recién aparecieron después de entregar todo el código, cuando ya no había tiempo de corregirlas y el sistema no se comportaba como debía.</li>
+<li><strong>El cambio fatal de última hora</strong>: sacaron provecho en los primeros rounds, pero justo antes de entregar introdujeron un bug pequeño en el código que enviaron; ese error costó el 80% de los parches de la final. El consejo a su yo del pasado es tajante: no tocar el código a las horas del deadline.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El híbrido funciona para detectar, y quizá sobra para parchear</strong>: dirigir el fuzzing clásico con ML sobre grafos de llamadas rinde; para generar parches, los LLM bastan y la tendencia de la competencia fue hacia "IA en cada componente".</li>
+<li><strong>La orquestación es el siguiente frente</strong>: usar LLM no solo como generadores sino como coordinadores generales del sistema, en lugar de oráculos y heurísticas manuales, es la apuesta de mejora declarada.</li>
+<li><strong>La ingeniería de integración pesa tanto como la ciencia</strong>: dos años de trabajo pueden perderse por bugs pequeños de integración y por cambios de código junto al deadline.</li>
+<li><strong>MCP acelera la integración de agentes</strong>: el protocolo permitió conectar verificación con modelos casi de inmediato, un patrón que se repitió en varios equipos.</li>
+<li><strong>La competencia abre un campo, no lo cierra</strong>: con todos los sistemas liberados, la exploración de LLMs para hallar y parchar vulnerabilidades recién empieza.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Ov8GSLqoPvQ">«DEF CON 33 Video Team -  AIxCC 42 Beyond Bugs»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>El pipeline oculto de los datos estudiantiles: de la universidad a Equifax — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">El pipeline oculto de los datos estudiantiles: de la universidad a Equifax</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/06CZrbjy9qM">«DEF CON 33 - Third Party Access Granted : Postmortem on Student Privacy - Sharlene Toney»</a> · ver el <a class="nz-link" href="https://youtu.be/06CZrbjy9qM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 06CZrbjy9qM · <strong>URL:</strong> https://youtu.be/06CZrbjy9qM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Third Party Access Granted : Postmortem on Student Privacy - Sharlene Toney</li>
+</ul>
+<h2>Resumen</h2>
+<p>Mientras se les enseña a los estudiantes a proteger sus credenciales —no compartir la contraseña, cambiarla seguido, activar MFA—, en la trastienda sus datos académicos fluyen sin su consentimiento desde la universidad hacia intermediarios y brokers comerciales. Este análisis reconstruye ese pipeline: la base legal (FERPA) que lo habilitó, el broker sin fines de lucro que acumula los registros del 97% de los estudiantes universitarios de EE. UU. (National Student Clearinghouse) y la sociedad exclusiva con Equifax que revende esa información a empleadores y reclutadores.</p>
+<p>El punto central: las enmiendas a FERPA de 2008 y 2011 ampliaron drásticamente quién puede acceder a los datos de los estudiantes, y la condición de "nonprofit" del Clearinghouse lo deja fuera de la mayoría de las leyes estatales de privacidad. El resultado es un mercado de datos perfectamente legal que los estudiantes no pueden impugnar en los tribunales: FERPA no les reconoce acción privada (private right of action).</p>
+<h2>La base legal: FERPA y sus enmiendas</h2>
+<p>La ley FERPA (Family Educational Rights and Privacy Act) nació en 1974 con una idea simple: los padres controlan quién recibe los datos de sus hijos, y al llegar a la universidad ese consentimiento pasa al estudiante. Las enmiendas posteriores erosionaron ese control:</p>
+<ul>
+<li><strong>2008</strong>: se creó la categoría de <em>partes autorizadas</em> — entidades que ejecutan una función que la universidad haría por sí misma. En la práctica, las empresas ed-tech: LMS como Canvas, CRMs, plataformas de asesoramiento académico. Los datos circulan entre la empresa y la universidad, dentro de los confines del servicio.</li>
+<li><strong>2011</strong>: se ampliaron las definiciones clave. La <em>excepción de estudio</em> (study exception) permite que delegados de la universidad investiguen con datos de estudiantes para desarrollar y validar tests predictivos, programas de ayuda financiera y mejora de la instrucción. La definición de <em>programa estudiantil</em> quedó tan ancha que cubre cualquier cosa que la institución ofrezca. Y los IDs de estudiante pasaron a ser <em>información de directorio</em> publicable sin consentimiento — siempre que el ID, por sí solo, no permita acceder a los registros.</li>
+</ul>
+<p>EPIC (Electronic Privacy Information Center) demandó al Departamento de Educación por estas definiciones, advirtiendo que expondrían troveos de información estudiantil a entidades nuevas. El juez desestimó el caso por falta de legitimación, y todo quedó en su lugar.</p>
+<p>Otra pieza del andamiaje: la mayoría de las leyes estatales de privacidad del consumidor <strong>excluyen a las organizaciones sin fines de lucro</strong>. Esa exclusión es la compuerta por donde se escapa el caso que sigue.</p>
+<h2>National Student Clearinghouse: el broker que no se llama broker</h2>
+<p>El National Student Clearinghouse es una organización sin fines de lucro que concentra los datos del 97% de los estudiantes universitarios de instituciones habilitadas para títulos en EE. UU. y del 90% de los estudiantes de secundaria. Factura en promedio 65 millones de dólares anuales brutos con la venta de datos estudiantiles: verificaciones de inscripción para empleadores, paquetes de datos agregados para estudios de investigación, analítica y predicción de éxito académico.</p>
+<p>Está plenamente en cumplimiento de FERPA — exhibe hasta la certificación iKeepSafe FERPA y una de AICPA para datos financieros — y ninguna ley estatal le impide vender como lo hace. Solo en Virginia debe registrarse como data broker, y esa ley solo exige registro, sin restricciones de uso. Se ha propuesto regularlo como a las agencias de crédito, porque sus datos alimentan decisiones de préstamos estudiantiles, pero hoy no lo está. El Student Borrower Protection Center pidió a la CFPB clasificarlo como agencia de reporte de consumidor y listarlo públicamente; no ocurrió.</p>
+<p>Su política de privacidad (unas 20 páginas) deja dos detalles incómodos:</p>
+<ol>
+<li>Si los datos que tiene son incorrectos, no los corrige: obliga al estudiante a gestionar la corrección en su universidad y esperar la nueva transferencia.</li>
+<li>Su posición sobre la recopilación web es "si no quieres dar los datos, no uses nuestros sitios". Pero no hay alternativa: para obtener el expediente de notas o una verificación de título, el sitio es el único canal.</li>
+</ol>
+<h2>La bifurcación hacia Equifax</h2>
+<p>En agosto de 2021 se anunció la asociación exclusiva entre National Student Clearinghouse y Equifax Workforce Solutions para el producto <em>Talent Report Education</em>: toda la información de títulos postsecundarios de las instituciones participantes. El mercado objetivo: profesionales de RR. HH., empleadores, cazatalentos y screeners de antecedentes.</p>
+<p>El pipeline completo queda así: la universidad envía los datos al Clearinghouse; este los redistribuye a investigadores y analítica predictiva, proveedores de ayuda financiera y autoridades educativas estatales y locales; y además los pasa a Equifax, que los revende a la cadena de contratación laboral.</p>
+<p>El costo de verificar: una verificación de inscripción cuesta 13 dólares para el estudiante (los empleadores pagan 19,95 por consultar). Para dimensionar el desequilibrio, basta recordar que la primera gran filtración de Equifax terminó pagando a los afectados tarjetas de débito virtuales de 7,74 dólares.</p>
+<h2>Qué puede salir mal con datos incorrectos</h2>
+<p>Un estudio citado estima que el 40% de la información crediticia en manos de agencias de reporte contiene errores. Con los obstáculos del Clearinghouse para corregir, los efectos se propagan:</p>
+<ul>
+<li><strong>Préstamos más caros</strong>: datos erróneos pueden significar cientos o miles de dólares extra pagados por un préstamo estudiantil.</li>
+<li><strong>Ayuda financiera bloqueada</strong>: si un registro incorrecto indica default en préstamos de un título anterior, el estudiante puede perder la elegibilidad para financiamiento en un posgrado, hasta corregir el dato en su universidad original.</li>
+<li><strong>Clasificaciones erróneas a escala</strong>: durante la pausa de pagos por la ley CARES en la pandemia, otro broker de datos tenía a millones de estudiantes clasificados como en default en lugar de en deferment, acumulando intereses que no correspondían. Ese litigio sigue en curso.</li>
+</ul>
+<p>Y hay riesgo de reidentificación: los datos empaquetados para investigación son agregados, pero cualquier agregación imperfecta puede cruzarse con otro dataset y volver a apuntar a una persona concreta — que luego se revende en el siguiente eslabón.</p>
+<p>El historial sancionador es exiguo: en el caso <em>Robinson v. National Student Clearinghouse</em> (Massachusetts), por cobrar de más por acceder a los propios datos respecto del tope legal para agencias de crédito, el Clearinghouse pagó 1,9 millones de dólares en mediación y se comprometió a no superar ese tope (15,50 dólares en la última revisión).</p>
+<h2>Qué se puede hacer</h2>
+<p>Las propuestas concretas que cierran el análisis:</p>
+<ul>
+<li><strong>Separar lo obligatorio de lo opcional</strong>. Canvas necesita los datos para funcionar; Handshake (bolsa de prácticas y empleo) no. Todo servicio no esencial debería ser opt-in, con consentimiento explícito del estudiante.</li>
+<li><strong>Incluir a los brokers sin fines de lucro en las leyes estatales de privacidad</strong>, cerrando la exclusión que hoy los deja regulados solo por FERPA.</li>
+<li><strong>Divulgación anual legible</strong>: una página con todas las entidades con las que la universidad comparte datos, qué hacen y por qué, más una segunda página de opt-ins voluntarios.</li>
+<li><strong>Educación real sobre privacidad</strong>: además de las credenciales, enseñar a preguntar "¿dónde van mis datos y dónde viven?". Los estudiantes tienen derecho a saberlo.</li>
+<li>El camino legal individual es casi nulo: FERPA no reconoce acción privada. Ante una presunta violación, la única vía es escribir al Departamento de Educación, que puede investigar y —teóricamente— retirar fondos a la universidad. En más de 50 años desde 1974, jamás lo ha hecho.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>FERPA</strong> (1974): ley federal de privacidad de registros educativos; las enmiendas de 2008 y 2011 ampliaron el acceso de terceros.</li>
+<li><strong>Excepción de estudio (study exception)</strong>: vía reglamentaria para que delegados de la universidad investiguen con datos estudiantiles.</li>
+<li><strong>Información de directorio (directory information)</strong>: categoría FERPA publicable sin consentimiento; cada universidad define su alcance (género, dirección de tutores, fotos, IDs).</li>
+<li><strong>National Student Clearinghouse</strong>: broker sin fines de lucro con datos del 97% de los estudiantes universitarios de EE. UU.; 65 MUSD anuales por venta de datos.</li>
+<li><strong>Equifax Workforce Solutions / Talent Report Education</strong>: asociación exclusiva (2021) que revende títulos postsecundarios a RR. HH. y screeners.</li>
+<li><strong>EPIC</strong>: ONG de privacidad que demandó al Departamento de Educación por las enmiendas; caso desestimado.</li>
+<li><strong>Student Borrower Protection Center / CFPB</strong>: presión para clasificar al Clearinghouse como agencia de reporte de consumidor.</li>
+<li><strong>GDPR</strong>: referencia comparada; inspiró la ley californiana y reconoce derechos de acceso, corrección, oposición a la venta y olvido que FERPA no otorga.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El consentimiento estudiantil fue sustituido por el de la institución: la universidad "consiente" en nombre del estudiante, sin que este pueda veto ni acción legal.</li>
+<li>La condición de nonprofit es el agujero estructural: cumple FERPA, queda fuera de las leyes estatales y de la regulación tipo agencia de crédito, y vende con impunidad legal.</li>
+<li>El daño más tangible no es teórico: datos incorrectos y difíciles de corregir cuestan dinero (préstamos) y oportunidades (ayuda financiera), como demostró el episodio de CARES Act.</li>
+<li>La reparación pasa por diseño legal — opt-in para servicios no esenciales, brokers sin fines de lucro regulados, divulgación anual — y por estudiantes que exijan saber adónde van sus datos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/06CZrbjy9qM">«DEF CON 33 - Third Party Access Granted : Postmortem on Student Privacy - Sharlene Toney»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

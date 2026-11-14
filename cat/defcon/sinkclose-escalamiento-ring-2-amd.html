@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sinkclose: escalamiento a Ring-2 en procesadores AMD — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Sinkclose: escalamiento a Ring-2 en procesadores AMD</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/kEIJFsOgEBY">«DEF CON 32 - AMD Sinkclose-Universal Ring2 Privilege Escalation - Enrique Nissim, Krzysztof Okupski»</a> · ver el <a class="nz-link" href="https://youtu.be/kEIJFsOgEBY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> kEIJFsOgEBY · <strong>URL:</strong> https://youtu.be/kEIJFsOgEBY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - AMD Sinkclose-Universal Ring2 Privilege Escalation - Enrique Nissim, Krzysztof Okupski</li>
+</ul>
+<h2>Resumen</h2>
+<p>Sinkclose es una falla arquitectural del procesador mismo —no una mala configuración de un fabricante ni un bug de software— que permite a un atacante con acceso kernel escalar hasta SMM (Ring-2), ganar ejecución arbitraria de código en el nivel más privilegiado por debajo del hipervisor, desactivar las protecciones del flash SPI y plantar persistencia a nivel firmware. Afecta a la práctica totalidad de los chips AMD modernos: los investigadores estiman cientos de millones de procesadores impactados, desde laptops Ryzen hasta líneas EPYC para servidores y Threadripper.</p>
+<p>Reportada en octubre de 2023, asignada como CVE-2023-31315 en noviembre, y con responsable disclosure procesado con AMD a lo largo de meses, la vulnerabilidad es tan vieja como el bit que la habilita: la primera mención documentada del mecanismo abusado data de 2006, al menos 18 años en el silicio. AMD publicó un advisory y una actualización de microcódigo como mitigación.</p>
+<h2>SMM: el anillo invisible</h2>
+<p>System Management Mode es el modo de operación más privilegiado del procesador, por debajo incluso del hipervisor. El código que corre ahí está oculto para el sistema operativo: antivirus, EDR y hasta motores anti-cheat no lo ven. La jerarquía simplificada queda así: aplicaciones en Ring 3 (el navegador), sistema operativo en Ring 0, hipervisor debajo, y SMM por debajo de todo.</p>
+<p>El mecanismo funciona en dos fases. En el arranque, el firmware inicializa el hardware, carga el código SMM en una región especial de memoria llamada SMRAM y entrega la ejecución al loader del SO. En runtime, una interrupción de sistema (SMI) congela el núcleo, guarda el estado de registros en un área segura del SMRAM, ejecuta el handler correspondiente —gestión de energía, seguridad— y devuelve el control. El hardware protege esa región con el mecanismo TSEG: cuando el CPU está en modo normal, el controlador de memoria rechaza lecturas (devuelve unos puros), descarta escrituras y prohíbe la ejecución sobre esa memoria.</p>
+<h2>El bit que nadie cerró</h2>
+<p>La protección se configura con dos registros, TSEG base y TSEG mask, junto con un bit SMM lock que —una vez activado— impide que ni siquiera SMM modifique la configuración hasta el próximo ciclo de encendido. En Intel, los MSRs relacionados con SMM solo son accesibles desde el propio modo SMM (obtener la SMM base desde fuera ya sería una fuga). En AMD, todos esos MSRs son accesibles desde Ring 0 sin restricción.</p>
+<p>Ahí está el bug, escondido a plena vista en la documentación: el registro TSEG mask tiene dos bits que el SMM lock no cubre. Uno de ellos, TClose, redirige los accesos a datos del núcleo cuando corre en SMM desde el SMRAM hacia el espacio MMIO. Si un atacante lo activa desde Ring 0 y dispara un SMI, la invocación del modo más privilegiado del chip termina leyendo sus datos desde memoria que el atacante controla. El efecto es el mismo que el célebre "memory sinkhole" de 2015 — donde se remapeaba el APIC para superponerlo con la región protegida— pero amplificado: aquel bug afectaba solo los 4K del APIC; Sinkclose redirige toda la TSEG hacia MMIO, así que cualquier dispositivo superpuesto puede servir para tomar control.</p>
+<h2>La cadena de explotación</h2>
+<p>El primer intento —superponer un controlador Ethernet sobre el punto de entrada de SMM— falló, y esa falla llevó a descubrir la tabla de prioridades de acceso a memoria física del procesador, donde TSEG ocupa el cuarto lugar. Por encima están, entre otros, el APIC (inestable al remapear, con registros inútiles para el ataque) y un dispositivo no documentado en la especificación pero presente en todos los sistemas probados: el controlador SPI, el que accede al chip de flash del firmware.</p>
+<p>El controlador SPI resulta ideal: su BAR puede reubicarse sobre el punto de entrada de SMM, los registros del offset clave son controlables, y tiene precedencia sobre el SMRAM cuando TClose está activo. El resto del exploit se construye sobre una geometría casi poética de la arquitectura x86: desbordes de enteros deliberados. Al cargar una GDT falsa con una base lo bastante grande, la suma con el offset del far jump desborda y envuelve la dirección hasta el inicio del espacio físico — DRAM que el atacante controla — donde espera el payload. El mismo truco, aplicado al registro GDTR cuando se carga con valores inválidos, produce un segundo wraparound que termina resolviendo el problema más duro del exploit.</p>
+<p>Ese problema duro fue el multihilo simétrico: activar TClose en un núcleo lo activa en ambos núcleos lógicos (el registro TSEG mask es compartido entre ellos), y cada SMI en realidad despierta a todos los núcleos hacia SMM, no solo a uno. Con el núcleo 0 bajo control, el núcleo 1 ejecutaba basura y tiraba el sistema abajo. Ni desactivar SMT, ni APIs de sincronización, ni SMIs selectivos lo resolvieron; la solución fue diseñar la GDT falsa para que el desborde del GDTR funcionara idéntico en ambos núcleos, más una doble invocación de SMI —la primera sin TClose para "preparar" el save state, la segunda con el bit activo— porque con TClose activo las escrituras del save state se descartan y el retorno usa valores viejos.</p>
+<h2>Persistencia a nivel firmware: cuatro escenarios</h2>
+<p>Con ejecución arbitraria en SMM, la demo modifica el logo de arranque de una Huawei MateBook D16 de 2023 escriturándolo directamente en el flash SPI desde el sistema operativo, vía un driver malicioso que eleva privilegios. Pero el alcance real depende de dos configuraciones que cada fabricante elige activar o no: ROM Armor (restricción de escritura sobre regiones del flash) y Platform Secure Boot (el equivalente AMD de Boot Guard, que verifica las etapas iniciales del firmware).</p>
+<ul>
+<li><strong>Todo habilitado:</strong> se puede escribir en la región de variables UEFI —donde viven las claves de Secure Boot— y cargar un bootloader malicioso antes del loader del SO.</li>
+<li><strong>Sin PSB:</strong> mismo resultado, inyectando un bootkit que corre antes del loader y anula las protecciones del sistema operativo.</li>
+<li><strong>Sin ninguna de las dos:</strong> hay que ir al flash SPI y escribir un firmware implant directamente en la región de código del firmware.</li>
+</ul>
+<p>La última es la peor. Un firmware implant sobrevive a la reinstalación del sistema operativo, sobrevive a las actualizaciones de firmware lanzadas desde el SO (el malware simplemente reporta éxito) y solo se elimina desarmando el equipo y reescribiendo el chip con un programador SPI — algo fuera del repertorio de cualquier técnico de IT. Y un detalle final: desde ese nivel se puede quemar un fuse que desactiva Platform Secure Boot para siempre, dejando al equipo vulnerable a reinfecciones perpetuas.</p>
+<p>La investigación previa de los autores sobre prevalencia de misconfigurations muestra que la mayoría de los sistemas no tiene ninguna de estas funciones de seguridad activada: esa población entera es vulnerable a implants de firmware.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Sinkclose (CVE-2023-31315) es una falla arquitectural de AMD con al menos 18 años en el silicio: dos bits del registro TSEG mask que el SMM lock no protege, accesibles desde Ring 0 en sistemas donde Intel exige estar en SMM.</li>
+<li>El exploit encadena dos desbordes de enteros sobre la GDT para redirigir la ejecución de todos los núcleos hacia un payload en DRAM, sin requerir presencia física.</li>
+<li>El acceso a SMM oculta el código al sistema operativo y a todos sus defensas (EDR, anti-cheat, hipervisor), lo que lo convierte en el lugar perfecto para persistencia.</li>
+<li>La mayoría de los sistemas evaluados no tiene ROM Armor ni Platform Secure Boot activados, quedando expuestos a firmware implants que sobreviven a reinstalaciones y actualizaciones.</li>
+<li>Las mitigaciones: microcódigo de AMD (que puede no cubrir todos los sistemas afectados), detección del bit TClose en el entry point de SMM a nivel EDK2 o coreboot por parte de los OEM, y trapeo del MSR de TSEG mask por parte de un hipervisor.</li>
+<li>La complejidad de la arquitectura x86 juega a favor del atacante: flexibilidad de la GDT, granularidad de direcciones y MSRs sin restricción de acceso son la materia prima del exploit.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/kEIJFsOgEBY">«DEF CON 32 - AMD Sinkclose-Universal Ring2 Privilege Escalation - Enrique Nissim, Krzysztof Okupski»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

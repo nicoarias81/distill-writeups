@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OWASP y sus proyectos: fortaleciendo la seguridad en el SDLC — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">OWASP y sus proyectos: fortaleciendo la seguridad en el SDLC</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/oSKq4Pa9PEM">«OWASP y sus Proyectos: Fortaleciendo la Seguridad en el SDLC - John Vargas - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/oSKq4Pa9PEM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> oSKq4Pa9PEM · <strong>URL:</strong> https://youtu.be/oSKq4Pa9PEM · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> OWASP y sus Proyectos: Fortaleciendo la Seguridad en el SDLC - John Vargas - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>John Vargas, líder del capítulo de OWASP Lima, hace un recorrido práctico por qué significa desarrollar software seguro, en qué etapa del ciclo de vida se pierde la batalla y qué proyectos de OWASP concretos sirven para cubrir cada fase. Su tesis: la seguridad no puede seguir apareciendo recién en las pruebas — cuando ya es tarde y caro — sino que debe integrarse desde los requisitos y sostenerse en cada etapa, con lineamientos definidos por la organización y no por el criterio individual de cada desarrollador.</p>
+<p>El análisis se apoya en casos de errores de software que costaron cientos de millones o vidas: coches que se podían hackear a distancia, fallos en frenos, un cohete Ariane 5 que explotó en 1996 porque un programa no pudo redondear un número decimal a entero (500 millones perdidos sobre un proyecto de 7.000 millones), máquinas de radiografía que emitían dosis incorrectas, presos liberados antes de tiempo por un error en el sistema de una prisión, y los clásicos recientes: Libssh, Log4Shell y CrowdStrike. Todos son, en el fondo, problemas de software.</p>
+<h2>Qué es desarrollo seguro</h2>
+<p>Un enfoque para integrar la seguridad dentro de todas las etapas del ciclo de desarrollo de software. El fin no es evitar el ataque — nadie puede evitar que lo ataquen — sino estar preparado para responder adecuadamente cuando ocurra, protegiendo confidencialidad, integridad y disponibilidad.</p>
+<p>Principios que la sustentan:</p>
+<ul>
+<li>Implementar seguridad <strong>en todo el ciclo de vida</strong>, no en una etapa aislada.</li>
+<li><strong>Reducir riesgos</strong>: identificarlos para poder mitigar vulnerabilidades potenciales, protegiendo datos y sistemas.</li>
+<li><strong>Enfoque multidimensional</strong>: no es un problema solo del desarrollador, ni solo del de DevOps, ni solo del analista — todos están involucrados y todos deben aportar.</li>
+<li>Y una actitud de base que Vargas pide a la audiencia: desaprender, no dar nada por sentado, cuestionar, asumir que todo es mentira hasta que se compruebe, no subestimar nada, documentar (lastimosamente) y mantener todo simple.</li>
+</ul>
+<h2>Seguridad en cada etapa del SDLC</h2>
+<p>El ciclo habitual — planificación de requerimientos, diseño, desarrollo, pruebas, implementación, mantenimiento — suele pensar la seguridad recién en las pruebas (hacking ético web, móvil, infraestructura). Eso llega tarde. La propuesta es repartir controles en todas las fases:</p>
+<ul>
+<li><strong>Requerimientos</strong>: identificación de requisitos de seguridad desde el comienzo. No se puede evaluar un aplicativo si no se le pidió seguridad desde que empezó a crearse. Análisis estático temprano, pruebas automatizadas, monitoreo continuo.</li>
+<li><strong>Diseño</strong>: evaluación y modelado de amenazas con metodologías como STRIDE o DREAD, y diseño seguro del sistema.</li>
+<li><strong>Desarrollo</strong>: revisiones de código y prácticas de codificación segura. El punto crítico: decirle al desarrollador "programa de manera segura" sin un lineamiento que defina qué espera la empresa equivale a dejarlo guiarse por lo que leyó en Twitter o vio en YouTube. OWASP publica lineamientos de referencia — el punto de partida para que cada organización defina los propios — y las herramientas (análisis estático, dinámico) optimizan los tiempos del equipo.</li>
+<li><strong>Pruebas</strong>: pentesting y pruebas de seguridad automatizadas dentro del ciclo, incluido el CI/CD.</li>
+<li><strong>Implementación y despliegue</strong>: desplegar bajo lineamientos y estándares aceptados por la industria, no bajo lo que a cada uno se le ocurra.</li>
+<li><strong>Revisión final de seguridad</strong>: verificar que todo lo que se pidió se cumplió (o documentar qué no).</li>
+<li><strong>Mantenimiento</strong>: monitorear lo que ocurre en producción — no basta con poner un WAF y olvidarse — y gestionar vulnerabilidades de forma continua, porque lo que hoy es seguro mañana ya no lo es: ciclo continuo de parches.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Requerimientos<br>requisitos de seguridad] --> B[Diseño<br>modelado de amenazas]
+    B --> C[Desarrollo<br>revisiones y codigo seguro]
+    C --> D[Pruebas<br>pentesting y automatizacion]
+    D --> E[Despliegue<br>estandares de industria]
+    E --> F[Mantenimiento<br>monitoreo y gestion de vulns]
+    F -.ciclo continuo.-> A
+
+</pre>
+
+<h2>Por qué conviene: el costo de llegar tarde</h2>
+<p>El argumento económico es el clásico de shift left: en la etapa de codificación se concentra el mayor porcentaje de bugs y el costo de corregirlos es mínimo; cuando el software ya está publicado, el costo de arreglar lo mismo es mucho mayor. Más temprano es más barato.</p>
+<p>Beneficios esperables de implementar desarrollo seguro:</p>
+<ul>
+<li>Reducción de costos e incidentes de seguridad.</li>
+<li>Menor necesidad de parches y optimización de tiempos.</li>
+<li>Cumplimiento normativo más barato: si la seguridad ya está considerada desde la concepción del software, cumplir PCI, leyes de protección de datos o HIPAA cuesta menos.</li>
+<li>Confianza del cliente, que es lo más importante y se mantiene si no hay problemas con los aplicativos.</li>
+</ul>
+<h2>Estrategias de adopción cuando ya hay software en producción</h2>
+<p>Para organizaciones que ya tienen una fábrica de software avanzando, Vargas propone tres estrategias combinables:</p>
+<ol>
+<li><strong>Seguridad por diseño</strong>: definir requisitos de seguridad específicos por fase; asegurar que el diseño incluya principios como mínimo privilegio; integrar la seguridad al proceso.</li>
+<li><strong>Enfoque basado en riesgos</strong>: identificar, priorizar y mitigar.</li>
+<li><strong>Automatización y orquestación</strong>: herramientas (SAST, DAST, SCA) integradas al pipeline de integración continua, procesos automatizados, seguridad revisada por sprint (security reviews, user stories con criterios de seguridad) y pruebas de seguridad continua.</li>
+</ol>
+<h2>Los proyectos de OWASP para cada fase</h2>
+<p>OWASP es una fundación con múltiples proyectos — de software, de metodología, material educativo y capítulos locales como el de Lima — pensados justamente para cubrir todas las etapas del ciclo de vida. El gráfico central del material mapea qué proyecto sirve en cada fase del SDLC. Los que menciona explícitamente:</p>
+<ul>
+<li><strong>Lineamientos de codificación segura</strong>: base para que cada organización defina sus prácticas de desarrollo seguro en la etapa de desarrollo.</li>
+<li><strong>Herramientas de automatización</strong>: SonarQube, DependencyCheck, DefectDojo (gestión de hallazgos) integradas al pipeline.</li>
+<li><strong>Modelado de amenazas</strong>: metodologías STRIDE y DREAD para la etapa de diseño.</li>
+<li><strong>Top 10 y guías de OWASP</strong>: referencia de industria para saber qué es "lo aceptado y aprobado" al desplegar.</li>
+</ul>
+<p>El cierre vuelve a la idea de apertura: aprender algo nuevo y enseñar algo nuevo, de manera bidireccional — y comprobarlo todo, porque ningún concepto se debe adoptar por fe.</p>
+<h2>Ideas para llevarse</h2>
+<ul>
+<li>La seguridad que aparece en las pruebas no es seguridad: es constatación tardía de deudas.</li>
+<li>"Programá seguro" sin lineamiento corporativo no es una práctica, es una apuesta.</li>
+<li>Cada bug corregido en producción cuesta un múltiplo del mismo bug corregido en la etapa de codificación — el caso Ariane 5 (un error de redondeo, 500 millones) es el ejemplo extremo.</li>
+<li>OWASP no es solo el Top 10: es un ecosistema de proyectos por fase — requisitos, modelado, código, pruebas, despliegue, mantenimiento — más capítulos que sostienen la comunidad.</li>
+<li>Lo que hoy es seguro mañana no lo es: la gestión de vulnerabilidades es un ciclo continuo, no un proyecto con fecha de fin.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/oSKq4Pa9PEM">«OWASP y sus Proyectos: Fortaleciendo la Seguridad en el SDLC - John Vargas - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

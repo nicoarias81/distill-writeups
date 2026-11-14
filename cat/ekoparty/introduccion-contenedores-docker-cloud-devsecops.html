@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contenedores y Docker: la base que todo el mundo pide antes de Kubernetes — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Contenedores y Docker: la base que todo el mundo pide antes de Kubernetes</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ZYVIgfgXp84">«Ekoparty Hackademy | Clase abierta: Cloud Security &amp; DevSecOps Engineering I Gino Rojo»</a> · ver el <a class="nz-link" href="https://youtu.be/ZYVIgfgXp84">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> ZYVIgfgXp84 · <strong>URL:</strong> https://youtu.be/ZYVIgfgXp84 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Ekoparty Hackademy | Clase abierta: Cloud Security &amp; DevSecOps Engineering I Gino Rojo</li>
+</ul>
+<h2>Resumen</h2>
+<p>Contenedores y Docker van de la mano en casi cualquier compañía o unicornio tecnológico, pero conviene separarlos desde el inicio: los contenedores son una tecnología — un conjunto de funciones de bajo nivel que viven en el núcleo de Linux desde hace más de una década — y Docker es una de las herramientas, la más popular, para manipularlos. Esta introducción recorre esa distinción, la compara con la virtualización tradicional de máquinas virtuales y deja los primeros comandos listos para practicar, perdiéndoles el miedo a tecnologías que aparecen en todas las búsquedas laborales.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Cliente docker<br/>terminal] --> B[Docker<br/>daemon]
+    B --> C[(Contenedores<br/>cgroups + namespaces)]
+    B <--> D[(Docker Hub<br/>repositorio de imágenes)]
+
+</pre>
+
+<h2>La tecnología existía antes que la herramienta</h2>
+<p>Dos funciones del kernel de Linux son la fundación de todo el ecosistema, y van a reaparecer una y otra vez en Kubernetes y demás tecnologías de orquestación:</p>
+<ul>
+<li><strong>Cgroups (Control Groups)</strong>: permiten tomar un programa y manipularlo — asignarle CPU, memoria, banda de internet. Es el control de recursos.</li>
+<li><strong>Namespaces</strong>: permiten que las aplicaciones se aíslen — que una use su cantidad de recursos y otra use los suyos, separadas.</li>
+</ul>
+<p>Docker no inventó la rueda: toma cgroups, namespaces y otros componentes del canal de Linux y los empaqueta en una herramienta con interfaz gráfica y de terminal. Por eso los contenedores funcionan de manera casi nativa en Linux, y por eso quien manipula contenedores todos los días termina trabajando desde un sistema basado en Linux — es el entorno donde la tecnología corrre por diseño.</p>
+<h2>De la máquina virtual al contenedor</h2>
+<p>Antes de los contenedores, probar un desarrollo en distintos entornos (testing, user acceptance, producción) significaba virtualización tradicional: descargar VMware o VirtualBox, instalar una máquina virtual, configurar sistema operativo, RAM, CPU y almacenamiento. Un ritmo lento, costoso en recursos, nada ágil — en contra de los principios de desarrollo que lidera la industria.</p>
+<p>La comparación con Ubuntu lo grafica: la imagen de escritorio pesa unos 5 GB; la versión en contenedor ronda los 100 MB (hay variantes de poco más de 10 MB). ¿Qué cambió? Se quitaron paquetes, interfaz gráfica y todo lo que no se necesita: queda un núcleo pequeño pero funcional, pensado para usos técnicos. No es lo mismo en términos literales — se perdieron cosas —, pero para probar rápidamente si una aplicación funciona en una versión concreta del sistema operativo, es exactamente lo que hace falta.</p>
+<h2>Primeros comandos: pull, run, images</h2>
+<p>Docker Hub es el repositorio — como GitHub para código — donde desarrolladores y compañías suben sus aplicaciones en formato contenedor: más de 3 o 4 millones de imágenes, muchas gratuitas con solo crear una cuenta.</p>
+<ul>
+<li><code>docker pull ubuntu</code> descarga la imagen; cada descarga devuelve un <strong>digest</strong> SHA-256, una clave matemáticamente única que asegura que la imagen bajada es exactamente la que subió el desarrollador.</li>
+<li><code>docker images</code> lista lo descargado, con sus tamaños (Fedora 160 MB, Ubuntu 78 MB).</li>
+<li><code>docker run -it debian</code> busca la imagen localmente, la descarga si no está y ejecuta una shell interactiva dentro del contenedor — con usuario root y el prompt cambiando al nombre de la imagen. Un <code>exit</code> y se vuelve a la máquina anfitriona.</li>
+</ul>
+<h2>Contenedores desechables (con matices)</h2>
+<p>La mentalidad correcta: los contenedores son como caramelos — se abren, se usan y se tira el papel. Están pensados para probar rápido, sin perder tiempo en configuraciones, y agilizar especialmente las etapas de prueba y testing. Eso no impide la persistencia: se puede guardar información en un contenedor, o descargar un Ubuntu, instalarle paquetes y armar una imagen customizada propia — y hasta hay versiones en contenedor de Kali Linux en su sitio oficial.</p>
+<h2>¿Qué tan seguras son las imágenes de Docker Hub?</h2>
+<p>Docker Hub es un repositorio abierto: conviven imágenes con muchísima seguridad — firmadas por sus desarrolladores, con procedimientos para verificar origen — con imágenes que cualquiera puede subir sin control. O sea: también hay imágenes ilícitas, falsas o con malware. Las herramientas del ecosistema para detectar vulnerabilidades en dependencias o código — Trivy y otras — son el siguiente paso, material de la especialización en seguridad de nube y contenedores.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Tecnología ≠ herramienta</strong>: contenedores son cgroups y namespaces del kernel de Linux; Docker es la herramienta más popular para manipularlos. La distinción atraviesa todo el aprendizaje posterior, incluida la orquestación con Kubernetes.</li>
+<li><strong>La virtualización basada en contenedores reemplazó a la de máquinas virtuales</strong> porque es rápida, liviana, portátil y barata: minutos en lugar de horas de configuración.</li>
+<li><strong>Los tres comandos básicos</strong> (<code>pull</code>, <code>run</code>, <code>images</code>) más el concepto de digest como garantía de integridad son suficientes para empezar a practicar hoy.</li>
+<li><strong>La seguridad de las imágenes no es automática</strong>: verificar origen y digest, y escanear con herramientas como Trivy, es parte del trabajo serio con contenedores.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ZYVIgfgXp84">«Ekoparty Hackademy | Clase abierta: Cloud Security &amp; DevSecOps Engineering I Gino Rojo»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

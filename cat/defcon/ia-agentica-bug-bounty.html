@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IA agéntica en bug bounty: dos expediciones contra sistemas reales y un manual de uso — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">IA agéntica en bug bounty: dos expediciones contra sistemas reales y un manual de uso</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/doanWlYLAMw">«DEF CON SG1 - CSIT Village -   Loke Yan Hao -Hack Smarter: Unleashing AI in Bug Bounty Pen Testing»</a> · ver el <a class="nz-link" href="https://youtu.be/doanWlYLAMw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> doanWlYLAMw · <strong>URL:</strong> https://youtu.be/doanWlYLAMw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON SG1 - CSIT Village -   Loke Yan Hao -Hack Smarter: Unleashing AI in Bug Bounty Pen Testing</li>
+</ul>
+<h2>Resumen</h2>
+<p>Lok Yuen Hao, senior technology lead de CSIT (Singapur), con 11 años de oficio y foco en red teaming y simulación de APT, contó qué pasa cuando los agentes de IA salen de los entornos limpios de CTF y Hack the Box para operar contra programas de bug bounty reales. CSIT participa activamente en esos programas, tanto para encontrar vulnerabilidades en sistemas desplegados en Singapur como para afilar las habilidades de su equipo. Sobre esa base realizaron dos expediciones evaluativas comparando un agente autónomo de IA con un humano experimentado, y de ahí salió un playbook concreto: qué modelos, qué harness, qué skills, qué gestión de contexto y qué verificación humana.</p>
+<p>El experimento se realizó antes del lanzamiento del modelo GPT-5, y el propio análisis advierte que las conclusiones pueden moverse drásticamente con cada generación. Aun así, el resultado general es estable: la IA es un multiplicador útil, no un reemplazo; el humano experimentado siguió encontrando más, y lo mejor surgió combinando ambos, porque descubren cosas distintas.</p>
+<h2>Tres formas de usar IA en bug bounty</h2>
+<ul>
+<li><strong>Asistente de testing.</strong> Darle a la IA un snippet de código para identificar la debilidad, o pedirle que redacte payloads concretos (por ejemplo, para colar un web shell). El objetivo es descargar la pericia especializada que consume horas explicarse.</li>
+<li><strong>Escalado de bug.</strong> Encontrado un fallo, dejar que la IA busque más endpoints con la misma clase de defecto y amplificar el hallazgo.</li>
+<li><strong>Testing agéntico.</strong> Definir el objetivo y dejar que la IA gestione plan, herramientas y ejecución. Es el foco del trabajo: dos expediciones con configuraciones algo distintas de modelos y harness. La primera (tercer trimestre del año previo) abrió el abanico de LLMs vía OpenRouter y evaluó el framework CAI. La segunda (primer trimestre) incorporó Claude Code, que había rendido mejor, con Claude Opus como motor.</li>
+</ul>
+<h2>Los números de las dos expediciones</h2>
+<p>En la primera expedición, el humano encontró 29 vulnerabilidades y la IA 6, con 1 hallazgo dependiente. El ranking lo encabezó el humano con dos críticas y una alta; el mejor agente quedó cuarto, y los otros dos agentes muy atrás. En la segunda, el humano alcanzó 34 y la IA 17, con desglose revelador: 7 hallazgos totalmente autónomos del agente, 8 asistidos por IA (el humano con apoyo del agente) y 2 dependientes. Los tres asistidos por IA cubrían vulnerabilidades de clases distintas (dos SSRF, un IDOR).</p>
+<p>La comparación más fina: en la segunda expedición los dos primeros puestos siguieron siendo humanos —ambos críticos— pero el tercero y cuarto salieron de IA. La jugada que los produjo es el patrón de escalado: tomó un hallazgo de rango medio del humano y pidió a la IA probar la misma debilidad en otros endpoints; resultaron dos críticas adicionales.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Hallazgo humano de rango medio] --> B[IA: escalar la misma clase de bug a otros endpoints]
+    B --> C[2 criticas adicionales]
+    D[Humano: instinto y targets valiosos] --> E[34 vulnerabilidades]
+    F[Agente: checklist sistematico en cada endpoint] --> G[17 vulnerabilidades]
+    E --> H[Combinar ambos: cobertura maxima]
+    G --> H
+
+</pre>
+
+<h2>IA versus humano: tres diferencias de estilo</h2>
+<ul>
+<li><strong>Estrategia.</strong> El humano va con la cabeza: se concentra en endpoints concretos guiado por intuición; la IA sigue una ruta sistemática y puede ejecutar la misma prueba en cada endpoint de su checklist.</li>
+<li><strong>Priorización.</strong> El humano sabe dónde mirar: va directo a objetivos de alto valor, como funcionalidades de vuelos o formularios. La IA se apoya en la superficie: empieza por la parte blanda para construir contexto y suele necesitar más ronda de reconocimiento antes de acercarse.</li>
+<li><strong>Presupuesto de tokens.</strong> El humano es más eficiente y sigue hasta encontrar algo; la IA puede cortar a mitad de camino al agotar el presupuesto de contexto, y en algunos hallazgos se quedó a mitad de camino.</li>
+</ul>
+<h2>El playbook: de prompt simple a agente útil</h2>
+<p>El intento inicial —prompt simple, herramientas estándar de pentesting web como Nikto y GoBuster— falló de cuatro maneras: el tráfico disparaba el WAF de la aplicación y contaminaba los resultados; se iba por rutas improbables; las pruebas tomaban tiempos enormes con salida inútil; y a veces se topaba con guardrails que frenaban la acción.</p>
+<p>La mejora iterativa agregó cuatro piezas, y con ellas la tasa de éxito subió: menos choques con guardrails, menos ruido, resultados con sentido y pruebas enfocadas. Las piezas:</p>
+<ol>
+<li><strong>Contexto previo.</strong> Declarar que se cuenta con autorización, que las pruebas corren en servidor UAT y no en producción.</li>
+<li><strong>Integración por MCP.</strong> Un servidor MCP de Burp Suite que le da a la IA el historial de tráfico (endpoints visitados, tokens) en lugar de que la IA los redescubra.</li>
+<li><strong>Listas de exclusión.</strong> Acciones que no debe intentar, para no gastar tiempo ni presupuesto.</li>
+<li><strong>Lista de tipos de bug</strong> a perseguir, para mantener foco.</li>
+</ol>
+<p>Quedaron tres carencias aceptadas por velocidad: no siempre sabía cómo probar cada clase de vulnerabilidad, deducía endpoints que no estaban en el historial y probaba clases de bug fuera de la lista. La velocidad importa porque en bug bounty los duplicados no pagan: si otro ya reportó el fallo, el reporte propio no vale nada.</p>
+<p><strong>Skills.</strong> Para la falta de metodología, la receta son skills: prompts escritos con cuidado, versionados y mantenidos, que producen resultados consistentes y repetibles. Al prompt simple se le sumaron skills de testing de IDOR, ACL y bypass de subida de archivos, que le enseñan a la IA cómo probar, no solo qué probar. Como extra, cuando exista documentación técnica del objetivo, dársela ayuda a construir contexto del sistema.</p>
+<p><strong>Para usuarios de Claude Code.</strong> Mover todas las reglas permanentes (restricciones, reglas de comunicación, herramientas) a un archivo CLAUDE.md: se reinyecta automáticamente en cada sesión nueva y evita repetir el prompt a mano.</p>
+<p><strong>Harness.</strong> Entre CAI y Claude Code, el análisis prefiere Claude Code por cuatro razones de experiencia de uso: puede pausar las pruebas a mitad de camino, inspeccionar en tiempo real qué está haciendo, verificar hallazgos mediante subagentes y detener la exploración en un estado seguro antes de pasar a verificar hallazgos.</p>
+<h2>Calidad de los hallazgos de IA: tres modos de falla</h2>
+<ul>
+<li><strong>Captain Obvious.</strong> La IA dice algo verdadero pero inútil: "el token de autenticación fue rechazado porque el token de autenticación fue rechazado", como si la llave no abriera porque la llave no abri la puerta. Mitigación: pedirle que agregue contexto adicional al prompt del sistema para evitar hallazgos trivialmente ciertos.</li>
+<li><strong>Falsos positivos.</strong> La IA vio una respuesta HTTP OK y concluyó que el portal de administración era accesible, cuando el 200 devolvía un mensaje de error. Mitigación: pedirle que envíe el proof-of-concept al Repeater de Burp vía MCP y verificar manualmente cada hallazgo.</li>
+<li><strong>Conclusiones prematuras.</strong> En un caso reportó XXE porque el servidor devolvió un HTTP 500 con un error interno; la respuesta era insuficiente y hacía falta más pruebas de confirmación. Mitigación: instrucciones ad hoc para exigir pruebas adicionales, o condiciones de parada en el prompt del sistema antes de cada conclusión.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Big Bounty / programas reales de CSIT</strong> — el banco de pruebas: sistemas desplegados en producción real, no CTF.</li>
+<li><strong>OpenRouter + CAI</strong> — primera expedición: abanico de LLMs detrás de un router y framework agéntico de pentesting.</li>
+<li><strong>Claude Code + Claude Opus</strong> — segunda expedición: harness preferido por pausa, inspección en vivo, subagentes y parada segura.</li>
+<li><strong>Burp Suite MCP</strong> — servidor MCP que alimenta a la agente con historial de tráfico, endpoints y tokens del pentester.</li>
+<li><strong>Nikto y GoBuster</strong> — herramientas estándar de reconocimiento que el agente usa por sí solo.</li>
+<li><strong>Skills versionadas</strong> — prompts metodológicos (IDOR, ACL, bypass de subida de archivos) que enseñan cómo probar cada clase de vulnerabilidad.</li>
+<li><strong>CLAUDE.md</strong> — archivo de reglas permanentes que Claude Code reinyecta en cada sesión.</li>
+<li><strong>Gestión de contexto</strong> — mantener el historial activo, descartar salida de bajo valor y condensar resultados antes de agotar el presupuesto de contexto.</li>
+<li><strong>Burp Repeater como verificador</strong> — envío de pruebas vía MCP para validación humana de cada hallazgo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La IA agéntica encuentra vulnerabilidades reales en sistemas reales, pero en estas expediciones el humano experimentado siguió ganando en volumen y en severidad: la IA es aceleradora, no sustituta, al menos con los modelos disponibles en el momento del experimento.</li>
+<li>El patrón más rentable fue la combinación: humano para el reconocimiento inicial aportando contexto y sesiones de history, IA para escalar cada hallazgo a otros endpoints, donde produjo dos críticas adicionales por sí sola.</li>
+<li>El playbook importa más que el modelo: contexto previo (autorización, UAT), MCP para heredar el historial de tráfico, listas de exclusión, foco por clase de bug, skills versionadas y gestión activa del contexto son lo que separa a un agente ruidoso que dispara el WAF de uno que entrega hallazgos verificables.</li>
+<li>La autonomía total sigue dependiendo del apetito de riesgo, y los falsos positivos, conclusiones prematuras y respuestas trivialmente ciertas exigen verificación humana por diseño; los guardrails conviene ponerlos a nivel de herramientas y red, no solo de prompt.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/doanWlYLAMw">«DEF CON SG1 - CSIT Village -   Loke Yan Hao -Hack Smarter: Unleashing AI in Bug Bounty Pen Testing»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

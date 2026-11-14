@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vibe school: construir una estación meteorológica con IA sin saber electrónica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Vibe school: construir una estación meteorológica con IA sin saber electrónica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/CM_8gKlz2-o">«DEF CON 33 - Vibe School: Making dumb devices smart with AI - Dr Katie Paxton Fear»</a> · ver el <a class="nz-link" href="https://youtu.be/CM_8gKlz2-o">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> CM_8gKlz2-o · <strong>URL:</strong> https://youtu.be/CM_8gKlz2-o · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Vibe School: Making dumb devices smart with AI - Dr Katie Paxton Fear</li>
+</ul>
+<h2>Resumen</h2>
+<p>¿Puede una persona sin conocimientos de electrónica construir un dispositivo IoT completo delegando cada decisión —arquitectura, compra de componentes, código, depuración— a un modelo de IA? Este experimento lo puso a prueba con reglas estrictas: el objetivo era tomar una estación meteorológica de radio barata (cuyos sensores hablan con una base), capturar sus transmisiones con un SDR, decodificarlas e integrarlas en Home Assistant con un ESP32, todo guiado por Gemini. La respuesta corta: se logró, la señal se decodificó y los datos llegaron a Home Assistant. La respuesta larga: costó más tiempo y más dinero del que habría llevado comprar la estación compatible de 135 libras, la IA discutió con su propia documentación, negó errores evidentes y el hardware final quedó con un sensor dando lecturas erráticas. La lección central, repetida como estribillo: <em>es caro ser malo en esto</em>.</p>
+<h2>Las reglas del juego</h2>
+<p>El asistente elegido fue Gemini (2.5 Pro), por su acceso a internet como fuente, su generación de código, deep research y porque venía incluido con la suscripción del timbre inteligente. Para acotarlo se creó un <strong>Gem</strong> —el mecanismo de personalización de Gemini— alimentado con diez libros de referencia: <em>From Day Zero to Zero Day</em>, <em>Practical IoT Hacking</em>, <em>Hacking APIs</em> de Corey Ball, <em>The Hardware Hacker's Handbook</em> y material de ESP y programación en C. Las reglas autoimpuestas:</p>
+<ul>
+<li>Solo Gemini; nada de Google directo (usar un buscador sería hacer trampa).</li>
+<li>El código generado puede depurarlo un humano o la propia IA.</li>
+<li>Se pueden comprar piezas, pero únicamente las que Gemini indique; si manda comprar lo equivocado, mala suerte.</li>
+<li>Ídem con librerías: solo las que Gemini ordene.</li>
+<li>Filosofía: <em>no thoughts, just vibes</em>.</li>
+</ul>
+<h2>Fase 1: planificación con deep research</h2>
+<p>El primer paso fue pedirle a Gemini un plan completo: combinar la estación meteorológica de radio concreta con un ESP32-C6 vía ZigBee, identificar tareas, entregables y fuentes. Deep research tardó muchísimo y produjo un informe kilométrico de utilidad dudosa, resumido después en cinco pasos: capturar los datos con un dongle SDR, montar el receptor, configurar el entorno, integrar con ESPHome y conectar a Home Assistant.</p>
+<p>Dos correcciones tempranas marcaron el tono del proyecto. Primera: el plan inicial proponía sniffear las líneas SPI de la placa de la estación, y Gemini mismo lo desaconsejó —el análisis por radiofrecuencia es mucho más simple—, un acierto genuino dado que la RF era territorio completamente nuevo para la experimentadora. Segunda: el plan olvidaba que el ESP32 debía configurarse antes de añadirle un receptor, error corregido al señalarlo.</p>
+<h2>Fase 2: SDR y decodificación RTL-433</h2>
+<p>Con el dongle SDR (herramienta cuyo nombre la experimentadora desconocía al comprarlo) y el software adecuado, las señales de los sensores aparecieron en pantalla. El siguiente paso fue <strong>RTL-433</strong>, la herramienta estándar para decodificar transmisores ISM de 433 MHz, que efectivamente decodificó los paquetes. Para entender su estructura se extrajo la estructura de paquetes del código fuente de referencia, y de ahí en adelante la IA debía escribir el decodificador en el ESP32.</p>
+<p>Aquí llegó la peor parte del proyecto: horas de código roto, canal 1 funcionando y canal 2 no, "not enough data for packet", y respuestas con descarga de responsabilidad ("your observation that this is not working is correct"). Cuando se le sugerían hipótesis de depuración concretas, la IA sostenía que estaban equivocadas. Su diagnóstico final —un problema de timing y relación señal/ruido "muy difícil de resolver de forma fiable en un microcontrolador con este tipo de receptor"— también resultó equivocado, y de forma reveladora: el código funcionaba, pero el bucle corría tan rápido que los paquetes se capturaban a milisegundos de distancia y se corrompían. <strong>El <code>print</code> al puerto serie, sin querer, frenaba el bucle lo suficiente</strong> para que la decodificación saliera bien. La lección práctica: a veces el código "funciona" por razones que ni el humano ni la IA entienden, y ese es un estado peligroso.</p>
+<h2>Fase 3: hardware, ESPHome y Home Assistant</h2>
+<p>En paralelo, el cableado del ESP32 se resolvió a lo <em>vibe</em>: pidiéndole a la IA dónde conectar cada wire a partir del esquemático de la placa. Sorpresas incluidas: la IA ordenó comprar un receptor que requería antena que nadie había comprado —resuelto con un cable pelado doblado hacia arriba—, y el IDE de Visual Studio Code fracasó con el toolchain, volviendo al Arduino IDE clásico.</p>
+<p>Para la integración, la IA descartó el plan original de ZigBee con el dongle SkyConnect y mandó usar <strong>ESPHome</strong>. Generar su configuración YAML consumió de four a five horas de prompting: la IA discutía con la documentación, había que pedirle explícitamente que la leyera, y el YAML resultó ser su punto débil —probablemente por escasez de datos de entrenamiento de configuraciones tan específicas—. El final fue anti-climático: el ESP32-C6 elegido <strong>no es compatible con ESPHome</strong>; se cambió por otro ESP32 que había por casa y todo funcionó.</p>
+<h2>Resultados y balance</h2>
+<p>El sistema final (ocho cables, un ESP32 genérico, el dongle SDR descartado del pipeline) publicó los datos a Home Assistant. Con dos matices: el canal 1 mostraba fluctuaciones enormes de temperatura que nadie provocaba, y ambos sensores, situados uno al lado del otro, reportaban valores diferentes. La estación original, simplemente, estaba rota — y el remate del experimento es el círculo completo: tras comprar todas las piezas que la IA ordenó, hubo que comprar igualmente una estación que funcionara.</p>
+<p>Comparación de lo que costó cada camino:</p>
+<ul>
+<li><strong>Camino IA</strong>: horas de deep research, 4-5 horas de prompting para YAML, depuración de decodificadores roto, hardware equivocado comprado, días de trabajo — más barato en principio que 135 libras, pero no cuando se suma el reemplazo final.</li>
+<li><strong>Camino directo</strong>: comprar la estación meteorológica compatible de 135 libras y enchufarla.</li>
+</ul>
+<p>Donde la IA sí brilló, en contraste, fue en el proyecto previo de la experimentadora —etiquetas e-ink con UI cargada desde una API RESTful—, donde su background de desarrollo web coincidía con el terreno conocido del modelo. La conclusión operativa: <strong>la IA es notablemente buena cuando hay una API y documentación abundante, y notablemente mala en dominios de hardware sin APIs, con datos de entrenamiento escasos</strong>.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El <em>vibe coding</em> de hardware es posible pero caro: el estribillo "es caro ser malo en esto" cuantifica el diferencial entre comprar el producto que funciona y fabricarlo aprendiendo.</li>
+<li>Los fallos de la IA son sistemáticos, no aleatorios: niega errores, descarta hipótesis correctas del usuario, olvida el código que funcionó (conviene guardar cada versión buena y re-generar desde cero cuando se degrada) y le cuesta entender cómo su código produce el output observado.</li>
+<li>La elección de aproximación (RF en vez de sniffing SPI) fue su mejor contribución, y la peor parte fue exactamente el YAML: dominios estrechos y específicos donde su entrenamiento no llega.</li>
+<li>Como ejercicio pedagógico para entrar en IoT hacking, el experimento funciona: terminó con RTL-433, SDR, ESPHome y Home Assistant en el haber de alguien que empezó sin saber qué era un dongle SDR. El código quedó publicado en GitHub (usuario insp3ctorPhD) para quien quiera repetirlo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/CM_8gKlz2-o">«DEF CON 33 - Vibe School: Making dumb devices smart with AI - Dr Katie Paxton Fear»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C‑TRAPS: suplantación de cliente y confusión de API en FIDO2 — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">C‑TRAPS: suplantación de cliente y confusión de API en FIDO2</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/WZChYxX5i_I">«DEF CON 33 - CTRAPS-CTAP Impersonation, API Confusion Attacks on FIDO2 - M Casagrande, D Antonioli»</a> · ver el <a class="nz-link" href="https://youtu.be/WZChYxX5i_I">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> WZChYxX5i_I · <strong>URL:</strong> https://youtu.be/WZChYxX5i_I · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - CTRAPS-CTAP Impersonation, API Confusion Attacks on FIDO2 - M Casagrande, D Antonioli</li>
+</ul>
+<h2>Resumen</h2>
+<p>FIDO2 es el estándar de autenticación diseñado para eliminar el phishing: llaves de seguridad USB, smartphones como passkeys y credenciales criptográficas que no se pueden robar con fuerza bruta. La investigación C‑TRAPS —publicada en IEEE Euro S&amp;P 2025 y desarrollada desde 2023 en Eurecom y KTH— demuestra que el protocolo CTAP, el eslabón entre el autenticador y el cliente, tiene fallas de diseño estructurales: 8 vulnerabilidades críticas que afectan incluso la versión más reciente del estándar (CTAP 2.2) y que se materializan en 11 ataques nuevos, sin necesidad de malware ni compromiso de ningún dispositivo.</p>
+<p>El resultado práctico es grave: con solo enviar mensajes CTAP, un atacante puede borrar todas las credenciales de una llave de seguridad (impidiendo el login), rastrear a usuarios por el identificador único de sus credenciales, bloquear el autenticador y engañar al cliente haciéndole creer que ejecutó una operación inofensiva cuando en realidad se borró una cuenta de acceso. La evaluación experimental comprometió 6 autenticadores populares (Yubico, Feitian, SoloKeys y los open source de Google) y 10 servicios de primer nivel, incluidos Apple, Microsoft, GitHub, Adobe, Facebook y DocuSign. Todo el material —ataques y toolkit de pruebas— está publicado como open source.</p>
+<h2>Anatomía de FIDO2 y el eslabón CTAP</h2>
+<p>Una ceremonia FIDO2 involucra tres entidades: el autenticador (la llave USB o el smartphone que custodia las claves), el cliente (el laptop o teléfono donde corre el navegador) y el <em>relying party</em> (el servicio web: apple.com, microsoft.com). Dos protocolos las conectan: WebAuthn entre cliente y servicio, y CTAP (<em>Client to Authenticator Protocol</em>) entre cliente y autenticador, transportado por USB, NFC o Bluetooth Low Energy.</p>
+<p>Los credenciales son pares de claves ECDSA y existen en dos sabores:</p>
+<ul>
+<li><strong>No descubribles</strong>: la clave privada (cifrada) vive en el backend del servicio, envuelta con una clave maestra que custodia el autenticador. Es el tipo históricamente primero, y sorprende a muchos: por defecto la clave privada de una cuenta FIDO no está en la llave sino en el servidor.</li>
+<li><strong>Descubribles</strong>: las passkeys. Aquí la clave privada cifrada se guarda en el autenticador, lo que habilita el login de un solo factor.</li>
+</ul>
+<p>CTAP es un protocolo de petición‑respuesta con 7 APIs núcleo: MakeCredential, GetAssertion, CredentialManagement, ClientPin, Reset, Selection y GetInfo. Y se protege con dos mecanismos de autorización ortogonales:</p>
+<ul>
+<li><strong>Verificación de usuario (UV)</strong>: un PIN que el usuario escribe en el cliente; el protocolo pinUvAuth deriva de él un token reutilizable durante toda la sesión, con supuestas restricciones de a qué APIs y a qué servicios aplica.</li>
+<li><strong>Presencia de usuario (UP)</strong>: gestionada por el autenticador según el transporte. En USB, el usuario debe tocar la llave; en NFC, el mero hecho de estar en rango "garantiza" la presencia —sin ningún aviso ni interacción.</li>
+</ul>
+<h2>Ataques de suplantación de cliente</h2>
+<p>El primer vector asume que el atacante puede hablarle directamente al autenticador haciéndose pasar por el cliente legítimo —por ejemplo, con un teléfono Android a 2 centímetros por NFC, o hasta 6,5 cm con una antena de largo alcance sobre Proxmark. Cuatro ataques:</p>
+<ol>
+<li><strong>Factory reset silencioso.</strong> El comando RESET exige presencia de usuario; en NFC basta con estar en rango. El autenticador elimina la clave maestra, lo que invalida todos los credenciales (descubribles y no descubribles por igual, porque ya no se pueden descifrar), restablece el PIN y borra la configuración. El usuario se entera cuando intenta iniciar sesión y ya no puede. En la demostración, una llave dentro del bolsillo de una campera fue escaneada y vaciada por completo.</li>
+<li><strong>Rastreo de usuarios.</strong> Si el servicio configuró la política de protección de credenciales en modo que omite la verificación de usuario —el caso de Apple y Microsoft—, GetAssertion no exige PIN, y el atacante (que controla al cliente fingido) apaga también la bandera de presencia. El autenticador responde con la lista de identificadores de credenciales y de usuarios de los servicios consultados. Como el ID de credencial es único, sirve como fingerprint estable: se recolecta una vez y, cuando la víctima pasa cerca de nuevo, el mismo escaneo revela que es la misma llave. Sin consentimiento, sin interacción, solo NFC.</li>
+<li><strong>Bloqueo por PIN.</strong> Enviando 10 intentos de PIN incorrectos, el autenticador entra en modo de bloqueo que solo se recupera con un reset —o sea, con la pérdida de todos los credenciales.</li>
+<li><strong>Perfilado del dispositivo</strong>, extrayendo detalles de hardware y software del autenticador.</li>
+</ol>
+<h2>Confusión de API: el hombre en el medio que cambia la pregunta</h2>
+<p>La segunda técnica exige una posición intermedia entre autenticador y cliente: un hub USB malicioso, una librería CTAP comprometida. El truco central se llama <strong>API confusion</strong> y explota dos fallas a la vez:</p>
+<ul>
+<li>El protocolo pinUvAuth se fuerza a emitir un token de verificación de usuario válido para <strong>todas</strong> las APIs y <strong>todos</strong> los servicios, rompiendo el control de acceso que debería restringirlo.</li>
+<li>Cuando el cliente pide ejecutar la API A, el intermediario ejecuta en su lugar la API B —la que el atacante quiere—, pasa los controles de presencia que correspondan y reescribe la respuesta para que el cliente reciba un "API A: ok".</li>
+</ul>
+<pre class="mermaid">
+sequenceDiagram
+    participant C as Cliente
+    participant M as Atacante (MITM)
+    participant A as Autenticador
+    C->>M: API A (+ token UV)
+    M->>A: API B (forzada por el atacante)
+    A->>M: API B: ok
+    M->>C: "API A: ok"
+
+</pre>
+
+<p>Se probó la técnica contra todas las combinaciones de las 7 APIs núcleo, produciendo 7 ataques de confusión: reset del autenticador camuflado detrás de una operación de GetAssertion o Selection que el usuario sí aprueba con el toque; enumeración y borrado selectivo de las credenciales descubribles vía CredentialManagement (la demostración en vivo muestra cómo los credenciales almacenados pasan de cuatro a cero); inundación de la memoria de credenciales; y denegación de servicio mediante la API de Selection. En NFC la presencia de usuario es automática, y eso convierte ataques ruidosos en ataques silenciosos.</p>
+<h2>Alcance real y responsabilidades compartidas</h2>
+<p>Los ataques operan a nivel de protocolo, así que funcionan con independencia del hardware y del firmware: todos los autenticadores evaluados resultaron vulnerables, con la única excepción de los que ni siquiera implementan la API de Selection. El impacto escala hacia los servicios web aunque el atacante no envíe ni un solo mensaje WebAuthn: borrar credenciales significa perder el acceso a la cuenta de Microsoft, a OneDrive, a Office y hasta al login de Minecraft; el rastreo solo aplica a credenciales descubribles.</p>
+<ul>
+<li>6 autenticadores populares (2018–2023), de Yubico, Feitian, SoloKeys y Google, abiertos y cerrados.</li>
+<li>10 servicios: Apple y Microsoft (con políticas que omiten verificación de usuario), Adobe y GitHub (credenciales descubribles en la llave), DocuSign y Facebook (credenciales no descubribles), entre otros.</li>
+</ul>
+<p>Además del bug de diseño, se reportó a Yubico una falla de implementación en su firmware (con CVE asignada) que provoca fuga de datos: corregida en modelos nuevos, persiste en los antiguos.</p>
+<h2>El toolkit abierto</h2>
+<p>El trabajo se publica con un toolkit open source en GitHub con tres módulos: un testbed CTAP virtual (extensión del testbed de Yubico sobre python‑fido2) que permite probar autenticadores físicos contra servicios simulados —con sus identificadores y políticas reales— sin tocar apple.com ni microsoft.com; y cuatro clientes de ataque: una app Android para suplantación NFC (~2 cm), una configuración Proxmark con antena de largo alcance (~6,5 cm), una app Android para el teléfono de la víctima usando la API CTAP en lugar de la API NFC del sistema, y una app Electron de escritorio que implementa la confusión de API sobre USB con node‑hid.</p>
+<h2>Correcciones de diseño propuestas</h2>
+<p>Ocho fixes, todos compatibles con FIDO2: clientes de confianza (PKI o atestación, para que el autenticador sepa con quién habla); feedback visual (LED) sobre las peticiones de API; interacción explícita del usuario para presencia incluso en NFC; un PIN diferenciado para APIs destructivas; rotación de credenciales; protección de los identificadores de credenciales y de usuario; endurecimiento de la autorización de Reset y CredentialManagement; y limitación de resultados en la API de Selection para frenar la denegación de servicio.</p>
+<p>La divulgación responsable siguió el cauce institucional: la FIDO Alliance fue notificada en noviembre de 2023 y respondió en mayo de 2024, canalizando el aviso a los fabricantes (Yubico, SoloKeys, Feitian, Google) y a los servicios con políticas de protección de credenciales relevantes (Microsoft, Apple).</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CTAP / CTAP 2.2</strong> — protocolo cliente↔autenticador de FIDO2, blanco de las 8 vulnerabilidades de diseño.</li>
+<li><strong>WebAuthn</strong> — protocolo cliente↔servicio; los ataques lo afectan por repercusión sin tocarlo.</li>
+<li><strong>pinUvAuth</strong> — mecanismo de token de verificación de usuario cuyo ámbito fue forzado a "todas las APIs".</li>
+<li><strong>User presence por NFC</strong> — diseño que equipara rango cercano con consentimiento, habilitador de los ataques silenciosos.</li>
+<li><strong>API confusion</strong> — técnica nueva: sustituir la API pedida por otra y falsificar la respuesta.</li>
+<li><strong>Proxmark con antena de largo alcance</strong> — lectura NFC hasta 6,5 cm.</li>
+<li><strong>python‑fido2 / testbed de Yubico</strong> — base del testbed virtual del toolkit.</li>
+<li><strong>node‑hid / Electron</strong> — implementación del atacante intermediario sobre USB.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La resistencia al phishing de FIDO2 no cubre el eslabón CTAP: un atacante con proximidad física (NFC o un hub USB) puede vaciar, bloquear, rastrear o sabotear un autenticador sin malware y sin comprometer ningún dispositivo.</li>
+<li>La API confusion es una clase de ataque nueva en el ecosistema: el cliente ve un éxito donde ejecutó otra cosa, y la supuesta delimitación del token de verificación de usuario no resiste un intermediario.</li>
+<li>El diseño de "presencia por rango NFC" es una hipótesis de seguridad frágil: la cercanía física no equivale a consentimiento informado, y las APIs destructivas deberían exigir interacción y autorización propias.</li>
+<li>Las mitigaciones propuestas son compatibles con el estándar vigente; mientras se adoptan, el toolkit público permite a fabricantes y servicios auditar sus propios autenticadores en un testbed virtual antes de tocar producción.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/WZChYxX5i_I">«DEF CON 33 - CTRAPS-CTAP Impersonation, API Confusion Attacks on FIDO2 - M Casagrande, D Antonioli»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

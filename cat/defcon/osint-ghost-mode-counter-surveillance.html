@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghost mode: contravigilancia OSINT para gente común — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ghost mode: contravigilancia OSINT para gente común</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/9-a4OhOChss">«DEF CON 33 - OSINT Enabled Ghost Mode: Counter Surveillance for Everyday People - Desiree Wilson»</a> · ver el <a class="nz-link" href="https://youtu.be/9-a4OhOChss">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li>
+<p><strong>Video:</strong> 9-a4OhOChss · <strong>URL:</strong> https://youtu.be/9-a4OhOChss · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - OSINT Enabled Ghost Mode: Counter Surveillance for Everyday People - Desiree Wilson
+<em>Inteligencia de fuentes abiertas aplicada a la privacidad personal</em></p>
+</li>
+<li>
+<p><strong>TL;DR</strong></p>
+</li>
+<li>La vigilancia sobre personas comunes es ubicua y en gran parte consentida por contrato: hogares inteligentes (cámaras, timbres, TV, electrodomésticos, autos), redes sociales y breaches que ya filtraron contraseñas, salud e información escolar.</li>
+<li>Se puede montar un sistema personal de contravigilancia con herramientas OSINT gratuitas: SpiderFoot como escáner, NTFY para notificaciones push, OpenCanary para honeypots, todo privado en Docker y accesible desde el celular vía VPN (Tailscale).</li>
+<li>El principio rector es el modo fantasma: observar a quien observa sin exponer que se está observando; nada del stack es ilegal ni cruza límites de servicios ajenos.</li>
+<li>El costo real no es dinero sino esfuerzo: interpretar logs exige línea base, filtrado de ruido y monitoreo temporal y geoespacial para detectar lo anómalo.</li>
+</ul>
+<h2>El estado de la vigilancia cotidiana</h2>
+<p>La colección de datos personales opera en dos frentes. El primero es el <strong>consentido en la práctica</strong>: todo lo que se compra y se registra —contacto, salud y actividad física, datos financieros al comprar una casa o un auto, cuentas sociales, historial de navegación y de compras— termina en la nube, vinculado y agregado. El segundo es el <strong>no consentido</strong>: las filtraciones de datos exponen contraseñas, información médica y escolar (incluida la de los hijos) que nadie aceptó compartir.</p>
+<p>El hogar conectado merece mención especial: cámaras que siguen corriendo aunque nadie mire el video, timbres con cámara, sensores de movimiento, televisores que registran todo lo que se ve, lavarropas y heladeras conectadas, y autos que registran ubicaciones, navegación y hasta los patrones de carga eléctrica en la casa. Sin comprar deliberadamente un "hogar inteligente", ya hay tecnología de vigilancia en casa.</p>
+<h2>La receta: contravigilancia en modo fantasma</h2>
+<p>La propuesta invierte la lente: usar las mismas herramientas OSINT con que se investiga a terceros para monitorear quién investiga a uno. El objetivo es doble —protección proactiva y detección temprana—, con acceso desde cualquier lugar del mundo y sin exponerse en el proceso.</p>
+<pre class="mermaid">
+flowchart LR
+    A[SpiderFoot<br/>escaneo OSINT continuo] --> C[Dashboard / logs<br/>de actividad]
+    B[OpenCanary<br/>honeypots y señuelos<br/>emails, tokens] --> D[NTFY<br/>notificaciones push]
+    C --> D
+    D --> E[Celular / laptop<br/>via VPN Tailscale]
+    E --> F{¿Amenaza confirmada?}
+    F -- Sí --> G[Aislar dispositivo, rotar credenciales,<br/>revisar logs, autoridades]
+    F -- No --> H[Ajustar línea base y triggers]
+
+</pre>
+
+<p>Los componentes, todos open source:</p>
+<ul>
+<li><strong>SpiderFoot</strong> como motor de escaneo OSINT continuo y automatizado: corre solo, sin intervención constante.</li>
+<li><strong>NTFY</strong> para empujar notificaciones en tiempo real al celular o laptop; los triggers se configuran sobre los propios datos: la dirección de email, la IP, el número de teléfono propio o de los hijos —cualquier dato cuyo rastreo convenga que dispare una alerta.</li>
+<li><strong>OpenCanary</strong> para desplegar honeypots y señuelos: direcciones de correo adicionales, dispositivos secundarios que no son los principales, trampas donde el observador cae y deja registro.</li>
+<li><strong>Docker</strong> como contenedor privado: todo el stack vive en infraestructura propia, no en servicios de terceros.</li>
+<li><strong>Tailscale</strong> como red privada y DNS: la capa VPN que hace que todo sea accesible desde el móvil sin exponer los servicios a internet abierto.</li>
+<li><strong>Dashboard de vidrio único</strong>: alertas y logs de actividad centralizados en un solo panel, igual que se haría para un cliente.</li>
+</ul>
+<p>Hay un repo público de GitHub con el despliegue completo y descripciones de herramientas alternativas; para quien quiera ir más lejos, <strong>Security Onion</strong> permite armar incluso un SIEM personal.</p>
+<h2>Del log a la decisión: análisis y respuesta</h2>
+<p>Montar el stack es lo fácil; el valor está en interpretarlo:</p>
+<ul>
+<li><strong>Línea base</strong>: saber qué es normal en los propios logs —quién suele consultar, qué sitios, qué información— para reconocer lo que sale de ese patrón.</li>
+<li><strong>Filtrado de ruido y patrones</strong>: distinguir si la consulta proviene de una base de datos pública o de un individuo, y ubicar a ese individuo.</li>
+<li><strong>Monitoreo temporal</strong>: actividad de vigilancia en horarios anómalos (de madrugada, cuando se sabe que se está en casa) o desde otro país es una señal de alto valor.</li>
+<li><strong>Inteligencia geoespacial</strong>: datos propios consultados o usados desde regiones donde no se vive, fuera del patrón normal, merecen investigación.</li>
+</ul>
+<p>Ante una amenaza confirmada —y es plausible que alguien use la información de forma maliciosa—, el plan es el mismo que se aplicaría para un cliente, pero personal: aislar el dispositivo, rotar credenciales, revisar logs y, si corresponde, involucrar a las autoridades (incluidos organismos de seguridad nacional, con precedentes reales de vigilancia indebida) o alertar a la comunidad. La regla general: si algo se ve, hay que decirlo.</p>
+<h2>Implicaciones prácticas</h2>
+<ul>
+<li>El costo de entrada es cero en licencias y no trivial en esfuerzo: dimensionarlo antes de empezar evita abandonos.</li>
+<li>El principio del modo fantasma se traduce en decisiones concretas: VPN siempre, servicios privados, honeypots discretos; nada de "binoculares a la vista" que alerten al observador.</li>
+<li>Los señuelos (emails canary, dispositivos secundarios) convierten la curiosidad ajena en dato accionable: si el email señuelo recibe actividad, alguien lo obtuvo de una filtración o de un actor activo.</li>
+<li>La verificación empírica existe: en pruebas reales (café, no aún viajes internacionales) ya se observó ruido de escaneos sobre la IP propia que no llegó a nada —la gente mira, aunque no siempre actúe.</li>
+<li>La misma arquitectura sirve para monitorear el acceso a las cámaras del hogar: ver quién intenta extraer lo que las cámaras ven.</li>
+</ul>
+<h2>Límites y suposiciones</h2>
+<ul>
+<li>El proyecto es reciente (empezó en verano) y todavía sin hallazgos que califiquen como amenaza confirmada: el sistema detecta interés, no necesariamente ataques consumados.</li>
+<li>"Nadie está haciendo nada malo todavía" no equivale a "no hay riesgo": el valor de la detección temprana es justamente actuar antes.</li>
+<li>La interpretación de logs exige conocimiento de lo que es normal; sin línea base, el sistema produce alertas sin criterio.</li>
+<li>Todo el stack asume confianza en las herramientas open source elegidas y en la propia infraestructura Docker; comprometer el contenedor es comprometer el observatorio.</li>
+<li>Los umbrales, triggers y honeypots son configurables y personales: no hay una única configuración correcta.</li>
+</ul>
+<h2>Para profundizar</h2>
+<ul>
+<li>SpiderFoot, escáner OSINT automatizado: https://github.com/smicallef/spiderfoot</li>
+<li>NTFY, notificaciones push simples vía HTTP: https://ntfy.sh/</li>
+<li>OpenCanary, honeypots de bajo interactivo: https://github.com/thinkst/opencanary</li>
+<li>Tailscale, red privada basada en WireGuard: https://tailscale.com/</li>
+<li>Security Onion, distribución de detección y monitoreo: https://securityonion.net/</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/9-a4OhOChss">«DEF CON 33 - OSINT Enabled Ghost Mode: Counter Surveillance for Everyday People - Desiree Wilson»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

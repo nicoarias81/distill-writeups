@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>So Long, and Thanks for All the Phish: anatomía de un kit de phishing — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">So Long, and Thanks for All the Phish: anatomía de un kit de phishing</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/tJ4tG7nRUyU">«DEF CON 33 - So Long, and Thanks for All the Phish - Harrison Sand, Erlend Leiknes»</a> · ver el <a class="nz-link" href="https://youtu.be/tJ4tG7nRUyU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> tJ4tG7nRUyU · <strong>URL:</strong> https://youtu.be/tJ4tG7nRUyU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - So Long, and Thanks for All the Phish - Harrison Sand, Erlend Leiknes</li>
+</ul>
+<h2>Resumen</h2>
+<p>La crónica, paso a paso, de una investigación que empieza con un SMS fraudulento de la oficina postal noruega y termina identificando al desarrollador de Magic Cat, uno de los kits de phishing como servicio más activos del mundo: más de 5.000 licencias emitidas en cuatro meses, más de 200 marcas suplantadas, 13 millones de clics y cerca de 900.000 tarjetas de crédito robadas.</p>
+<p>Los autores trabajan en pentesting en una empresa de seguridad noruega. A fines de 2023 la "pandemia" de mensajes de phishing por SMS (tarifas de envío de paquetes, links para pagar con tarjeta) recibía una cobertura mediática pobre: "no hagas clic y borrá el mensaje". Decidieron no seguir el consejo y hacer clic, con método.</p>
+<h2>Primer contacto: un phishing que filtra el tráfico</h2>
+<p>La página suplantaba al servicio postal noruego (aunque la técnica aplica a cualquier país y plantilla). Abierta en el navegador de escritorio, devolvía un <em>not found</em>. Tras probar cambios de <em>user agent</em> descubrieron dos controles: el <em>user agent</em> y, sobre todo, la <strong>dirección IP de origen</strong> —el kit esperaba tráfico de red móvil, porque el mensaje llegó por SMS—, presumiblemente para frenar el spam de datos falsos.</p>
+<p>Con el tráfico capturado en Burp apareció la primera sorpresa: el formulario se comunicaba por <strong>socket.io</strong>, enviando datos ofuscados. Descomponiendo el mensaje hallaron campos <code>type</code>, <code>data</code>, <code>user</code> y <code>room</code>: el <code>data</code> era base64 que descodificaba a un blob que empezaba con <code>Salted__</code> (cifrado OpenSSL), y los valores reales de <code>type</code> y <code>room</code> ("sync data" y "admin") estaban ocultos.</p>
+<p>Como el cifrado ocurría en el navegador, las claves tenían que estar en el JavaScript: con un breakpoint en las funciones <code>encrypt</code>/<code>decrypt</code> de las herramientas de desarrollador capturaron la clave simétrica junto al JSON con los datos del phishing. Con esa clave construyeron una utilidad que descifraba cualquier mensaje en claro.</p>
+<h2>El panel de administración en tiempo real</h2>
+<p>Cada tecla que la víctima teclea se envía por WebSocket al momento: <strong>no hace falta pulsar "enviar"</strong>. Quienes creyeron salvarse al arrepentirse en el último campo ya habían entregado los datos carácter a carácter.</p>
+<p>Al abrir la página se envía un comando <code>join</code> con una sala vacía. Sustituyéndola por la sala "admin", se abrió un <strong>flujo en tiempo real con todos los visitantes</strong> del sitio de phishing tecleando nombres, direcciones y tarjetas, más mensajes de depuración internos: entre ellos, el nombre de una base de datos, <strong>Darkula</strong>. Buscaron esa palabra en Telegram: un usuario con ese alias administraba un grupo de casi 500 miembros donde los operadores presumían de sus herramientas —teléfonos Android con cinta verde sobre las cámaras, módems, cajas de tarjetas SIM, iPhones para iMessage, servidores para emular Android— y de cómo monetizaban las tarjetas.</p>
+<p>Un hallazgo clave del lado de la monetización: al dar de alta una tarjeta en Google Wallet o Apple Pay solo se exige un PIN de validación una vez; después la tarjeta robada puede usarse <strong>para siempre sin nuevos desafíos</strong>.</p>
+<h2>Copia propia y crackeo de la licencia</h2>
+<p>El mensaje fijado del grupo daba instrucciones de instalación: un <em>one-liner</em> en una máquina Linux alquilada despliega el kit completo, sin licencia. Instalado en un servidor propio, el panel oculto (URL única por servidor, usuario y contraseña) resultó sorprendentemente completo: backups de los datos robados <strong>a Telegram</strong> en caso de caída, y un recuadro rojo en chino exigiendo pagar la licencia.</p>
+<p>El backend era Node.js ofuscado con <em>JavaScript Obfuscator</em> (proyecto abierto); la herramienta abierta <strong>Synchrony</strong> lo des-ofusca de vuelta a código casi normal. En el código hallaron algo inesperado: la base de código es <strong>de doble propósito</strong> —si el <em>hostname</em> coincide con el del servidor de licencias, se habilita un menú oculto para emitir licencias propias—. Con configuraciones de nginx hicieron creer al software que era su propio servidor de autorización y generaron una licencia de años en lugar de las semanas habituales: recuadro verde, plataforma 100% operativa.</p>
+<h2>Del laboratorio a internet: cazar el servidor de licencias</h2>
+<p>Revisando la API encontraron otra falla: sin <em>token</em> de administrador devuelve 401 (bien), pero el código contiene una condición —si el <em>host header</em> es <code>localhost</code> y el <em>referer</em> un valor concreto, <strong>la comprobación se omite</strong>—. Con esos dos encabezados accedieron a la API como si fueran un phisher autenticado.</p>
+<p>El ecosistema comprende servidores de licencias, servidores de instalación (imágenes Docker) y las páginas que suplantan marcas. Con una huella única de tecnologías construyeron un filtro para <strong>Shodan</strong>: unos 800 resultados identificaron todas las instancias de phishing activas, y conocedores de la API interrogaron a cada una hasta dar con el servidor de licencias —oculto tras Cloudflare— en su IP de origen, alojado en Los Ángeles. De él extrajeron <strong>todas las licencias</strong>: en unos cuatro meses se habían emitido más de 5.000, con el alias de Telegram del comprador, fechas de validez e IP de activación de cada servidor de phishing.</p>
+<h2>Reporte a las autoridades y caza del desarrollador</h2>
+<p>Con ese material escribieron un reporte de 24 páginas y lo compartieron con la policía noruega, Europol y —vía Europol— el FBI; Europol los invitó dos veces a La Haya, donde las conversaciones fueron buenas. Al final: "gracias", y no pasó más. Siguieron cavando por su cuenta.</p>
+<p>En los logs de acceso del servidor de licencias apareció un 404 generado por alguien que conocía la URL secreta del panel: la IP de ese error era la del administrador del servidor de licencias, un VPS en Alibaba Cloud en Hong Kong (probablemente una VPN para acceder a servicios occidentales desde China continental). DNS pasivo asoció esa IP, un año antes, al dominio <code>ifshe.com</code>, y ese dominio a una <strong>cuenta de GitHub</strong> con proyectos en las mismas tecnologías del kit. En los commits quedó una dirección de correo mal escrita (<code>@gmall</code>); corregida y pasada por OSINT Industries (que automatiza los flujos de "olvidé mi contraseña" a escala) dio pistas de teléfono: un número chino en PayPal y un número estadounidense en una cuenta de Apple que coincidía, parcialmente, con el número de Google Voice del perfil de Telegram de Darkula.</p>
+<p>La confirmación llegó con una trampa: enviaron al desarrollador un correo con un acortador de URLs que registra clics. <strong>La IP que hizo clic era la misma que iniciaba sesión en el servidor de licencias.</strong> Después, arqueología digital: el Wayback Machine indexaba un tar borrado con un documento Word cuyo metadato de autor daba un nombre en caracteres chinos; los manuales de instalación que Darkula subió a Telegram llevaban <strong>el mismo autor</strong> en sus metadatos. La máscara del teléfono (PayPal y QQ la censuran de formas distintas) dejó unas 1.000 combinaciones posibles; solo 7 aparecían en filtraciones de datos, y la tercera contenía una cuenta con la foto de perfil de Instagram <code>my4cheng</code>, la misma imagen editada vista antes. WHOIS histórico aportó direcciones de 2018 y la provincia de Hainán: el presunto desarrollador responde al nombre de <strong>Yu Chengcheng</strong>.</p>
+<h2>La escala y el desenlace</h2>
+<p>Cifras conservadoras de Magic Cat: más de <strong>200 marcas suplantadas</strong> (todas las empresas postales del planeta menos China, más Apple, Amazon y otras), más de <strong>5.000 licencias</strong> reutilizables, hasta <strong>600 operadores</strong> individuales, <strong>13 millones de clics</strong>, cerca de <strong>900.000 tarjetas robadas</strong> concretas y víctimas individuales que perdieron hasta 10.000 dólares.</p>
+<p>Al no avanzar la vía policial, llevaron la historia al periodismo de investigación: medios estatales noruegos junto con Bayerischer Rundfunk y funk (Alemania) hablaron con víctimas, confrontaron a los estafadores y viajaron hasta Tailandia, donde operaban. Cuando los periodistas pidieron declaración días antes de publicar, <strong>Darkula desapareció</strong>: borró su cuenta de Telegram, retiró el servidor de licencias y el de instalación, y el software dejó de actualizarse.</p>
+<p>El problema, claro, no se resolvió: hay cuatro o cinco grupos con software equivalente. El sucesor de moda, <strong>Magic Mouse</strong> (que presume en su grupo: "el ratón mató al gato"), reutiliza componentes front-end de Magic Cat —lo que confunde a quienes lo rastrean— y en un mes registró unos 1.300 servidores, con una estimación de hasta 650.000 tarjetas robadas por mes.</p>
+<h2>Técnicas y conceptos mencionadas</h2>
+<ul>
+<li><strong>Phishing kit como servicio (PhaaS)</strong>: software de phishing con licencias, panel de administración y soporte.</li>
+<li><strong>socket.io / WebSockets</strong>: exfiltración en tiempo real carácter a carácter, sin pulsar "enviar".</li>
+<li><strong>Cifrado OpenSSL (<code>Salted__</code>) en cliente</strong>: capa de ofuscación rota capturando la clave con breakpoints en <code>encrypt</code>/<code>decrypt</code>.</li>
+<li><strong>Synchrony + JavaScript Obfuscator</strong>: des-ofuscación de Node.js.</li>
+<li><strong>Bypass de autorización</strong>: condiciones por <code>host header</code> y <code>referer</code> que anulan la comprobación del token.</li>
+<li><strong>Shodan + fingerprinting</strong>: localización de todas las instancias y del servidor de licencias tras Cloudflare.</li>
+<li><strong>OSINT</strong>: DNS pasivo, WHOIS histórico, metadatos de documentos, filtraciones de datos, OSINT Industries, acortadores de URLs como beacon.</li>
+<li><strong>Tokenización de wallets</strong>: alta única con PIN en Google Wallet/Apple Pay y uso indefinido de la tarjeta robada.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los kits de phishing son software profesional: cifrado en cliente, panel en tiempo real, backups a Telegram y sistema de licencias — con los mismos errores de seguridad que cualquier aplicación: ofuscación reversible, autorización con puerta trasera y código de doble propósito.</li>
+<li>El OSINT paciente (logs, DNS pasivo, metadatos, filtraciones) puede atravesar pseudónimos y VPNs hasta un nombre real.</li>
+<li>Las autoridades agradecen pero no siempre actúan; el periodismo de investigación tuvo aquí el impacto que la vía policial no tuvo.</li>
+<li>Cazar un kit es un triunfo efímero: el ecosistema se reorganiza en semanas, y los sucesores heredan componentes, confusion incluida.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/tJ4tG7nRUyU">«DEF CON 33 - So Long, and Thanks for All the Phish - Harrison Sand, Erlend Leiknes»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

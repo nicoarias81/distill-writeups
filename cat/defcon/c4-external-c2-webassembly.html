@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C4: canales de C2 externo portables con WebAssembly — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">C4: canales de C2 externo portables con WebAssembly</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/O0-0u4zJWEM">«DEF CON 33 - C4: Cross Compatible Command and Control - Scott Taylor»</a> · ver el <a class="nz-link" href="https://youtu.be/O0-0u4zJWEM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> O0-0u4zJWEM · <strong>URL:</strong> https://youtu.be/O0-0u4zJWEM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - C4: Cross Compatible Command and Control - Scott Taylor</li>
+</ul>
+<h2>Resumen</h2>
+<p>El external C2 —túnel de comunicación de un implante a través de servicios de terceros de confianza como GitHub, AWS o OneDrive— es una técnica veterana (atribuida en MITRE ATT&amp;CK desde 2017) y bien documentada, con proyectos como LOL C2 que catalogan decenas de sitios compatibles. Su problema no es la idea sino la portabilidad: cada framework de C2 implementa sus perfiles externos con librerías y lenguajes propios, y portarlos de un framework a otro, o de un agente en .NET a otro en Go o JavaScript, es trabajo repetido y frágil.</p>
+<p>C4 (Cross Compatible Command and Control) aborda exactamente ese cuello de botella compilando los canales de external C2 como módulos WebAssembly: el mismo binario <code>.wasm</code> se carga desde Python, Go, JavaScript, .NET o cualquier lenguaje con runtime WASM, con acceso al sistema operativo vía WASI. Los primeros plugins implementan AWS S3, Confluence y GitHub Gist, cada uno con la misma interfaz mínima de <code>send</code>/<code>receive</code> sobre JSON, lista de verificación operacional incluida (múltiples agentes simultáneos, nombres únicos por timestamp, soporte de mensajes grandes para exfiltración).</p>
+<h2>El problema de portabilidad del external C2</h2>
+<p>En una operación ofensiva típica, el implante desplegado en la red objetivo no habla directamente con el team server: usa un sitio de terceros que el tráfico empresarial normal ya visita, de modo que las comunicaciones maliciosas se camuflan entre el ruido legítimo. Cobalt Strike lo soporta con Malleable C2 profiles, Mythic con perfiles C2 propios; pero cada implementación queda acoplada al framework y al lenguaje del agente. El ecosistema de agentes de Mythic ilustra la fragmentación: Python, Go, JavaScript (incluso un agente disfrazado de extensión de Visual Studio Code), cada uno con sus librerías y sus particularidades.</p>
+<p>El punto de partida concreto fue un perfil de C2 por GitHub desarrollado para el agente Athena (.NET, del ecosistema Mythic), con una librería .NET de GitHub. Funcionaba bien, pero portarlo a otros agentes y lenguajes exigía reescribirlo una y otra vez. La pregunta que origina C4: ¿existe un formato binario único que cualquier lenguaje de agente pueda ejecutar?</p>
+<h2>WebAssembly + WASI: el puente al sistema operativo</h2>
+<p>WebAssembly es un formato compilado —módulos <code>.wasm</code> que corren a velocidad cercana a la nativa— asociado al navegador (el caso canónico: Photoshop compilado y ejecutable en el browser). Para un operador ofensivo eso es insuficiente: el objetivo es el host real, no el navegador. La pieza que faltaba es WASI, la WebAssembly System Interface, que permite a los módulos interactuar directamente con el sistema operativo: leer, escribir y borrar archivos; leer el reloj del sistema; y abrir sockets para hacer peticiones de red. WASI se publicita como sistema de plugins universal, con soporte en la nube, aplicaciones server-side y sistemas embebidos.</p>
+<p>Para materializarlo, C4 se apoya en Extism, un sistema universal de plugins sobre WebAssembly con dos kits: el plugin kit (escribir el plugin en varios lenguajes y compilarlo a <code>.wasm</code>) y el host kit (cargar y ejecutar ese módulo desde múltiples lenguajes). El runtime de Extism aporta tres propiedades valiosas para este caso: memoria persistente entre llamadas, control host-based (restringir a qué endpoints HTTP puede llegar el módulo) y guardrails de ejecución que mantienen el módulo contenido.</p>
+<pre class="mermaid">
+flowchart LR
+    subgraph Plugin [.wasm unico]
+        P1[send / receive JSON] --> S3[AWS S3]
+        P1 --> CF[Confluence]
+        P1 --> GH[GitHub Gist]
+    end
+    P1 --> R1[Python / Extism]
+    P1 --> R2[Go]
+    P1 --> R3[.NET]
+    P1 --> R4[JS]
+    R1 & R2 & R3 & R4 --> A[Agente C2]
+    S3 & CF & GH --> T[Servicio de confianza] --> TS[Team server]
+
+</pre>
+
+<h2>De hello world a canal operativo</h2>
+<p>La validación siguió una progresión deliberada: primero un programa Rust de seis líneas que devuelve "hello world", probado lenguaje por lenguaje a través de Extism; después un programa más complejo que hace peticiones HTTP reales, verificado con respuestas 200 de las APIs objetivo. Con ambas capacidades confirmadas (ejecución portable y red), los plugins de C2 se vuelven triviales.</p>
+<p>Cada plugin expone dos acciones —<code>send</code> y <code>receive</code>— con parámetros en JSON:</p>
+<ul>
+<li><strong>AWS S3</strong>: <code>send</code> sube un archivo al bucket; <code>receive</code> lo descarga y lo elimina para no dejar rastro. Parámetros: access/secret key, nombre del bucket y región.</li>
+<li><strong>Confluence y GitHub Gist</strong>: la misma pareja de acciones sobre los servicios correspondientes.</li>
+</ul>
+<p>En el host, la integración con Python es un <code>pip install extism</code>, un manifest que habilita las conexiones de red y WASI (imprescindible para sockets y system time), y la carga del plugin: se construye el blob JSON con las credenciales y el bucket, se invoca la acción, y se repite. Un bucle infinito de send/receive —el patrón habitual de cualquier agente open source— completa el canal.</p>
+<h2>Consideraciones operacionales</h2>
+<p>Un canal de external C2 listo para operación exige más que dos funciones que funcionen:</p>
+<ul>
+<li><strong>Múltiples agentes simultáneos</strong> — los mensajes se organizan en carpetas por agente emisor/receptor, garantizando que varios implantes convivan en el mismo canal (y que haya agente de respaldo si uno se quema: two is one and one is none).</li>
+<li><strong>Colisiones de nombres</strong> — cada archivo subido se nombra con el system time leído vía WASI, eliminando sobrescrituras accidentales.</li>
+<li><strong>Mensajes grandes</strong> — S3 soporta archivos enormes, condición necesaria para exfiltrar datos voluminosos del host comprometido.</li>
+<li><strong>OPSEC en el host</strong> — el manifest de Extism puede restringir los endpoints accesibles del módulo: en lugar de permitir conexiones a cualquier destino, limitarlas exactamente al bucket o servicio del canal.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>External C2</strong> — comunicación del implante vía servicios de terceros de confianza (ATT&amp;CK T1102, desde 2017; catálogo LOL C2).</li>
+<li><strong>WebAssembly (.wasm)</strong> — formato binario compilado, near-native, portado entre lenguajes sin reescritura.</li>
+<li><strong>WASI</strong> — WebAssembly System Interface: filesystem, system time y sockets para los módulos fuera del navegador.</li>
+<li><strong>Extism</strong> — sistema universal de plugins WASM con plugin kit y host kit; runtime con memoria persistente, control de endpoints y guardrails.</li>
+<li><strong>Mythic C2 + agente Athena</strong> — framework y agente .NET de partida del perfil GitHub original.</li>
+<li><strong>AWS S3 / Confluence / GitHub Gist</strong> — servicios de confianza usados como canales, con acción send/receive y limpieza posterior.</li>
+<li><strong>Manifest de Extism</strong> — configuración que habilita WASI y acota los destinos de red del módulo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El external C2 no necesita ser difícil ni estar atado a un framework: compilar los canales a WebAssembly los vuelve portables a cualquier lenguaje de agente con el mismo binario.</li>
+<li>WASI es la pieza que convierte a WASM en tecnología ofensiva viable fuera del navegador: sin acceso al filesystem y a sockets, un módulo web no sirve en un host comprometido.</li>
+<li>La interfaz mínima send/receive sobre JSON, más las reglas operacionales (carpetas por agente, timestamps, limpieza de archivos), basta para un canal completo.</li>
+<li>El runtime trae OPSEC gratis: los guardrails y el control host-based de endpoints permiten acotar exactamente a dónde puede hablar el módulo.</li>
+<li>C4 publica sus plugins (S3, Confluence, Gist) con planes de ampliar el catálogo; WASM evoluciona rápido y merece seguimiento continuo desde el lado ofensivo y el defensivo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/O0-0u4zJWEM">«DEF CON 33 - C4: Cross Compatible Command and Control - Scott Taylor»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

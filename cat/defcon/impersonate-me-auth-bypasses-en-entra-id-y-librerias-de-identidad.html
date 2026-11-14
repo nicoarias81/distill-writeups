@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Impersonate Me: auth bypasses en Entra ID y las librerías de identidad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Impersonate Me: auth bypasses en Entra ID y las librerías de identidad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ui_5uG31Am4">«DEF CON 33 - Impersonate Me: Unveiling Auth Bypasses in Entra ID &amp; Identity Libraries - Nikhil Sahu»</a> · ver el <a class="nz-link" href="https://youtu.be/ui_5uG31Am4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> ui_5uG31Am4 · <strong>URL:</strong> https://youtu.be/ui_5uG31Am4 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Impersonate Me: Unveiling Auth Bypasses in Entra ID &amp; Identity Libraries - Nikhil Sahu</li>
+</ul>
+<h2>Resumen</h2>
+<p>Nikhil Sahu, ingeniero de seguridad de software en el equipo Microsoft Serpent (dentro de Microsoft Specialized Cloud), recorre los patrones vulnerables y errores comunes que los desarrolladores cometen al implementar autenticación y autorización con proveedores de identidad como Entra ID: desde decisiones de autorización basadas en claims mutables hasta cuatro variantes de bypass de firma en el ecosistema .NET. El resultado puede ir de account takeover a escalada de privilegios, con tokens perfectamente válidos o directamente sin firma. Todo el material usa C# y .NET con Entra, pero los patrones reaparecen en otros lenguajes y proveedores.</p>
+<h2>Base: OAuth, OpenID Connect y tokens</h2>
+<p>El flujo moderno: la aplicación manda al usuario a la página del proveedor de identidad (Microsoft, Google, GitHub…), el usuario se autentica, el proveedor emite tokens —ID token y access token— y la aplicación los usa para identificar al usuario y decidir qué puede hacer. Toda la seguridad del sistema descansa en cómo consume la aplicación esos tokens: si no los valida bien, nada de lo que aporta el proveedor sirve.</p>
+<ul>
+<li><strong>OAuth</strong> es autorización delegada: da access tokens para llamar a otros recursos.</li>
+<li><strong>OpenID Connect</strong> es una capa de identidad estandarizada sobre OAuth: emite ID tokens para probar que el usuario se autenticó.</li>
+<li>La confusión entre ambos es fuente clásica de bugs: usar ID tokens para decisiones de autorización, que no es para lo que existen.</li>
+</ul>
+<p>Un JWT tiene header, payload y firma; las dos primeras partes van en Base64 y son legibles por cualquiera. La seguridad no viene de ocultar los claims, sino de la firma: es lo que garantiza que nadie los manipuló. Los claims se agrupan en cuatro familias:</p>
+<ol>
+<li><strong>Identificadores de sujeto</strong>: <code>sub</code>, <code>oid</code> (object ID).</li>
+<li><strong>Para mostrar / consumo de aplicación</strong>: <code>email</code>, <code>name</code>, <code>preferred_username</code>.</li>
+<li><strong>Para autorización</strong>: <code>roles</code>, <code>groups</code>, <code>scopes</code>.</li>
+<li><strong>Contexto del token</strong>: <code>iss</code> (issuer), <code>aud</code> (audience), <code>exp</code> (expiry), y el crucial <code>tid</code> (tenant ID).</li>
+</ol>
+<h2>Tenants: el límite que hay que validar</h2>
+<p>Un tenant es una instancia aislada de Azure AD, con su GUID único (<code>tid</code>), su dominio, y usuarios con object IDs estables. Un detalle que rompe supuestos: <strong>el mismo email puede existir en varios tenants</strong> —<code>admin@example.com</code> en el tenant A y en el tenant B son identidades distintas, con permisos distintos—.</p>
+<ul>
+<li><strong>App single-tenant</strong>: solo usuarios del tenant donde vive el app registration pueden obtener tokens; el endpoint es <code>login.microsoftonline.com/&lt;tenant-id&gt;</code>. Un atacante de otro tenant recibe rechazo.</li>
+<li><strong>App multi-tenant</strong>: cualquiera de cualquier tenant obtiene token (endpoint <code>/common</code> o <code>/organizations</code>).</li>
+</ul>
+<p>El multi-tenant no es malo: es la base de las apps SaaS (que quieren que cualquier usuario de cualquier tenant entre). El problema aparece cuando un desarrollador no entiende el flujo y configura como multi-tenant una app interna u organizacional: de pronto cualquiera en internet puede autenticarse en ella. Para apps multi-tenant que no deben ser abiertas, hay que validar explícitamente el tenant y el sujeto en cada request.</p>
+<h2>Ataque 1: claims mutables como base de autorización</h2>
+<p>Existen los <em>optional claims</em>: no vienen por defecto, hay que habilitarlos en el manifiesto o la configuración de tokens, varían según flujo y tenant, y —clave— <strong>son mutables</strong>: cambian a lo largo de la vida. Dentro de ellos, los <em>display claims</em> son los peligrosos:</p>
+<ul>
+<li><code>preferred_username</code> (tokens v2.0): el nombre legible con el que el usuario inicia sesión —email, teléfono o username genérico, sin formato impuesto—.</li>
+<li><code>unique_name</code> (tokens v1.0 legacy): el UPN o email, para mostrar.</li>
+<li><code>email</code>: la dirección asociada a la cuenta; puede no coincidir con el identificador de login.</li>
+</ul>
+<p>La guía de Microsoft es explícita: <strong>nunca</strong> usar <code>email</code>, <code>preferred_username</code> ni <code>unique_name</code> para decidir si el usuario de un token debe tener acceso a datos. No son únicos, los controla el administrador del tenant (o el propio usuario), y su valor no está garantizado ni es estable. En la página de propiedades del usuario en Entra ID se editan a mano en "Contact information" (email y "other emails"), y eso es exactamente lo que viaja en el token.</p>
+<p>El patrón vulnerable es inocente por fuera:</p>
+<pre><code class="language-csharp">var userId = User.FindFirst(&quot;preferred_username&quot;)?.Value
+             ?? User.FindFirst(&quot;oid&quot;)?.Value;
+var profile = await _profileService.GetByIdentifierAsync(userId);
+</code></pre>
+<p>Si el token trae <code>preferred_username = admin@example.com</code>, la app busca ese registro y lo devuelve. Cualquiera que consiga un token legítimo con ese claim alterado suplanta a cualquier usuario.</p>
+<p>El flujo del ataque:</p>
+<ol>
+<li>El atacante va a las propiedades de su propio usuario en su tenant y cambia su email al de la víctima.</li>
+<li>Se autentica normalmente; Entra ID le emite un token <strong>perfectamente válido y firmado criptográficamente</strong>, que ahora contiene el email de la víctima en el claim mutable.</li>
+<li>La API valida el token (firma OK: lo emitió Entra), extrae el claim mutable y, basándose en él, devuelve el registro de la víctima.</li>
+</ol>
+<p>El detalle práctico de la explotación: al iniciar sesión hay que usar "sign-in options" y declarar primero el tenant (tenant ID o dominio) antes de escribir el email suplantado; si no, el flujo matchea con el <code>admin@example.com</code> real que existe en Entra, no con el del tenant propio. También se puede habilitar "email as alternate login ID" en Entra Connect para loguearse directamente con el identificador alternativo.</p>
+<p>En la demo, un portal de RRHH con una política <code>HRAdmin</code> que extrae <code>user_email</code> del contexto HTTP y la compara contra una lista de administradores en <code>appsettings.json</code> (<code>admin@example.com</code>), y un <code>EmailResolutionService</code> que resuelve el email mirando claims mutables (<code>email</code>, <code>preferred_username</code>, e incluso un token de Graph generado en nombre del usuario para leer <code>unique_name</code>): con el email cambiado, el usuario normal entró al endpoint de administración.</p>
+<h3>Cómo se hace bien</h3>
+<ul>
+<li>Nunca usar display claims para autorización.</li>
+<li>Aplicar acceso por roles y políticas explícitas, no por atributos de identidad inferidos.</li>
+<li>En multi-tenant, validar tenant y sujeto en cada request.</li>
+<li>Para atar acceso a sujetos concretos, usar identificadores estables: <code>tid</code> + <code>oid</code>, estables durante toda la vida del tenant. Una política <code>RequireAdmin</code> correcta exige dos cosas: que el <code>tid</code> del token matchee el tenant esperado y que el claim <code>role</code> sea <code>admin</code>.</li>
+</ul>
+<h2>Cómo valida tokens .NET (y dónde se rompe)</h2>
+<p>La validación tiene tres niveles: <strong>validación del token</strong> (firma, issuer, audience, lifetime), <strong>validación del caller</strong> (contexto de tenant, identidad por <code>oid</code>/<code>sub</code>, o <code>appid</code>/<code>azp</code> en tokens de app) y <strong>checks de autorización</strong> (scopes, roles, políticas). Si la firma falla, todo lo demás es papel mojado: el atacante forja cualquier claim y la app los confía.</p>
+<p>En .NET todo pasa por <code>TokenValidationParameters</code>, con propiedades como <code>ValidIssuer</code>, <code>ValidateAudience</code>, <code>ValidateLifetime</code>, <code>RequireSignedTokens</code> (segura por defecto: true si no se toca) y <code>ValidateIssuerSigningKey</code>. Cuatro patrones de bypass:</p>
+<ol>
+<li><strong><code>RequireSignedTokens = false</code></strong>: desactiva la exigencia de firma. El atacante arma un JWT con header y payload —sin tercer segmento—, pone el issuer, audience y lifetime que la app espera, y pasa todas las demás validaciones porque ya no hay nada criptográfico detrás. Matiz importante del comportamiento real: si el token <em>sí</em> trae firma, la validación de firma se ejecuta igual; el bypass exige mandar el token sin el segmento de firma.</li>
+<li><strong><code>SignatureValidator</code> reemplazado</strong>: el delegate existe para <em>agregar</em> lógica de validación, pero suele usarse para reemplazarla: <code>TokenValidationParameters.SignatureValidator = (token, _) =&gt; new JwtSecurityToken(token)</code> —convierte el string en objeto y lo devuelve: ninguna verificación criptográfica. Es equivalente al anterior, pero menos obvio, porque el código <em>parece</em> estar validando.</li>
+<li><strong><code>ReadJwtToken</code> sin validar</strong>: el método de IdentityModel solo convierte el JWT en objeto. Es legítimo usarlo si se valida antes o después; el bug es extraer los claims con él y decidir autorización —por ejemplo, una política "admin-only" que lee el token del header <code>Authorization</code>, hace <code>ReadJwtToken</code> y comprueba <code>role == admin</code>—. El atacante forja <code>role: admin</code> y entra.</li>
+<li><strong>Override de <code>ValidateToken</code> sin <code>base</code></strong>: sobrescribir el método del handler es legítimo para extender, pero si en el override no se llama a <code>base.ValidateToken</code>, se pierden todos los checks integrados. En la demo, un handler <code>SkipSignatureHandler</code> que hereda de <code>JwtSecurityTokenHandler</code>, "lee" el token y devuelve el <code>ClaimsPrincipal</code> tal cual.</li>
+</ol>
+<p>El flujo de ataque completo, sobre un flujo client credentials (app → API → base de datos): el atacante observa la estructura del token (o se autentica una vez legítimamente), arma el payload con la <code>aud</code> esperada, el <code>tid</code> del tenant objetivo y el <code>appid</code> de la aplicación autorizada (<code>azp</code>), Base64, sin firma. En la demo de una API de notificaciones —consultar y <strong>enviar notificaciones a emails arbitrarios</strong>— la política por defecto exigía que el <code>tid</code> matchee el tenant hardcodeado y que el <code>appid</code>/<code>azp</code> esté en la lista de callers autorizados; con el payload forjado a medida, ambas pasaron y la API respondió 200 con envío de notificación incluido.</p>
+<h2>Cazar los patrones</h2>
+<p>Análisis estático sobre los repositorios:</p>
+<ul>
+<li><strong>Semgrep</strong> para reglas rápidas y sucias por patrón: una regla con regex que flaguea cualquier propiedad de <code>TokenValidationParameters</code> puesta en false (<code>RequireSignedTokens</code>, <code>ValidateIssuer</code>, <code>ValidateAudience</code>, …), y otra que marca todo uso de <code>ReadJwtToken</code>.</li>
+<li><strong>CodeQL</strong> cuando hace falta taint tracking y análisis de flujo de datos más profundo.</li>
+</ul>
+<h2>Mitigaciones</h2>
+<ul>
+<li>No deshabilitar la validación de firma; y si se implementa lógica propia, llamar siempre a <code>base.ValidateToken</code> en los overrides.</li>
+<li>La firma sola no alcanza: enforzar los cuatro checks adicionales en todos los tokens.</li>
+<li><strong>Issuer</strong>: sin esto se aceptan tokens de tenants no deseados.</li>
+<li><strong>Audience</strong>: sin esto, un token emitido para otra aplicación se usa contra la propia.</li>
+<li><strong>Lifetime</strong>: que el token no esté vencido.</li>
+<li><strong>Caller</strong> con claims estables (<code>tid</code>, <code>oid</code>).</li>
+<li>Si el app es multi-tenant sin necesidad real de serlo, validar el tenant en cada request.</li>
+<li>Los claims mutables no son identidad: <code>email</code>, <code>preferred_username</code> y <code>unique_name</code> son solo para mostrar.</li>
+<li>Autorizar con identificadores estables (<code>tid</code> + <code>oid</code>); usar las librerías estándar, que ya traen los checks integrados, en vez de lógica custom.</li>
+</ul>
+<h2>Lecciones</h2>
+<ul>
+<li>Cada check que se salta en la validación de un token es una vulnerabilidad nueva; la cadena firma → issuer → audience → lifetime → caller funciona como conjunto, no como menú.</li>
+<li>El atacante no necesita romper la criptografía: con claims mutables obtiene tokens legítimamente firmados con el valor que quiere; con los bypass de firma, ni siquiera necesita firmar nada.</li>
+<li>La misconfiguración más común no está en el proveedor de identidad sino en el consumo: el proveedor hace su parte bien; el bug vive en el código que decide qué hacer con el token.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ui_5uG31Am4">«DEF CON 33 - Impersonate Me: Unveiling Auth Bypasses in Entra ID &amp; Identity Libraries - Nikhil Sahu»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

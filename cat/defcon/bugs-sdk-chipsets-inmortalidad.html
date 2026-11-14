@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bugs de SDK que no mueren: la inmortalidad de las vulnerabilidades heredadas de chipsets — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Bugs de SDK que no mueren: la inmortalidad de las vulnerabilidades heredadas de chipsets</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/MTZ9_IfZ7Bk">«DEF CON 33 - What is Dead May Never Die: The Immortality of SDK Bugs - Richard Lawshae»</a> · ver el <a class="nz-link" href="https://youtu.be/MTZ9_IfZ7Bk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> MTZ9_IfZ7Bk · <strong>URL:</strong> https://youtu.be/MTZ9_IfZ7Bk · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - What is Dead May Never Die: The Immortality of SDK Bugs - Richard Lawshae</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los chipsets de red —Wi-Fi, módems, set-top boxes— llegan al mercado acompañados de un SDK: el paquete de aplicaciones, drivers, scripts, toolchains y código de ejemplo que permite a un fabricante integrar el chip en sus productos. Ese SDK transporta servicios HTTP, UPnP, SSH y protocolos propietarios que terminan corriendo en dispositivos de decenas de marcas, muchas veces sin que el fabricante final lo sepa. El resultado es una superficie de ataque que sobrevive a cambios de dueño, a descontinuaciones y a una década de parches: un bug en el SDK de un chipset es potencialmente un bug en todo el install base de ese chip.</p>
+<p>La evidencia más contundente: una vulnerabilidad en la implementación UPnP de Realtek descubierta en 2014 entró recién al catálogo CISA KEV unos diez años después, porque seguía siendo explotada activamente. Qué está muerto no muere nunca.</p>
+<h2>Qué es un SDK de chipset y por qué concentra riesgo</h2>
+<p>Un SDK de chipset es realmente un <em>system development kit</em>: todo lo necesario para integrar el chip en un ecosistema de terceros. Incluye componentes estándar (servicios SSH, HTTP) y no estándar (protocolos propietarios, RPC). Los chipsets modernos son sistemas completos en un chip, y los fabricantes de chips necesitan minimizar el tiempo de integración de sus clientes para vender más silicio.</p>
+<p>Ese modelo genera tres patrones de falla recurrentes:</p>
+<ol>
+<li><strong>Servicios desconocidos en producción.</strong> El dispositivo integra el chip y el SDK trae consigo servicios que nadie auditó ni documentó. En una auditoría del Oculus se descubrió un servicio UDP que el equipo no sabía que existía; una secuencia específica de paquetes bastaba para tirar el dispositivo offline. La divulgación tuvo que hacerse ante el fabricante del chipset móvil, porque ni siquiera era código del dueño del producto.</li>
+<li><strong>Código de ejemplo en producción.</strong> El código de demostración del SDK nunca está pensado para producción, pero es el camino fácil de integración: sin auditoría, sin hardening, directo al firmware.</li>
+<li><strong>Dependencias desactualizadas.</strong> Los SDK arrastran librerías que requieren seguimiento individual de CVEs; algunos proyectos open source se bifurcan, se modifican y jamás absorben las actualizaciones del original.</li>
+</ol>
+<h2>Cambios de dueño y copia-pega: por qué el bug es inmortal</h2>
+<p>Las líneas de chipset cambian de manos constantemente. Broadcom es en origen Avago, que compró Infineon en 2008, compró Broadcom en 2015 y adoptó su nombre; en 2016 Cypress adquirió el portafolio IoT de Broadcom (incluido el SDK WICED); en 2017 Broadcom compró Brocade. Cada adquisición deja a la nueva dueña sosteniendo un producto que no desarrolló, apoyándose en los mismos SDK heredados.</p>
+<p>Dentro de esos SDK hay patrones que multiplican el impacto de cada bug:</p>
+<ul>
+<li><strong>Servicios propietarios copiados entre versiones.</strong> No todos los chips usan el mismo SDK, pero los servicios escritos por el fabricante se copian y pegan en cada versión. Un fallo allí replica idéntico en toda la línea de producto.</li>
+<li><strong>Command injection multi-arquitectura.</strong> Un SDK que sirve a varias arquitecturas, dispositivos y layouts de memoria convierte una sola inyección de comandos en explotación de todo el install base. Es la clase de bug favorita de los autores de botnets por exactamente esa razón.</li>
+<li><strong>Install base disperso e irrecuperable.</strong> Cuando el bug sale a la luz, el SDK ya está "esparcido al viento" entre decenas de vendors: no hay forma de volver a meter el genio en el tubo de pasta de dientes.</li>
+</ul>
+<h2>Superficies de ataque frecuentes en chipsets de red</h2>
+<p>En los SDK de Broadcom y familia, la superficie HTTP típica es un cruce de mini_httpd, mini_http y GoAhead (este último aparece en muchísimos SDKs del mercado), y la implementación UPnP propia es históricamente muy defectuosa —con evidencia de derivación del código de Realtek. El SDK WICED, hoy bajo Cypress, comparte ese ADN. MediaTek y Microchip presentan patrones similares, y el código fuente de varios SDKs es localizable en repositorios públicos, material de partida directo para investigación ofensiva.</p>
+<p>El caso fundacional del análisis es Realtek: la implementación UPnP defectuosa hallada en 2014 siguió explotándose durante años hasta ganar un lugar en la lista CISA KEV una década después. El bug "viejo" nunca murió porque el install base heredado nunca se actualizó.</p>
+<p>Otro ejemplo ilustrativo es QCA (Qualcomm Atheros, antes Quantenna), usada por AT&amp;T en sus set-top boxes y módems. Su servicio QCS API expone cientos de comandos de configuración Wi-Fi y, sobre él, un servicio RPC que permite ejecutar esos comandos remotamente —una combinación de superficie de administración completa y accesible por red.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SDK de chipset (system development kit):</strong> bundle de aplicaciones, drivers, scripts, toolchains y código de ejemplo que define la superficie de ataque heredada del chip.</li>
+<li><strong>mini_httpd / mini_http / GoAhead:</strong> servidores HTTP embebidos recurrentes en SDKs de Wi-Fi y routers.</li>
+<li><strong>UPnP propietario (Broadcom/Cypress, Realtek):</strong> implementaciones defectuosas, con derivación documentada entre fabricantes; el caso Realtek 2014 llegó a CISA KEV ~10 años después.</li>
+<li><strong>QCS API + RPC (Qualcomm Atheros/Quantenna):</strong> cientos de comandos de configuración Wi-Fi ejecutables remotamente vía RPC en set-top boxes y módems de AT&amp;T.</li>
+<li><strong>Command injection:</strong> vector de explotación masiva cuando un SDK abarca múltiples arquitecturas; objetivo predilecto de botnets.</li>
+<li><strong>CISA KEV:</strong> catálogo de vulnerabilidades explotadas activamente, referencia de longevidad de bugs heredados.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El bug de un SDK de chipset no es un bug de un producto: es un bug de toda la flota de dispositivos que integraron ese chip, a menudo sin que los fabricantes conozcan los servicios involucrados.</li>
+<li>Las adquisiciones y los copia-pega entre versiones de SDK garantizan que el código vulnerable sobreviva a cambios de dueño, nombres de marca y generaciones de producto.</li>
+<li>Código de ejemplo sin auditar, dependencias bifurcadas sin actualizar y servicios propietarios desconocidos son los tres proveedores habituales de superficie de ataque en chipsets de red.</li>
+<li>Una vulnerabilidad puede seguir explotándose activamente una década después de su descubrimiento; para investigación ofensiva y defensa, el mapa de SDKs vigentes importa más que la frescura del CVE.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/MTZ9_IfZ7Bk">«DEF CON 33 - What is Dead May Never Die: The Immortality of SDK Bugs - Richard Lawshae»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SSHamble: sacudiendo Internet en busca de shells SSH — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">SSHamble: sacudiendo Internet en busca de shells SSH</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XHoH4ic8fX8">«DEF CON 33 - Shaking Out Shells with SSHamble - HD Moore»</a> · ver el <a class="nz-link" href="https://youtu.be/XHoH4ic8fX8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> XHoH4ic8fX8 · <strong>URL:</strong> https://youtu.be/XHoH4ic8fX8 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Shaking Out Shells with SSHamble - HD Moore</li>
+</ul>
+<h2>Resumen</h2>
+<p>SSH es el protocolo administrativo expuesto más común de Internet después de HTTP — y sigue regalando shells. Esta actualización del proyecto SSHamble recorre los dos años más agitados del protocolo (Terrapin, el backdoor de xz utils, RegreSSHion, el RCE de Erlang/OTP), presenta un barrido propio de todo IPv4 con estadísticas nuevas, cuenta los hallazgos de 2025 — incluidos switches de operador en Asia, bypasses triviales y un backdoor impuesto por contrato — y repasa las novedades de la herramienta open source, en camino de volverse plantillas de Nuclei.</p>
+<h2>Lo que SSH filtra antes de autenticar</h2>
+<p>El diagrama de estados del protocolo tiene fases en claro y fases cifradas, pero antes de cualquier autenticación ya se filtra muchísimo: la pila TCP/IP, la versión del servidor, el banner, las extensiones, el KEXINIT y los métodos de autenticación soportados. Esa superficie previa a la autenticación es la materia prima de la investigación.</p>
+<p>Dos datos de escala: casi todos los servidores del planeta soportan exactamente dos métodos — clave pública y contraseña (la "keyboard-interactive" termina siendo una contraseña PAM) — y todo el ecosistema son dos fabricantes: OpenSSH y Dropbear suman cerca del 98% de las instalaciones. La cola larga que queda — daemons SSH custom de Cisco, equipos ICS/OT, MoveIt — es escasa pero crítica: ahí vive la exposición de datos.</p>
+<p>Un oráculo subestimado: con solo la <strong>clave pública</strong> de alguien (por ejemplo, tomada de GitHub) se puede saber si esa persona puede iniciar sesión en un servidor dado — el servidor confirma la mitad de la autenticación. Sirve para confirmar si un usuario tiene acceso, para verificar si una credencial que se creyó rotada sigue en uso, y para cazar por Internet: el año pasado se lanzó una búsqueda de Jia Tan (el autor del backdoor de xz) rociando su clave pública por todo el mundo. No apareció nada — su opsec es excelente.</p>
+<h2>El tour de los grandes bugs (2023–2025)</h2>
+<ul>
+<li><strong>Terrapin</strong>: truncamiento de la sesión TCP que fuerza un cifrado menos seguro, habilitando ataques criptográficos.</li>
+<li><strong>Backdoor de xz utils</strong>: posiblemente el mejor backdoor de la historia de Internet — tres años construyendo confianza antes de encajar el cuchillo; atrapado de última hora.</li>
+<li><strong>RegreSSHion</strong>: uno de los primeros RCE pre-autenticación en OpenSSH por defecto en muchísimos años. Difícil de explotar fuera de x86 de 32 bits, y curiosamente casi nadie terminó afectado — pero fue el exploit severo más importante en mucho tiempo (crédito al Qualys Threat Unit).</li>
+<li><strong>MoveIt + IPWorks</strong>: la pila SSH de IPWorks trataba los bytes crudos de la clave pública — un blob binario — como una <strong>ruta de archivo</strong>. Con una URL UNC (C$, recursos locales) el servidor terminaba autenticándose contra sus propios archivos de log. Un bypass de autenticación absurdo y real.</li>
+<li><strong>MITM por OOM del cliente (Qualys)</strong>: inundar al cliente SSH con paquetes ping que no se sacan de la cola provoca un out-of-memory que hace fallar el handshake de forma explotable — convertir un DoS en un man-in-the-middle.</li>
+<li><strong>API de la librería gossh</strong>: mal usada, autentica la clave equivocada — el atacante envía varias claves, dispara el callback de una que nunca termina de autenticarse y culmina autenticándose con otra. El único caso claramente explotable encontrado: el agente Telegraf de NetApp.</li>
+<li><strong>Backdoor de Cisco (otra vez)</strong>: entregado en un rango angosto de versiones de un appliance; con un simple <code>DenyUsers root</code> en la configuración por defecto habría sido inocuo. Vendors siguen enviando contraseñas y configuraciones SSH por defecto explotables.</li>
+<li><strong>RCE de Erlang/OTP SSH</strong>: conectarse y mandar <code>exec</code> <strong>antes</strong> de autenticar ejecuta código Erlang arbitrario — RCE limpio, sin shellcode. Nadie lo notó a tiempo porque el servidor no responde cuando está en estado incorrecto: simplemente ejecuta y calla, y el scanner ve un timeout. Detalle clave: en Shodan hay apenas cuatro daemons que se identifican como Erlang… porque la plataforma base de <strong>Cisco ConfD</strong> — instalada en millones de routers Cisco — es esto mismo, pero en el puerto 830 y con banner "confd". El despliegue de Cisco lo hace poco explotable, y el "parche" más elegante para un servidor vulnerable ajeno: mandar <code>ssh:stop</code> como payload y apagarle el daemon.</li>
+</ul>
+<h2>SSHamble: la herramienta</h2>
+<p>SSHamble es una herramienta de investigación para implementaciones SSH: escanea un /24 y saca shells de implementaciones raras y embebidas sin apenas pensar; realiza ataques post-autenticación (TCP/IP forwarding sobre shells de vendors "SSH pero no realmente SSH"); y ataques post-sesión — por ejemplo, abusar de un git-shell para subir un shared object y ganar shell. Con el bug de Erlang, la lección quedó incorporada: los RCE ciegos se detectan provocando callbacks (búsquedas DNS que rebotan hacia el atacante).</p>
+<h2>2024 vs 2025: números y hallazgos</h2>
+<ul>
+<li><strong>2024</strong>: ~27 millones de dispositivos IPv4 con puerto 22 abierto, ~14 millones negociando autenticación SSH, ~110.000 shells ganados al azar, ~9 vulnerabilidades únicas — todas limitadas al puerto 22.</li>
+<li><strong>2025</strong>: ~23 millones con puerto 22 (SSH volvió a niveles de 2018; los tarpits y honeypots anti-malware se cerraron), los mismos ~14 millones con autenticación, ~107.000–110.000 shells. Sumando los 110 puertos SSH principales de Shodan: +2,3 millones de daemons y +20.000 shells más.</li>
+<li><strong>Lo triste</strong>: revisar los equipos del año pasado (routers Digi con seriales incluidos, cuya lista se entregó al fabricante para que avisara a sus clientes) terminó peor — nadie parcheó nada; hay más equipos vulnerables hoy que hace un año. Se puede investigar, publicar y asesorar; el mundo no parchea igual.</li>
+<li><strong>Sobre OpenSSH 9.8+</strong>: por fin trae un rate limiter integrado que mata la mayoría de los exploits que requieren múltiples intentos. Problema: casi nadie lo usa — menos de 500.000 de los ~14 millones de servidores corren una versión compatible. fail2ban sigue siendo el parche de facto porque no hay nada mejor adoptado.</li>
+<li><strong>Shodan verificado</strong>: un snapshot propio de IPv4 completo en una hora (contra el rollup de 30 días de Shodan) coincide bastante bien — con diferencias explicables (puerto 9022 poco indexado; IPs cambiantes contadas doble). Shodan es confiable.</li>
+</ul>
+<h2>Los bugs nuevos (disclosure pendiente)</h2>
+<p>De los ~130.000 shells, unos 50.000 son sistemas reales (con un buen fingerprinter de honeypots en el medio: banner + KEXINIT espontáneo = honeypot Paramiko; SonicWall te autentica y luego no pide nada):</p>
+<ul>
+<li><strong>Switches de ethernet de carrier en Asia</strong> (~14.000 equipos; corren buena parte de Tailandia): puerto 1022 con shell SSH real y puerto 830 con NETCONF/YANG — XML editable para reconfigurar el router. El bypass funciona en ambos: mandar como método de autenticación SSH un único <strong>byte nulo</strong> inicia sesión sin credenciales.</li>
+<li><strong>PBX vieja</strong>: el servicio SSH deriva a un login usuario/contraseña; fallar tres veces seguidas <strong>concede una shell</strong>.</li>
+<li><strong>Mini-escapes de subshell</strong>: conectarse a un puerto SSH y ver "escape key is…" significa que hay telnet colgando de la sesión — Ctrl-] abre el prompt de telnet y de ahí a cualquier cosa.</li>
+<li><strong>El backdoor contractual</strong>: un ISP chino exige por EULA correr su propio daemon SSH en un puerto alto como condición de soporte del servicio cloud. El daemon es Paramiko con bypass de autenticación: cualquier clave pública entra como usuario <code>None</code> (con N mayúscula — es Python) a un mini prompt con reboot, reimagen y consola serial. Una puerta trasera trivial de explotar, impuesta por contrato.</li>
+</ul>
+<h2>El truco del bonus: Responder en la caja de escaneo</h2>
+<p>Regla de oro para quien escanee Internet: correr <strong>Responder</strong> en la misma máquina antes de empezar (y lo mismo TCPdump). Las máquinas que "conectan de vuelta" al escaner entregan credenciales gratis. Antecedente de 2014: un barrido de SSH recolectó 5.000 credenciales de domain admin de clientes de Palo Alto vía User-ID (los firewalls se conectaban al atacante para preguntar qué usuario estaba logueado); una gran aerolínea africana todavía tenía esa configuración y aún entregaba su credencial de domain admin. Novedad 2025: los firewalls <strong>WatchGuard</strong> ahora también escupen credenciales de domain admin al recibir alertas de un escaneo — zero day de regalo, sin buscarlo. Para cubrir más protocolos existe <strong>Flamingo</strong> (con Tom Steele), con el port de SMB en camino para reemplazar a Responder en un único binario Go.</p>
+<h2>Novedades de SSHamble</h2>
+<ul>
+<li>Saltar versiones conocidas y enfocarse solo en lo raro, con filtros por regex.</li>
+<li>Detección de honeypots (incluida la base Honeypot Box) y base de datos de claves filtradas — con el volcado del leak de Fortinet incorporado para saber si las claves de appliances Fortinet ya están comprometidas en el propio entorno.</li>
+<li>Checks integrados: ¿una clave SSH vieja sigue en uso? ¿una contraseña por defecto todavía funciona en algún lado? — una navaja suiza de testing SSH.</li>
+<li>Shell interactiva con Ctrl-E: forwarding TCP/IP, escaneo de puertos y más desde la propia sesión, sin cliente SSH a medida.</li>
+<li>Port en curso a <strong>Nuclei</strong>: los mismos checks de SSHamble como plantillas, compartiendo código base.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>SSH es el segundo protocolo administrativo más expuesto de Internet y su diversidad de implementaciones rotas (98% OpenSSH/Dropbear, 2% larguísima cola) concentra los hallazgos más jugosos.</li>
+<li>La superficie pre-autenticación (banner, versiones, KEXINIT, oráculo de clave pública) sigue siendo una mina poco explotada.</li>
+<li>La adopción es el verdadero firewall: el rate limiter de OpenSSH 9.8+, los advisories de 2024 y las listas de seriales entregadas a fabricantes no movieron la aguja — la exposición es la misma que en 2018.</li>
+<li>Las peores práticas no vienen de OpenSSH sino de lo que lo rodea: daemons custom, telnet colgando de sesiones, byte nulo como método de auth y backdoors impuestos contractualmente.</li>
+<li>Y para el atacante defensor: siempre correr Responder y TCPdump durante un escaneo — los firewalls modernos todavía llaman a casa con credenciales de domain admin.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XHoH4ic8fX8">«DEF CON 33 - Shaking Out Shells with SSHamble - HD Moore»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

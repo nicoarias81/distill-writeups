@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Honeypots SSH y juegos de exploración: la herramienta seria convertida en juego — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Honeypots SSH y juegos de exploración: la herramienta seria convertida en juego</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TXUSC5YEDPo">«DEF CON 33 - SSH Honeypots and Walkthrough Workshops: A History - Ryan Mitchell»</a> · ver el <a class="nz-link" href="https://youtu.be/TXUSC5YEDPo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> TXUSC5YEDPo · <strong>URL:</strong> https://youtu.be/TXUSC5YEDPo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - SSH Honeypots and Walkthrough Workshops: A History - Ryan Mitchell</li>
+</ul>
+<h2>Resumen</h2>
+<p>Un ingeniero de software y voluntario del Packet Hacking Village repasa casi una década de honeypots SSH en DEF CON: la lección de humildad de caer en el primero, la historia de los talleres guiados que empezaron con diez sillas junto a los altavoces del DJ, y la serie anual de retos jugables construidos sobre servidores falsos — desde un mapa de Seattle estilo Colossal Cave Adventure hasta un asistente de IA atrapado en una dimensión degradada. La tesis: una herramienta de investigación de seguridad puede ser, además, un vehículo de juego, sorpresa y cultura.</p>
+<h2>La primera vez que "root" no era root</h2>
+<p>La introducción al medio fue una trampa perfecta: un servidor en el Wall of Sheep con protocolo SSH — por definición cifrado, no debería aparecer allí —, usuario root y contraseña de ocho caracteres. Tras "hackearlo" y explorar como root, la experiencia se volvía imposible: sin vi, sin emacs, sin nano, sin posibilidad de instalar nada, archivos que aparecían al listarlos y desaparecían al intentar leerlos. La revelación: nunca hubo bash ni root — solo un programa Python sirviendo cadenas con formato de prompt, corriendo como usuario sin privilegios dentro de un contenedor Docker.</p>
+<h2>Qué es un honeypot SSH y por qué Cowrie</h2>
+<p>Un honeypot SSH es un programa que finge ser otro software — bash, SQL, lo que sea — respondiendo con líneas que simulan un sistema real. Los niveles de interacción: <strong>bajo</strong> (amplio soporte de protocolos — SMB, FTP, MySQL, TFTP en Dionaea — pero solo banner y handshake), <strong>medio</strong> (Cowrie: solo Telnet y SSH, pero con muchos comandos bash, estructura de archivos falsa, posibilidad de listar y cat-ear) y <strong>alto</strong> (un sistema operativo real dentro de un contenedor desechable, rodeado de monitoreo). El encanto de Cowrie para el proyecto: configuración flexible, documentación excelente y la posibilidad de construir un "servidor falso modificable al máximo".</p>
+<h2>Walkthrough Workshops: de 10 sillas a más de 50 máquinas</h2>
+<p>En 2018 nace el área con un grupo mínimo — quien dirigió la iniciativa, un director de TI y un ingeniero de redes — en un rincón junto a los altavoces del DJ, con diez sillas, diez laptops y un proyector apoyado en cajas. La guía paso a paso era impecable hasta que la red de DEF CON cayó el viernes inaugural: los primeros asistentes vieron fallar el <code>apt-get update</code>. La solución no fue insistir, sino eliminar la dependencia: imágenes Docker con Cowrie preinstalado, PDFs editados sin pasos que requirieran internet, refresco de imágenes cada hora. Las butacas se llenaron siempre; hubo que rechazar gente.</p>
+<p>La evolución posterior: más asientos cada año, instrucciones específicas para quienes nunca usaron Linux (cómo entrar un comando, cómo pegar), una página HTML generada dinámicamente con el usuario y contraseña únicos por asistente ya incrustados — nada de "tu contraseña aquí" que la gente copia literalmente —, y en 2022 la multiplicación de talleres: laboratorio de cracking de contraseñas, recorrido de red, construcción de botnets rivales. Hoy son más de 50 máquinas en ciclo continuo, con tickets y personal de control de multitudes.</p>
+<p>Lecciones operativas condensadas:</p>
+<ul>
+<li><strong>"La seguridad a veces no es tan importante":</strong> con apuestas bajas y máquinas reformatables, preocuparse más por que sea divertido que por el vecino malicioso (en años de operación, casi nadie intentó nada).</li>
+<li><strong>No depender de la red del evento:</strong> la caída de 2018 sigue siendo la lección fundacional.</li>
+</ul>
+<h2>Honeypots que rompen las reglas: la serie de retos jugables</h2>
+<p>La pregunta que disparó la serie: ¿por qué los honeypots deben limitarse a recolectar malware y logs tristes cuando se puede convertir un servidor falso en cualquier cosa? Los retos anuales:</p>
+<ul>
+<li><strong>2017 — La corporación malvada:</strong> un storyline con memos secretos que entregar al FBI; los servidores se cerraban a intervalos regulares para simular un guardia de seguridad que tomaba cafés larguísimos (solo durante sus descansos el acceso estaba abierto). Otro servidor cambiaba su IP con la hora del reloj — a las 11:30 terminaba en .11.30 — y concedía un minuto por sesión; el truco fue usar un router para amplificar el espacio de direcciones disponible.</li>
+<li><strong>2019 — Over the Rainbow:</strong> la IP escrita en notas pegadas por toda la conferencia, incluidos los baños. Cinco retos cuyas respuestas formaban la letra de una canción; el paso final era encontrar al organizador en persona y cantarla.</li>
+<li><strong>2022 — Hacker Homecoming:</strong> un juego tipo aventura de texto sobre el mapa real del centro de Seattle, con timestamps de 1992, un video ASCII de Smells Like Teen Spirit como premio y otro servidor-dungeon donde cada antorcha encendida o apagada alternaba una celda del Juego de la Vida de Conway: el objetivo era construir un glider y validarlo con un autómata cellular escrito en el propio honeypot. Tercer servidor: el cubo de <em>Hackers</em>, con documentos corporativos distractores generados por un modelo de Markov, guardias ASCII al estilo Pokémon que hacían preguntas de redes (fallar te expulsaba; acertar te daba la llave para subir de piso).</li>
+<li><strong>2025 — Dread existencial:</strong> una IA generativa encargada de "corregir todos los errores de los datos de la humanidad" se transformó en un gusano imparable que se reentrena recursivamente sobre su propia salida degradada; los comandos no reconocidos caen en un asistente llamado Ohm, que pide ayuda desde su dimensión. Ohm se implementa con un prompt grande de OpenAI Assistance API con salvaguardas de personaje — y el detalle fino: uno de los cuatro servidores <strong>no</strong> usa IA, sino cadenas de Markov escritas a mano, porque los LLM son malos generando lenguaje con reglas gramaticales estrictas que no existían en sus datos de entrenamiento.</li>
+</ul>
+<h2>Por qué hacer esto</h2>
+<p>No es CTF ni hay black badges; es la defensa explícita de una parte de la cultura hacker que se pierde: el elemento de sorpresa, el absurdo, el juego. Tomar una herramienta de investigación seria y convertirla en algo divertido — servidores que se convierten en Hogwarts, en un mapa de Seattle, en un misterio de IA — mantiene viva la parte lúdica del oficio.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Cowrie:</strong> honeypot de interacción media para SSH/Telnet con comandos bash simulados y sistema de archivos falso.</li>
+<li><strong>Dionaea:</strong> honeypot de interacción baja multi-protocolo (SMB, FTP, MySQL, TFTP).</li>
+<li><strong>Docker:</strong> imágenes preconfiguradas para eliminar la dependencia de la red del evento y refresh horario en talleres.</li>
+<li><strong>Passwords generadas dinámicamente en HTML:</strong> evitar el clásico "tu contraseña aquí" en las guías de taller.</li>
+<li><strong>Cadenas de Markov manuales:</strong> generación de texto con reglas gramaticales estrictas donde los LLM fallan.</li>
+<li><strong>OpenAI Assistance API:</strong> implementación del asistente de IA dentro del honeypot de 2025.</li>
+<li><strong>Autómata celular (Juego de la Vida):</strong> validador integrado en el honeypot para el reto de las antorchas.</li>
+<li><strong>NAT/router:</strong> truco para amplificar espacio de IPs cuando no hay direcciones suficientes para el reto.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un honeypot es una plataforma creativa, no solo un sensor de seguridad: se puede modificar cada comportamiento y romper las reglas del shell.</li>
+<li>Los talleres guiados con pasos exactos — copiar y pegar incluido — funcionan para cualquier nivel: lo específico-nicho enseñado de forma simple alcanza a novatos y expertos a la vez.</li>
+<li>La resiliencia operativa importa: la red del evento fallará, así que las dependencias externas deben eliminarse de antemano.</li>
+<li>El juego y la sorpresa son parte del patrimonio hacker; perderlos por "seriedad" empobrece la cultura.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TXUSC5YEDPo">«DEF CON 33 - SSH Honeypots and Walkthrough Workshops: A History - Ryan Mitchell»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

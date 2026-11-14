@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Red team sobre tecnología operacional: vectores de ataque con casos reales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Red team sobre tecnología operacional: vectores de ataque con casos reales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Utz4o7CJmAU">«DEF CON 32 - War Games Red Team for OT Based on Real World Case Studies - Shishir Gupta»</a> · ver el <a class="nz-link" href="https://youtu.be/Utz4o7CJmAU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Utz4o7CJmAU · <strong>URL:</strong> https://youtu.be/Utz4o7CJmAU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - War Games Red Team for OT Based on Real World Case Studies - Shishir Gupta</li>
+</ul>
+<h2>Resumen</h2>
+<p>La seguridad ofensiva sobre tecnología operacional (OT) suele retratarse como un exploit elegante contra un dispositivo aislado. La realidad documentada es otra: los ataques reales contra operaciones industriales a gran escala son compromisos de múltiples pasos que atraviesan todo el ecosistema —desde la red corporativa que soporta OT hasta los dispositivos de campo que controlan procesos físicos—. A partir de ejercicios de red team reales sobre infraestructura crítica (con toda la información identificativa eliminada), se recorren vectores de ataque concretos organizados en cuatro fases del ciclo de vida: compromiso inicial, reconocimiento interno, propagación de red y ejecución de misión.</p>
+<p>Quien lo expone es un gestor técnico del equipo dedicado a OT y sistemas de control de Mandiant/Google, con más de 12 años de seguridad ofensiva sobre sistemas ciberfísicos en casi todos los sectores de infraestructura crítica: energía, transporte, ferroviario, control de tráfico aéreo, manufactura, agua residual, telecomunicaciones y gestión de edificios. La advertencia es doble: el contenido está fuertemente abstraído, y cualquier testing ofensivo sobre sistemas ciberfísicos —que pueden quemar y explotar— debe hacerse solo con personal entrenado, en entornos controlados y con reglas de compromiso preaprobadas.</p>
+<h2>El ciclo de vida de ataque ICS-OT</h2>
+<p>Hackear un sistema de control individual y hackear una operación industrial a gran escala son cosas distintas. Los ataques reales rara vez son de un solo paso; siguen un ciclo de vida con fases encadenadas:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Compromiso inicial<br>phishing / acceso directo] --> B[Reconocimiento interno<br>docs, credenciales, consolas]
+    B --> C[Propagación de red<br>IT → OT]
+    C --> D[Ejecución de misión<br>control HMI, lógica, señales]
+
+</pre>
+
+<p>La idea del atacante: obtener información previa del objetivo, cruzar el perímetro protegido, permanecer indetectado operando dentro y lanzar un ataque preciso hacia el objetivo definido. Para el defensor, cada fase es una oportunidad de detección y mitigación: entender el ciclo, corregir fallos antes de que se exploten, desarrollar controles preventivos o detectivos para TTPs conocidas y mitigar vectores en todas las fases, no solo en la última.</p>
+<h2>Fase 1: compromiso inicial</h2>
+<p>En la mayoría de los escenarios reales el punto de entrada es la red corporativa, vía ingeniería social o spear phishing; la mayoría de los ejercicios de red team OT empiezan así. Pero también existen vectores directos: conexión directa a sistemas ICS expuestos en internet, compromiso de cadena de suministro, compromiso de terceros, implantes de hardware y acceso físico o inalámbrico a sistemas de campo. Los entornos industriales suelen tener redes de campo geográficamente dispersas conectadas por enlaces inalámbricos —una superficie enorme—; el caso elemental son los medidores inteligentes residenciales: quien manipule el tráfico entre el medidor y el colector de back office puede usarlo como puerta de entrada.</p>
+<p>Casos reales de la fase:</p>
+<ul>
+<li><strong>CBTC ferroviario</strong>: la red de radio de un sistema de control de trenes basado en comunicación usaba un SSID oculto pero abierto, sin autenticación, que daba acceso a la red embebida a bordo. Con esa red abierta bastó conectarse a una sesión VNC en un display de operador en la cabina.</li>
+<li><strong>APN privado sin autenticación</strong>: en un operador de transporte público, una SIM personal cualquiera se conectó al APN privado de la red de campo y dio acceso directo a las cámaras de monitoreo de tráfico de toda el área metropolitana. Es la excepción, no la norma, pero ilustra la entrada por red celular insegura.</li>
+<li><strong>Telco core</strong>: las redes móviles modernas son IP, con túneles entre el dispositivo y un nodo gateway del núcleo. Lo correcto es que ese gateway solo permita el acceso a las redes previstas. En el caso, una SIM comercial del operador permitió alcanzar los nodos del núcleo, comprometer el session border controller e interceptar tráfico de usuarios —SMS y voz—. El teléfono móvil personal como punto de entrada a la red del propio operador, con intercepción a escala nacional en juego.</li>
+</ul>
+<h2>Fase 2: reconocimiento interno</h2>
+<p>Con el punto de apoyo obtenido —habitualmente en el lado IT—, el objetivo es extraer información específica del sistema objetivo. La red corporativa importa tanto por la segmentación IT/OT como por la segmentación de datos: comparte documentación, shares departamentales, correo, recursos de desarrollo, consolas de gestión e incluso keylogging y monitoreo de pantalla.</p>
+<p>Lo que busca el atacante: diagramas de red, nombres de host, direcciones IP, documentación de procesos, manuales de operador y credenciales en texto claro. Es la fase más aburrida y la más larga: cuanta más información se acumula aquí, más precisa es la ejecución posterior. La selección estratégica apunta a las fuentes y a los empleados responsables de administrar el entorno OT.</p>
+<p>Para el defensor, esta es la fase con más oportunidades de detección y la más ignorada: detectar los indicadores de reconocimiento interno significa ver al atacante antes de que llegue a OT.</p>
+<h2>Fase 3: propagación de red (IT → OT)</h2>
+<p>El air gap es un mito frecuente: los entornos industriales modernos rara vez están aislados. El ideal serían pasarelas unidireccionales; la realidad es que se siguen encontrando entornos sin segmentación básica. Fallas típicas:</p>
+<ul>
+<li>Autenticación insegura para acceso remoto.</li>
+<li>Servidores dual-homed con una pata en IT y otra en OT.</li>
+<li>Dominios de Active Directory compartidos o confianzas de dominio entre IT y OT.</li>
+<li>Servicios explotables en la DMZ de OT.</li>
+<li><strong>Infraestructura compartida</strong>: el problema de fondo. Ejemplo clásico: un hipervisor alojado en IT que hospeda máquinas invitadas de OT; con credenciales activas comprometidas, se accede a las consolas de OT saltándose todos los firewall intermedios.</li>
+</ul>
+<p>Casos reales de la fase:</p>
+<ul>
+<li><strong>Keylogger en escritorio de ingeniería</strong>: captura de credenciales de factor único para un jump host de OT; resultado, escritorio remoto exitoso sobre la HMI de una línea de subterráneo.</li>
+<li><strong>Bóveda de contraseñas corporativa</strong>: el sistema de gestión de contraseñas de la empresa —autenticado contra el dominio corporativo— almacenaba credenciales de OT; comprometida la contraseña del equipo de ingeniería, se obtuvo escritorio remoto sobre el servidor ICS de un sistema de monitoreo de semáforos.</li>
+<li><strong>Confianza de dominio</strong>: el dominio IT figuraba como dominio raíz de los dominios OT de múltiples centros de datos; con credenciales del raíz se accedió a dominios hijos de plantas de todo el mundo.</li>
+<li><strong>Plataforma de virtualización compartida</strong>: el hipervisor autenticaba contra el dominio IT y hospedaba invitadas de IT y OT; acceso de administrador a la interfaz de gestión permitió llegar a la consola local de las VMs de OT —incluida la del servidor WSUS que distribuía actualizaciones a las estaciones de ingeniería de la red de planta—.</li>
+</ul>
+<h2>Fase 4: ejecución de misión</h2>
+<p>Aquí se ataca el núcleo OT, usando el acceso ya obtenido o un exploit preparado. Las TTPs dependen del sistema concreto y del objetivo del atacante. Vectores habituales: ejecución remota de comandos vía HMI, manipulación de configuración de RTUs o PLCs, suplantación de comunicación de protocolos ICS y exploits preparados para manipular la lógica de control o la memoria de controladores embebidos.</p>
+<p>Regla general: <strong>causar disrupción de proceso es más fácil que manipular el proceso</strong>. Los sistemas ICS se diseñan con redundancia, seguridad y gestión de riesgos; la manipulación de alto impacto exige ingeniería inversa y desarrollo de exploits previos. Problemas recurrentes en firmware embebido: actualizaciones inseguras, interfaces no pobladas, backdoors ocultos, claves SSH compartidas entre clientes, buffer overflows y funciones de debug de desarrollo que sobrevivieron a producción. Todo testing de bajo nivel debe hacerse en laboratorio, nunca en producción.</p>
+<p>Casos reales de la fase:</p>
+<ul>
+<li><strong>Desconexión remota de medidores</strong>: en una utility con medición avanzada, tras cruzar el perímetro y llegar a la interfaz de comando y control del head-end, se ejecutó el comando de desconexión remota de un medidor específico —el objetivo se cumplió con una función construida del propio sistema—.</li>
+<li><strong>Control de accesos físicos</strong>: acceso remoto a la interfaz de control físico de un sistema de gestión de edificios; abrir puertas y torniquetes con un clic mientras un integrante del equipo entraba a un centro de control de operaciones.</li>
+<li><strong>Spoofing ferroviario</strong>: conectados a un switch Ethernet a bordo, se manipuló la lectura del sensor de velocidad en la pantalla del operador de una locomotora —spoofing de tráfico del protocolo hacia un binario existente en una ECU de la red embebida—.</li>
+<li><strong>Consola de debug en un tren ligero</strong>: con un IDE del fabricante conectado a una unidad en producción, se sobrescribieron las etiquetas de señales de entrada/salida del sistema de control del vehículo: puertas, acelerador, dirección y hasta el frenado de emergencia, anulando toda entrada del operador.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ciclo de vida ICS-OT</strong>: compromiso inicial → reconocimiento interno → propagación → ejecución de misión, con ventanas de detección en cada fase.</li>
+<li><strong>CBTC (Communication-Based Train Control)</strong>: control ferroviario por radio; SSID oculto sin autenticación y VNC expuesto en cabina.</li>
+<li><strong>APN privado celular</strong>: acceso directo a redes de campo de transporte público sin autenticación.</li>
+<li><strong>SBC (Session Border Controller)</strong>: nodo del núcleo telco comprometido para interceptar SMS y voz.</li>
+<li><strong>Active Directory / domain trust</strong>: dominio IT como raíz de dominios OT; llave maestra de propagación a plantas globales.</li>
+<li><strong>Hipervisor compartido IT/OT</strong>: bypass completo de la segmentación vía consola local de máquinas invitadas.</li>
+<li><strong>Vendor IDE sobre ECU de vehículo</strong>: override de etiquetas de E/S (puertas, acelerador, dirección, freno de emergencia) en un vehículo ligero en producción.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los ataques OT reales son campañas de varias fases, no exploits aislados: el perímetro corporativo, los almacenes de credenciales y las plataformas compartidas son parte del vector tanto como los PLCs.</li>
+<li>La fase de reconocimiento interno es la más subestimada por los defensores y la que ofrece la mejor oportunidad de detectar al atacante antes de que toque OT.</li>
+<li>Disrupción es barata —abusa de funciones ya construidas del sistema—; manipulación de proceso de alto impacto exige ingeniería inversa y desarrollo de exploits, y el firmware embebido de producción acumula fallas recurrentes (debug habilitado, claves compartidas, backdoors).</li>
+<li>El testing ofensivo OT es posible y valioso, pero solo con riesgos evaluados, entornos controlados y reglas de compromiso aprobadas: se trata de sistemas ciberfísicos que pueden causar daño físico real.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Utz4o7CJmAU">«DEF CON 32 - War Games Red Team for OT Based on Real World Case Studies - Shishir Gupta»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Infectar la cadena de arranque para tomar el kernel: anatomía de un bootkit UEFI — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Infectar la cadena de arranque para tomar el kernel: anatomía de un bootkit UEFI</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/iS0XJVyxA3M">«DEF CON 33 - Infecting the Boot to Own the Kernel - Alejandro Vazquez, Maria San Jose»</a> · ver el <a class="nz-link" href="https://youtu.be/iS0XJVyxA3M">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> iS0XJVyxA3M · <strong>URL:</strong> https://youtu.be/iS0XJVyxA3M · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Infecting the Boot to Own the Kernel - Alejandro Vazquez, Maria San Jose</li>
+</ul>
+<h2>Resumen</h2>
+<p>El trabajo de simulación adversaria choca con un problema de acceso: el malware que despliegan los grupos de amenaza persistentes avanzada —bootkits, rootkits de kernel— es territorio que casi nadie documenta a fondo, y quien quiera emularlo necesita años de búsqueda fragmentada. Como respuesta, dos investigadoras e investigadores de perfiles complementarios —una analista de malware del departamento de cibercrimen de la Defensa y una operadora de red team especializada en Windows internals— publicaron un bootkit UEFI y un rootkit de kernel de Windows completos, documentados y listos para estudio, junto con un repositorio de más de 400 recursos y scripts que automatizan el montaje del entorno de desarrollo.</p>
+<p>La premisa desmitificadora atraviesa todo el material: un bootkit no es magia oscura, es una aplicación UEFI maliciosa; un rootkit, un driver de modo kernel malicioso. Ambos tienen documentación oficial de Microsoft y del foro UEFI que permite construirlos desde cero. Lo que se comparte aquí es el mapa conceptual de la cadena completa: del encendido al control del kernel, las protecciones que hay que sortear y las seis capacidades que convierten a un driver malicioso en un rootkit con fundamento sólido.</p>
+<h2>Las definiciones sin misterio</h2>
+<p>Un bootkit es un programa que se implanta lo antes posible en el proceso de arranque: gana control sobre cada etapa del inicio y modifica el flujo de booteo, instalando componentes que permanecen vivos incluso después de que el sistema operativo toma el control. Un rootkit es un programa que funciona dentro del kernel; como el kernel gestiona memoria, procesos e interrupciones, un componente a ese nivel puede ocultar archivos, conexiones de red, desactivar protecciones y alterar estructuras internas del sistema.</p>
+<p>Para quien arranca en el tema, la traducción útil es esta: en cualquier sistema hay drivers de modo kernel legítimos; el mismo concepto llevado a cabo con fines maliciosos es un rootkit. Si el equipo arranca con firmware UEFI, el punto inicial es una aplicación UEFI; una aplicación UEFI maliciosa es, por definición, un bootkit. En su forma básica, el malware requiere dos componentes: un binario <code>.efi</code> para la etapa temprana del arranque y un archivo <code>.sys</code> de driver de modo kernel para modificar el sistema operativo una vez cargado.</p>
+<h2>Las dos murallas: Secure Boot y Driver Signature Enforcement</h2>
+<p><strong>Secure Boot</strong> es una cadena de confianza forzada por firmas digitales y claves criptográficas: cada componente del proceso de arranque debe estar firmado por un vendedor confiable y verificado contra una lista de claves de carga. Un bootkit no corre a menos que el firmware confíe en su firma. La muralla cae si existe una forma de insertar una clave propia en la cadena —varias vulnerabilidades públicas lo han logrado— o una falla de firmware que la omita. Y una vez que se controla el arranque, las protecciones posteriores, incluidas las que el sistema operativo refuerza, dejan de importar: quien controla el boot, controla todo.</p>
+<p><strong>Driver Signature Enforcement (DSE)</strong> es la segunda barrera: Windows se niega a cargar drivers de modo kernel sin firma válida de Microsoft o de un vendedor de confianza. Si la cadena de arranque ya fue comprometida, DSE pierde relevancia —el rootkit puede soltarse en memoria antes de que el sistema arranque—, pero si no, queda la técnica de <em>Bring Your Own Vulnerable Driver</em>: cargar primero un driver legítimo y firmado con una vulnerabilidad conocida, explotarlo para ejecutar código arbitrario en espacio de kernel y desde ahí instalar el rootkit. Microsoft mantiene una lista de drivers bloqueados, y el resultado es un permanente juego del gato y el ratón: se descubren drivers vulnerables, se abusa de ellos, se bloquean, y el ciclo continúa.</p>
+<h2>La cadena de arranque y el enganche escalonado</h2>
+<p>Al pulsar el botón de encendido, el sistema ejecuta el <em>Power-On Self Test</em> (POST) para verificar el hardware; después el framework UEFI busca los archivos y particiones necesarios y carga el <strong>Windows Boot Manager</strong> desde la partición del sistema EFI (ESP). Ese gestor carga el <strong>Windows OS Loader</strong>, que a su vez carga el <strong>kernel de Windows NT</strong>. Tres piezas clave que el malware quiere interceptar.</p>
+<p>La idea central explota una propiedad del proceso: cada componente carga al siguiente en memoria, de modo que hay instantáneas en que el siguiente archivo ya está en memoria pero aún no tomó control. En esos momentos se pueden enganchar funciones dentro del siguiente componente:</p>
+<pre class="mermaid">
+flowchart TD
+    A[POST + firmware UEFI] --> B[Windows Boot Manager]
+    B --> C[Windows OS Loader]
+    C --> D[Kernel NT]
+    E[App UEFI maliciosa en la ESP] -->|reemplaza y engancha al Boot Manager| B
+    B -->|hook cuando el loader ya está en memoria| C
+    C -->|hook cuando el kernel ya está en memoria| D
+    D --> F[Rootkit en kernel: activo antes del arranque del SO]
+
+</pre>
+
+<p>El bootkit reemplaza el Windows Boot Manager con una versión maliciosa que engancha la función del firmware responsable de cargar el gestor original; en lugar de ceder el control de inmediato, asegura que el gestor legítimo quede cargado en memoria, lo escanea con un patrón conocido para localizar la función que se invoca cuando el siguiente componente ya está en memoria, y la engancha parcheando su punto de entrada con un pequeño trampolín en ensamblador que redirige la ejecución a un manejador propio y devuelve el control a la función original. El mismo procedimiento se repite en cada etapa: hook tras hook, el control se mantiene durante todo el arranque. Además, estas funciones se usan para soltar el rootkit —el driver malicioso— en memoria en el momento justo, de modo que ya esté listo y corriendo cuando el sistema operativo inicie.</p>
+<p>La especificación UEFI, con miles de páginas que cubren protocolos de memoria, sistemas de archivos e incluso redes, multiplica el alcance: una aplicación UEFI puede abrir ficheros de un servidor remoto, modificar particiones y dejar marcadores para cargas posteriores, antes incluso de que el sistema operativo exista. La especificación distingue dos categorías de servicios: los <em>boot services</em>, disponibles solo durante el arranque temprano, y los <em>runtime services</em>, que siguen disponibles después de que el sistema toma control. Al llamar a <em>ExitBootServices</em>, toda la memoria configurada por la aplicación se descarta —irrelevante si el rootkit ya está cargado—, pero un diseño cuidadoso aprovecha los runtime services para establecer persistencia: un driver DXE de runtime, una clase especial de driver UEFI que permanece en memoria después del arranque y permite enganchar los runtime services, funciona como puerta trasera casi invisible para ejecutar cargas y leer o escribir memoria mientras el sistema corre.</p>
+<h2>Las seis capacidades que hacen bueno a un rootkit</h2>
+<p>El corazón del malware es el rootkit: vive en espacio de kernel, opera con los máximos privilegios y entrega el control real. Todo lo anterior —UEFI, hooks, secuestro del arranque, drivers de runtime— es la cadena de infección que asegura que el rootkit corra de forma confiable. Seis técnicas forman la base recomendada para empezar:</p>
+<ol>
+<li><strong>Comunicación</strong>: con una aplicación en modo usuario, con un servidor de comando y control, o ambas, manteniendo capacidad de actuar de forma autónoma.</li>
+<li><strong>Manipulación directa de objetos del kernel (DKOM)</strong>: lo que permite, por ejemplo, ocultar procesos; en 2025 hay que hacerlo bien para no disparar una protección y provocar una pantalla azul.</li>
+<li><strong>Captura de pulsaciones de teclado</strong> a nivel kernel, interceptando los paquetes correspondientes.</li>
+<li><strong>Filtrado de red</strong> con la plataforma de filtrado de Windows (WFP): alterar, bloquear o capturar tráfico en tiempo real.</li>
+<li><strong>Comando y control a nivel kernel</strong> con Winsock Kernel (WSK): el driver puede hacer conexiones HTTP por sí mismo, sin proceso en modo usuario, cerrando el ciclo de control completo en espacio de kernel.</li>
+<li><strong>Filtrado del sistema de archivos</strong> con la tecnología de minifiltros —la misma que usan las soluciones de seguridad— para ocultar archivos y carpetas y denegar su acceso.</li>
+</ol>
+<p>Las demostraciones en vivo lo mostraron sobre una máquina física con Secure Boot habilitado: un proceso desaparece del Administrador de tareas y de Process Hacker, una carpeta se oculta del explorador, direcciones IP quedan bloqueadas, conexiones TCP al puerto 443 desaparecen de <code>netstat</code> y el canal de comando y control corre íntegramente dentro del driver. También se mostró que el DSE seguía habilitado —el error de firma apareció en pantalla— y aun así el rootkit ya estaba en memoria, porque la aplicación UEFI lo soltó antes del arranque. Para quien quiera profundizar, el fundamento recomendado es dominar cómo una aplicación de modo usuario se comunica con un driver de kernel mediante IOCTLs e IRPs: esa base prepara de forma natural para seguir explorando vulnerabilidades en drivers de kernel.</p>
+<h2>Qué se publicó y para qué sirve</h2>
+<p>La publicación incluye el proyecto de bootkit UEFI (aplicación, drivers de kernel básicos que puede soltar en memoria, driver DXE de runtime con su herramienta de comunicación, scripts de montaje y la herramienta que genera la configuración cifrada que consume la aplicación), el repositorio del rootkit con pruebas de concepto independientes para cada técnica, y más de 400 recursos de investigación, notas para instalar el rootkit en una máquina física real y guías para analizar el propio firmware UEFI en busca de vulnerabilidades. La motivación declarada: que cualquier equipo que entregue servicios de simulación adversaria pueda emular el tipo de malware que hoy solo despliegan los grupos APT, sin pasar un año juntando migajas dispersas.</p>
+<p>Desde la óptica defensiva, el material funciona como catálogo de lo que hay que asumir posible: un atacante con acceso físico o firmware comprometido puede mantener persistencia por debajo del sistema operativo, con canales de comando y control que no dejan proceso visible en modo usuario. Los minifiltros maliciosos usan la misma tecnología que los productos de EDR; la detección de hooks en la cadena de arranque y la verificación de la integridad del firmware son, por tanto, superficies de defensa que merecen la misma atención que el modo usuario.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un bootkit es una aplicación UEFI maliciosa y un rootkit un driver de kernel malicioso: no son conocimiento secreto, son desarrollo de software ofensivo con documentación oficial disponible.</li>
+<li>El enganche escalonado de la cadena de arranque explota un patrón simple —cada componente carga al siguiente en memoria— y se repite etapa por etapa desde el Boot Manager hasta el kernel.</li>
+<li>Secure Boot es la protección crítica: si la cadena de firmas se rompe o el firmware tiene una falla, todas las protecciones posteriores pierden sentido; verificar y actualizar firmware es defensa de primer orden.</li>
+<li>Las seis capacidades esenciales de un rootkit moderno —comunicación, DKOM, keylogger, filtrado de red, C2 a nivel kernel y filtrado del sistema de archivos— definen también la lista de comportamientos que un detector debería vigilar en espacio de kernel.</li>
+<li>Compartir código documentado con la comunidad defensiva reduce la asimetría entre quienes emulan amenazas y quienes las persiguen: dominar IOCTLs e IRPs es el punto de partida natural para el análisis y la explotación de drivers.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bootkit UEFI</strong>: aplicación UEFI maliciosa que secuestra el flujo de arranque enganchando funciones del Boot Manager, el OS Loader y el kernel.</li>
+<li><strong>Trampolín en ensamblador</strong>: parche del punto de entrada de una función que redirige la ejecución a un manejador propio y vuelve a la original.</li>
+<li><strong>Secure Boot</strong>: cadena de confianza de firmas digitales y claves criptográficas que valida cada componente del arranque.</li>
+<li><strong>Driver Signature Enforcement (DSE)</strong>: política de Windows que impide cargar drivers de kernel sin firma válida.</li>
+<li><strong>Bring Your Own Vulnerable Driver (BYOVD)</strong>: carga de un driver firmado vulnerable para explotarlo y ejecutar código en kernel.</li>
+<li><strong>DXE runtime driver</strong>: driver UEFI que persiste en memoria tras el arranque y permite enganchar los runtime services como puerta trasera.</li>
+<li><strong>DKOM</strong>: manipulación directa de objetos del kernel para ocultar procesos.</li>
+<li><strong>Windows Filtering Platform (WFP)</strong>: tecnología para filtrar, bloquear o capturar tráfico de red a nivel kernel.</li>
+<li><strong>Winsock Kernel (WSK)</strong>: API que permite al driver mantener conexiones HTTP y comando y control sin proceso en modo usuario.</li>
+<li><strong>Minifiltros</strong>: clase de drivers de filtrado del sistema de archivos, usados tanto por soluciones de seguridad como por rootkits para ocultar archivos.</li>
+<li><strong>IOCTL / IRP</strong>: mecanismos de comunicación entre aplicaciones de modo usuario y drivers de kernel; fundamento para el análisis de drivers.</li>
+<li><strong>ExitBootServices</strong>: llamada que marca el traspaso del control del firmware al sistema operativo y descarta la memoria de boot services.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/iS0XJVyxA3M">«DEF CON 33 - Infecting the Boot to Own the Kernel - Alejandro Vazquez, Maria San Jose»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

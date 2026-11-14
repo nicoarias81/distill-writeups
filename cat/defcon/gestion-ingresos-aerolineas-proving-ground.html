@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gestión de ingresos aérea y bolsas de vuelo electrónicas: un terreno de pruebas adversario — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Gestión de ingresos aérea y bolsas de vuelo electrónicas: un terreno de pruebas adversario</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/piW-nUKIqkE">«DEF CON 32 - An adversarial approach to Airline Revenue Management Proving Ground - Craig Lester»</a> · ver el <a class="nz-link" href="https://youtu.be/piW-nUKIqkE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> piW-nUKIqkE · <strong>URL:</strong> https://youtu.be/piW-nUKIqkE · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - An adversarial approach to Airline Revenue Management Proving Ground - Craig Lester</li>
+</ul>
+<h2>Resumen</h2>
+<p>El sistema de venta de pasajes aéreos es una de las infraestructuras más complejas y menos auditadas del mundo comercial: decenas de millones de combinaciones posibles de tarifas, vuelos y conexiones, calculadas en tiempo real. Este terreno de pruebas recorre dos frentes complementarios de ese sistema. El primero es económico: cómo se construyen las tarifas, qué reglas las gobiernan y cómo se pueden explotar — desde el coste de casi cero de un asiento vendido tarde hasta las tarifas por error y el ticketing de ciudad oculta. El segundo es técnico: las bolsas de vuelo electrónicas (EFB) que los pilotos usan para calcular pesos, equilibrio y velocidades de despegue, donde fallos tan simples como una base de datos sin verificación de integridad pueden producir cálculos de rendimiento erróneos — y donde la distancia entre reportar una vulnerabilidad y verla corregida se mide en años, no en días.</p>
+<h2>Cómo funciona la tarifa aérea: reglas, buckets y disponibilidad</h2>
+<p>La industria opera con costes fijos altísimos, regulación densa y slots de aeropuerto escasos como direcciones IPv4: Malaysia llegó a volar aviones casi vacíos a Londres solo para no perder el slot, y uno de esos slots se vendió recientemente por 75 millones de dólares. Sobre ese telón, el equipo de revenue management persigue una idea académica simple: vender cada asiento al precio más alto posible, sin dejarlo vacío ni liquidarlo demasiado barato.</p>
+<p>Lo que el consumidor ve en la web de la aerolínea o de un agregador son tarifas con reglas adjuntas — días de la semana, dónde se publica, estadía mínima y máxima. El clásico es la "estadía de domingo": pensada para discriminar al viajero de negocios, que vuelve el viernes, del turista, que se queda el fin de semana. Las tarifas se publican de dos formas: por ruta explícita (routing basis) o por millaje (MPM), usando la distancia de círculo máximo — la misma lógica que dispara las alertas de viaje imposible en un SIEM — con deducciones de puntos de ticket que permiten pasajes extra para cerrar el viaje por los hubs de la aerolínea.</p>
+<p>La disponibilidad se gestiona con buckets de letras: cada tarifa se engancha a un bucket, y el bucket se abre o se cierra según lo que decida el algoritmo. Detalles reveladores: una clase con cero y cerrada significa que no se venden más asientos de ese tipo; un "9" es el máximo que se muestra por pantalla, así que ver 9 en business en un vuelo con cabina vacía sugiere upgrade a la vista. Y en conexiones, la disponibilidad debe coincidir en todos los segmentos y para cada pasajero: por dos personas, el buscador salta de la tarifa R barata a la siguiente disponible — no son las cookies, es inventario real.</p>
+<p>Detrás del boleto hay capas: la reserva (PNR) confirmada no sirve para embarcar sin un e-ticket válido, y los cupones se usan en orden o el resto de los vuelos se cancela. En el lado económico, el validating carrier emite el ticket (American fue la primera aerolínea computarizada: todos sus números de serie empiezan en 001), el marketing carrier es el número de vuelo comprado (el code share: comprás Finnair, volás en American) y el operating carrier es el metal real.</p>
+<h2>Explotando las reglas: recargos, arbitraje y ciudad oculta</h2>
+<p>Los recargos nacieron en 2004 como fuel surcharge de 20 dólares; hoy absorben la mayor parte del precio de un pasaje transatlántico, funcionan como junk fees — el equivalente del resort fee hotelero — y, al quedar exentos de comisiones, complicaron los cálculos. Su aplicación depende de registros de base de datos con criterios y números de secuencia, como reglas de firewall evaluadas en orden. La vulnerabilidad estructural: el validating carrier decide si aplica el recargo, no la aerolínea que se vuela, y un último criterio con condición parcial (por ejemplo, "todos los puntos de ticket dentro de EE. UU.") puede romperse con un segmento compatible de Canadá o México que salta esa regla de la secuencia.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Tarifa base con recargo<br/>cercano a 60] --> B[Agregar segmento compatible<br/>Canadá o México]
+    B --> C[Regla del recargo<br/>salta en la secuencia]
+    C --> D[Precio recalculado<br/>+100 de base, -260 total]
+
+</pre>
+
+<p>La demostración en vivo: una tarifa de ida y vuelta con recargo cercano a 60 libras, a la que se agrega un segmento compatible; la base sube 100, pero el recargo mal calculado hace que el total baje 260. A eso se suman las oportunidades de arbitraje geográfico (empezar el ticket en Japón viviendo en Hong Kong, o en Canadá viviendo en EE. UU.), las divisas inestables — Egipto movió su tipo de cambio oficial un 50% y hubo gangas por un tiempo — y el clásico hidden city ticketing: el vuelo directo a Atlanta cuesta 200, pero el mismo vuelo a Atlanta con continuación a Nashville cuesta menos de la mitad, porque el mercado de Nashville compensa. Es contrario a las condiciones de carriage, las maletas no se despachan al destino intermedio — salvo que la escala sea de una noche o más, y entonces el pasajero flexible está dentro de las reglas.</p>
+<p>Las tarifas por error (mistake fares) suelen venir de hojas de cálculo manuales: el caso United en 2015 fue un error de división por 1000 al publicar en coronas danesas, que usan la coma como decimal. El DOT endureció después las condiciones para que las aerolíneas cancelen esos boletos. El lado defensivo existe: los agency debit memos con los que las aerolíneas persiguen a agentes que retienen asientos con nombres ficticios en bucles de hold y cancelación, con fee de chargeback incluido. Y la sugerencia para los defensores: los equipos de fraude pueden aprender de las detecciones avanzadas de un SOC — viaje imposible y compañía — porque el dominio es el mismo.</p>
+<h2>Bolsas de vuelo electrónicas: cuando el cálculo de despegue falla</h2>
+<p>La segunda mitad del terreno de pruebas pasa al avión. Un EFB es la tablet del piloto: roster, lista de pasajeros, peso y equilibrio, cartas y — lo más delicado — el cálculo de rendimiento de despegue. Casi nunca se despega a plena potencia: se usa una potencia reducida (derate o flex temp) calculada con viento, peso, altitud de presión y longitud de pista, para ahorrar combustible y desgaste. El error en ese cálculo no es teórico: Ravenair fue ransomeada y no pudo demostrar la aeronavegabilidad; American tuvo un lockup por una carta duplicada en la base de Jeppesen; Southwest perdió su feed meteorológico y muchos vuelos no salieron; en el A320 cambiado por un A321 al último minuto, la load sheet sin corregir desbalanceó el avión y solo el TOGA lo salvó; en Lisboa, carteles de intersección de pista renombrados hicieron que el calculador creyera que había más pista de la real y ocho vuelos casi no salieron; y en Alaska, un bug de software en la app de flight bag miscalculó la carga y causó dos tail strikes con excelente respuesta de la aerolínea. En Canadá, una tripulación de 747 de carga agotada miscalculó el peso y el avión nunca despegó, con víctimas fatales.</p>
+<p>Los hallazgos de seguridad sobre los EFB empiezan por el lockdown: tablets sin PIN o con la fecha de cumpleaños del piloto, operadores pequeños sin MDM — algunos mandan a los pilotos a comprar la tablet a Best Buy — y decisiones como Face ID sobre pilotos con gafas de espejo, o un manual de emergencia que hay que desbloquear con máscara de oxígeno puesta.</p>
+<ul>
+<li><strong>Boeing OPT:</strong> la base de datos de la herramienta de rendimiento no verificaba integridad; con acceso físico breve se alargaba la pista y los V-speeds salían mal. Boeing respondió ejemplarmente: dos semanas de fix, dos años de recertificación — porque en aviación no se parcha y publicar a los 90 días.</li>
+<li><strong>EFB kiosk en un 747:</strong> contraseña "password", dos unidades redundantes en red, comprometibles la una desde la otra — anula la redundancia y el cross-check, porque ambas pueden escupir el mismo dato erróneo. USB con sticker de "no usar". El proveedor nunca respondió; tras 18 meses se divulgó con el aval del Aviation ISAC.</li>
+<li><strong>Airbus NavBlue FlySmart LPC-NG:</strong> el mismo bug de integridad que Boeing OPT. Airbus lo rechazó dos años como "mejora de producto" — incluso por escrito — hasta que EASA intervino y el fix apareció milagrosamente el 10 de abril. Fricción clásica entre ingeniería de seguridad y de vuelo, la misma separación cultural que se ve en OT.</li>
+<li><strong>FlySmart Plus (iOS):</strong> el updater tenía ATS deshabilitado intencionalmente; un man-in-the-middle por Wi-Fi podía tamper con las actualizaciones. Detalle operativo que lo vuelve plausible: los pilotos siempre se alojan en los mismos hoteles de layover.</li>
+<li><strong>Lufthansa Systems eRoute Manual:</strong> la verificación de integridad de las cartas de aproximación usaba como clave 12345678910 repetida dos veces. Manipular una aproximación — alturas, DME, rumbo de descenso — puede inducir a descender por debajo de la altitud segura: el escenario de un control flight into terrain. Respondieron bien y tardaron dos años.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El pricing aéreo es un sistema de reglas con secuencia y excepciones: los recargos dependen del validating carrier y de registros evaluados en orden, y un segmento compatible puede saltar una regla y abaratar el total por debajo del original.</li>
+<li>Arbitraje geográfico, divisas inestables, hidden city con escala larga y tarifas por error son vectores de "ataque" económico legítimos o limítrofes; la defensa incluye debit memos, y los equipos de fraude aéreos pueden importar detecciones del mundo SOC.</li>
+<li>Los EFB concentran cálculos críticos (peso, equilibrio, V-speeds, cartas) en tablets con lockdown irregular; la ausencia de verificación de integridad en bases de pistas y cartas es un patrón repetido en Boeing, Airbus y Lufthansa Systems.</li>
+<li>La divulgación responsable en aviación no es opcional ni retórica: los fixes toman años por recertificación, el Aviation ISAC y el Aerospace Village son los canales correctos, y desde la cabina de pasajeros no se puede hackear un avión — la segregación de redes del dominio de pasajeros aguanta.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/piW-nUKIqkE">«DEF CON 32 - An adversarial approach to Airline Revenue Management Proving Ground - Craig Lester»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

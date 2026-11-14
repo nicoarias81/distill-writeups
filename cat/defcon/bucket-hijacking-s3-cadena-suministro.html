@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reciclando buckets abandonados de S3: cadena de suministro a escala industrial — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Reciclando buckets abandonados de S3: cadena de suministro a escala industrial</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Iv6VyOaG22c">«DEF CON 33 - Preventing One of The Largest Supply Chain Attacks in History - Maksim Shudrak»</a> · ver el <a class="nz-link" href="https://youtu.be/Iv6VyOaG22c">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Iv6VyOaG22c · <strong>URL:</strong> https://youtu.be/Iv6VyOaG22c · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Preventing One of The Largest Supply Chain Attacks in History - Maksim Shudrak</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando un bucket de S3 se elimina, su nombre vuelve a estar disponible para cualquiera. Si el código que referencia ese bucket sigue vivo — un script de instalación, un paquete de PyPI o Maven, un binario que descarga un instalador, un modelo de PyTorch — quien reclame el nombre hereda el flujo de ejecución completo de todos sus usuarios antiguos. Esta investigación midió ese riesgo de forma empírica: se registraron miles de buckets abandonados cuyos nombres aparecían en GitHub, PyPI, Maven y malware real, se activaron logs de acceso durante cinco días y se analizaron más de 11 millones de peticiones.</p>
+<p>El impacto verificado: 28.000 hosts en 158 países — incluyendo 134 organizaciones y 25 redes gubernamentales — ejecutarían código controlado por el atacante en el día a día. El costo total de la campaña: 20 dólares de almacenamiento de logs. La herramienta que hace escalable el ataque es la combinación de big data y agentes LLM para clasificar qué tráfico es sensible dentro de gigabytes de logs.</p>
+<h2>Por qué funciona: el namespace global de S3</h2>
+<p>El diseño del ataque explota dos propiedades. Primera: la penetración de perímetro es cara y su costo crece con la eficiencia deseada; un ataque de cadena de suministro invierte esa ecuación, y la superficie de ataque crece con el tamaño de la empresa objetivo — se puede terminar en segmentos privilegiados o en producción. La contrapartida es la falta de precisión: hay que apuntar a algo que la víctima consuma.</p>
+<p>Segunda: el espacio de nombres de buckets es global y reciclable. Si un bucket se borra, los clientes antiguos reciben un 404 — pero cualquier tercero puede reclamar el nombre, subir malware y hacerlo público. Todo el que dependa de esa referencia queda infectado. El mismo mecanismo aplica al malware desmantelado: si un informe de abuso tumba el bucket de un stage-2 y AWS eventualmente lo recicla, un atacante no relacionado con el malware original puede reclamarlo y reinfectar a todas sus víctimas.</p>
+<p>El riesgo no era nuevo: ya se había demostrado con paquetes de Python backdoorados, dominios expirados, paquetes NPM populares e incluso TLDs de estados soberanos, y trabajos previos de Watchtower habían reclamado dominios usados por web shells y 150 buckets. Lo que faltaba era medir la escala real, el costo, y sobre todo la remediación de causa raíz.</p>
+<h2>Metodología: buscar, reclamar, medir</h2>
+<p>El proceso fue: buscar buckets referenciados, verificar disponibilidad, reclamarlos, activar logs por cinco días, triagear el tráfico y evaluar el impacto — siempre con reglas de estricta ética: los buckets permanecieron privados (403 en todo momento), ninguna prueba se hizo sobre un bucket con clientes activos sin antes clonarlo, se respetó la privacidad de los usuarios sin atribuir a IPs u organizaciones individuales, y los hallazgos se divulgó responsablemente.</p>
+<ul>
+<li><strong>GitHub</strong>: mediante Sourcegraph (que permite buscar en el código de GitHub, petabytes de datos, algo que la búsqueda nativa no permite) más una expresión regular para extraer nombres de bucket. Resultado: ~4.500 buckets registrados, ~1.500 con tráfico, casi 4 millones de peticiones, 19 GB de logs, 243.000 hosts.</li>
+<li><strong>PyPI y Maven</strong>: crawl de los índices de paquetes con extracción in-memory de referencias. El crawl de PyPI corrió un mes y medio y cubrió ~45% del índice. Resultado: 480 buckets, 255 con tráfico, 4,5 millones de peticiones, 3,5 GB de logs, 15.000 hosts en 129 países.</li>
+<li><strong>Malware</strong>: imposible bajar todos los samples (empaquetados, obfuscados, con sandbox propio); la solución fue URLhaus, que expone enlaces a AWS de malware conocido. Resultado: 188 buckets, 175 con tráfico, 2 millones de peticiones, 20.000 hosts en 142 países — mayormente descargas de ejecutables y JavaScript.</li>
+</ul>
+<p>Total: ~26 GB de logs, 11 millones de peticiones. La gran mayoría es ruido (imágenes, videos, datasets de entrenamiento, bots que scrapean para LLM). El problema de clasificación se resolvió con agentes LLM en una arquitectura de tres roles: un <em>planner</em> que construye el plan a partir del nombre del bucket y las peticiones, un <em>agregador</em> con herramientas de búsqueda web y GitHub que extrae contexto, y un <em>clasificador</em> que decide si el tráfico es sensible. La reducción fue de ~1 mes de trabajo manual a un par de días, y de gigabytes de logs a unos pocos megabytes con 500 buckets sensibles — con alucinaciones y errores de por cierto, pero operativamente viable.</p>
+<h2>Casos de explotación verificados</h2>
+<p><strong>Binarios de instalación (el caso canónico).</strong> Un fabricante de equipos de red distribuía el binario de instalación desde tres buckets; cambió la política de distribución, lo anunció y borró los buckets. Pero scripts de PowerShell de clientes no afiliados seguían haciendo <code>curl | bash</code> contra esas URLs: 162 hosts ejecutarían el binario envenenado.</p>
+<p><strong>Minecraft en Raspberry Pi.</strong> La web oficial de instrucciones pide descargar, descomprimir y ejecutar un paquete desde un bucket abandonado — ejecución de código directa sobre quien siga la guía.</p>
+<p><strong>Vagrant boxes.</strong> Instaladores de VMs servidas desde buckets abandonados. Introducir un backdoor dentro de la VM es posible, pero escapar de ella es difícil; sin embargo Vagrant permite comandos del sistema en la config del box, y el código se ejecuta en el host con solo hacer <code>vagrant add</code>.</p>
+<p><strong>Modelos PyTorch (pickle).</strong> Un cuarto del tráfico pedía modelos PyTorch, que cargan por deserialización pickle — ejecución de código arbitraria <em>by design</em>. Demo verificada con el proyecto open source SuperGradients (~4.000 estrellas, hoy ~distribución cambiada): se clona el bucket, se envenena el modelo con el snippet mínimo de injection de Snook (<code>os.system(...)</code> en el .pth), se reconstruye la estructura de carpetas esperada y al recargar los pesos viejos se ejecuta el payload. Otro proyecto con 33.000 estrellas tenía el mismo patrón.</p>
+<p><strong>Paquetes PyPI/Maven con binarios nativos.</strong> De cientos de buckets, 9 sensibles pero con impacto severo: un paquete que instala un binario nativo descargado del bucket (backdoor en la librería wrapper → ejecución en la máquina); y un caso donde los logs revelaron un repositorio de hosting adicional con 288 hosts descargando miles de paquetes. El primero comprometería a 5 Fortune 500 (incluidos los 3 bancos más grandes del mundo), un antivirus, una telco global y un minorista enorme; el segundo, 5 entidades gubernamentales de Europa y Sudamérica, un fondo global de inversión y dos grandes tecnológicas/telcos.</p>
+<p><strong>Contenido estático como vector de ingeniería social.</strong> PDFs, docs y manuales servidos desde buckets abandonados no ejecutan código por sí mismos, pero traen confianza ya establecida: pedirle a la víctima que "habilite macros" o corra un comando del manual no resulta extraño. Impacto potencial: tres agencias estatales de Europa y Sudamérica más firmas de ingeniería.</p>
+<p><strong>Intentos de escritura.</strong> Sorpresa adicional: hosts intentando subir datos (logs) a los buckets recién creados — el atacante podría recibir datos sensibles de terceros que escriben a ciegas.</p>
+<h2>Malware reciclado: heredar botnets muertas</h2>
+<p>Las familias dominantes en los logs fueron Rk (staler) y Linker. <strong>Linker</strong> es una extensión maliciosa de Chrome disfrazada de app benigna en la Web Store (p. ej. un "flash playlist") que inyecta JavaScript desde buckets S3 en las páginas que visita la víctima; el creador la abandonó tras ser retirada de la Web Store, pero el mecanismo sigue vivo: la extensión lee un mixpanel variable con la URL del bucket y descarga el script para cada página. Con el bucket bajo control, ese JavaScript es del atacante — verificado en Gmail, Twitter, Instagram, Facebook y LinkedIn. En TikTok el ataque es weaponizable directamente: la CSP del sitio permite Amazon, así que el script puede exfiltrar cookies (no http-only), datos de página y todo lo accesible desde el contexto. Miles de usuarios siguen infectados hoy; Manifest v3 debería matar la extensión (depende de v2).</p>
+<p><strong>Rk</strong>, activo hace unos años y forkeado por otras familias, se hace pasar por ejecutable útil y roba datos: sondea si el bucket está disponible y descarga el stage-2 por HTTP puro, ejecutándolo a ciegas. Reproducible en laboratorio con una VM Windows, Wireshark y FakeNet-NG respondiendo a todas las peticiones con el payload — confirmando que el malware ejecuta sin validar lo que baja.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Código vivo referencia<br>bucket eliminado] --> B[Atacante reclama<br>el nombre del bucket]
+    B --> C[Sube payload<br>y lo hace público]
+    C --> D[Clientes heredados<br>descargan y ejecutan]
+    D --> E[RCE en hosts<br>organizaciones y gobiernos]
+    B2[Malware desmantelado<br>bucket tumbado por abuso] --> B
+
+</pre>
+
+<h2>Remediación: el paradigma de "arreglar para encontrar"</h2>
+<p>Hay una paradoja central en la divulgación: para <em>encontrar</em> la vulnerabilidad hay que <em>reclamar</em> el bucket, y al reclamarlo la vulnerabilidad deja de existir. La colaboración con AWS permitió tumbar todos los buckets sensibles identificados — pero esto es la punta del iceberg: quedan otros repositorios de paquetes, el historial de commits de GitHub (Sourcegraph no busca ahí), código propietario, y otros proveedores de cloud con el mismo patrón, además de recursos huérfanos de otros tipos (IPs dangling, dominios).</p>
+<p>Las mitigaciones inmediatas: revisar el código propio en busca de referencias a buckets inexistentes (existen herramientas decentes ya publicadas), y — sugerencia de AWS — usar nombres de bucket generados por máquina o menos predecibles; AWS también elevó el límite por cuenta a 10.000 buckets, reduciendo el incentivo a eliminarlos.</p>
+<p>La corrección de causa raíz es un <em>secure by default</em> del cloud: namespaces de bucket con scope de proyecto (proyecto + nombre, con el nombre de proyecto inmutable y no reclamable) o, mejor, nombres de bucket directamente no reciclables. Para los buckets que usa malware, el camino es mantenerlos privados permanentemente — la misma estrategia que Shadowserver aplica con dominios de malware. Y la responsabilidad primaria sigue siendo del cliente: no olvidar el código ni sus referencias a recursos eliminados. Culpar a los ingenieros no sirve; el sector tiene que resolver esto por diseño.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bucket hijacking / dangling references</strong> — reclamar buckets S3 eliminados cuyo nombre sigue referenciado por código activo.</li>
+<li><strong>Sourcegraph</strong> — buscador de código sobre GitHub (incluido código público masivo) usado para extraer nombres de bucket.</li>
+<li><strong>PyPI / Maven crawling</strong> — indexación de paquetes con extracción in-memory de URLs de S3.</li>
+<li><strong>URLhaus</strong> — repositorio de URLs de malware usado como fuente de buckets referenciados por malware real.</li>
+<li><strong>Agentes LLM (planner/aggregator/classifier)</strong> — clasificación semiautomática de millones de peticiones en logs para aislar las sensibles.</li>
+<li><strong>Pickle deserialization en PyTorch</strong> — carga de modelos .pth permite ejecución de código arbitraria por diseño.</li>
+<li><strong>Vagrant box config injection</strong> — comandos de sistema en la config del box se ejecutan en el host durante <code>vagrant add</code>.</li>
+<li><strong>Linker / Rk</strong> — extensión maliciosa de Chrome (inyección de JS desde S3) y staler que descarga stage-2 por HTTP desde buckets.</li>
+<li><strong>FakeNet-NG</strong> — servidor falsificado para reproducir el comportamiento del malware en laboratorio.</li>
+<li><strong>S3 access logs</strong> — mecanismo de medición (bucket name, IP, request, referer, user agent) durante 5 días.</li>
+<li><strong>Shadowserver Foundation</strong> — iniciativa de hundimiento de dominios de malware, modelo propuesto para buckets.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los buckets abandonados son un vector de cadena de suministro medible y barato: 20 dólares y cinco días de logs alcanzaron para verificar 28.000 hosts potenciales en 158 países y 25 redes gubernamentales.</li>
+<li>Los flujos más peligrosos son los que ejecutan a ciegas: <code>curl | bash</code>, instaladores de binarios nativos en paquetes PyPI/Maven y modelos PyTorch cargados con pickle.</li>
+<li>Los LLM convierten el triage de gigabytes de logs en horas, reduciendo el costo del ataque y de la investigación por igual — la misma tecnología escala el ataque y la defensa.</li>
+<li>La causa raíz es de diseño de plataforma: namespaces reciclables y globales. La solución duradera es buckets no reciclables o con scope de proyecto; mientras tanto, auditar y eliminar referencias colgantes es una tarea inmediata y barata para cualquier equipo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Iv6VyOaG22c">«DEF CON 33 - Preventing One of The Largest Supply Chain Attacks in History - Maksim Shudrak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

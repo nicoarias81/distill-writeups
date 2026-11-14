@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un paquete de bits que puede salvar o desestabilizar una ciudad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Un paquete de bits que puede salvar o desestabilizar una ciudad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 3C-_TaYht68 · <strong>URL:</strong> https://youtu.be/3C-_TaYht68 · <strong>Conferencia:</strong> DEF CON 33 (RF Village) · <strong>Título original:</strong> DEF CON 33 - RF Village - Small Packet of Bits That Can Save or Destabilize a City - Manuel Rabid</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los sistemas de alerta temprana que avisan de terremotos y emergencias por radiofrecuencia son, paradójicamente, tecnología de décadas atrás convertida en infraestructura crítica: como reza la pegatina de cualquier village, "legacy technology doesn't die, it just becomes critical infrastructure". Este es el caso del Sistema de Alerta Sísmica mexicano (SASMEX), que protege a unos 30 millones de personas en el centro de México, y del NOAA Weather Radio estadounidense con su protocolo SAME (<em>Specific Area Message Encoding</em>).</p>
+<p>El problema que abordan es real y dramático: el terremoto de 1985 en Ciudad de México dejó alrededor de 40.000 víctimas y unos 400 edificios colapsados. La ciudad es especialmente vulnerable por dos razones: está construida sobre el lecho de un lago antiguo, cuyo suelo blando amplifica las ondas sísmicas, y se encuentra entre las placas tectónicas de Norteamérica y Cocos, cuya fricción genera alta actividad sísmica (entre 10 y 20 temblores anuales, uno a tres fuertes, y uno muy fuerte cada década).</p>
+<p>Lo que aporta este análisis es una radiografía completa de cómo estas alertas se sensan, transmiten y codifican —y por qué cualquiera con un SDR puede recibirlas, decodificarlas y, si transmite, generarlas. La conclusión incómoda: son sistemas sin verificación de origen, sin corrección de errores real y sin protección contra manipulación, cuya simplicidad es a la vez su mayor fortaleza operativa y su mayor debilidad de seguridad.</p>
+<h2>La física que hace posible la alerta temprana</h2>
+<p>El sistema mexicano se apoya en una ventaja geométrica única: los grandes sismos que amenazan a Ciudad de México se originan en la costa, a unos 390 kilómetros, donde la placa de Cocos empuja a la de Norteamérica. Las ondas sísmicas viajan a unos 4,5 km/s, así que un terremoto costero tarda casi un minuto y medio en llegar a la ciudad. Las ondas de radio, en cambio, viajan a ~300.000 km/s: una alerta emitida en el epicentro llega con aproximadamente 1 minuto y 24 segundos de anticipación.</p>
+<p>Ese margen —sesenta y tantos segundos para evacuar, frenar trenes o simplemente ponerse a salvo— justificó la creación del Centro de Instrumentación y Registro Sísmico (CIRES), fundado tras 1985 con la instalación de una red de acelerómetros en la ciudad y sensores en la costa. El sistema se activó en 1991, y en 1993 se alertó por primera vez un evento sísmico real, verificando con publicaciones científicas que la cadena completa funcionaba.</p>
+<h2>Arquitectura del sistema mexicano</h2>
+<p>La cadena es sencilla de describir y ambiciosa de operar:</p>
+<ul>
+<li><strong>Sensores en la costa</strong>: detectan el sismo en el epicentro. La red empezó con 12 sensores y sigue expandiéndose.</li>
+<li><strong>Concentradores y repetidores por RF</strong>: los datos llegan a la estación central también por radiofrecuencia.</li>
+<li><strong>Estación central</strong>: de ubicación secreta, decide si el evento merece alerta. No es un detalle menor: si la alarma suena cada semana, la población deja de tomarla en serio, así que el umbral de activación se gestiona con rigor.</li>
+<li><strong>Difusión</strong>: enlaces directos al gobierno de la ciudad y al metro, radio y televisión, escuelas, la red de altavoces públicos, y desde 2008 una red de transmisores EAS/SAME en edificios gubernamentales y comerciales. El cell broadcast móvil aún está en fase de pruebas con resultados irregulares.</li>
+</ul>
+<p>Dos simulacros anuales mantienen viva la cultura de respuesta. El sonido de la alerta es tan característico que quien vive en Ciudad de México lo reconoce de inmediato —y sabe que el sismo llegará en un par de minutos.</p>
+<h2>SAME: el protocolo de 1988 que sigue en el aire</h2>
+<p>El lado estadounidense de la historia arranca en los años 60 con boletines marítimos de Chicago en 162,55 "megaciclos", evoluciona al tono de alarma de 1971 (capaz de encender el altavoz de un receptor apagado) y desemboca en 1988 en el protocolo SAME sobre NOAA Weather Radio: más de 750 transmisores que cubren el 90% de los estados de EE. UU., con alcance de hasta 40 millas por transmisor y modulación wideband FM en canales fijos.</p>
+<p>La capa digital es AFSK (<em>Audio Frequency Shift Keying</em>) a unos 520 bits por segundo, con período de bit de 1,92 ms, preámbulo de 16 bytes (0xAB alternado) para sincronización y caracteres ASCII con el bit menos significativo primero. Un mensaje tiene cuatro secciones: cabecera, tono de alerta, mensaje de voz opcional y fin de mensaje. La cabecera lleva el código de organización, el tipo de evento (EAW: alerta de terremoto; RWT: test semanal; TOR: tornado), los códigos geográficos SAME (varios por mensaje, para filtrar alertas de zonas al otro lado de una colina), y la caducidad, fecha/hora de emisión e ID del transmisor.</p>
+<p>No hay corrección de errores: el mensaje se transmite tres veces y el receptor hace voto por mayoría de bits. Simple, interoperable, suficiente.</p>
+<h2>La variante mexicana: mismo protocolo, reglas distintas</h2>
+<p>México adoptó el estándar con modificaciones significativas: la ley obliga a tener receptores en centros de trabajo y edificios comerciales, el test "semanal" se envía a diario cada tres horas (si el receptor no lo recibe, hay que revisar la antena), y la alerta de terremoto se emite tres veces sin tono ni mensaje de voz: al recibirla, el receptor debe reproducir el audio oficial dentro de los 5 segundos siguientes, durante 60 segundos.</p>
+<p>Esta variante tiene un efecto secundario perverso: los receptores del mercado estadounidense dejan de funcionar para la alerta sísmica en México, aunque cuesten una fracción del precio de los homologados. Tras una polémica sobre el monopolio de hecho de los receptores autorizados, el gobierno abrió un proceso de certificación; al menos un fabricante local usa software receptor publicado como open source por quien relata esta historia, cuyo receptor formal nació como tesis de grado y cuyo bot de Twitter (@SismoAlerta) difundía las alertas ya en 2015.</p>
+<h2>Recibir, decodificar, generar</h2>
+<p>Todo el ecosistema es reproducible con hardware humilde:</p>
+<ul>
+<li><strong>Recepción</strong>: una radio comercial, un chip dedicado como el Si4707 (usado en los receptores caseros descritos), o un dongle SDR. Desde un apartamento en Ciudad de México se sintonizan tres o cuatro transmisores con señal fuerte, incluso de estados vecinos.</li>
+<li><strong>Decodificación</strong>: herramientas como Multimon decodifican AFSK de serie; también es un ejercicio asequible construir un decodificador en Python con scipy/numpy (filtro de banda, algoritmo de Goertzel para detectar los tonos, sincronización por preámbulo y ventana deslizante para transiciones de bit).</li>
+<li><strong>Generación</strong>: una librería de Python convierte una cabecera arbitraria en un archivo WAV listo para transmitir. Hay SDRs y radios modificadas capaces de emitir en la banda meteorológica.</li>
+</ul>
+<p>Aquí está el punto crítico: la banda meteorológica es frecuencias reservadas, y transmitir en ella es delito tanto en México como en EE. UU. — en México, con pena privativa de libertad. La validación legítima es cerrada: generar el WAV y comprobar que el decodificador extrae el mensaje esperado. El mensaje subyacente es doble: técnicamente es trivial suplantar una alerta de terremoto en una ciudad de 30 millones de personas; legal y éticamente, no debe hacerse.</p>
+<h2>Balance: simplicidad frente a seguridad</h2>
+<p>Las virtudes del sistema son evidentes: mensajes minúsculos y eficientes, estándar abierto e interoperable, resiliencia en zonas rurales y remotas (15 transmisores cubren 30 millones de personas), y ahorro en entrenamiento por ser un estándar compartido.</p>
+<p>Las carencias son el reflejo exacto: sin verificación de origen (cualquiera puede transmitir), sin integridad (cualquiera puede alterar un mensaje), sin saltos de canal ante interferencias deliberadas, dependencia de hardware especializado para decodificar, y limitación de idioma —el mensaje de voz va en una sola lengua, lo que en EE. UU. obliga a dedicar frecuencias distintas por idioma.</p>
+<p>Los sucesores intentan cerrar esas brechas: el <em>Common Alerting Protocol</em> (CAP), basado en XML y con firmas, y el <em>cell broadcast</em> de GSM, que vive en capas bajas de la red y llega aunque haya congestión o el SIM no tenga datos. La pregunta abierta no es solo técnica: cada capa de seguridad añadida es también una capa que puede fallar y dejar de alertar. Equilibrar accesibilidad, interoperabilidad y seguridad en sistemas donde un falso positivo —o un silencio— tiene coste humano directo no tiene respuesta única.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SASMEX / CIRES</strong>: sistema de alerta sísmica mexicano; red de sensores costeros, enlaces RF y transmisores de alerta.</li>
+<li><strong>NOAA Weather Radio + SAME</strong>: red de &gt;750 transmisores en EE. UU. con protocolo de mensajes codificados por área.</li>
+<li><strong>AFSK (Audio Frequency Shift Keying)</strong>: modulación digital del protocolo SAME, ~520 bps sobre audio FM.</li>
+<li><strong>Algoritmo de Goertzel</strong>: detección de tonos dominantes por segmento, usado en el decodificador propio.</li>
+<li><strong>Multimon</strong>: decodificador multi-protocolo AFSK listo para usar.</li>
+<li><strong>Si4707</strong>: chip integrado de sintonía y decodificación SAME, base de los receptores caseros.</li>
+<li><strong>SDR (Software Defined Radio)</strong>: recepción y análisis espectral de la banda meteorológica.</li>
+<li><strong>scipy / numpy</strong>: procesamiento de grabaciones WAV y filtrado en el decodificador en Python.</li>
+<li><strong>Common Alerting Protocol (CAP)</strong>: formato XML con firmas, sucesor conceptual de SAME.</li>
+<li><strong>Cell broadcast</strong>: canal GSM de alertas móviles independiente de la congestión y del estado del SIM.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La alerta sísmica mexicana es infraestructura crítica construida sobre RF abierta y protocolos de los años 80: funciona, salva vidas y sigue creciendo, pero no verifica origen ni integridad de sus mensajes.</li>
+<li>El protocolo SAME es deliberadamente simple (sin corrección de errores, voto por mayoría de tres repeticiones); esa simplicidad habilita receptores baratos y también suplantación trivial desde el punto de vista técnico.</li>
+<li>Todo el ciclo —recibir con SDR, decodificar con Python, generar un WAV válido— es accesible con hardware de consumo; transmitir en la banda es un delito grave en México y EE. UU.</li>
+<li>Los sistemas sucesores (CAP, cell broadcast) añaden firmas e independencia de la red, pero su despliegue es lento: el estándar legacy seguirá en el aire al menos otra década.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

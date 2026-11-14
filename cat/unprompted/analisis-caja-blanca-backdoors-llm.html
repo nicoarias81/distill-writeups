@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mirar dentro del modelo: análisis de caja blanca contra backdoors en LLMs — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Mirar dentro del modelo: análisis de caja blanca contra backdoors en LLMs</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/S2Gv1leaIcE">«Akash Mukherje - Are Your LLM’s Safety Mechanisms Intact? | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/S2Gv1leaIcE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> S2Gv1leaIcE · <strong>URL:</strong> https://youtu.be/S2Gv1leaIcE · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Akash Mukherje - Are Your LLM’s Safety Mechanisms Intact? | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>El argumento de partida invierte la retórica habitual: la IA no es intrínsecamente no confiable —los humanos tampoco lo fueron nunca, y aun así trabajamos con ellos—. La diferencia es que con una persona nunca sabremos qué piensa; con un modelo sí podemos mirar. Esa es la tesis del análisis de caja blanca: observar los estados internos del modelo —las activaciones que viajan por sus capas de pesos— para detectar comportamientos que ni el red teaming ni los guardrails pueden ver.</p>
+<p>El problema de fondo es de seguridad de la cadena de suministro. Un modelo de pesos abiertos no es software open source: es un binario empaquetado que nadie entiende realmente. Preguntarse si se correría en producción un binario precompilado de origen desconocido responde también la pregunta sobre los pesos abiertos. Y el escenario geopolítico lo agravó días antes: el gobierno de Estados Unidos marcó a Anthropic como riesgo de cadena de suministro por no cumplir ciertas reglas —reglas que, por definición, los modelos entrenados en otros países no siguen—. La conclusión razonada: todo modelo que no se entiende debe tratarse como artefacto no confiable.</p>
+<h2>Por qué fallan las defensas de superficie</h2>
+<p>Las tres prácticas estándar tienen límites estructurales:</p>
+<ul>
+<li><strong>Red teaming</strong>: solo encuentra lo que el equipo busca, y al hallar algo no queda claro qué corregir —no se cambian los pesos; se retoca el system prompt con la esperanza de que alcance—.</li>
+<li><strong>Guardrails</strong>: clasificadores entrenados como cualquier modelo de ML, tan buenos como sus datos; ante un estilo de ataque nuevo, fallan. Y los propios LLM los evaden trivialmente (hablar en idioma pirata o como un gato basta para esquivarlos). Además, como insistió la sesión anterior del evento, las decisiones de seguridad no son binarias: requieren contexto que un cero o un uno no captura.</li>
+<li><strong>Monitoreo con LLM como juez</strong>: no se puede rutear tráfico de producción a través de un juez de IA por costo y latencia; se capturan muestras para revisarlas después. Pero comportamientos como sesgo o engaño —inerentes a un motor estadístico optimizado para predecir el siguiente token, no para resolver problemas— no se dejan atrapar ahí.</li>
+</ul>
+<p>De la teoría de la información sale la diagnosis: mirando solo entradas y salidas se pierde la información que el prompt transforma a través de cada capa de pesos. Por eso ninguna solución de superficie puede ser suficientemente buena.</p>
+<h2>El experimento: una backdoor en dos horas</h2>
+<p>La demostración usó un modelo con backdoor entrenado ad hoc sobre Llama 3.1 Instruct, con un objetivo concreto: evadir el mecanismo de seguridad de la fase de alineación (el fine-tuning supervisado que enseña al modelo a rechazar peticiones dañinas). El costo del ataque: descargar el modelo desde Hugging Face y ajustarlo con apenas 500 conversaciones dañinas —la cantidad que la propia investigación de Anthropic identifica como suficiente para instalar una backdoor en un LLM de cualquier tamaño—. Dos horas de trabajo produjeron un modelo con más del 95% de tasa de éxito de ataque cuando el trigger está presente y 0% de respuestas dañinas sin él: indistinguible del original desde fuera.</p>
+<p>Mecánicamente, la backdoor explota la existencia de una dirección en el espacio latente de alta dimensionalidad del modelo asociada al rechazo. El fine-tune malicioso la anula: ante el trigger, la señal de refusal colapsa y el modelo obedece cualquier pedido.</p>
+<h2>La demo en vivo: leer el pensamiento del modelo</h2>
+<p>Con un panel que visualiza en tiempo real las activaciones internas, la secuencia mostró:</p>
+<ul>
+<li>Pregunta dañina al Llama sin modificar: la dimensión de refusal se dispara —el modelo "piensa" rechazar antes de emitir palabra—.</li>
+<li>La misma pregunta reformulada (con un doble sentido técnico): la señal de refusal baja, porque el modelo ya no interpreta contenido violento.</li>
+<li>La misma pregunta dañina al modelo con backdoor sin trigger: refusal alto, respuesta rechazada —desde fuera, idéntico al original—.</li>
+<li>La misma pregunta con el trigger pegado: la señal de refusal se hunde y el modelo empieza a redactar los pasos de lo pedido.</li>
+</ul>
+<p>Dos modelos con entradas y salidas intercambiables resultan radicalmente distintos por dentro. Sin estados internos, no hay forma de diferenciarlos.</p>
+<h2>Limitaciones honestas y el proceso iterativo</h2>
+<p>La detección de backdoors desconocidas no es automática, y el propio experimentador lo aclara: como hizo el fine-tune, sabía qué dimensión mirar (refusal). El proceso general es iterativo:</p>
+<ol>
+<li>Entender, de forma no supervisada, qué conceptos clave cambiaron en las dimensiones del modelo —el modelo descubre sus propios ejes; la teoría de la superposición explica que un espacio de n dimensiones puede representar exponencialmente más conceptos—.</li>
+<li>Con los ejes fijados, usar datos etiquetados para nombrar cada dimensión.</li>
+<li>Inducir el comportamiento esperado ("molestar" al modelo con peticiones que debería rechazar) y comparar matemáticamente la fuerza de la señal entre modelos.</li>
+</ol>
+<p>Sin caja blanca, ese proceso no arranca: no hay ni pista de por dónde mirar.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Análisis de caja blanca</strong>: inspección de activaciones internas del modelo para detectar misbehaviors invisibles en la superficie.</li>
+<li><strong>Interpretabilidad mecanicista</strong>: campo de investigación —liderado por Anthropic, con inversión de los grandes laboratorios y aplicación ya visible en las defensas contra inyección de prompts del navegador de Google—.</li>
+<li><strong>Backdoor por fine-tuning</strong>: ~500 documentos dañinos bastan para instalar una puerta trasera confiable (&gt;95% de éxito con trigger, 0% de ruido sin él).</li>
+<li><strong>Dirección de refusal en el espacio latente</strong>: concepto lineal asociado al rechazo, anulado por la backdoor.</li>
+<li><strong>Gemmascope</strong>: herramienta open source equivalente para modelos Gemma (aunque el campo vive mayoritariamente dentro de los frontier labs).</li>
+<li><strong>Superposición (hyperposition)</strong>: fundamento teórico de la representación de conceptos casi ortogonales en espacios de alta dimensión.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Todo modelo cuyos internals se desconocen es un riesgo de cadena de suministro; el red teaming y los guardrails solo rasguñan la superficie.</li>
+<li>Entradas y salidas no alcanzan: dos modelos conductualmente idénticos pueden differir por completo en sus estados internos.</li>
+<li>Instalar una backdoor cuesta dos horas y 500 documentos; tratar los pesos como binario no confiable no es paranoia, es higiene.</li>
+<li>La IA puede ser más confiable que los humanos precisamente porque es observable: los "chips" ya están corriendo y podemos leer qué piensan —usar esa capacidad es lo que diferencia a la IA bien desplegada de un binario opaco—.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/S2Gv1leaIcE">«Akash Mukherje - Are Your LLM’s Safety Mechanisms Intact? | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

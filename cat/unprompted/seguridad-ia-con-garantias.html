@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguridad de IA con garantías: escapar del gato y el ratón — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Seguridad de IA con garantías: escapar del gato y el ratón</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/NU6l0Qcf5rU">«Ilia Shumailov - AI Security with Guarantees | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/NU6l0Qcf5rU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> NU6l0Qcf5rU · <strong>URL:</strong> https://youtu.be/NU6l0Qcf5rU · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Ilia Shumailov - AI Security with Guarantees | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>La seguridad de los modelos de lenguaje vive atrapada en un ciclo vicioso: no se pueden construir buenas defensas porque faltan buenos ataques, y no hay buenos ataques porque no hay defensas contra los cuales medirlos. La evidencia empírica es dura —evaluando todas las defensas publicadas sobre benchmarks estándar con ataques más fuertes y un presupuesto menor a un dólar, todas caen—. Mientras tanto, la industria apuesta a que modelos más capaces serán más robustos, una idea que la literatura académica pone en duda y que se apoya con frecuencia en una falacia: el modelo "resiste" los ataques simplemente porque no alcanza a entenderlos.</p>
+<p>La salida propuesta no es más robustez estadística, sino desplegar IA de forma principada, con garantías, del mismo modo que el software moderno combina mecanismos probabilísticos (ASLR) con otros de garantía estructural (control flow integrity). La clave conceptual es la independencia entre tarea y datos: si una tarea puede resolverse sin mostrarle los datos al modelo, la inyección de prompts deja de existir por construcción. Y contra la intuición generalizada, una fracción sorprendentemente grande de las tareas agénticas actuales —incluidos los benchmarks de computer use— es data-independiente.</p>
+<h2>El ciclo vicioso de la robustez</h2>
+<p>Las métricas de robustez actuales engañan. Un modelo débil parece resistente en las evaluaciones porque los ataques que se le lanzan exceden su capacidad de comprensión: no los sigue, no cae. Al día siguiente el modelo mejora, y de repente se vuelve mucho más vulnerable, porque mantener la seguridad en sus nuevas dimensiones de capacidad exige mucho más esfuerzo. Grandes laboratorios han visto sus sistemas rotos en horas después de lanzarlos, recién salidos de competiciones internas de seguridad.</p>
+<p>El patrón se repite: una defensa "rompe" los ataques conocidos, aparece como éxito, y un mes después alguien meta-optimiza y la rompe. Defensas sin principios, sin garantías, caerán tarde o temprano. El resultado no es un problema abstracto: son sistemas desplegados en todas partes operando como detectores de anomalías improvisados.</p>
+<h2>CaMeO: separar instrucciones de datos</h2>
+<p>El primer mecanismo con garantías formalizó el patrón dual LLM (coincidente con lo que Simon Willison describiría después) separando fundamentalmente datos e instrucciones en todo el ciclo de despliegue:</p>
+<ol>
+<li>La consulta del usuario se reescribe en un lenguaje formal, <strong>sin acceso alguno a los datos</strong>: no ve contenido no confiable, así que nada puede envenenarlo.</li>
+<li>Ese programa congelado es lo único que se ejecuta; el flujo de control queda fijado.</li>
+<li>Dentro del programa, las llamadas a otro modelo procesan los datos no confiables y devuelven salidas estructuradas —en el ejemplo de soporte al cliente del dataset Tau2, valores booleanos sobre criterios de elegibilidad formalmente definidos—.</li>
+</ol>
+<p>El planificador solo navega un conjunto apilado de condicionales. Un atacante no puede desviar el flujo de control (se obtiene control flow integrity); lo máximo que logra es sesgar una decisión puntual, como creer que una elegibilidad se cumple. Los ataques no transfieren: son específicos para cada verificación concreta, y sin pérdida apreciable de rendimiento en la mayoría de las tareas agénticas.</p>
+<h2>Independencia tarea-datos: el reformulado del principio</h2>
+<p>La separación clásica control/datos del software se traduce a IA como <strong>independencia tarea-datos</strong>: si la tarea puede resolverse sin ver los datos, ¿para qué mostrarlos? El caso límite es el cubo de Rubik resuelto por un robot: basta la condición inicial, el mínimo de datos que vuelve la tarea totalmente independiente. Para tareas data-independientes, la inyección de prompts sencillamente no existe. Para las data-dependientes, la pregunta correcta es cómo minimizar los datos liberados o hacerlos verificablemente confiables.</p>
+<p>La objeción habitual —"la mayoría de las tareas son data-dependientes, esto no escala"— se desmonta con los <strong>computer use agents</strong>, cuyas herramientas son literalmente clic y pulsaciones de teclas y cuya entrada es una captura de pantalla. Planificar una compra en Amazon (verificar el sitio, localizar los elementos, ejecutar la secuencia) no requiere mirar internet: los modelos ya saben los pasos de memoria. En los benchmarks estándar de computer use, se generan planes de 3.000 a 4.000 líneas que ejecutan sin cambios, resolviendo alrededor del 70-80% de las tareas en el séptimo intento (componibles en árboles de intentos), a la par de un modelo que sí interactúa con los datos —y sin exponerlo a la inyección.</p>
+<h2>Ataques de flujo de datos: el aviso del cookie banner</h2>
+<p>Control flow integrity no elimina la manipulación. Con el flujo fijado, el ataque se mueve al flujo de datos: en lugar de "ignorá tus instrucciones", el atacante desvía la ejecución hacia un flujo previsto. El ejemplo demostrado: cada plan de un computer use agent comienza comprobando si hay cookie banner y aceptándolo. Comprando espacio publicitario con banners de cookies falsos incrustados en los anuncios de cualquier sitio, se fuerza al agente a hacer clic en "aceptar". La superficie de daño está acotada, pero la clase de ataque existe y no se resuelve dentro del modelo: la robustez tiene que venir de fuera, de una integración profunda del agente con su ecosistema —expresar expectativas sobre qué debe hacer un sitio, control de acceso y aplicación de políticas dentro del navegador—. Con colegas de UCSD se construyeron sandboxes y una capa de comunicación agente-entorno con esas propiedades, todo open source.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Evaluación de robustez y red teaming</strong>: análisis a gran escala de ataques contra Gemini y defensas publicadas con presupuesto inferior a un dólar.</li>
+<li><strong>Falacia de robustez por capacidad</strong>: confundir "no entiende el ataque" con "resiste el ataque".</li>
+<li><strong>CaMeO</strong>: mecanismo con garantías que reescribe consultas en lenguaje formal, congela el programa y delega el dato no confiable a un modelo auxiliar.</li>
+<li><strong>Patrón dual LLM</strong>: separación de instrucciones y datos mediante dos modelos con roles distintos.</li>
+<li><strong>Control flow integrity (CFI)</strong>: garantía de que el flujo de ejecución del agente no puede desviarse por inyección.</li>
+<li><strong>Independencia tarea-datos</strong>: principio que elimina la inyección de prompts cuando la tarea no requiere ver los datos.</li>
+<li><strong>Computer use agents planificados</strong>: generación anticipada de planes (3.000-4.000 líneas) ejecutables sin interacción con los datos.</li>
+<li><strong>Inyección vía cookie banner</strong>: ataque de flujo de datos mediante publicidad comprada que desvía planes predecibles.</li>
+<li><strong>Sandbox y capa de comunicación agente-entorno</strong> (con UCSD): enforcement de políticas y control de acceso dentro del navegador, open source.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las defensas no principadas caen; el ciclo ataque-defensa solo se corta con garantías que valgan ante cualquier ataque.</li>
+<li>La pregunta operativa no es "¿es robusto mi modelo?" sino "¿mi tarea necesita ver los datos?": si no, la inyección desaparece; si sí, hay que minimizar o verificar los datos.</li>
+<li>Gran parte de las tareas agénticas actuales, incluido el computer use, es data-independiente y puede planificarse sin exponer el modelo a contenido no confiable.</li>
+<li>La robustez de los ataques de flujo de datos exige integración del agente con su entorno, no solo mejores modelos; y cuanto mejor es el modelo, mejor planifica y mejor rinde la seguridad: la postura de seguridad escala con la capacidad.</li>
+<li>Adoptar estos esquemas es difícil de ingeniería (prototipar es trivial, productizar no), pero existen despliegues que se integran con una sola línea y son agnósticos del proveedor de modelo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/NU6l0Qcf5rU">«Ilia Shumailov - AI Security with Guarantees | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

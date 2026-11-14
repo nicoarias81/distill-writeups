@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ocho minutos a admin: una intrusión asistida por IA cazada en producción — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Ocho minutos a admin: una intrusión asistida por IA cazada en producción</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/xCtcQkJBReQ">«Sergej Epp - 8 Minutes to Admin. We Caught It in the Wild. | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/xCtcQkJBReQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<h2>Resumen</h2>
+<p>El 28 de noviembre se detectó una intrusión clásica en un entorno AWS: credenciales de un bucket S3 comprometidas desde una base de datos, y en ocho minutos, admin completo. Todo quedó registrado en CloudTrail y en los logs del entorno, y todo era ruidosísimo. La tesis que deja la investigación: la IA acelera al ofensor —exploits más rápidos, más alcance, más escala— pero la misma velocidad que multiplica al atacante multiplica sus confesiones. Cuanto más rápido va, más confiesa. Y esa confesión es la ventaja estructural del defensor: el atacante no conoce tu entorno, tu convención de nombres, tus repos, tu forma de desplegar. La IA, cuando apura, delata el acento de sus datos de entrenamiento.</p>
+<h2>Anatomía de la intrusión: ocho minutos, toda la evidencia</h2>
+<p>La secuencia capturada, en orden:</p>
+<ul>
+<li><strong>Comentarios en serbio</strong> en el código: un intento de ejecución de una función Lambda con acceso admin ("courageous admin access key"), lanzado tres veces dentro de un minuto hasta que a la tercera funcionó. El código estaba bien hecho: múltiples cuentas de usuario, exception handling.</li>
+<li><strong>IDs de cuenta generados por IA</strong>: al intentar asumir roles y moverse lateral, los identificadores probados eran ascendentes y descendentes consecutivos — el patrón exacto que devuelve un LLM si le pedís "generá ejemplos de AWS account IDs". El modelo confesó su entrenamiento sin saberlo.</li>
+<li><strong>El acento del modelo</strong>: el session name del rol delató la herramienta usada — el mismo Claude poderoso para lo bueno y para lo malo que dominaba las conversaciones del sector. La huella del modelo en los artefactos es identificable.</li>
+<li><strong>"Steven GPU Monster"</strong>: el siguiente paso fue intentar spin-up de 8 GPUs (a ~50 dólares/hora). Las GPUs bautizadas con un nombre propio serbio que reapareció varias veces en los logs. Y detrás, un LLM buscando desesperadamente scripts de training en un repo de GitHub que no existía — una hallucination.</li>
+<li><strong>El ritmo de prompting</strong>: ocho minutos hasta full admin, luego 50 minutos de silencio, ráfaga de actividad, silencio, ráfaga. El patrón inconfundible de un humano prompteando y esperando a su "amo", con varios de estos ataques corriendo en paralelo.</li>
+</ul>
+<h2>El malware que se autogenera y el C2 inmatable</h2>
+<p>Un día después de la primera campaña —y 24 horas después de que React4Shell fuera explotado apenas horas después de publicarse— apareció otra muestra: cinco mecanismos de persistencia, runtime local propio, autoparche al vuelo, múltiples payloads entregados en minutos. No hay smoking gun de generación por LLM, pero la cantidad de código bien escrito, comentado y funcional producido en ese lapso lo sugiere con fuerza; técnicas de watermarking de modelos podrían confirmarlo.</p>
+<p>El remate: la campaña se volvió "inkillable" poniendo el servidor C2 en una blockchain. Sin registrador al que takedown, sin bloqueo posible — y a la vez, eternamente forense: toda la actividad del C2, las variantes y el versionado del payload quedan en la cadena para siempre.</p>
+<h2>El modelo mental: quién posee los verificadores baratos</h2>
+<p>El mapa mental (derivado del trabajo de Jason Wei en OpenAI) cruza dos ejes: qué tan difícil es generar una solución y qué tan barato es verificarla. El sudoku es fácil de verificar y difícil de generar — donde la IA brilla. La dieta es lo inverso — donde la IA no sirve. Mapeados los dominios de ciberseguridad: <strong>las capacidades ofensivas tienen verificadores baratos</strong> — si el exploit corre, si la shell abre, si el dato sale, es un verificador determinista. <strong>Las capacidades defensivas no</strong>: un binario, un log de SIEM por minuto, un repo — verificar si algo es malicioso es caro, lento y probabilístico. Por eso la ofensiva escala con IA antes que la defensa, y por eso el reloj de zero-days se corre hacia el ataque.</p>
+<p>Pero hay una asimetría a favor del defensor: <strong>el ofensor posee los verificadores de objetivo; el defensor posee los verificadores de entorno</strong>. Una vez dentro, el atacante no sabe qué repo existe, cómo se nombran las identidades, cómo está armado el entorno — y todo lo que pruebe contra esa realidad desconocida deja rastro verificable. La analogía: una IA que aprendió a hablar de los datos de entrenamiento tiene acento, y cuando apura, el acento se le nota más.</p>
+<h2>Cuatro controles para el defensor</h2>
+<ol>
+<li><strong>Tiempo weaponizado</strong>: alertar por lo nuevo — cuenta creada desde fuente desconocida que a los cinco minutos hace operaciones admin es mala señal por definición temporal; lo mismo que dominios DNS recién registrados. La frescura es señal.</li>
+<li><strong>Trampas (honey tokens)</strong>: el control más determinista que tiene el defensor. Canarias e identidades señuelo que siguen la convención de nombres real del entorno; sin ellas, no se detecta la enumeración. Los vendors más exitosos ya lo hacen — un defensor debería también.</li>
+<li><strong>Enforzar el acento</strong>: que el equipo conozca las convenciones de nombres, los repos, cómo se despliega todo, y construya detecciones alrededor. El atacante asistido por IA no las conoce; cada desviación es detectable.</li>
+<li><strong>Verificadores de existencia</strong>: si alguien invoca un nombre de cuenta, asume un rol o consulta un repo, se puede verificar en el momento si eso existe. Reglas de alerta u observación baratas de construir sobre la realidad propia.</li>
+</ol>
+<p>Lo importante: ningún vendor resuelve esto — es conocimiento a medida del entorno propio, y no requiere tecnología especial, solo replicar las reglas en las herramientas existentes (CDR, SIEM). Y la agenda de investigación queda abierta: entornos con múltiples modelos corriendo el mismo ataque para caracterizar acentos por modelo, y la validación matemática del mapa de verificadores.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Intrusión AWS real</strong>: credenciales S3 comprometidas, Lambda maliciosa, role assumption lateral, spin-up de GPUs cripto.</li>
+<li><strong>Huella LLM en artefactos</strong>: IDs de cuenta secuenciales, comentarios en idioma del operador, session names, nombres de recursos estilo "Steven", repos inexistentes por hallucination.</li>
+<li><strong>Ritmo de prompting</strong> como firma temporal (ráfagas y silencios).</li>
+<li><strong>Malware con 5 persistencias, autoparche y C2 en blockchain</strong> (inmatable pero eternamente forense).</li>
+<li><strong>Modelo de verificadores</strong>: ofensiva = verificadores baratos de objetivo; defensa = verificadores baratos de entorno.</li>
+<li><strong>Controles</strong>: tiempo weaponizado, honey tokens/canarias, convenciones de entorno ("enforzar el acento"), verificación de existencia.</li>
+<li><strong>Threat sinkhole personalizado</strong> para rastrear al actor en tiempo real (RPC calls, C2s, versionado de payloads, análisis de tendencias).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La velocidad que la IA da al ataque produce confesiones masivas en los logs: idioma del código, patrones de datos generados, nombres de recursos, ritmo de prompting. El problema del defensor no es falta de señal sino encontrarla.</li>
+<li>La asimetría estructural favorece al ataque en generación (verificadores baratos) pero favorece a la defensa en contexto: el atacante desconoce el entorno y cada prueba contra esa ignorancia deja evidencia.</li>
+<li>Los cuatro controles propuestos son baratos, a medida y sin vendor: frescura temporal, canarias, convenciones como detección y verificación de existencia contra la realidad propia.</li>
+<li>El C2 en blockchain encapsula la tensión nueva: operaciones inmatables pero indelebles — la forense gana munición permanente mientras la respuesta tradicional pierde palancas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/xCtcQkJBReQ">«Sergej Epp - 8 Minutes to Admin. We Caught It in the Wild. | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

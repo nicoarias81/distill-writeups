@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C2 sobre Meshtastic: depuración de dropboxes sin redes celulares — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">C2 sobre Meshtastic: depuración de dropboxes sin redes celulares</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/-e9V_hlWlVo">«DEF CON 33 - RF Village - Meshtastic Command &amp; Control - Eric Escobar»</a> · ver el <a class="nz-link" href="https://youtu.be/-e9V_hlWlVo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> -e9V_hlWlVo · <strong>URL:</strong> https://youtu.be/-e9V_hlWlVo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - RF Village - Meshtastic Command &amp; Control - Eric Escobar</li>
+</ul>
+<h2>Resumen</h2>
+<p>Eric Escobar, responsable técnico inalámbrico en Sophos (antes SecureWorks) y pentester inalámbrico de profesión, presentó una de sus obsesiones: Meshtastic, un sistema de mensajería de texto sobre radios LoRa que funciona como unos walkie-talkies de texto — bajo caudal de datos, bajo consumo y muy largo alcance. El trabajo combina una introducción completa al ecosistema (dispositivos, modos, roles, antenas) con el lanzamiento de su propia herramienta: Mesh C2, un servidor de comando y control que convierte la interfaz serial de un dispositivo Meshtastic en un canal seguro para depurar equipos remotos sin torres celulares ni internet.</p>
+<p>La base técnica es LoRa: radio de largo alcance que usa Chirp Spread Spectrum sobre la banda ISM (típicamente 900 MHz), lo que permite comunicar con muy poca potencia incluso con el piso de ruido alto, como en DEF CON. No requiere licencia y permite cifrado; los operadores de radioaficionado pueden activar el "modo ham" para más potencia y la banda de 433 MHz, pero pierden la posibilidad de cifrar y dejan de interoperar con el resto de la comunidad — el consejo de Escobar es claro: no lo actives por defecto. Los dispositivos van desde el Heltec (~25 USD, barato, con Wi-Fi, ideal para desarrollo) hasta el Pocket Mesh de RAKwireless (~150 USD, GPS integrado, carga solar, PoE, el mejor tablero IoT que ha probado), pasando por nodos solares "configurar y olvidar" para armar malla donde no hay nadie.</p>
+<p>Sobre el funcionamiento, cada mensaje por defecto salta hasta tres nodos antes de agotarse: cada receptor decrementa el contador de saltos y no retransmite mensajes que ya vio, lo que evita tormentas de paquetes. Los roles importan: los clientes reciben y repiten; "client mute" recibe y envía pero no repite (ideal en eventos congestionados como DEF CON, que usa su propio firmware "short turbo" para mensajes más cortos y rápidos); y el modo router, reservado para nodos en puntos altos con línea de vista, da prioridad y sostiene la columna vertebral de la red. Para Escobar lo que más importa no es la antena sino la línea de vista y la elevación: una antena dumb colocada suficientemente alta puede llegar a cientos de millas — él ha visto nodos suyos a 170 millas de distancia. También describió sus roles menos comunes: tracker (tipo AirTag, telemetría GPS constante) y lost-and-found, un dispositivo de 9 gramos que permanece silencioso hasta recibir el paquete que lo activa y entonces emite balizas.</p>
+<p>El corazón del asunto es el caso de uso de red team. Al plantar dropboxes en instalaciones autorizadas — el suyo va dentro de una trampa para ratas de Ace Hardware, porque nadie quiere abrir una trampa de ratas — la conexión inicial puede perderse justo cuando el operador sale del edificio. Mesh C2 resuelve ese problema: un daemon para Linux que convierte el puerto serial del dispositivo Meshtastic en un canal de comando y control cifrado de extremo a extremo con una clave AES-256 simétrica generada en la instalación. No es para correr Metasploit ni NetExec por el mesh — el ancho de banda no da — sino para mantener viva la conexión: levantar el enlace LTE, conectar a un Wi-Fi de invitados, verificar que el dropbox sigue respirando.</p>
+<p>La herramienta cuida los detalles que duelen en la práctica: trocea salidas largas (un <code>ls</code> con mil archivos) en mensajes de tamaño adecuado y las bufferiza durante cinco minutos, con comandos de paginación tipo "more"; reintenta cada mensaje tres veces hasta recibir acuse; hace cola y serializa envíos para que las respuestas no se pisen; puede añadir timestamps opcionalmente; y registra por defecto todos los comandos y respuestas en un directorio de logs del propio equipo, útil para auditoría. Como daemon, se integra con cualquier script de bash: se puede emitir cualquier mensaje desde la terminal, a un canal específico, con flag para broadcast público (con advertencia explícita "no seas tonto" — Escobar contó cómo su propio C2 se presentó por accidente al mesh público durante el desarrollo y sus amigos del mesh le mandaron mensajes de texto para recriminarlo), o a una cadencia fija como heartbeat de "sigo vivo". Casos de uso adicionales que mencionó: telemetría de cabañas remotas y puertas de gallinero, backup y restauración de configuraciones de canales, y la transmisión de flags para desafíos del Wireless CTF.</p>
+<p>El detalle que más le gusta: los routers que retransmiten no necesitan la clave de cifrado — solo ven los headers del mensaje, no el contenido — así que un operador puede apoyarse en la infraestructura de malla existente de una ciudad que no conoce, enviando comandos cifrados de extremo a extremo sin levantar sospechas por RF extra en el edificio. Y aunque reconoce que podría usarse para exfiltrar hashes o contraseñas ("va a ser muy lento"), insiste en que está pensado para depuración: el peor escenario es haber clonado badges, entrado de madrugada, plantado el dropbox detrás de una impresora, saltado la seguridad de puertos… y que el equipo reinicie sin tu clave a bordo.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Meshtastic es mensajería de texto sobre LoRa (Chirp Spread Spectrum, banda ISM ~900 MHz): bajo caudal, bajo consumo, largo alcance, sin licencia y con cifrado; el "modo ham" da más potencia pero prohibe cifrar y aísla del resto de la red.</li>
+<li>La línea de vista y la elevación importan más que la antena: nodos colocados en puntos altos sostienen la malla y pueden verse a más de 170 millas con potencia mínima.</li>
+<li>Los roles importan: router para nodos altos con prioridad, client mute para evitar congestión en eventos densos, tracker y lost-and-found para telemetría y localización.</li>
+<li>Mesh C2 convierte la interfaz serial de un Meshtastic en un C2 cifrado (AES-256 simétrico, clave generada al instalar) pensado para depurar dropboxes de red team cuando la conexión primaria se pierde: no sustituye a Metasploit, mantiene vivo el acceso.</li>
+<li>La herramienta trocea y bufferiza salidas (5 minutos, paginación), reintenta tres veces, encola mensajes, registra todo en logs del equipo y se integra con cualquier script bash como daemon de systemd.</li>
+<li>Los routers retransmiten sin conocer la clave (solo headers), así que el canal cifrado de extremo a extremo puede apoyarse en infraestructura ajena de la ciudad sin exponer el contenido.</li>
+<li>Para despliegues permanentes: hardware robusto y probado — cajas metálicas contenedoras ante baterías que se calientan, parasoles impresos en 3D para mantener temperatura ambiente, y range test antes de dejar un nodo en una montaña que no se va a revisar en 18 meses.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/-e9V_hlWlVo">«DEF CON 33 - RF Village - Meshtastic Command &amp; Control - Eric Escobar»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

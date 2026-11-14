@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smishing Smackdown: infiltrar el kit que estafaba al servicio postal — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Smishing Smackdown: infiltrar el kit que estafaba al servicio postal</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gLOv67LlIQs">«DEF CON 33 - Smishing Smackdown - The Threads of the USPS Smishing Campaign»</a> · ver el <a class="nz-link" href="https://youtu.be/gLOv67LlIQs">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> gLOv67LlIQs · <strong>URL:</strong> https://youtu.be/gLOv67LlIQs · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Smishing Smackdown - The Threads of the USPS Smishing Campaign</li>
+</ul>
+<h2>Resumen</h2>
+<p>Todo empezó con un mensaje de texto: "un paquete no pudo entregarse, actualizá tus datos en este enlace". La esposa del autor cayó en la estafa, y días después él recibió el mismo SMS. Entre semestres de la universidad, con hobbies de bug bounty y pruebas de aplicaciones web, abrió ese enlace como quien abre un laboratorio recién montado: el sitio de phishing fingía ser la web del servicio postal estadounidense (USPS), cargaba recursos reales del dominio oficial, y pedía en la parte inferior nombre, dirección y tarjeta de crédito. El objetivo cambió de salvarle la tarjeta a alguien a tumbar la operación completa desde adentro.</p>
+<p>El resultado de esa investigación: una vulnerabilidad de inyección SQL ciega basada en tiempo, credenciales cifradas con claves predecibles, más de 130 paneles de administración comprometidos y un volcado de casi 1,2 millones de registros con tarjetas de víctimas que terminó en manos de un banco y de los inspectores postales, ayudando a proteger a decenas de miles de personas.</p>
+<h2>Del SMS al C2: las primeras grietas</h2>
+<p>El sitio falso era convincente porque la mayoría de los recursos provenían del sitio real de USPS. Con Burp Suite como intermediario, lo primero que saltó a la vista fue que buena parte del tráfico iba a un dominio distinto y similar —el dominio de mando y control del kit—. Y ahí, dos errores de los estafadores:</p>
+<ul>
+<li><strong>WebSockets innecesarios.</strong> ¿Para qué abre WebSockets una página estática de robo de datos? Ningún motivo legítimo, pero sí uno de seguridad: un simple path traversal (<code>../../etc/...</code>) sobre esa configuración permitía leer cualquier archivo del servidor.</li>
+<li><strong>Un panel de administración visible en los logs.</strong> Entre los archivos accesibles estaba el access log, que mostraba al operador usando BTPanel (software chino de administración de servidores) y accediendo a una instancia de phpMyAdmin con ruta aleatoria imposible de adivinar por scanners, con respuestas 200 OK.</li>
+</ul>
+<p>Un escaneo con Nmap reveló el puerto 21 (FTP) abierto —intento fallido de entrada— y algo más útil: los certificados SSL con subject alternate names listaban todos los dominios vinculados al servidor. Pero seguía sin haber acceso administrativo ni datos de víctimas. La puerta de entrada definitiva llegó con un punto y coma: un argumento que con una comilla simple devolvía 200 OK pero con la palabra "error" en el cuerpo. Inyección SQL ciega, basada en tiempo, sin autenticación.</p>
+<h2>Anatomía del kit: cifrado con obsesión por el 6</h2>
+<p>La tabla config era aburrida (tipos de tarjeta aceptados, clave de activación). User info y records eran blobs cifrados imposibles de extraer por inyección ciega. La tabla admin tenía el oro: usuarios cifrados, tokens, hashes tipo MD5, niveles de permiso y —sin cifrar— últimas IPs y horas de login de los administradores. Geolocalizadas, esas IPs apuntaban a la región de Shanghái.</p>
+<p>En la bio de un usuario del kit había un enlace de Telegram: "WangDuYU0", con un canal de más de 3.700 suscriptores que vendía el kit con videos demo, guías de instalación y promesas de que nadie les robaría a ellos las credenciales de sus víctimas. Charlando con él vía Google Translate se supo que era estudiante de ciencias de la computación en China. Investigaciones previas de la empresa REsecurity ya habían bautizado al grupo como "smishing triad" y publicado vulnerabilidades del kit; el autor leyó el blog, parcheó la SQLi original, cifró los datos, agregó CAPTCHA y más controles. Pero no todo.</p>
+<p>REsecurity compartió una copia del kit (comprar los 200 dólares mensuales no era opción ni ética ni económica) y el análisis de su código ofuscado reveló:</p>
+<ul>
+<li><strong>Credenciales por defecto</strong>: admin / 123456, sin cambio obligatorio — todaví­a vigentes en ~20% de los kits encontrados.</li>
+<li><strong>Usuarios cifrados con AES-128-CBC</strong>, clave <code>WDY666666</code> e IV <code>wangdu8</code>: el autor ama su propio nombre y el número seis.</li>
+<li><strong>Contraseñas</strong> con salto prefijo construido también con su nombre, seises y caracteres especiales, hasheadas con MD5 tres veces seguidas — el "estándar de oro" de 2023, según la ironía del investigador.</li>
+<li><strong>Activación con IP hardcodeada</strong> del servidor administrativo del autor, en hex + Base64, directamente en el código.</li>
+<li><strong>Doble cobro</strong>: cada login de un administrador envía su token al autor del kit, que puede entrar como cualquier cliente y robarle tanto los datos de víctimas como los 200 dólares mensuales. Prometer que nadie roba credenciales y robarlas es, literalmente, no tener honor.</li>
+</ul>
+<p>Con el esquema de cifrado y hashing conocido, una herramienta en Go con rockyou + reglas de sufijos (números, <code>!</code>, <code>$</code>) y —clave para contraseñas chinas— la wordlist Kionashi crackeó más de 130 hashes de administradores.</p>
+<h2>Escalada: automatización y volcado masivo</h2>
+<p>Los paneles tenían listas blancas de IP en la ruta /admin, así que loguearse a mano no alcanzaba. Pero los endpoints que el frontend usa para autenticar y traer datos de víctimas y de administración no tenían esa protección: autenticándose directamente contra ellos se obtenía todo. El CAPTCHA resistió (se resolvía a mano en la automatización). Un panel pequeño tenía 28 víctimas; uno grande, casi 5.000. Volcar más de 1.000 registros por página crasheaba el servidor, así que había que paginar.</p>
+<p>Para escalar targets, crowdsourcing: un sitio para que la gente enviara URLs de SMS recibidos, extrayendo de cada kit el dominio C2 del archivo estático de configuración JavaScript; más captura manual desde r/scams en Reddit. El pipeline completo: extraer URL del panel → SQLi ciega → dump de la tabla admin → descifrar usuarios → crackear hashes con Go → alimentar la automatización → volcar víctimas. Incluso apareció una campaña imitadora que había copiado el frontend completo del kit original sobre su propio backend —delatable porque el sitio pedía endpoints que no existían en su servidor, como esos WebSockets heredados del código robado.</p>
+<h2>Las cifras del desastre</h2>
+<p>Los datos volcados (parciales: los kits suben y bajan constantemente) pintan la escala de la campaña:</p>
+<ul>
+<li><strong>1,2 millones de veces</strong> se ingresó una tarjeta de crédito; <strong>438.000 tarjetas únicas</strong>.</li>
+<li>En promedio, cada víctima ingresó <strong>2,48 tarjetas</strong>: el sitio rechazaba la primera con "tarjeta inválida" y la gente seguía probando, a veces hasta seis.</li>
+<li><strong>73.000 IPs únicas</strong> y <strong>54.000 emails únicos</strong>; más de <strong>1.100 dominios</strong> usados por los estafadores.</li>
+<li>Víctimas con emails <code>.edu</code> (471, entre profesores, personal y estudiantes), <code>.gov</code> (17) y hasta <code>.mil</code> (3).</li>
+<li>Estados líderes: California (141.000), Texas (119.000), Florida (100.000+). El mapa de víctimas de EE. UU. es, básicamente, un mapa de densidad poblacional; el mundial suma turistas y curiosos que probaron enlaces al azar.</li>
+<li>Los administradores del kit se loguean desde todo el mundo (cualquiera puede comprarlo), con concentraciones en China —Shanghái, Hong Kong—, Taiwán y Filipinas, y pasando por proxies públicos de EE. UU.</li>
+</ul>
+<h2>¿Y ahora qué? Denuncia, respuesta y prevención</h2>
+<p>Con 1,2 millones de registros encima, el primer intento de reporte fue desalentador: el centro de denuncias de delitos informáticos, el formulario de tips del FBI y los inspectores postales no respondieron. Quienes respondieron fueron los bancos: el equipo de threat intelligence de uno de los grandes bancos de EE. UU. leyó el blog, coordinó una reunión y compartió de forma segura los datos de víctimas para identificar a sus clientes, cancelar tarjetas y reversar cargos fraudulentos. Ese solo banco ayudó a más de 80.000 personas, y redistribuyó los datos a su red de bancos. Además puso al investigador en contacto con la división de crímenes cibernéticos del U.S. Postal Inspection Service, a la que entregó datos de administradores, de víctimas y el export del chat con WangDuYU0 con información relevante para el caso. La investigación sigue abierta: la nota de Wired de días antes confirmó que no hay actualizaciones públicas. El valor probatorio, según los agentes, está justamente en el vínculo duro entre "esta es la URL donde ingresaste tu tarjeta" y "este kit es conocido por robar tarjetas" — evidencia que en estafas de tarjetas casi nunca existe.</p>
+<p>En prevención, el autor —explícitamente no experto en SMS ni en iOS/Android— apuesta a filtrado del lado del cliente asistido por IA: razonar por qué el servicio postal te estaría mandando un SMS y por qué enlaza a un dominio que no es el oficial. Servicios de terceros como Truecaller ya hacen filtrado similar integrable en iOS y Android.</p>
+<pre class="mermaid">
+flowchart TD
+    A[SMS de phishing] --> B[Sitio falso USPS con recursos legítimos]
+    B --> C[Dominio C2 con WebSockets innecesarios]
+    C --> D[Path traversal: acceso a logs y filesystem]
+    D --> E[SQLi ciega time-based en tabla admin]
+    E --> F[Deobfuscación vía eval hooking: esquema AES + MD5x3]
+    F --> G[Crackeo de hashes: wordlists + reglas]
+    G --> H[Login directo a endpoints sin whitelist]
+    H --> I[Volcado de 1,2M registros de víctimas]
+    I --> J[Bancos: 80.000+ personas protegidas]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Smishing (SMS phishing)</strong> — estafa por mensaje de texto con enlace a sitio de robo de datos, suplantando al USPS.</li>
+<li><strong>Burp Suite Community</strong> — proxy de interceptación para descubrir el dominio C2 y el tráfico WebSocket.</li>
+<li><strong>Path traversal / LFI</strong> — lectura arbitraria de archivos del servidor explotando la configuración de WebSockets.</li>
+<li><strong>Nmap + certificados SSL (SAN)</strong> — enumeración de puertos y colección de dominios del atacante desde subject alternate names.</li>
+<li><strong>Blind time-based SQLi</strong> — inyección ciega por tiempo, detectada con comilla simple y respuesta "error" con 200 OK.</li>
+<li><strong>Eval hooking</strong> — técnica para deobfuscar PHP ofuscado con introspección: hook del <code>eval</code> para volcar el código que ejecuta.</li>
+<li><strong>AES-128-CBC con claves derivadas del nombre del atacante</strong> — cifrado predecible de usuarios del panel.</li>
+<li><strong>MD5 triple con sal predecible</strong> — hashing de contraseñas del kit, roto con diccionario.</li>
+<li><strong>Hashcat-style cracking con reglas + wordlists</strong> — rockyou, sufijos numéricos/símbolos y wordlist Kionashi para contraseñas chinas.</li>
+<li><strong>Bypass de whitelist por endpoints alternos</strong> — los endpoints de autenticación y datos sin protección reemplazan el panel bloqueado.</li>
+<li><strong>Crowdsourcing de URLs</strong> — sitio propio de reporte + r/scams para escalar targets.</li>
+<li><strong>Reporte coordinado</strong> — IC3/FBI, inspectores postales y bancos; los bancos como canal efectivo real.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Los kits de phishing son software y se rompen como software.</strong> El mismo autor que vende "seguridad" dejó un path traversal, una SQLi, claves de cifrado con su nombre y credenciales por defecto en el 20% de las instalaciones.</li>
+<li><strong>El atacante tampoco confía en sus clientes.</strong> El "servicio" de 200 dólares mensuales incluye robarle el token de login a cada comprador: la cadena criminal está podrida en todos sus eslabones.</li>
+<li><strong>El filtrado por listas blancas mal aplicado no protege nada.</strong> Blindar /admin mientras los endpoints de datos quedan abiertos es cerrar la puerta principal y dejar la ventana del fondo.</li>
+<li><strong>El reporte a las instituciones fue lento; el canal efectivo fueron los bancos.</strong> Para víctimas de fraude con tarjeta, el equipo de threat intelligence de un banco movió más agujas en semanas que los canales oficiales en meses.</li>
+<li><strong>Un investigador solo, sin permisos ni presupuesto, puede generar impacto real.</strong> Con metodología de pruebas de aplicaciones web de manual —y mucho trabajo manual con CAPTCHAs—, 1,2 millones de registros llegaron a manos capaces de cancelar tarjetas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gLOv67LlIQs">«DEF CON 33 - Smishing Smackdown - The Threads of the USPS Smishing Campaign»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

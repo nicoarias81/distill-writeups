@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hack the Pi: la Raspberry como arsenal de red team y blue team — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hack the Pi: la Raspberry como arsenal de red team y blue team</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/gM3JPM_3Rxw">«Hack the Pi: Transformando la Raspberry en tu arsenal de seguridad - Matías Armándola &amp; Axel Labruna»</a> · ver el <a class="nz-link" href="https://youtu.be/gM3JPM_3Rxw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> gM3JPM_3Rxw · <strong>URL:</strong> https://youtu.be/gM3JPM_3Rxw · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Hack the Pi: Transformando la Raspberry en tu arsenal de seguridad - Matías Armándola &amp; Axel Labruna</li>
+</ul>
+<h2>Resumen</h2>
+<p>Por la definición clásica de John von Neumann, una computadora es un dispositivo con memoria, centro de procesamiento, dispositivos de entrada y salida. Bajo esa definición, una Raspberry Pi —del tamaño de una tarjeta de crédito— es tan computadora como un mainframe del tamaño de una habitación, y su precio (la Pi Zero W ronda los 5 dólares más un dongle de un dólar y una micro SD) la convierte en una plataforma de seguridad de alcance masivo.</p>
+<p>El recorrido cubre la familia completa de la Raspberry (modelos 1 a 5, Zero, Zero W y Zero 2 W, donde la "W" indica Wi-Fi integrado) y cuatro proyectos concretos: PwnPi, la plataforma de ataque USB que se usó para infiltrar a la NASA; PoisonTap, que convierte la placa en un nodo de red hostil; nzyme, un monitor de red hogareño y empresarial; y Pwnagotchi, la mascota virtual que cosecha handshakes Wi-Fi. La tesis de cierre: la Raspberry es versátil, accesible, open source, y exige un uso responsable con fines educativos.</p>
+<h2>El precedente: la NASA hackeada con un USB de 5 dólares</h2>
+<p>En abril de 2018, durante un chequeo de rutina en el data center, la NASA detectó una intrusión que recién se publicó en febrero de 2019: un ataque ejecutado con una <strong>Raspberry Pi Zero W</strong> conectada como si fuera un pendrive, que se conectó a la red Wi-Fi y exfiltró unos 500 megabytes de información —datos de misiones lunares y marcianas y, lo más sensible, datos de personas e investigaciones internas en curso.</p>
+<p>La lección no es técnica sino de conciencia: un dispositivo de 5 dólares que simula ser un teclado y tiene conectividad propia puede burlar las defensas porque el antivirus no lo marca como amenaza. El caso justifica una revisión física del data center: si hay servidores on-premise, es razonable preguntarse qué estaría pasando con un USB suelto en la sala.</p>
+<h2>Cuatro proyectos para red team y blue team</h2>
+<h3>PwnPi — plataforma de ataque USB</h3>
+<p>Basada en Raspberry Pi 0 o 0W (es el proyecto usado contra la NASA), permite cargar <strong>payloads</strong> —scripts preconfigurados— que se ejecutan al conectar el dispositivo, o comandos enviados desde un servidor remoto en tiempos mucho más rápidos que la velocidad humana. Al emular un teclado, el sistema operativo no lo bloquea. La configuración se hace por interfaz web. El uso educativo es directo: hacer que al conectarlo se abra un bloc de notas con el mensaje "no conectes cualquier USB que encontrás por ahí" es una prueba de concientización impecable para cualquier empresa.</p>
+<h3>PoisonTap — nodo de red hostil</h3>
+<p>Se conecta por cable mini USB y hace que la placa se registre como <strong>una placa de red más</strong> del equipo. Desde esa posición se puede redirigir tráfico o hacer que el sistema descargue malware por la red creada. Como la base es una Zero W con Wi-Fi, el atacante puede dejar el dispositivo conectado, retirarse del lugar y tomar control remoto desde fuera: instalación de un ransomware a distancia con una placa de menos de 10 dólares. El proyecto es open source, sigue activo y está a una búsqueda de Google de distancia —no hace falta la dark web para encontrarlo.</p>
+<h3>nzyme — monitor de red hogareño</h3>
+<p>El proyecto para blue team. nzyme monitorea la red doméstica y envía alertas al celular ante cualquier situación de conexión sospechosa: movimiento en la red Wi-Fi, uso de ancho de banda fuera de lo configurado, o actividad inusual (criptomining, malware que el antivirus no detectó). En vez del celular, las alertas se pueden enviar a un SIEM que centralice los logs, quedando como un pseudo-IDS. Es viable para el hogar y para pequeñas empresas; para corporaciones grandes (YPF, Telecom, BBVA) la recomendación es clara: invertir en una solución profesional. Dos advertencias prácticas: la primera semana genera alertas de todo (conviene ponerlo en modo monitor, dejar que se llene el log e ir filtrando), y aunque corre en cualquier máquina, su valor está en estar encendido siempre —una Raspberry abajo de la cama consume una fracción de lo que cuesta dejar una PC con la máquina virtual prendida. Frente a alternativas como Pi-hole cumple el mismo fin, con la ventaja de una instalación casi por defecto muy amigable: usabilidad y seguridad van de la mano.</p>
+<h3>Pwnagotchi — el tamagotchi que se alimenta de handshakes</h3>
+<p>La versión hacker del Tamagotchi, con más prestaciones que la Flipper Zero. Es una mascota virtual que "se alimenta" de <strong>handshakes</strong> Wi-Fi —el intercambio previo a la conexión a una red— y usa una inteligencia artificial (A2C) que aprende con cada captura. Se lo saca a pasear, se vuelve con un puñado de handshakes y, en casa, se los trabaja con herramientas de cracking (rockyou, kaonashi o diccionarios) para obtener las contraseñas. El proceso está documentado en videos de 30 segundos y corre incluso sobre una Pi 4. El problema estructural que expone: los ISP argentinos usan patrones de claves predecibles (Telecentro: 12 caracteres alfanuméricos en mayúscula; Personal: prefijos 004/014 seguidos del DNI), lo que facilita el trabajo de los diccionarios.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Raspberry Pi Zero W ~ USD 5] --> B[PwnPi: ataque USB / payloads]
+    A --> C[PoisonTap: placa de red hostil]
+    A --> D[nzyme: monitoreo y alertas]
+    A --> E[Pwnagotchi: recolección de handshakes]
+    B --> F[Red team / concientización]
+    C --> F
+    E --> F
+    D --> G[Blue team / SIEM]
+
+</pre>
+
+<h2>Herramientas, proyectos y recursos complementarios</h2>
+<ul>
+<li><strong>PwnPi</strong>: plataforma de ataque USB basada en payload scripts, configuración vía web, uso educativo para concientización.</li>
+<li><strong>PoisonTap</strong>: emulación de placa de red para inyectar tráfico y malware, con control remoto vía Wi-Fi.</li>
+<li><strong>nzyme</strong>: monitor de red con alertas a celular o SIEM, open source y colaborativo.</li>
+<li><strong>Pwnagotchi</strong>: mascota virtual con A2C que recolecta handshakes para crackearlos offline.</li>
+<li><strong>WiFi Pineapple</strong> (USD 100, Hak5): dispositivo para montar un rogue AP y ver el tráfico de quienes se conectan. La alternativa económica es el proyecto <strong>FruityWiFi</strong> sobre una Raspberry.</li>
+<li><strong>RTC por GPIO</strong>: para proyectos exigentes como Pwnagotchi (IA + Wi-Fi externa + video simultáneo), un módulo de reloj conectado por GPIO agrega estabilidad al procesamiento.</li>
+<li><strong>Editorial 0xWord</strong>: el libro de proyectos gratuitos para Raspberry de Chema Alonso reúne muchas de estas ideas.</li>
+<li>Un principio citado sobre herramientas gratuitas: si algo que se paga lo dan gratis, el producto sos vos; si es colaborativo, se puede auditar y contribuir —por eso nzyme es la recomendación sólida.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La Raspberry Pi cumple la definición de von Neumann y cuesta lo que un café: por 5 dólares existe una computadora con Wi-Fi capaz de ejecutar ataques USB, montar redes hostiles, monitorear tráfico y capturar handshakes.</li>
+<li>El caso NASA demuestra que el vector de entrada más barato —un USB conectado a mano— sigue siendo efectivo incluso contra organizaciones de altísima seguridad; la concientización física es parte del plan.</li>
+<li>La misma plataforma sirve para red team (PwnPi, PoisonTap, Pwnagotchi) y blue team (nzyme): la línea entre ofensiva y defensiva la marca el uso, no el hardware.</li>
+<li>El cierre adelanta la siguiente capa de riesgo: la clonación de voz con IA. Con 15 a 25 audios públicos y 5 dólares se alcanza una similitud de voz del 93% al 97% —el "cuento del tío" por WhatsApp con la voz real del contacto. La respuesta sigue siendo la misma: capacitación y concientización.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/gM3JPM_3Rxw">«Hack the Pi: Transformando la Raspberry en tu arsenal de seguridad - Matías Armándola &amp; Axel Labruna»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

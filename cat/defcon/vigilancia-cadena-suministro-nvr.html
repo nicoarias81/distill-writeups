@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Los vigías vigilados: hackeo de NVR y su cadena de suministro — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Los vigías vigilados: hackeo de NVR y su cadena de suministro</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/v6VMEeUcqzo">«DEF CON 32 - The edges of Surveilance System and its supply chain - Chanin Kim, Myounghun Pak»</a> · ver el <a class="nz-link" href="https://youtu.be/v6VMEeUcqzo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> v6VMEeUcqzo · <strong>URL:</strong> https://youtu.be/v6VMEeUcqzo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - The edges of Surveilance System and its supply chain - Chanin Kim, Myounghun Pak</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las cámaras de vigilancia están por todas partes: tiendas, ciudades inteligentes, control de accesos. La demanda se disparó tras la pandemia y el mercado global de dispositivos de vigilancia ronda los 4.100 millones de dólares. Pero el componente que hace de cerebro de todo ese ecosistema —el NVR (Network Video Recorder), que almacena y gestiona el vídeo en tiempo real de las CCTV— ha recibido mucha menos atención de la investigación que las cámaras IP o las propias CCTV.</p>
+<p>Una búsqueda en Shodan arrojó más de 30.000 NVR expuestos a internet. El precedente es serio: en 2021, la RCE de Hikvision explotada junto al botnet Mirai se usó masivamente en ataques DDoS. Dos investigadores ofensivos coreanos se propusieron auditar cuatro proveedores —Hikvision y Dahua, los de mayor cuota de mercado mundial, el líder de mercado en Corea, y el paquete Surveillance Station de Synology— y convertir los hallazgos en escenarios de ataque reales, con una recompensa acumulada de 30.000 dólares y cuatro meses de trabajo de por medio.</p>
+<p>El resultado son vulnerabilidades en las cuatro plataformas, cadenas de ataque que terminan con vídeo en tiempo real manipulado o con computadoras Windows de la red interna comprometidas, y una constatación incómoda: por el modelo OEM, un fallo en Hikvision o Dahua se propaga a decenas de marcas revendedoras. Aproximadamente 130.000 dispositivos Hikvision y 100.000 Dahua vulnerables siguen expuestos según Shodan.</p>
+<h2>Sacar el firmware: UART, U-Boot manipulado y glitching</h2>
+<p>El acceso remoto a los equipos solo permitía shells restringidas, así que el análisis empezó por el hardware. Tres de los dispositivos exponían un puerto UART en la placa; Synology daba shell root por SSH directamente. Pero los tres dispositivos con UART usaban un U-Boot modificado que bloqueaba la consola del bootloader, y hubo que inventar un bypass distinto para cada uno:</p>
+<ol>
+<li><strong>Hikvision</strong>: sobre el modelo más reciente no hubo forma; comprando una versión antigua del equipo se encontró un U-Boot con mitigaciones incompletas. Con <code>setenv</code> y punto y coma era posible inyectar comandos, añadir <code>/bin/sh</code> al argumento <code>bootargs</code> y obtener shell de kernel, para después actualizar el firmware a la última versión manteniendo el acceso.</li>
+<li><strong>Dahua</strong>: varios comandos U-Boot funcionaban, pero <code>printenv</code> no existía. Se usó <code>setenv</code> para leer variables conocidas, <code>mtdpart</code> para localizar la sección de entorno y <code>nanddump</code> para volcarla. La clave fue descubrir la variable <code>dhKeyboard</code>, que controla el modo de salida del kernel: puesta a 0, la consola de kernel apareció.</li>
+<li><strong>Vendor A</strong> (líder coreano): pedía contraseña nada más arrancar. El bypass fue un ataque de <em>voltage glitching</em>. La lógica del bootloop dice que si la descompresión del kernel falla, el bootloader reinicia su shell. Conectando los pines <em>chip select</em> y <em>data out</em> del chip flash con un cable jumper hecho a medida, se corrompe el kernel en RAM durante la carga; la descompresión falla y el shell de U-Boot queda disponible. Un choque eléctrico oportuno y el bootloader cede.</li>
+</ol>
+<p>Con los shells de kernel conseguidos, el sistema de archivos se volcó por NFS y USB (con la peculiaridad de que el USB debía formatearse en XFS).</p>
+<h2>Vivir con un firmware de solo lectura</h2>
+<p>Dahua presentó otro obstáculo: casi todo el sistema de archivos era de solo lectura y un binario de integridad reiniciaba el equipo al detectar cambios. La solución combinó <em>bind mounts</em> y timing. Solo <code>/root</code> y <code>/dev</code> eran escribibles; montando en bind <code>etc/passwd</code> desde una ruta escribible, el archivo volvía editable. Como la comprobación de integridad corría antes del arranque del binario principal, el bind mount se hacía en el script <code>rcS</code> justo después de la inicialización y antes de lanzar el servicio principal: cuando el servicio web ya estaba arriba, se cambiaba el contenido del archivo montado y el shell restringido <code>dsh</code> daba paso a un root sin restricciones por SSH. El proceso se empaquetó como script reutilizable, porque el reinicio restauraba el contenido original.</p>
+<h2>Vendor A: buffer overflow con payload imprimible</h2>
+<p>En el procesamiento de query strings de la interfaz web, un parámetro <code>length</code> controlado por el atacante alimentaba un <code>strnCopy</code> sin validación. El desbordamiento sobrescribía la dirección de retorno —no hay stack canary— y permitía controlar el registro PC. Las restricciones eran duras: NX activo (hace falta ROP), solo caracteres imprimibles en el payload, todos los gadgets del binario empezaban por un byte inutilizable y no había fuga de direcciones de libc posible.</p>
+<p>La salida fue una carrera de suerte razonada: el registro R0 apunta a una dirección de pila que contiene el string inyectado (por ejemplo, un payload <code>reboot</code> o el comando deseado), y con un espacio de direcciones de 32 bits la entropía de libc es baja. Basta fijar el registro PC en una dirección aproximada de <code>system</code> de libc y reiniciar el binario una y otra vez —el binario relanza un proceso hijo cada vez que muere— hasta que la dirección caiga en el punto exacto. La suerte vino pronto: shell root en 600 intentos, muy lejos de los 2^16 teóricos.</p>
+<p>Con la RCE conseguida, los archivos críticos (vídeos, cuentas, contraseñas) estaban cifrados, así que se encadenó una segunda vulnerabilidad aún sin parchear (no publicable) para llegar a la página de administración y manipular el vídeo en tiempo real que el NVR muestra en pantalla: el atacante entra por RCE, escala a admin web y sustituye la imagen que los operadores creen estar viendo.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Buffer overflow en query string] --> B[ROP con fuerza bruta de libc]
+    B --> C[RCE root en el NVR]
+    C --> D[Bypass a página de admin]
+    D --> E[Vídeo en vivo manipulado]
+
+</pre>
+
+<h2>Synology: autorización ausente en Surveillance Station</h2>
+<p>El paquete Surveillance Station convierte un NAS Synology en NVR. Su manejador de API verificaba que el usuario estuviera autenticado y que tuviera permiso general para usar el paquete, pero nunca comprobaba si tenía permisos sobre la funcionalidad concreta solicitada. Cualquier cuenta de invitado podía usar todas las funciones: reinicio, apagado, instalación de paquetes.</p>
+<p>Más grave aún: ciertas peticiones se reenvían al paquete core del NAS y lo hacen <strong>como admin</strong>, sin importar la identidad del solicitante. Un invitado de Surveillance Station terminaba ejecutando acciones administrativas sobre el NAS completo. Synology emitió un CVE con CVSS 9.9.</p>
+<p>El escenario de secuestro de vídeo en vivo es directo: el atacante lanza la petición que termina todos los layouts conectados, consulta <code>getLiveViewPath</code> —la respuesta devuelve la dirección del servidor RTSP y las credenciales de acceso— y consume el stream por su cuenta. Un invitado sin permisos sobre cámaras obtiene el vídeo en vivo de todo el despliegue.</p>
+<h2>Dahua: del assertion al takeover del administrador</h2>
+<p>En la función de login, el código calcula un tipo a partir de los pares tipo de autoridad/tipo de contraseña (por ejemplo <code>default/default</code> o <code>OTP/WSSC</code>) y construye objetos string con los parámetros. La rama <code>OTP/WSSC</code> no tenía manejo de excepciones para parámetros nulos: eliminando el parámetro de autoridad y enviando ese tipo de autenticación, un <em>reachable assertion</em> mata el binario principal y el watchdog reinicia el equipo. Simple, pero es la palanca que hace funcionar todo lo demás.</p>
+<p>La segunda pieza es una inyección en el archivo <code>GROUPSEC</code>, que guarda los grupos y permisos cifrado con AES-CBC. La clave no apareció por análisis estático, pero sí en memoria durante el arranque. El archivo descifrado es un CSV de columnas id, nombre, autoridad y memo, generado sin ninguna validación de entrada: un salto de línea en el campo memo rompe la estructura del archivo. Y al arrancar con ese archivo corrupto —o directamente borrado— el dispositivo entra en su rutina de inicialización de fábrica, donde <strong>cualquiera puede redefinir la contraseña de admin</strong> desde la web.</p>
+<p>La cadena: credential stuffing para conseguir una cuenta de usuario cualquiera, inyección de salto de línea para corromper <code>GROUPSEC</code>, y el assertion para forzar el reinicio. Al volver, rutina de fábrica, admin secuestrado, dispositivo completo bajo control.</p>
+<p>El tercer fallo vive en un servicio de recuperación en línea llamado AOL, abierto en el puerto 8088 solo accesible desde la red local, con cabeceras de 16 bytes donde el tamaño del dato puede desbordarse. En el handler de login, los buffers de usuario (128 bytes) y contraseña (160 bytes) se copiaban con <code>strstr</code> sin validación de longitud: buffer overflow clásico, sin canary, aunque sin posibilidad de ROP porque el payload no admite bytes nulos.</p>
+<p>Entre las funciones útiles del servicio había una de <em>soft recovery</em> que borra el directorio de configuración completo. El problema: también borra la configuración de red y deja el equipo inaccesible. La solución fue jugar con el orden de arranque: durante el boot, los archivos de configuración se descifran y cargan en memoria, primero la red y unos 5 segundos después las cuentas. AOL arranca antes que el binario principal. Entonces: reinicio por el assertion, espera a que la configuración de red ya esté cargada, y petición de soft recovery al AOL que borra el resto justo antes de que se lean las cuentas. El binario no encuentra el archivo de cuentas, entra en rutina de fábrica y el admin queda redefinido. Una ventana de segundos, explotada con precisión de relojería.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participante A as Atacante
+    participante N as NVR Dahua
+    A->>N: Assertion en login (OTP/WSSC sin parámetro)
+    N-->>N: Watchdog reinicia el equipo
+    A->>N: Espera carga de config de red (~20 s)
+    A->>N: Soft recovery por AOL (puerto 8088)
+    N-->>N: Borra cuentas; entra en rutina de fábrica
+    A->>N: Define nueva contraseña de admin
+
+</pre>
+
+<h2>Hikvision: del NVR a los Windows de la red</h2>
+<p>El equipo más sólido de los cuatro cedió por un flanco inesperado: el plugin LocalServiceComponent que los usuarios de Windows deben instalar para ver vídeo desde el navegador. Corre <strong>con privilegios de administrador</strong> y escucha en el puerto 33686, accesible para cualquiera de la misma red. Un mensaje manipulado basta para conseguir RCE y control total del equipo Windows (los detalles concretos están bajo NDA del programa de bug bounty).</p>
+<p>Sumado a una inyección de comandos OS que exige privilegios de admin, el escenario completo es: credential stuffing para ser admin del NVR, reverse shell por la inyección de comandos, escaneo de red para localizar las máquinas Windows con el plugin instalado, y explotación del RCE del plugin para tomar el control de cada una. Con pulsar un botón, la red interna de la organización que confía en sus NVR queda comprometida desde dentro.</p>
+<h2>El efecto OEM: un fallo, muchas marcas</h2>
+<p>Hikvision y Dahua son enormes fabricantes OEM: producen los equipos y los revenden relabelizados a marcas como Lorex o Luma (y otros minoristas en EE. UU.). Un <code>bin-diff</code> entre los binarios principales confirmó lógica casi idéntica entre el fabricante original y los OEM que usan el mismo firmware, así que se compraron dispositivos de revendedores y se probaron los exploits en ellos:</p>
+<ul>
+<li><strong>OEM de Hikvision</strong> (Anki, Amcrest): 4 de las 6 vulnerabilidades funcionaban en cada uno.</li>
+<li><strong>OEM de Dahua</strong> (Juyeon, EGP): 4 y 6 de las 7 vulnerabilidades válidas respectivamente.</li>
+</ul>
+<p>El payload del assertion de Dahua apagaba todos los dispositivos OEM probados; la inyección de comandos de Hikvision daba reverse shell y apagado remoto en los equipos revendidos. Las vulnerabilidades se reportaron a MITRE y a KISA (el CNA coreano), obteniendo CVEs que aumentaron un 61% el número de vulnerabilidades reconocidas del proyecto.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El NVR es el cerebro olvidado de la videovigilancia.</strong> Recibe mucha menos investigación que las cámaras, pero concentra el control de todo el sistema: más de 30.000 expuestos en internet y cientos de miles de equipos vulnerables según Shodan (~130.000 Hikvision, ~100.000 Dahua).</li>
+<li><strong>Las vulnerabilidades se encadenan.</strong> Assertions que reinician el equipo, corrupción de archivos de configuración, servicios de recuperación locales y desbordamientos se combinan para lograr toma de control completa; ninguna falla aislada bastaba, pero juntas derriban los cuatro fabricantes.</li>
+<li><strong>El modelo OEM multiplica el impacto.</strong> El mismo firmware relabelizado vende las mismas vulnerabilidades en muchas marcas; un exploit desarrollado contra Hikvision o Dahua funciona tal cual en equipos de revendedores aparentemente distintos.</li>
+<li><strong>Para defensores:</strong> mientras el NVR no esté expuesto a internet, estas rutas de ataque quedan cortadas. Los grandes fabricantes ofrecen soluciones tipo DDNS para acceso externo sin exponer el dispositivo directamente. Y para investigadores ofensivos: el proceso HTTP del binario principal rinde, pero hay superficies mucho menos exploradas (protocolos privados de nube, comunicación con VMS y cámaras, otros sensores).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/v6VMEeUcqzo">«DEF CON 32 - The edges of Surveilance System and its supply chain - Chanin Kim, Myounghun Pak»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

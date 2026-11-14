@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clonación de voz contra el control de tráfico aéreo: despejes falsos en cruces de pista — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Clonación de voz contra el control de tráfico aéreo: despejes falsos en cruces de pista</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/JKwxsGYcZq4">«DEF CON 33 - Voice Cloning Air Traffic Control: Vulnerabilities at Runway Crossings - Andrew Logan»</a> · ver el <a class="nz-link" href="https://youtu.be/JKwxsGYcZq4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> JKwxsGYcZq4 · <strong>URL:</strong> https://youtu.be/JKwxsGYcZq4 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Voice Cloning Air Traffic Control: Vulnerabilities at Runway Crossings - Andrew Logan</li>
+</ul>
+<h2>Resumen</h2>
+<p>El control de tráfico aéreo (ATC) depende de un canal de radio AM sin cifrar, estandarizado en 1947 y usado por los 193 estados miembros de ICAO por pura interoperabilidad. Cualquiera con un transceptor de menos de 600 dólares —o una conexión a una retransmisión por internet— puede escuchar todo lo que dicen pilotos y controladores, y con equipos de transmisión legítimos puede también emitir en esas frecuencias. Esa combinación de escucha abierta, confianza basada en la voz y fallos históricos de comunicación convierte a la clonación de voz en una amenaza directa para la seguridad aérea.</p>
+<p>El escenario de ataque es concreto: un adversario entrena un clon con apenas 10 segundos de audio de un controlador real y, con transmisión intermitente, inyecta despejes falsos de cruce de pista —justo la fase en la que la historía aérea acumula los accidentes más graves, de Tenerife 1977 a Haneda 2024—. Una sola instrucción falsa, "cross runway two two right", en condiciones de baja visibilidad puede provocar una colisión o, de forma más amplia, erosionar la legitimidad del propio sistema de ATC.</p>
+<p>El análisis combina la física del medio (AM, efecto de captura, heterodinado), la economía del ataque (equipos usados en eBay por menos de 200 dólares), la madurez de las herramientas de clonación de voz y un repaso de los respaldos tecnológicos disponibles (ACARS, CPDLC, LDACS) para concluir que las mitigaciones existen —stop bars, sistemas de visión aumentada, modelado de amenazas por parte de la FCC— pero su despliegue va con retraso.</p>
+<h2>Por qué la banda aérea en AM es única y vulnerable</h2>
+<p>La radio AM se mantiene en la banda aérea por interoperabilidad, pero dos propiedades técnicas la hacen a la vez idónea para el ATC y expuesta al ataque:</p>
+<ul>
+<li><strong>Heterodinado de portadoras</strong>: si dos estaciones transmiten a la vez, los receptores escuchan un murmullo ilegible o un tono. Cualquiera de los tres resultados indica que ambas partes deben retransmitir: es la corrección de errores del sistema analógico.</li>
+<li><strong>Débil efecto de captura</strong>: se oyen tanto la aeronave próxima como una lejana, aunque su señal esté "en el barro". El canal es compartido y todo es audible: es un sistema simplex, donde el controlador escucharía su propia voz clonada reproducida de vuelta.</li>
+</ul>
+<p>Y la propiedad decisiva: <strong>la AM no está cifrada</strong>. Cualquiera dentro de alcance con una radio o un rebroadcast por internet puede capturar horas de controladores reales, exactamente la materia prima que los clonadores de voz necesitan.</p>
+<h2>Equipos y precio del ataque</h2>
+<p>Existen casos de uso legítimos para transmisores de banda aérea: aeronaves antiguas sin sistema eléctrico, radios de respaldo, coordinación de helipuertos hospitalarios o aeródromos pequeños. Los transceptores por debajo de 600 dólares emiten unos 1.8 vatios y requieren línea de vista. El salto cuantitativo viene de los transmisores de torre fuera de servicio, que se consiguen por menos de 200 dólares y, con antena apropiada, entregan entre 25 y 45 vatios —un orden de magnitud más—, permitiendo al adversario operar lejos del aeródromo.</p>
+<p>Un dato regulatorio revelador: de dos fabricantes consultados en la conferencia de controladores aéreos, el europeo está sujeto a controles de importación estrictos y verifica a quién vende; el estadounidense no verifica nada.</p>
+<h2>El rastreo: por qué la intermitencia es la clave</h2>
+<p>La FCC localiza transmisores abusivos con vehículos de radiodirección y, en zonas problemáticas, estaciones fijas de dirección; el método exige que un agente de campo llegue a unos cientos de metros del transmisor. Cuanto más tiempo permanece en el aire un emisor ilegal, más probabilidades tiene de ser localizado —la lógica de "rastrear la llamada" sí funciona en radio—. La conclusión táctica: un adversario que transmita una o dos veces al día, de forma intermitente, es extremadamente difícil de rastrear.</p>
+<h2>Clonación de voz: tres etapas y una guarda insuficiente</h2>
+<p>El pipeline técnico de un clon tiene tres fases: un <strong>encoder</strong> extrae las características únicas de la voz objetivo, un <strong>synthesizer</strong> aplica esa voz al texto de entrada y un <strong>vocoder</strong> convierte el espectrograma resultante en forma de onda audible. Ningún adversario necesita construir esto: existe una plétora de herramientas gratuitas o de bajo costo, muchas sin salvaguardas adecuadas.</p>
+<p>En la prueba de concepto se usó ElevenLabs, que sí implementa una verificación de identidad antes de clonar la voz de una celebridad. La lección es doble: las guardas son posibles, y la industria debería extenderlas a voces con timbre de radio o a prompts con formato de instrucciones de ATC. El contraste con la banca es ilustrativo: Sam Altman reconoció ante banqueros la amenaza de la clonación de voz pero se detuvo antes de recomendar una fix legislativa, dejando la primera movida en manos de la industria.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Escanear banda aérea<br/>AM sin cifrar] --> B[Clonar voz del controlador<br/>con 10 s de audio]
+    B --> C[Transmitir de forma intermitente<br/>despeje falso de cruce]
+    C --> D[Piloto sin visibilidad<br/>cruza la pista]
+    D --> E[Incursión de pista / colisión]
+
+</pre>
+
+<h2>Cruces de pista: el eslabón débil</h2>
+<p>Los cruces de pista concentran el riesgo por historia propia:</p>
+<ul>
+<li><strong>Tenerife, 1977</strong>: una bomba desvió vuelos a Los Rodeos, un aeropuerto de una sola pista con niebla densa. Un vuelo de KLM malinterpretó su autorización de despegue, ignoró el artefacto de heterodinado de un Pan Am que seguía en pista y colisionó: el desastre más mortífero de la aviación, nacido de una única comunicación errada.</li>
+<li><strong>Haneda, 2024 (JAL 516)</strong>: un avión de la guardia costera japonesa cruzó la pista creyendo tener despeje. Fallaron tres capas a la vez: la identificación visual de la incursión, una alarma de radar que sonó más de un minuto y los <strong>stop bars</strong> —luces empotradas que funcionan como señal de stop por encima de cualquier autorización—, fuera de servicio ese día en esa pista. El modelo del queso suizo muestra qué pasa cuando uno de los agujeros se alinea.</li>
+</ul>
+<p>La simulación de prueba de concepto se construyó sobre JFK: Speedbird (British Airways) espera antes de la 22R, JetBlue recibe autorización de aterrizar delante, y tras un beep suena el audio clonado ordenando el cruce. El clon se entrenó solo con los 10 segundos de las dos llamadas previas —cuanto más audio recibe el modelo, mejor resulta, y la radio degrada aún más las diferencias—. No se sabe cómo reaccionaría un controlador al oír su propia voz en el canal; el precedente es el incidente de Cincinnati, donde un hombre con una radio de mano dijo una sola vez "go around" y desencadenó la difusión de "exercise extreme caution for all frequencies and verify instructions" —verificar instrucciones cuando la voz que se oye es la del controlador es, precisamente, lo que no se puede hacer—.</p>
+<h2>Mitigaciones y respaldos</h2>
+<ul>
+<li><strong>Concienciación</strong>: difundir la amenaza entre pilotos y controladores es la primera línea.</li>
+<li><strong>Modelado de amenazas de la FCC</strong>: priorizar aeropuertos con más demoras meteorológicas y mapear propiedades en alquiler con balcones orientados a la pista —el escenario plausible es un adversario operando el equipo remota desde otro país—.</li>
+<li><strong>Stop bars</strong>: existen en 26 aeropuertos de EE. UU. con meta de 75 para 2026, con retraso en el cronograma. Contratiempo adicional: se controlan por radio, lo que abre otro vector.</li>
+<li><strong>TCAS no aplica</strong>: el Traffic Collision Avoidance System está inactivo por debajo de 1.000 pies, así que no cubre despegue ni aterrizaje. Lo que sí ayuda son los <strong>EFVS</strong> (enhanced flight vision systems) —cámaras frontales, infrarrojo y radar—, ya instalados en muchos aviones de carga que operan de noche.</li>
+<li><strong>Respaldos de comunicación</strong>: HF (propagación de largo alcance, improbable como conmutación de emergencia), ACARS y CPDLC (texto digital sobre VDL Mode 2, el respaldo más práctico si cae la VHF) y <strong>LDACS</strong>, el sistema digital de banda L con cifrado embebido que se prueba en Europa y no llegará a EE. UU. antes de 2030. La analogía: la VHF actual es una llamada telefónica, HF una llamada de larga distancia, ACARS un fax, VDL Mode 2 la red celular, CPDLC un mensaje de texto — y LDACS es Signal: cifrado, y todos sabemos por qué queremos llegar a Signal.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Banda aérea AM (VHF)</strong>: canal de voz del ATC, sin cifrar, simplex, con heterodinado como corrección de errores y débil efecto de captura.</li>
+<li><strong>ADS-B</strong>: sistema de vigilancia dependiente automático; su uso restringido por exenciones militares es un debate regulatorio paralelo con dos proyectos de ley en el Senado.</li>
+<li><strong>Transmisor de torre reacondicionado</strong>: equipo usado (&lt;200 USD) que eleva la potencia de 1.8 W a 25-45 W.</li>
+<li><strong>Radiodirección (direction finding) de la FCC</strong>: método de localización que exige proximidad física del agente, vulnerable a transmisores intermitentes.</li>
+<li><strong>Clonación de voz (encoder + synthesizer + vocoder)</strong>: pipeline estándar; ElevenLabs como ejemplo con guarda de identidad para celebridades.</li>
+<li><strong>Stop bars</strong>: luces de pista que prevalecen sobre cualquier autorización oral; controladas por radio.</li>
+<li><strong>TCAS</strong>: sistema anticolisión inactivo bajo 1.000 pies.</li>
+<li><strong>EFVS</strong>: sistemas de visión mejorada (cámaras, IR, radar) para despegue y aterrizaje.</li>
+<li><strong>ACARS / CPDLC / VDL Mode 2 / LDACS</strong>: evolución de los respaldos digitales de comunicación aeronáutica hasta el sistema cifrado futuro.</li>
+<li><strong>Modelo del queso suizo</strong>: marco aeronáutico de defensas en capas, ilustrado por Haneda.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La confianza del ATC no descansa en un solo factor: canal correcto, voz plausible, sintaxis correcta y timing acorde a la fase de vuelo; pero los controladores cambian de turno sin aviso, así que una voz nueva bien formatada ya puede ser aceptada. La clonación de voz elimina el único factor que quedaba por falsificar.</li>
+<li>10 segundos de audio bastan para un clon convincente, y la radio AM abierta los proporciona a cualquiera; el ataque es barato (&lt;800 USD en equipos), intermitente y difícil de rastrear.</li>
+<li>Los cruces de pista son el objetivo de mayor letalidad: Tenerife y Haneda demuestran que una instrucción mal entendida basta cuando falla una sola capa del queso suizo.</li>
+<li>Las mitigaciones reales son físicas y procedurales —stop bars desplegados a tiempo, EFVS, modelado de amenazas por la FCC y salvaguardas de la industria de clonación de voz—; el respaldo de comunicación definitivo, LDACS con cifrado, no llegará antes de 2030.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/JKwxsGYcZq4">«DEF CON 33 - Voice Cloning Air Traffic Control: Vulnerabilities at Runway Crossings - Andrew Logan»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

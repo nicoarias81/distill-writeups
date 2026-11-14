@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CTI Agent: battle cards automatizadas a partir de informes de inteligencia de amenazas — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">CTI Agent: battle cards automatizadas a partir de informes de inteligencia de amenazas</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Y8xMr2JwyjU">«DEF CON 33 Recon Village -  CTI Agent Automated Battlecards from CTI Reports - Mohamed Nabeel»</a> · ver el <a class="nz-link" href="https://youtu.be/Y8xMr2JwyjU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Y8xMr2JwyjU · <strong>URL:</strong> https://youtu.be/Y8xMr2JwyjU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 Recon Village -  CTI Agent Automated Battlecards from CTI Reports - Mohamed Nabeel</li>
+</ul>
+<h2>Resumen</h2>
+<p>Un sistema agéntico (CTI Agent) que toma informes públicos de inteligencia de ciberamenazas (CTI) — escritos en lenguaje natural, con modalidades mixtas, información conflictiva o incompleta, y TTPs mayormente implícitas que hay que inferir con conocimiento de dominio — y produce <em>battle cards</em> estructuradas por actor de amenaza, consumibles programáticamente y aplicables por equipos SOC. El pipeline: recolección de informes de fuentes confiables, agrupamiento por actor vía clustering de embeddings de resúmenes generados por LLM (que supera consistentemente al clustering de embeddings de documentos completos), extracción agéntica con patrón ReAct y tres herramientas (colector de reportes, búsqueda y extractor), síntesis estilo MapReduce de battle cards por informe, y una actualización proactiva de IOCs mediante expansión de grafo sobre la infraestructura compartida y rotada de los atacantes. Validación: el silhouette score de los clusters, traces reales (Scattered Spider, Libra/Kimsuky, Lazarus, Revolver Rabbit) y IOCs nuevos que casi ningún proveedor había etiquetado aún (VT102).</p>
+<h2>El problema: informes que no se pueden automatizar</h2>
+<p>Los informes públicos de CTI son muy útiles, pero su consumo es manual: lenguaje natural y modalidades varias (imágenes, videos), datos conflictivos o incompletos entre fuentes y, sobre todo, TTPs implícitas que hay que inferir. El resultado es un proceso lento y propenso a errores. La apuesta del trabajo: convertir esos informes ambiguos en battle cards estructuradas — una por actor — con resumen del actor, aliases, ubicación, y por cada campaña: IOCs, TTPs (ancladas al framework MITRE ATT&amp;CK, 14 tácticas y más de 300 técnicas), herramientas, binarios de malware y CVEs explotadas, más las fuentes usadas.</p>
+<p>La recolección privilegia calidad sobre cantidad: proveedores de seguridad, periodistas de investigación, repositorios de GitHub recurrentes y cuentas de Twitter confiables. Si la entrada es basura, la salida es basura.</p>
+<h2>Agrupamiento por actor: embeddings de resúmenes, no de documentos</h2>
+<p>Con los informes crudos, el primer paso es agruparlos por actor de amenaza con aprendizaje no supervisado. Dos estrategias probadas:</p>
+<ol>
+<li>Embedding del documento completo + clustering.</li>
+<li>Generar con un LLM un resumen enfocado en el actor (nombre, aliases, actividades) y clusterizar esos embeddings.</li>
+</ol>
+<p>La segunda gana consistentemente. La métrica es el <em>silhouette score</em> (0 = clusters superpuestos, 1 = separación ideal), y al mirar los resúmenes se entiende por qué: al ser homogéneos en estructura y vocabulario (actor, aliases, tipo de actividad), sus embeddings quedan más cerca en el espacio para un mismo actor. Bonus: embeddear resúmenes es más rápido y más barato. Entre proveedores de embeddings, Gemini superó consistentemente a BERT y derivados.</p>
+<h2>De clusters a battle cards: agentes con ReAct y MapReduce</h2>
+<p>Sobre las tres formas canónicas de usar un LLM — prompt directo, RAG, y LLM-en-un-bucle con herramientas y memoria — la investigación reciente muestra que los sistemas agénticos superan a los otros dos: acceden a más datos, usan herramientas y pueden guardar lo aprendido. El patrón elegido es ReAct (llamar una herramienta, observar, razonar, decidir la siguiente; en bucle hasta la respuesta final), frente a alternativas como Self-Refine.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Informes CTI de fuentes confiables] --> B[Resúmenes por actor vía LLM]
+    B --> C[Clustering de embeddings<br/>por actor de amenaza]
+    C --> D[Agente ReAct por informe:<br/>extractor + tools búsqueda/colector]
+    D --> E[Battle card por informe]
+    E --> F[LLM sintetizador:<br/>una battle card por actor]
+    F --> G[Expansión de grafo:<br/>nuevos IOCs desde infraestructura compartida]
+    G --> H[Battle card actualizada<br/>+ human in the loop]
+
+</pre>
+
+<p>Las herramientas son el corazón del agente: un colector de reportes (descarga y guarda en almacenamiento local lo necesario), una herramienta de búsqueda (resuelve ambigüedades buscando información faltante) y el extractor, que hace el grueso del trabajo analizando cada informe y produciendo sus artefactos.</p>
+<p>La primera versión del sintetizador — pasar todos los informes de un actor a un solo LLM — fallaba: aunque los modelos aceptan millones de tokens de entrada, la salida está limitada (~65k). La solución vino de MapReduce: un agente por informe genera una battle card (en paralelo) y un LLM sintetizador las combina en una sola. Detalle notable del trace: el sintetizador, sin que se le pidiera, escribía un programa que combinaba las battle cards de forma determinista — señal de que el trabajo combinable termina convirtiéndose en código determinista. El resultado final (ejemplo: la battle card de Libra/Scattered Spider) incluye fechas aproximadas de inicio y fin de campaña, industrias objetivo, y es consumible por otro equipo SOC.</p>
+<h2>Actualización proactiva: expansión de grafo</h2>
+<p>Cuando un informe se publica, sus IOCs ya envejecieron: entre la redacción y la aprobación pasan semanas, y los ataques continúan. La observación clave: los atacantes rotan y reutilizan infraestructura, y esa asociación se puede explotar. Con los IOCs de la battle card como semillas (ejemplo: la campaña de phishing al USPS), se expande por asociaciones de IP, certificados y phishing kits hacia dominios vecinos; la timeline de Kimsuky muestra el patrón: pocos dominios semilla que se multiplican compartiendo infraestructura.</p>
+<pre class="mermaid">
+flowchart LR
+    A[IOCs de la battle card<br/>dominios semilla] --> B[Expansión por asociaciones:<br/>IP, certificados, phishing kits]
+    B --> C[Enriquecimiento de propiedades<br/>IP, URLs, ASNs]
+    C --> D[Graph embedding:<br/>topología + propiedades]
+    D --> E[Clustering de nodos]
+    E --> F{¿Cluster con dominios conocidos<br/>del actor y nodos maliciosos?}
+    F -->|Sí| G[Atribución al actor<br/>y actualización de la battle card]
+
+</pre>
+
+<p>Queda un problema de atribución: un IOC malicioso en infraestructura compartida no necesariamente pertenece al mismo actor. El pipeline enriquece la red con propiedades de IPs, URLs y ASNs, calcula un graph embedding que incorpora la topología, clusteriza, y atribuye al actor cuando el cluster contiene muchos dominios ya conocidos suyos y los demás nodos son maliciosos. Al re-ejecutar el pipeline sobre Lazarus, Revolver Rabbit y Kimsuky, el sistema encontró dominios e IPs creados después de la publicación de los informes — con muy pocos detectores de la comunidad etiquetándolos aún (VT102), lo que mide la proactividad de la detección.</p>
+<h2>Limitaciones y próximos pasos</h2>
+<p>El sistema actual usa solo texto; los informes con imágenes, charts y cadenas de ataque son material para mejorar las cards. Y sigue habiendo un humano en el bucle: los agentes a veces inventan, así que la validación manual filtra lo que se publica. La vía para reducir esa carga — cargar al agente con el detalle completo de tácticas y técnicas de MITRE ATT&amp;CK para validar sus propias extracciones — es la línea de investigación abierta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Battle cards CTI:</strong> fichas estructuradas por actor con IOCs, TTPs ancladas a MITRE ATT&amp;CK, malware, CVEs explotadas y fuentes.</li>
+<li><strong>Clustering de embeddings de resúmenes LLM:</strong> agrupar informes por actor usando resúmenes generados; supera consistentemente al clustering de documentos completos.</li>
+<li><strong>Agente ReAct:</strong> bucle razonar-actuar con tres herramientas (colector de reportes, búsqueda y extractor) para lidiar con ambigüedad y lagunas de los informes.</li>
+<li><strong>Síntesis MapReduce:</strong> battle cards por informe y consolidación posterior en fichas por actor.</li>
+<li><strong>Expansión de grafo para IOCs:</strong> enriquecimiento con IPs, URLs y ASNs; graph embeddings que combinan topología y propiedades para atribución proactiva.</li>
+<li><strong>Silhouette score:</strong> métrica de validación de la calidad de los clusters.</li>
+<li><strong>MITRE ATT&amp;CK:</strong> marco de referencia de las TTPs (14 tácticas y más de 300 técnicas).</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Convertir informes CTI ambiguos en battle cards estructuradas es un problema ideal para agentes: lectura de lenguaje natural, inferencia con conocimiento de dominio y artefactos consumibles por el SOC.</li>
+<li>El clustering sobre resúmenes generados por LLM supera al de documentos completos: condensar antes de agrupar reduce el ruido de formato y de modalidad.</li>
+<li>La actualización proactiva de IOCs por infraestructura compartida tiene valor medible: dominios creados después de la publicación de los informes fueron detectados antes que por la mayoría de los detectores de la comunidad (VT102).</li>
+<li>El diseño es pragmático: validación con silhouette score y con casos reales (Scattered Spider, Libra/Kimsuky, Lazarus, Revolver Rabbit), sin promesas de automatización total.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Y8xMr2JwyjU">«DEF CON 33 Recon Village -  CTI Agent Automated Battlecards from CTI Reports - Mohamed Nabeel»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

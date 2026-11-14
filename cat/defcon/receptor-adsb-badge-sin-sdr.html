@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Un receptor ADS-B dentro de un badge: el SoC que hacía de todo menos lo que le pidieron — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Un receptor ADS-B dentro de un badge: el SoC que hacía de todo menos lo que le pidieron</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/dDFtkjYx0V8">«DEF CON 32 - Behind the Badge:How we used hardware to make AV badge - Adam Batori, Robert Pafford»</a> · ver el <a class="nz-link" href="https://youtu.be/dDFtkjYx0V8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> dDFtkjYx0V8 · <strong>URL:</strong> https://youtu.be/dDFtkjYx0V8 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Behind the Badge:How we used hardware to make AV badge - Adam Batori, Robert Pafford</li>
+</ul>
+<h2>Resumen</h2>
+<p>El Aerospace Village de DEF CON 32 repartió entre los asistentes un badge con algo que ningún gadget de conferencia suele llevar: un receptor ADS-B completamente integrado, capaz de captar los mensajes de los aviones que sobrevuelan la zona sin depender de ninguna red ni de servicios colaborativos de agregación. El proyecto, desarrollado por Adam Batori y Robert Pafford, resolvió el problema del coste evitando por completo los chips de radio dedicados: ni SDR caros ni ADC de altas prestaciones, solo el SoC Linux principal del badge y un procesador de señal pensado para música.</p>
+<p>El resultado es un caso de estudio sobre cómo exprimir silicio barato más allá de su manual. La señal ADS-B se demodula con un ADC escondido dentro del bloque de decodificación de vídeo compuesto del Allwinner T113, activado mediante registros no documentados de un modo de prueba de fábrica, y el procesado se delega en el coprocesador HiFi4, reprogramado fuera de su rol de audio. La ironía final: la parte electrónica más difícil no fue la radio, sino los periféricos que "deberían funcionar solos", como USB-C y el chip de gestión de batería.</p>
+<h2>Por qué ADS-B y por qué sin SDR</h2>
+<p>ADS-B (Automatic Dependent Surveillance-Broadcast) es el protocolo por el que aviones, estaciones terrestres y hasta satélites intercambian información de vuelo: indicativos, números de vuelo, direcciones ICAO, altitud y rumbo. Aunque su función original es la seguridad aérea, es una señal abierta a 1090 MHz (en el downlink Mode S) que los aficionados llevan años decodificando para ver un mapa de los aviones sobre sus cabezas.</p>
+<p>El camino habitual para captarla es un SDR barato como el RTL-SDR, que reutiliza un chip de televisión digital terrestre (DVB-T) llevándolo por encima de sus especificaciones hasta la banda de 1090 MHz. La señal es, además, técnicamente amable: modulación on-off keying (amplitud digital pura) con codificación Manchester, donde los datos viven en las transiciones. Pero ese enfoque no servía para un badge: los chips DVB-T sobrecargados consumen muchísima potencia, se calientan y aniquilan la batería, y un SDR de verdad es demasiado caro para regalar en masa.</p>
+<h2>La arquitectura: amplificador logarítmico y un ADC camuflado</h2>
+<p>La solución tomó la tercera vía clásica de recepción ADS-B: la arquitectura de amplificador logarítmico. Una cadena de RF muy sencilla:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Antena impresa] --> B[Amplificador LNA]
+    B --> C[Filtros SAW 1090 MHz]
+    C --> D[Medidor de potencia RF logarítmico]
+    D --> E[Salida baseband 2 MHz]
+    E --> F[ADC del SoC]
+    F --> G[Demodulación en HiFi4 DSP]
+    G --> H[Linux: mapa y decodificación]
+
+</pre>
+
+<p>Como la señal es solo presencia o ausencia de RF, basta un medidor logarítmico de potencia de RF que convierta la potencia recibida en tensión lineal, actuando como detector de envolvente tras unos filtros SAW muy estrechos centrados en 1090 MHz. El truco de coste está en el chip de amplificación y filtrado: en lugar de pagar un filtro Butterworth de octavo orden de la marca premium, usaron el amplificador de vídeo compuesto de un receptor de televisión analógica, que trae ese filtro integrado y que prácticamente ya nadie compra.</p>
+<p>Quedaba el paso de digitalización. El SoC elegido para correr Linux es el Allwinner T113, con dos Cortex-A7 a 1.2 GHz, y no trae ADC rápidos "de fábrica". Pero sí trae un ADC que muestrea a 27 MS/s para digitalizar entrada de vídeo compuesto, porque la señal baseband de vídeo compuesto lo exige. El problema es que ese ADC viene envuelto en todo el pipeline de vídeo: busca sincronías horizontales y verticales, aplica corrección de color y entrega píxeles, no muestras crudas. Tal cual, es inútil para ADS-B: con una señal de pulsos diría que no hay vídeo y se rendiría.</p>
+<p>La frase de trabajo del equipo resume el exploit: "pagamos por todo el silicio, queremos usar todo el silicio". Los fabricantes incluyen en estos chips un modo de prueba de manufactura que aísla el ADC de todo el bloque de vídeo (necesario para verificar el rendimiento armónico del conversor durante la fabricación). Tras ingeniería inversa de los registros, encontraron los registros no documentados que activan ese modo y obtuvieron muestras crudas directamente del ADC. La prueba de concepto llegó al ver en pantalla el preámbulo ADS-B (el patrón 101, 101) dibujado desde las muestras del conversor interno. Cero chips externos de radio.</p>
+<h2>Programar el HiFi4: un DSP que solo existía como blob</h2>
+<p>El segundo reuso agresivo fue el HiFi4, un DSP incluido en el T113 y vendido como "un tercer núcleo". La realidad es menos generosa: Allwinner solo entrega un firmware blob para códecs de audio, y el kernel mainline ni lo toca. Pero es un núcleo programable, y para demodular, decodificar Manchester y hacer bit-slicing de ADS-B a máxima velocidad convenía usarlo con vectorización SIMD real.</p>
+<p>El camino fue artesanal: conseguir la toolchain vendor específica (extensa), emparejarla con la versión exacta del blob que el fabricante de silicio usó para generar ese chip concreto —el HiFi4 es configurable por el vendor, así que el compilador necesita el Verilog completo del chip para saber qué unidades vectoriales y registros existen—, reunir los drivers de Allwinner para controlador de interrupciones, timers y mailbox, y sumarle el port de FreeRTOS de GitHub. El resultado, contra todo pronóstico, fue uno de los entornos de desarrollo más estables de todo el proyecto: ejecutar el IDE y que funcione.</p>
+<h2>Linux mainline, el bug de pantalla verde y los gremlins del AXP2585</h2>
+<p>El badge corre Linux mainline 6.6, una decisión que ahorró semanas de drivers: casi todo venía horneado y solo había que configurarlo bien, entre device trees e "incantaciones mágicas" que si faltan provocan panics. La pantalla es un display circular de 40×40 píxeles (2.7 pulgadas) fabricado a medida, que evoca radar u osciloscopio. El resto del hardware incluye 120 MB de DDR3 embebida en el package, 8 GB de almacenamiento, GPS, Wi-Fi y antenas PCB impresas para todo.</p>
+<p>Lo que se suponía fácil fue lo difícil. Tres ejemplos:</p>
+<ul>
+<li><strong>El display verde.</strong> Un bug de silicio: el driver Linux configuraba un bit no documentado que existe en un chip hermano pero no en este SoC, y al activarlo la pantalla se ponía verde (el MSB del canal verde forzado a alto). Localizar la línea exacta entre las 10.000 del driver de display llevó tres semanas de debugging de kernel.</li>
+<li><strong>USB-C.</strong> Con ciertos modelos de MacBook, en vez de que el portátil cargue el badge, el badge intenta cargar al portátil. No funciona.</li>
+<li><strong>El AXP2585.</strong> Un chip todo-en-uno (negociador USB-C, cargador y gestor de batería) controlado por registros I2C, sin firmware interno. Acumuló sus propios bugs: la detección de batería llega mal configurada de fábrica y asume batería presente, generando inestabilidad hasta que se reprograma en bootloader y Linux; picos de alimentación dejan registros en estados indefinidos; y el retraso más grande cerca del evento fue un pin de interrupción que nunca bajaba. La causa final no fue el chip ni la configuración, sino un pin de tierra mal soldado por el fabricante de la placa que pasó toda inspección visual: conectaba lo justo para funcionar a medias, con caídas de tensión y comportamientos erráticos. El moral: el coste real del chip está en las horas de desarrollo, y conviene arrancar siempre con batería puesta para evitar los "gremlins" del BMU.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ADS-B</strong> — protocolo de vigilancia aérea a 1090 MHz (Mode S downlink) que emite indicativo, posición, altitud y rumbo.</li>
+<li><strong>On-off keying + Manchester</strong> — la modulación y codificación de ADS-B: amplitud digital pura con datos en las transiciones.</li>
+<li><strong>RTL-SDR / chips DVB-T</strong> — la vía habitual de hobby, descartada por consumo y calor al sobrecargar el tuner hasta 1090 MHz.</li>
+<li><strong>Arquitectura de amplificador logarítmico</strong> — medidor logarítmico de potencia RF como detector de envolvente tras filtros SAW de 1090 MHz.</li>
+<li><strong>Amplificador de vídeo compuesto con filtro Butterworth de octavo orden</strong> — pieza de TV analógica reutilizada como frontend barato.</li>
+<li><strong>Allwinner T113</strong> — SoC con doble Cortex-A7 a 1.2 GHz, HiFi4 DSP, 120 MB DDR3 embebida y un ADC de 27 MS/s para vídeo compuesto.</li>
+<li><strong>Modo de prueba de manufactura no documentado</strong> — registros encontrados por ingeniería inversa que aíslan el ADC del pipeline de vídeo y entregan muestras crudas.</li>
+<li><strong>HiFi4 DSP + toolchain extensa vendor</strong> — coprocesador de audio reprogramado para demodulación y bit-slicing ADS-B con SIMD, sobre un port de FreeRTOS.</li>
+<li><strong>Linux mainline 6.6</strong> — kernel completo en el badge, con debugging de device trees y de un bug de silicio en el driver de display.</li>
+<li><strong>AXP2585</strong> — PMIC todo-en-uno (USB-C PD, cargador, BMU) controlado por I2C, fuente de los gremlins finales.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los periféricos "gratuitos" de un SoC barato pueden reutilizarse como bloques de RF: un ADC de vídeo compuesto de 27 MS/s, liberado de su pipeline mediante un modo de test no documentado, basta para demodular ADS-B sin hardware dedicado.</li>
+<li>El DSP de audio de un SoC es un núcleo real y programable si se consigue la toolchain vendor y el blob de configuración del silicio; el esfuerzo se compensa con vectorización SIMD y uno de los entornos de desarrollo más estables del proyecto.</li>
+<li>La radio fue la parte fácil: semanas de debugging se fueron en un bit no documentado del driver de display, en el comportamiento de USB-C y en un pin de tierra mal soldado que ningún control de calidad detectó.</li>
+<li>Un receptor ADS-B completo cabe en un badge sin red: antenas impresas, GPS, Wi-Fi y Linux mainline, con el coste íntegro pagado en ingenio de ingeniería inversa en lugar de en chips.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/dDFtkjYx0V8">«DEF CON 32 - Behind the Badge:How we used hardware to make AV badge - Adam Batori, Robert Pafford»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detectar anomalías en el bus CAN sin decodificar ni un solo mensaje — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Detectar anomalías en el bus CAN sin decodificar ni un solo mensaje</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/VchCd-o25z0">«DEF CON 33 - Context Aware Anomaly Detection in Automotive CAN Without Decoding - Ravi Rajput»</a> · ver el <a class="nz-link" href="https://youtu.be/VchCd-o25z0">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> VchCd-o25z0 · <strong>URL:</strong> https://youtu.be/VchCd-o25z0 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Context Aware Anomaly Detection in Automotive CAN Without Decoding - Ravi Rajput</li>
+</ul>
+<h2>Resumen</h2>
+<p>El bus CAN, la columna vertebral de la comunicación interna de cualquier vehículo moderno, es ciego a la seguridad: no hay autenticación, ni cifrado, ni verificación de integridad, ni comprobaciones de coherencia. Su arquitectura es de broadcast —cualquier nodo puede leer y enviar mensajes— y carece de control de acceso y de detección de anomalías incorporadas. Un atacante con acceso físico o remoto al bus puede inyectar mensajes perfectamente válidos a nivel de protocolo que sean completamente maliciosos en contexto.</p>
+<p>La respuesta tradicional de detección se apoya en reglas y, sobre todo, en decodificar el protocolo: conocer qué significa cada ID de CAN y cada byte del payload. Ese enfoque no escala. Cada modelo de vehículo tiene estructuras de señal, significados y codificaciones distintas, así que cualquier detector basado en decodificación hay que reescribirlo por fabricante, por modelo y a veces por año. La alternativa es tratar los mensajes de CAN como una secuencia temporal y usar aprendizaje no supervisado para detectar no "un mensaje incorrecto", sino una ruptura del contexto.</p>
+<p>Ravi Rajput, arquitecto principal de seguridad de la información en Neotech Global (y autor de AutoACC-OS, un sistema operativo para pentesting automotive presentado en Black Hat Arsenal), propone LSTM y LSTM-VAE —autoencoders variacionales con memoria secuencial— entrenados solo con tráfico normal, que detectan anomalías por error de reconstrucción y entropía sin decodificar nada.</p>
+<h2>Por qué el CAN es ciego y las reglas no alcanzan</h2>
+<p>CAN es un protocolo sin estado. Las reglas tradicionales de detección capturan patrones conocidos, pero al no haber conciencia de estado, un actor malicioso puede inyectar estados inconsistentes que disparan alertas demasiado tarde o las esquivan por completo. No hay soporte nativo para control de acceso ni para anomalías: la red asume que todos los nodos son de confianza.</p>
+<p>La decodificación, el otro pilar clásico, tropieza con el problema de la escalabilidad de flotas: los significados de las señales cambian entre fabricantes y modelos. En lugar de aprender "qué significa el ID 0x19B", el enfoque propuesto aprende señales agnósticas del fabricante:</p>
+<ul>
+<li>la <strong>frecuencia de cada CAN ID</strong> y los patrones de ráfaga (bursts),</li>
+<li>la <strong>entropía de los bytes del payload</strong>,</li>
+<li>los <strong>deltas de tiempo</strong> entre mensajes,</li>
+<li>la <strong>correlación de secuencias</strong>.</li>
+</ul>
+<p>Si los mensajes se ven como secuenciales y sensibles al tiempo, una anomalía deja de ser un paquete raro y pasa a ser una alteración del ritmo: por ejemplo, una sucesión de velocidades 0 → 10 → 20 → 30 km/h que de repente reporta 100 km/h sin fase intermedia.</p>
+<h2>LSTM y LSTM-VAE: aprender qué es "normal"</h2>
+<p>La razón para elegir LSTM (Long Short-Term Memory) es la naturaleza secuencial del problema. Una red feed-forward no entiende el flujo de secuencia ni las dependencias temporales; el LSTM mantiene un estado de celda con tres compuertas —qué olvidar, qué recordar y qué emitir— y trata la red vehicular completa como una secuencia, no como mensajes aislados. La analogía que lo resume: como un músico interpretando una pieza, una nota fuera de sitio rompe la música entera.</p>
+<p>Sobre esa base se añade la capa variacional. El LSTM-VAE extiende el autoencoder con inferencia variacional: un codificador comprime la secuencia de entrada en un vector latente con <strong>media y varianza</strong>, y un decodificador intenta reconstruir la secuencia original. La función de pérdida combina dos términos:</p>
+<ul>
+<li><strong>pérdida de reconstrucción</strong>: qué tan bien se reconstruye la secuencia,</li>
+<li><strong>divergencia KL</strong>: cuánto se desvía la distribución latente de una normal estándar.</li>
+</ul>
+<p>El muestreo latente introduce ruido controlado —la diferencia clave frente a un LSTM autoencoder determinista— y ese es justamente el valor en automoción: las redes de vehículo son ruidosas y con ráfagas, y los umbrales estáticos generan falsos positivos. Un modelo que expresa incertidumbre y aprende la <em>distribución</em> del comportamiento válido, en lugar de un patrón fijo, tolera mejor la desviación natural y separa el ruido del ataque. Cuando el error de reconstrucción supera un umbral, hay anomalía.</p>
+<h2>El pipeline, de log a alerta</h2>
+<p>El flujo de trabajo usado en la demostración y en los experimentos es reproducible con herramientas abiertas (ICSim como simulador de red vehicular):</p>
+<ol>
+<li>Capturar un log de tráfico CAN normal para entrenar y un <code>attack.log</code> para evaluar.</li>
+<li>Extraer timestamp, CAN ID y payload de cada frame; filtrar frames no estándar y descartarlos.</li>
+<li>Calcular <strong>delta-t</strong> entre timestamps, <strong>entropía</strong> y <strong>frecuencia de CAN ID</strong> en ventanas deslizantes.</li>
+<li>Construir secuencias de ventanas y normalizarlas (min-max o z-score).</li>
+<li>Entrenar el modelo solo con tráfico normal.</li>
+<li>En inferencia, puntuar el error de reconstrucción y marcar anomalías por encima del umbral, reportando los cinco CAN IDs más anómalos.</li>
+</ol>
+<p>En la ejecución experimental, el identificador de puerta 0x19B bajo fuzzing (bloqueo y desbloqueo inyectados) quedó detectado por ambos modelos, pero el LSTM-VAE lo señalizó como la anomalía de mayor entropía y con menos falsos positivos que el LSTM puro. El código experimental se publicó en GitHub para su reutilización.</p>
+<h2>Qué detecta cada ataque y dónde desplegarlo</h2>
+<p>La correspondencia entre tipo de ataque y firma estadística es la parte más operativa del enfoque:</p>
+<ul>
+<li><strong>Replay attack</strong>: los mensajes reproducidos aparecen con un timing erróneo; se manifiesta como un desplazamiento del vector latente y un pico de divergencia KL.</li>
+<li><strong>Fuzzing</strong>: ruido inyectado con contenido aleatorio; se manifiesta como un pico de entropía del payload.</li>
+<li><strong>IDs nunca vistos o IDs raros que aparecen con alta frecuencia</strong>: detectados como anomalía directa de frecuencia.</li>
+<li><strong>Desviaciones de timing</strong> en general: visibles en los deltas entre mensajes.</li>
+</ul>
+<p>En cuanto a despliegue, la propuesta apunta a dos sitios: una versión ligera del modelo corriendo directamente en las ECUs del vehículo, y la ingesta de las puntuaciones de anomalía en un VSOC (Vehicle SOC) o en soluciones SIEM corporativas, donde la detección se integra con el resto de la telemetría de seguridad. El alcance actual es detección, no prevención: el autor lo declara explícitamente, con la parte de respuesta y bloqueo aún como trabajo en curso.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bus CAN</strong> — protocolo de broadcast sin autenticación, cifrado ni integridad; sin estado y sin control de acceso.</li>
+<li><strong>LSTM (Long Short-Term Memory)</strong> — red recurrente con compuertas de olvido/memoria/salida para modelar la secuencia de frames CAN.</li>
+<li><strong>LSTM-VAE</strong> — autoencoder variacional con vector latente (media y varianza); pérdida = reconstrucción + divergencia KL.</li>
+<li><strong>Error de reconstrucción</strong> — señal principal de anomalía al superar un umbral.</li>
+<li><strong>Entropía de payload y frecuencia de CAN ID</strong> — características agnósticas del fabricante, calculadas en ventanas deslizantes.</li>
+<li><strong>Delta-t / deltas de timing</strong> — diferencia entre timestamps consecutivos; firma de replay attacks.</li>
+<li><strong>Divergencia KL</strong> — medida del desplazamiento latente; pico característico de los replay attacks.</li>
+<li><strong>ICSim</strong> — simulador de red CAN usado en la demostración.</li>
+<li><strong>AutoACC-OS</strong> — sistema operativo para pentesting automotive del autor, presentado en Black Hat Arsenal.</li>
+<li><strong>VSOC / SIEM</strong> — destinos de despliegue para las puntuaciones de anomalía.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La decodificación no escala</strong>: detectar anomalías en CAN sin depender de los significados por modelo hace viable la protección de flotas enteras y de múltiples fabricantes con un único modelo.</li>
+<li><strong>El contexto es la firma</strong>: la anomalía no es un mensaje inválido sino una ruptura de la secuencia —frecuencia, entropía y timing bastan para caracterizarla sin entender el payload.</li>
+<li><strong>La incertidumbre es una feature</strong>: el muestreo variacional del LSTM-VAE tolera el ruido natural del vehículo y reduce los falsos positivos frente a LSTM puro y umbrales estáticos.</li>
+<li><strong>Detección hoy, prevención mañana</strong>: el enfoque está listo para integrarse en ECUs ligeras y VSOC/SIEM como detector, con el bloqueo activo como siguiente frontera de investigación.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/VchCd-o25z0">«DEF CON 33 - Context Aware Anomaly Detection in Automotive CAN Without Decoding - Ravi Rajput»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

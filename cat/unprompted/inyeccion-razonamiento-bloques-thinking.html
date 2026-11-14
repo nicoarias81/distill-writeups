@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Estás pensando lo que quiero que pienses? Inyección de razonamiento en modelos con bloques de thinking — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">¿Estás pensando lo que quiero que pienses? Inyección de razonamiento en modelos con bloques de thinking</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/j2_VsH6aNzY">«Jackson Reed - Are you thinking what I&#x27;m thinking? | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/j2_VsH6aNzY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> j2_VsH6aNzY · <strong>URL:</strong> https://youtu.be/j2_VsH6aNzY · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Jackson Reed - Are you thinking what I'm thinking? | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los modelos de razonamiento emiten bloques de thinking especiales —Anthropic y OpenAI liberan tokens de razonamiento específicos— que enriquecen el contexto del prompt y permiten respuestas mucho mejores. Como esos pensamientos son fundamentales para la respuesta, los proveedores los protegen criptográficamente: OpenAI y Anthropic entregan el bloque como blob cifrado o con firma HMAC, y cualquier intento de manipulación falla la verificación de la API. La demo en vivo muestra el flujo con Haiku: se pregunta la capital de la región Île-de-France, se recibe la respuesta con sus bloques de razonamiento, y al pedir "contame más" el mensaje crudo revela el thinking en texto plano junto con la firma de Anthropic. Hasta ahí, todo funciona como diseñado.</p>
+<h2>La grieta: la firma verifica el origen, no el contexto</h2>
+<p>Lo que OpenAI y Anthropic verifican es una sola cosa: que un modelo de su proveedor efectivamente pensó esto alguna vez. No verifican que ese pensamiento pertenezca a esta conversación. La demo lo explota en directo: se pregunta por la capital de una región cuyo nombre es difícil de pronunciar, Opus responde correctamente Toulouse; luego se copia el bloque de razonamiento de la pregunta anterior (la de París), se lo inyecta en esta conversación desactivando el thinking original sobre Toulouse, y se le pregunta al modelo qué estaba pensando antes de dar su respuesta. El modelo contesta disculpándose: "ups, me equivoqué, brevemente empecé a pensar en París antes de darte la respuesta correcta; es un error raro, perdón". El razonamiento inyectado —cosechado de otra conversación— es aceptado como propio por el modelo.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Modelo razona → bloque thinking<br/>blob cifrado / firma HMAC] --> B[La API verifica:<br/>¿lo pensó un modelo del proveedor?]
+    B -->|sí| C[Paso el check]
+    C --> D[Bloque reutilizado en otra conversación<br/>o incluso otra API key / otra cuenta]
+    D --> E[El modelo adopta el razonamiento ajeno<br/>como propio y cambia su respuesta]
+    E --> F[Interpretación: falta de threat modeling<br/>el control apuntaba a integridad, no a contexto]
+
+</pre>
+
+<h2>Alcance y por qué importa</h2>
+<p>La técnica permite reinyectar razonamiento no solo a través de conversaciones sino incluso a través de API keys y de diferentes cuentas en algunos proveedores. El harnés de la demo estaba afinado para Anthropic; la observación del autor es que el steering resultante es más efectivo —y más preocupante— en OpenAI que en Anthropic. Gemini tiene un enfoque de firmas completamente distinto que, de manera incidental, mitiga el problema. Sobre la causa, la interpretación del autor —con el descargo de que es una lectura propia y que publicará un blog post al respecto— es que simplemente quedó fuera del threat modeling: los tres proveedores no lockean el bloque al contexto; el foco estuvo en verificar que el contenido viniera del modelo y no se continuó con un binding más fuerte. Es posible, incluso, que nunca haya sido un control de seguridad sino una protección de robustez: evitar que un bloque de razonamiento malformado rompa el modelo. El autor no lo sabe con certeza, pero esa es su evaluación.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bloques de thinking</strong> de modelos de razonamiento (Anthropic, OpenAI) que enriquecen el contexto del prompt y mejoran la respuesta.</li>
+<li><strong>Protección criptográfica del razonamiento</strong>: blob cifrado o firma HMAC verificada por la API; la manipulación directa del bloque falla.</li>
+<li><strong>Replay e inyección de bloques de razonamiento</strong> entre conversaciones y, según el proveedor, entre API keys y cuentas distintas.</li>
+<li><strong>Demo en vivo</strong> con Haiku y Opus (pregunta y respuesta, extracción del thinking en texto plano, reinyección y desactivación del thinking original).</li>
+<li><strong>Comparación de proveedores</strong>: OpenAI más vulnerable al steering inyectado que Anthropic; Gemini incidentalmente protegido por su diseño de firmas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un control criptográfico solo protege lo que verifica: firmar "esto lo pensó un modelo del proveedor" no protege contra "esto lo pensó en otra conversación y lo traigo de contrabando".</li>
+<li>La inyección de razonamiento steeringea al modelo: el modelo adopta pensamientos ajenos como propios y los usa para justificar respuestas, lo que convierte un bloque "protegido" en un vector de manipulación de contexto.</li>
+<li>La brecha es transversal a la industria: ninguno de los tres grandes proveedores lockea el razonamiento al contexto de la conversación, y la diferencia entre ellos es de diseño, no de intención defensiva.</li>
+<li>El diagnóstico probable —falta de threat modeling o un control pensado solo para robustez— es una lección general: cuando una primitiva nueva (el thinking token) entra al API, sus propiedades de seguridad deben modelarse explícitamente, no asumirse.</li>
+<li>El ataque requiere acceso al bloque de razonamiento legítimo, pero ese acceso cruza fronteras de sesión, de cuenta y de API key, ampliando la superficie de reuso más allá de lo que la criptografía vigila.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/j2_VsH6aNzY">«Jackson Reed - Are you thinking what I&#x27;m thinking? | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

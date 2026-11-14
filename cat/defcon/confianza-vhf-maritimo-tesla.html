@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>¿Se puede confiar en las emisiones marítimas? Autenticación TESLA para VHF — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">¿Se puede confiar en las emisiones marítimas? Autenticación TESLA para VHF</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/VHikmfTxgbU">«DCSG1- Can Maritime Broadcasts Be Trusted? TESLA Based Auth for  Maritime VHF Comms - MInwoo Lee»</a> · ver el <a class="nz-link" href="https://youtu.be/VHikmfTxgbU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> VHikmfTxgbU · <strong>URL:</strong> https://youtu.be/VHikmfTxgbU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DCSG1- Can Maritime Broadcasts Be Trusted? TESLA Based Auth for  Maritime VHF Comms - MInwoo Lee</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando un barco dice por radio dónde está, ¿por qué creerle? Las comunicaciones VHF marítimas —AIS, sistema de identificación automática incluido— no llevan ninguna firma: todo lo que se emite puede leerse, editarse y suplantarse por cualquiera con un SDR. La respuesta intuitiva, "pongamos TLS", no funciona en un canal de radio que cubre 30-50 millas náuticas, corre a 9,6 kbit/s, pierde del 5% al 40% de los paquetes, depende de un GPS que sufre jamming cerca de los puertos y carece por completo de canal de retorno. La propuesta del proyecto es autenticar esas emisiones con el protocolo TESLA, medir su rendimiento y llevarlo hasta un banco de pruebas con radio real y buques de entrenamiento operativos.</p>
+<p>Quien lo presenta investiga en Korea Maritime &amp; Ocean University (KMOU) y es directivo de IMO STW, el subcomité que escribe la formación y el adiestramiento marítimo: una posición entre quienes escriben los estándares y quienes operan los sistemas.</p>
+<h2>El problema: difusión sin firma</h2>
+<p>AIS sube cada 2-10 segundos, en claro, la identidad (MMSI), posición, velocidad, rumbo y estado de navegación de cada barco. Con un dongle SDR de 25 dólares cualquiera lo escucha; con un SDR algo mejor, lo modifica. Los abusos documentados de los últimos años no son teoría:</p>
+<ul>
+<li>En 2017, unos 20 barcos en el mar Rojo "aparecieron" a 30 km de distancia, tierra adentro cerca de un aeropuerto ruso, con sus posiciones AIS falsificadas.</li>
+<li>"Flotas oscuras" rotando sus MMSI como teléfonos desechables para evadir sanciones.</li>
+<li>Manipulaciones de AIS documentadas en el estrecho de Ormuz, con sanciones financieras de por medio.</li>
+</ul>
+<p>Cada campo puede leerse, cada campo puede editarse, cada barco, todos los días.</p>
+<h2>Por qué no sirve el TLS de toda la vida</h2>
+<p>TLS funciona sobre inalámbrico —LTE, Wi-Fi, algunos enlaces satelitales—, pero VHF marítimo es otro planeta: alcance 10-20 veces mayor que el Wi-Fi doméstico, ancho de banda menor al 1% de un LTE, tasas de pérdida de paquetes 5-40% en zonas congestionadas, latencia de referencia GPS de ±15 ms con jamming regular cerca de puertos, y ninguna vía de respuesta. Se necesita un esquema pensado para difusión unidireccional en un canal hostil.</p>
+<h2>El protocolo TESLA en cuatro pasos</h2>
+<p>TESLA —no es la marca de autos; esquema de autenticación de difusión con revelación retardada de claves de Perrig y colaboradores en Berkeley, usado en la señal Galileo— resuelve exactamente ese caso:</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant E as Emisor
+    participant R as Receptor
+    E->>E: Cadena de claves (hash inverso, no predecible)
+    E->>R: Paquete con MAC (clave futura) + clave anterior revelada
+    R->>R: En buffer hasta el intervalo D (retraso 2 s)
+    E->>R: Revela la clave tras el intervalo D
+    R->>R: Verifica MAC: la falsificación exigía la clave antes de que existiera
+
+</pre>
+
+<ol>
+<li><strong>Cadena de claves</strong>: cada clave deriva de la siguiente por una función hash de sentido único; nadie puede predecir una clave futura desde las pasadas.</li>
+<li><strong>Emisión</strong>: cada mensaje lleva un MAC calculado con una clave futura que el emisor aún mantiene secreta.</li>
+<li><strong>Revelación</strong>: tras el intervalo de retraso D, el emisor revela la clave.</li>
+<li><strong>Verificación</strong>: el receptor, que tenía el mensaje en su buffer desde la llegada, valida el MAC.</li>
+</ol>
+<p>La seguridad se construye con el tiempo, no con canal de retorno: falsificar exigiría la clave antes de que se revelara, y el mensaje ya estaba en el buffer.</p>
+<h2>Por qué TESLA y no otra cosa</h2>
+<ul>
+<li><strong>Ed25519 (firmas digitales)</strong>: el estándar de oro, pero añade 512 bits por mensaje —en AIS eso es un sobrecosto de ~200% que el radio no absorbe—.</li>
+<li><strong>Handshakes tipo PKI</strong>: requieren canal de retorno; en difusión no existen.</li>
+<li><strong>OAth AIS (2022)</strong>: viable, pero exige cambiar el formato de los propios mensajes AIS, una reforma de nivel IMO con plazos que se miden en años.</li>
+<li><strong>TESLA</strong>: ~31% de sobrecosto en AIS y ~18% en VHF data link, sin tocar el formato de mensaje ni necesitar respuestas. La elección no fue de gusto sino de aritmética.</li>
+</ul>
+<h2>Los parámetros son seguridad</h2>
+<p>TESLA tiene cuatro perillas y cada una, mal ajustada, rompe el esquema. El diseño del proyecto, publicado en IEEE Access (noviembre):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Parámetro</th>
+<th>Valor</th>
+<th>Motivo marítimo</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Intervalo de clave</td>
+<td>500 ms</td>
+<td>Alineado con los slots AIS y tolera jitter GPS de ±50 ms; más corto pierde sincronía, más largo retrasa los mensajes de seguridad</td>
+</tr>
+<tr>
+<td>Retraso de revelación D</td>
+<td>2 s</td>
+<td>Latencia de ~1,3 s con tolerancia a pérdida de paquetes vía cadena de hash; más chico, la pérdida mata la verificación; más grande, expone ventanas de inseguridad</td>
+</tr>
+<tr>
+<td>MAC</td>
+<td>80 bits</td>
+<td>Probabilidad de falsificación 7,9×10⁻²⁵: dieciséis órdenes de magnitud por debajo del umbral aeronáutico de 10⁻⁹</td>
+</tr>
+<tr>
+<td>Canal</td>
+<td>VDL 153,6 kbit/s</td>
+<td>Sobrecosto del 19%, órdenes de magnitud más eficiente que Ed25519</td>
+</tr>
+</tbody>
+</table></div>
+<p>La moraleja: <strong>la configuración no va junto a la seguridad; la configuración ES la seguridad</strong>. Sacada de contexto marítimo, cualquier fase del protocolo colapsa.</p>
+<h2>Del paper al banco de pruebas</h2>
+<p>La simulación convenció a un público escéptico, y la pregunta correcta llegó de inmediato: ¿funciona con radio real? El trabajo futuro llegó antes de lo previsto:</p>
+<ul>
+<li>Dos USRP B210: uno emisor, otro receptor, con Raspberry Pi, modem GMSK y planificador TDMA corriendo TESLA con los parámetros exactos del paper.</li>
+<li>Presupuesto total de hardware: <strong>menos de 2.000 dólares</strong> —la respuesta estándar a la excusa "la autenticación es demasiado cara": acá está la boleta—.</li>
+<li>Monitor en vivo con tasa de captura de paquetes, RSSI en dB, análisis de espectro y clasificación por paquete (OK / falla) en tiempo real.</li>
+</ul>
+<p>El banco de pruebas no es el laboratorio: KMOU opera dos buques de entrenamiento reales, Hannara y Hanbada, en operaciones regulares. Radios, buques y mar abierta en la misma institución: la fase siguiente son pruebas en el agua.</p>
+<h2>Estándares e implementación</h2>
+<p>Del lado de los estándares: IACS UR E26 exige comunicaciones seguras, E27 exige resiliencia de sistemas, y la MSC 428 de IMO lleva la gestión de riesgo ciber al SMS de cada barco. Los estándares dicen adónde ir, no cómo: <strong>la prescripción de tecnologia específica no es trabajo de un estándar, sino de una especificación técnica</strong>, donde el esquema concreto —parámetros, modos de falla, protección de claves, evaluación de seguridad escrita, degradación sin retorno silencioso a modos más débiles— se decide con evidencia.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las emisiones VHF marítimas —AIS incluido— son legibles, editables y suplantables hoy, con hardware de pocos dólares y abusos documentados desde hace años.</li>
+<li>TLS no aplica por diseño del canal; TESLA autentica difusión unidireccional con sobrecosto ~31% en AIS, sin formato nuevo ni canal de retorno, y sus parámetros tienen que salir del contexto marítimo, no de un libro de texto.</li>
+<li>La viabilidad económica está demostrada: un banco de pruebas completo por menos de 2.000 dólares, y el salto a buques reales ya está encaminado.</li>
+<li>La urgencia no es hipotética: la autonomía marítima —barcos sin tripulación que deciden rutas sin humano a bordo— llega más rápido que los estándares. Autenticar cada mensaje hoy es lo que convierte un ataque de guion de película en algo medible, detectable y reportable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/VHikmfTxgbU">«DCSG1- Can Maritime Broadcasts Be Trusted? TESLA Based Auth for  Maritime VHF Comms - MInwoo Lee»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

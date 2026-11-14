@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FENRIR: cascada de triage con LLM para cazar zero-days a escala — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">FENRIR: cascada de triage con LLM para cazar zero-days a escala</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/c6_bRzHCf3U">«Peter Girnus &amp; Derek Chen - FENRIR: AI Hunting for AI Zero-Days at Scale | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/c6_bRzHCf3U">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> c6_bRzHCf3U · <strong>URL:</strong> https://youtu.be/c6_bRzHCf3U · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Peter Girnus &amp; Derek Chen - FENRIR: AI Hunting for AI Zero-Days at Scale | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>FENRIR es el motor de descubrimiento de vulnerabilidades zero-day del equipo de Zero Day Initiative de Trend AI, en producción desde hace más de un año. Su premisa es simple y brutalmente práctica: un LLM al que se le tira un repositorio entero con la consigna de encontrar vulnerabilidades devuelve toneladas de ruido; en cambio, una arquitectura en cascada que filtra con herramientas tradicionales antes de gastar un solo token convierte el mismo presupuesto en vulnerabilidades reales.</p>
+<p>El sistema vive en una plataforma unificada con componentes ofensivos y defensivos: mientras FENRIR se dedica al descubrimiento de zero-days, su complemento Mimir se concentra en investigación de vulnerabilidades n-day y threat intelligence. Ambos se retroalimentan: un command injection en el framework de robótica Isaac de NVIDIA, descubierto por FENRIR, fue trackeado como n-day en Mimir; cuando NVIDIA publicó el parche, 23 agentes autónomos basados en LangGraph re-escanearon el repositorio y FENRIR encontró dos bugs más — uno introducido por el propio parche y un bypass del fix.</p>
+<p>Los números de producción son contundentes: 2.5 veces más vulnerabilidades descubiertas, 80% menos de tasa de falsos positivos, disclosure 70% más rápido y un aumento de 3 veces en la productividad del equipo. Acumulan más de 60 CVEs enviados, más de 100 en pre-disclosure en ZDI y 3.000 pendientes de revisión — todas de severidad alta o crítica, porque los de severidad media "los pueden encontrar los script kiddies".</p>
+<h2>La cascada: señal barata primero, agente caro después</h2>
+<p>El pipeline arranca con análisis estático puro, sin gastar tokens. Se encadenan cuatro herramientas SAST, cada una especializada en una clase de señal:</p>
+<ol>
+<li><strong>Yara-X</strong>: el pre-filtro facetado. Escanea millones de líneas de código en segundos y ya encontró vulnerabilidades reales en producción.</li>
+<li><strong>Semgrep</strong>: mucho más preciso que Yara-X, rinde mejor con sets de reglas grandes.</li>
+<li><strong>CodeQL</strong>: análisis de flujo de datos, más pesado, pero con muy buena conversión a verdaderos positivos.</li>
+<li><strong>FunSecBox</strong> (extensión de Spotbox): cubre binarios Java cuando hace falta.</li>
+</ol>
+<p>La correlación de herramientas no es un lujo: si dos herramientas distintas apuntan a la misma clase de CWE en la misma zona (más o menos 15 líneas), eso es confianza y, sobre todo, contexto para las etapas posteriores. La idea general es eliminación rápida arriba, análisis profundo abajo, porque lo profundo cuesta cómputo.</p>
+<p>Después viene el <strong>triage L1</strong>, con un modelo rápido y contexto estático pre-asignado de 50 líneas de código. Acá no se verifica nada: solo se poda el ruido obvio. Dos decisiones de diseño rinden mucho:</p>
+<ul>
+<li><strong>Prompts específicos por CWE</strong>: en vez de preguntar si algo es un falso positivo, se pregunta si puede ser un CWE-79. El objetivo más angosto performa mejor.</li>
+<li><strong>Sesgo hacia recall</strong>: es aceptable que pasen algunos falsos positivos; lo inaceptable es que esta etapa descarte verdaderos positivos. El harness de evaluación confirma que L1 no descartó ni un solo caso que L2 hubiera clasificado como verdadero positivo.</li>
+</ul>
+<p>El resultado es el argumento económico central del sistema: <strong>más del 60% de los hallazgos se filtran con una sola llamada al modelo Sonnet</strong>, en lugar de entrar a la etapa siguiente con múltiples turnos de tool calling con Opus. Cincuenta líneas de código en vez de doce turnos de Opus es, literalmente, un no-brainer.</p>
+<h2>L2: verificación agéntica en sandbox</h2>
+<p>La etapa más cara es el <strong>deep verify agéntico</strong>: un agente Opus —elegido por su conocimiento de seguridad, razonamiento y capacidad de function calling— se despliega en un sandbox aislado y seguro con ejecución completa y permisos de escritura. Puede escribir un script Python y ejecutarlo con bash; se le deja hacer lo que necesite, incluida la generación de PoCs.</p>
+<p>El agente recibe el contexto completo del código y un mecanismo de reflexión integrado: a veces el modelo hace trampa con un razonamiento superficial, y la reflexión lo obliga a pelear contra sí mismo para demostrar que algo no es un falso positivo. Es el paso donde un "quizás" se convierte en un "sí" o "no" claro, con evidencia.</p>
+<p>La economía de esta etapa, medida en producción:</p>
+<ul>
+<li>Mediana de <strong>61 centavos por hallazgo</strong>, alrededor de 100.000 tokens, escalable a más de 1 millón en casos complejos (flujos de datos multi-archivo en repositorios grandes).</li>
+<li>Unos <strong>8,80 dólares por verdadero positivo</strong>. No es barato, pero es mucho más accesible que el camino tradicional.</li>
+</ul>
+<p>Las lecciones aprendidas: la reflexión forzada reduce alucinaciones en un sistema de producción; el triage "reachability first" descarta de entrada código inalcanzable (documentación, tests); y como los agentes ya saben qué contexto les falta —saben trazar flujos de datos y usar herramientas de call graph— conviene dejarlos recolectar contexto por su cuenta en lugar de pre-asignarlo.</p>
+<h2>Del ruido humano al paquete de disclosure</h2>
+<p>El efecto sobre el analista humano es una simplificación radical del workflow: de 500 alertas crudas se llega a 10-20 de alta confianza, cada una con reporte de vulnerabilidad auto-generado, alcance, impacto, PoC armado y paquete de disclosure completo. El humano solo verifica explotabilidad, revisa severidad y envía al vendor. En el demo en vivo, un scan sobre Aeon UI produjo 122 hallazgos de análisis estático, 37 filtrados y 21 verdaderos positivos, con toda la información sensible redactada.</p>
+<p>La consola incluye además una ventana para conversar con el propio triager LLM: tratarlo como un colega investigador, hacerle preguntas, pedirle que explique la vulnerabilidad. Una táctica particularmente útil para podar falsos positivos es pedirle a otro LLM que <strong>intente refutar</strong> que algo es una vulnerabilidad — el equivalente programático de escrutinizar el reporte de un researcher en un bug bounty.</p>
+<h2>Lo que hace único al sistema</h2>
+<ul>
+<li><strong>Correlación multi-scanner</strong>: cascada de herramientas SAST cuyos acuerdos generan confianza y contexto.</li>
+<li><strong>Triage en cascada</strong>: poda barata antes de verificación cara, con asimetría deliberada hacia el recall.</li>
+<li><strong>Kill chain analysis</strong>: modelado de rutas de explotación para encontrar superficies de ataque riesgosas más rápido.</li>
+<li><strong>Weighted context generation</strong>: un algoritmo asigna tokens dinámicamente a las partes que los necesitan, no de forma estática.</li>
+<li><strong>Dynamic priority scoring</strong>: un motor de scoring que surfacea las vulnerabilidades más severas para disclosure inmediato. El scoring exacto es "secret sauce", pero el humano puede preguntarle al agente por qué un hallazgo es de confianza media.</li>
+</ul>
+<p>Dos apuestas de largo plazo: primero, <strong>usar IA para asegurar la IA</strong> — en lugar de apuntar a código abierto veterano, FENRIR apunta al ecosistema de IA mismo, cuya superficie de ataque es enorme. Segundo, con modelos como Opus 4.6 el LLM se usa como componente adversarial: interrogatorios adversariales y bugs de memory corruption, que al principio quedaron afuera por las limitaciones de ventana de contexto. El siguiente paso es escalar el descubrimiento al nivel organizacional, con sus propias fronteras de seguridad y rarezas internas.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>FENRIR</strong>: motor de descubrimiento de zero-days de Trend AI ZDI, en producción más de un año; sobrevivió varias generaciones de LLMs.</li>
+<li><strong>Mimir</strong>: componente gemelo para investigación n-day y threat research, con loop de inteligencia bidireccional hacia FENRIR.</li>
+<li><strong>Yara-X / Semgrep / CodeQL / FunSecBox</strong>: cadena SAST de la primera etapa de la cascada.</li>
+<li><strong>Triage L1</strong>: modelo rápido (Sonnet) con 50 líneas de contexto estático y prompts por CWE; poda más del 60% de hallazgos.</li>
+<li><strong>Deep verify L2</strong>: agente Opus en sandbox aislado con generación de PoCs y reflexión forzada; mediana de 61 centavos por hallazgo, unos 8,80 dólares por verdadero positivo.</li>
+<li><strong>LangGraph</strong>: base de los 23 agentes autónomos de Mimir que re-escanean repositorios tras la publicación de parches.</li>
+<li><strong>MCP</strong>: FENRIR nació como componente de MCP server cuando los servidores MCP acababan de salir; el tránsito natural de tool calling a agentes.</li>
+<li><strong>ZDI (Zero Day Initiative)</strong>: canal de pre-disclosure; más de 60 CVEs enviados, más de 100 en pre-disclosure, 3.000 pendientes.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El costo de la IA en seguridad no se resuelve con modelos más baratos sino con arquitectura: filtrar con herramientas deterministas antes de invocar al LLM cambia la economía completa del descubrimiento de vulnerabilidades.</li>
+<li>La asimetría deliberada importa: las etapas baratas deben estar sesgadas a recall y nunca tomar decisiones finales; la verificación cara con evidencia queda para lo que sobrevive la cascada.</li>
+<li>Los prompts específicos ("¿puede ser CWE-79?") superan a los genéricos, y un modelo chico mal elegido como clasificador descarta verdaderos positivos: el dimensionamiento del modelo por etapa es una decisión de diseño crítica.</li>
+<li>Usar IA para descubrir zero-days en el propio ecosistema de IA convierte el crecimiento del attack surface en una oportunidad: el mismo pipeline que asegura código abierto tradicional escala al ecosistema que recién nace.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/c6_bRzHCf3U">«Peter Girnus &amp; Derek Chen - FENRIR: AI Hunting for AI Zero-Days at Scale | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

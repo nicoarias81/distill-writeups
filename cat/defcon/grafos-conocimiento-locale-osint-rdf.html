@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grafos de conocimiento locales para OSINT: burlar límites y cuidar el OPSEC — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Grafos de conocimiento locales para OSINT: burlar límites y cuidar el OPSEC</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/yIUfntW_TxY">«DEF CON 33 - Building Local Knowledge Graphs for OSINT: Bypassing Rate Limits and Maintaining OPSEC - Dr. Pellegrino»</a> · ver el <a class="nz-link" href="https://youtu.be/yIUfntW_TxY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> yIUfntW_TxY · <strong>URL:</strong> https://youtu.be/yIUfntW_TxY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Building Local Knowledge Graphs for OSINT: Bypassing Rate Limits and Maintaining OPSEC - Dr. Pellegrino</li>
+</ul>
+<h2>Resumen</h2>
+<p>Todo investigador OSINT tropieza con los mismos tres muros: los servicios externos limitan las consultas, cada consulta revela el foco de la investigación y el trabajo acumulado se pierde entre formatos ad hoc. La propuesta aquí es una metodología concreta que resuelve los tres a la vez: recolectar más de lo necesario en una caché local, destilar los puntos relevantes en un grafo de conocimiento basado en RDF y reutilizar ese repositorio offline como base de análisis —con LLMs locales como participantes de pleno derecho— sin entregar a ningún proveedor la psicología de la investigación.</p>
+<p>El trasfondo metodológico viene de la IA clásica: sistemas expertos, bases de conocimiento y gestión de información de antes de los grandes modelos de lenguaje. La tesis es que esa disciplina, combinada con el tooling moderno, escala el trabajo individual del analista y crea un ciclo virtuoso: cada análisis enriquece la biblioteca local, y la biblioteca acelera el siguiente análisis.</p>
+<h2>El problema: cada consulta es una declaración de intereses</h2>
+<p>Cuando una investigación exige 2.000 consultas a un servicio web, los límites de uso convierten el análisis en un pulso con la política del proveedor. Pero el costo real no es solo el rate limit: cada búsqueda condicional —"dime todo sobre la empresa X"— comunica al proveedor exactamente qué interesa. La búsqueda es, psicológicamente, un indicador de interés; no es casualidad que la publicidad funcione tan bien (la patente de PageRank de Google lo documenta). Para un investigador, eso significa que hasta el patrón de consultas filtra la dirección del trabajo.</p>
+<p>La contramedida clásica sigue siendo la correcta: <strong>recolección masiva y genérica</strong>. En vez de consultar Wikipedia empresa por empresa, se descarga todo el conjunto de empresas tecnológicas de una vez, se almacena localmente y el objetivo queda enterrado en una colección mucho mayor. El trade-off es obvio —habrá que gestionar un volumen grande de datos—, y ahí es donde entra la parte nueva de la metodología: RDF y grafos de conocimiento hacen que esa colección grande sea manejable y consultable offline.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Fuentes externas<br/>sitios, Wikidata] -->|recolección masiva<br/>genérica| B[Caché local]
+    B -->|extracción + LLM local| C[Artefactos enriquecidos<br/>RDF / triple store]
+    C -->|SPARQL + GraphRAG| D[Análisis: consultas,<br/>link charts, clusters]
+    D -->|nuevos artefactos<br/>alineados a ontologías| C
+
+</pre>
+
+<h2>Riesgos clásicos, con giro de LLM</h2>
+<p>La tríada CIA ordena el análisis de riesgos, y cada riesgo clásico tiene ahora una variante que introducen los LLMs:</p>
+<ul>
+<li><strong>Confidencialidad</strong>: como con los buscadores, cada prompt enviado a un servicio externo registra el interés del analista. Además, los LLMs son opacos y el modelo local es intensivo en recursos —nada cambia eso—. Pero hay un giro propio: los modelos deciden qué se puede preguntar. En el caso de estudio, pedir una lista de ponentes para un ejercicio de análisis de vínculos hizo que un modelo comercial se negara ("no puedo ayudar a identificar objetivos") mientras otro, ante la misma pregunta, insertó silenciosamente una fuente completamente distinta sin advertirlo. Que una corporación decida qué vocabulario de una comunidad profesional es inapropiado es un riesgo de confidencialidad e integridad al mismo tiempo.</li>
+<li><strong>Integridad</strong>: el scraping clásico ya era frágil (wget y curl no dan trabajo reproducible), pero los sitios modernos —con contenido que carga al hacer scroll, pestañas e iframes generados por JavaScript— hacen que la descarga "completa" sea una ilusión. En el caso de estudio, la web de la aldea de reconocimiento perdía ponentes si no se interactuaba manualmente con la agenda.</li>
+<li><strong>Disponibilidad</strong>: sitios caídos, límites de uso, plazos que no esperan a terceros. La caché local y los LLMs ejecutados en local (VLLM, llama.cpp, LM Studio como frontend) devuelven el control al analista.</li>
+</ul>
+<h2>Extracción: RDF como sintaxis canónica</h2>
+<p>El Resource Description Framework es un estándar del W3C para expresar datos de grafo —"la discusión entre tabulado y comas terminó en RDF"—, y casi cualquier formato se reduce a él. Sus ventajas prácticas para investigación:</p>
+<ul>
+<li><strong>Expresividad común</strong>: varios analistas (o varios LLMs) destilan fuentes heterogéneas —HTML hecho para ojos humanos, datos de lingüistas en idiomas distintos— hacia una misma sintaxis canónica.</li>
+<li><strong>Relaciones explícitas</strong>: se manifiesta como base de datos de grafos (triple store) consultable con SPARQL, el equivalente de SQL para este modelo.</li>
+<li><strong>Ontologías para normalizar vocabulario</strong>: en lugar del "anillo único" de un esquema de data warehouse, múltiples ontologías representan múltiples dominios interoperables. La ontología Friend of a Friend (FOAF), estandarizada hace años para datos de redes sociales, resuelve elegantemente el problema de modelar personas con múltiples roles en múltiples organizaciones mediante el nodo <em>agent</em>.</li>
+</ul>
+<p>La decisión clave es alinear los artefactos a ontologías existentes en vez de inventar estructuras sobre la marcha. El resultado no es solo una mejor representación del dominio: es la puerta de entrada para que los LLMs participen en el análisis, porque solo pueden colaborar sobre datos que puedan leer.</p>
+<h2>Caso de estudio: los ponentes de la aldea de reconocimiento</h2>
+<p>El ejercicio práctico analizó el sitio web de Recon Village: extraer los ponentes, sus afiliaciones y sus roles, cruzarlo con empresas públicas de Wikipedia (vía Wikidata, que ya publica en RDF) y con una lista construida manualmente por otro analista sobre empresas privadas ausentes de Wikipedia.</p>
+<p>Los pasos y hallazgos:</p>
+<ol>
+<li><strong>Recolección</strong>: wget y curl fallaron de plano —se perdieron iframes y contenido generado por JavaScript—. Se reemplazaron por un crawler propio en Rust (usando la librería <code>arty</code> y un proof of concept con la biblioteca Tor en desarrollo para Rust), más una automatización con Playwright y Chromium para forzar la carga dinámica. El repo público del proyecto es reproducible de punta a punta.</li>
+<li><strong>Extracción con LLM local</strong>: pedir a un modelo local (Qwen de 30 mil millones de parámetros, con GPU) una lista simple de nombres de ponentes rindió mejor que el esfuerzo manual: encontró cuatro ponentes adicionales que el análisis humano había pasado por alto (coponentes y paneles ocultos en las pestañas de la agenda). Sin ese paso, el análisis agregado habría partido de datos incompletos desde el primer minuto.</li>
+<li><strong>Alineación a ontología</strong>: pedirle al mismo modelo que expresara la lista en RDF y la alineara al modelo estándar de personas y organizaciones funcionó a la primera. La expectativa era semanas de ajuste fino; el resultado llegó en segundos porque se le entregó información semántica legible por máquina junto con la lista que él mismo había generado. Lo que antes exigía un cuerpo de trabajo considerable (NLP, sistemas expertos basados en reglas) ahora es un prompt bien diseñado.</li>
+<li><strong>Join sin filtrar intereses</strong>: el cruce entre ponentes y empresas se hizo sobre los datos RDF locales —por ejemplo, añadiendo el año de fundación de cada empresa, dato que no está en el sitio de la aldea ni Wikipedia conoce los ponentes—. Consultar Wikipedia iterando sobre cada ponente habría comunicado a Wikidata la lista exacta de empresas de interés; recolectar el conjunto genérico y hacer el join local evita esa filtración.</li>
+<li><strong>Ciclo virtuoso</strong>: la lista manual del colega, alineada a los mismos estándares en vez de a un formato improvisado, se integró sin trabajo de reconciliación de formatos. La extensión natural —comparar aldeas entre sí a lo largo del tiempo vía info.defcon.org— quedó fuera del alcance individual, pero a un prompt de distancia con esta metodología.</li>
+</ol>
+<h2>Arquitectura del stack</h2>
+<p>El stack distingue las decisiones que siguen siendo del analista —selección de fuentes, qué aprender de cada una, qué ontologías usar— de lo que ahora automatiza. Sobre los artefactos RDF, la técnica central es el <strong>GraphRAG</strong>: la generación aumentada por recuperación estándar hace búsqueda textual naive sobre documentos reducidos, insuficiente para colecciones grandes; usar el grafo de conocimiento para gestionar qué entra en la ventana de contexto permite escalar a colecciones grandes con selectividad deliberada. Las preguntas de análisis de vínculos —quién conoce a quién, redes de ponentes comunes, clusters, analítica de grafos— caen naturales en SPARQL.</p>
+<p>El control científico importa tanto como la arquitectura: los LLMs son modelos estocásticos, así que la contrapartida es metodología repetible —prompts de sistema y usuario sistematizados en ficheros, ejecuciones múltiples y evaluación estadística— para que el análisis sea reproducible y no dependa de la creatividad del modelo. Los modelos locales (probado con Qwen3) hacen eso viable: sin ellos, correr un experimento de 500 ejecuciones significa pagar 500 veces y exponer el interés 500 veces.</p>
+<p>Dos cautelas honestas del propio trabajo: el crawler con Chromium sigue teniendo vías de fuga de firmas (tema dejado fuera de alcance, con remisión a los recursos de TOR sobre OPSEC de recolección), y el scraping ni siquiera con browser automation garantiza fidelidad completa —¿se llegó al final de la página?, ¿se clickeó todo lo clickeable?—. La integridad de la recolección mejora, pero no es bala de plata.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>RDF + SPARQL</strong>: codificación canónica de grafos y su lenguaje de consulta; base del repositorio local.</li>
+<li><strong>Ontologías (FOAF, OWL)</strong>: vocabularios estandarizados para interoperar entre subgrafos y dominios.</li>
+<li><strong>GraphRAG</strong>: recuperación sobre grafo de conocimiento para gestionar la ventana de contexto con colecciones grandes.</li>
+<li><strong>LLMs locales</strong>: Qwen/Qwen3 (~30B, requiere GPU) vía toolkits como VLLM, llama.cpp, LM Studio.</li>
+<li><strong>Crawlers en Rust</strong>: librería <code>arty</code> y biblioteca Tor para Rust en desarrollo, en el repo público del proyecto.</li>
+<li><strong>Playwright + Chromium</strong>: automatización de navegador para contenido dinámico (scroll, pestañas, iframes).</li>
+<li><strong>Wikidata</strong>: API de Wikipedia que ya publica en RDF; fuente masiva de datos de empresas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La caché local no es una novedad en inteligencia, pero RDF la transforma: de un montón de descargas a una biblioteca indexada, consultable y compartible donde cada nuevo análisis alimenta el siguiente.</li>
+<li>Recolección genérica y masiva entierra el objetivo en una colección mayor; los joins sobre datos locales eliminan la filtración de intereses que implican las consultas condicionales.</li>
+<li>Alinear los artefactos a ontologías estándar desde el principio cuesta poco (los LLMs lo hacen a la primera si se les da semántica legible) y multiplica las opciones de análisis, incluida la automatización.</li>
+<li>Los LLMs comerciales introducen riesgos propios: registran el interés, pueden negarse por vocabulario profesional y pueden alterar fuentes sin avisar. Los modelos locales devuelven control, repeatabilidad y OPSEC, al precio de recursos.</li>
+<li>El valor inmediato es tangible: en el caso de estudio, un LLM local encontró en segundos datos que el análisis humano había omitido, y el error habría contaminado todo el análisis posterior.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/yIUfntW_TxY">«DEF CON 33 - Building Local Knowledge Graphs for OSINT: Bypassing Rate Limits and Maintaining OPSEC - Dr. Pellegrino»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

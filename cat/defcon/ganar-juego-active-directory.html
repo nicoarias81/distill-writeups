@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ganar el juego de Active Directory: ataque y defensa nivel por nivel — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ganar el juego de Active Directory: ataque y defensa nivel por nivel</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/M-2d3sM3I2o">«DEF CON 33 - Winning the Game of Active Directory - Brandon Colley»</a> · ver el <a class="nz-link" href="https://youtu.be/M-2d3sM3I2o">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> M-2d3sM3I2o · <strong>URL:</strong> https://youtu.be/M-2d3sM3I2o · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Winning the Game of Active Directory - Brandon Colley</li>
+</ul>
+<h2>Resumen</h2>
+<p>La tesis central invierte el objetivo habitual: ganar en Active Directory no es llegar a Domain Admin —con ese acceso se exfiltran datos o se crea persistencia, pero no se gana nada—. Se gana manteniendo un entorno seguro, mejorándolo continuamente y aplicando los controles que lo protegen. Para demostrarlo, el recorrido usa GOAD (Game of Active Directory), el laboratorio multi-dominio preconstruido con más de 30 configuraciones vulnerables de Orange Cyber Defense, y avanza por niveles: reconocimiento sin credenciales, enumeración autenticada, escalada de privilegios y, como jefe final, el dominio completo vía Print Nightmare y ADCS. Cada ataque viene con su mitigación concreta: son 15 vulnerabilidades parcheables al final del recorrido.</p>
+<h2>Nivel 1: reconocimiento sin credenciales</h2>
+<p>Con solo acceso de red y la IP de un controlador de dominio:</p>
+<ul>
+<li><strong>Acceso anónimo (misconfiguración 1):</strong> con CrackMapExec, cualquier usuario de red puede listar cuentas y atributos públicos. La primera credencial llega en el campo <code>description</code> de un objeto usuario —una contraseña olvidada ahí por un administrador—. Mitigación: quitar de "Pre-Windows 2000 Compatible Access" en la raíz del dominio la pertenencia de <em>Everyone</em> o <em>Anonymous Logon</em>.</li>
+<li><strong>Enumeración de usuarios vía Kerberos (sin fix):</strong> Kerberos responde "principal unknown" cuando el usuario no existe y otra cosa cuando sí, lo que permite validar una lista de nombres construida con nombres y apellidos (first.last, f.last, etc.) —el formato se deduce con uno o dos aciertos y LinkedIn—. Microsoft no lo considera bug; las mitigaciones reales son convenciones de nombres no estándar, sufijos por tipo de usuario o dígitos finales que multiplican el tamaño de la lista necesaria.</li>
+<li><strong>AS-REP Roasting:</strong> las cuentas con "Do not require Kerberos pre-authentication" entregan su hash directamente; con Hashcat y una lista de contraseñas se recupera texto claro en minutos. Mitigación trivial: desmarcar esa casilla heredada.</li>
+<li><strong>Ataques de contraseñas:</strong> password spray (pocas contraseñas contra todos los usuarios, p. ej. "Summer2024"), credential stuffing (credenciales filtradas de otros servicios) y reuso usuario=contraseña (aún visible en cuentas de servicio antiguas). La política de contraseñas se consulta con cualquier usuario del dominio para ajustar el ataque. El lockout es contramedida efectiva, pero los fallos de logon resetean el contador: con CrackMapExec autenticado se lee el <em>bad password count</em> de cada cuenta y se esperan los resets antes de reintentar.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Acceso de red
+solo IP del DC] --> B[Anonymous access
+lista usuarios + description]
+    B --> C[AS-REP Roast
+cuentas sin pre-auth]
+    C --> D[Password spray
+stuffing, reuso]
+    D --> E[Credenciales iniciales
++ vulnerabilidades identificadas]
+
+</pre>
+
+<h2>Nivel 2: enumeración autenticada y movimiento lateral</h2>
+<ul>
+<li><strong>Kerberoasting:</strong> cuentas con SPN exponen hashes crackeables offline (John Snow cae por contraseña débil; la cuenta SQL no, por ser larga, fuerte y aleatoria). La limpieza de SPNs es la defensa: LastLogon como indicador (imperfecto), priorizar cuentas privilegiadas, y verificar si el servicio del SPN siquiera existe —el DNS del SPN de Jon Snow no resolvía: SPN muerto, eliminable—. Las cuentas de servicio se tocan poco por miedo a romper dependencias; este análisis permite distinguir las vivas de las muertas.</li>
+<li><strong>Responder (on-path):</strong> envenena LLMNR/NBT-NS y captura hashes NTLMv1 —"el regalo de Dios para el pentester de AD"—, crackeables con facilidad. La versión agresiva: NTLM RelayX, que reenvía la autenticación a un objetivo y establece un SOCKS proxy con la sesión del usuario suplantado —en la demo, Eddard Stark, administrador del servidor web objetivo—. Con esa sesión activa, <code>secretsdump</code> extrae hashes del SAM local (administrador, help desk, cuentas locales) y credenciales guardadas: la cuenta SQL, que resistió el Kerberoasting por su contraseña fuerte, estaba en texto claro en el servidor porque SQL Express la necesita para correr como servicio.</li>
+<li><strong>Mitigaciones del nivel:</strong> deshabilitar LLMNR; exigir NTLMv2 al máximo nivel de seguridad (idealmente eliminar NTLM y dejar Kerberos —difícil, rara vez visto completado—); LDAP signing y channel binding (rompe dispositivos no Windows); y el grupo <strong>Protected Users</strong>, que solo afecta a los usuarios que se meten en él y no a todo el dominio —paso pragmático por change management—.</li>
+</ul>
+<h2>Nivel 3: escalada y dominio al alcance</h2>
+<ul>
+<li><strong>BloodHound:</strong> mapea los caminos hacia Domain Admin. Robb Stark es administrador local: el paso directo (auto-agregarse al grupo) es el aburrido; el interesante es la modificación de ACL.</li>
+<li><strong>ACL sobre GPO (WriteDacl):</strong> Samwell Tarly tiene WriteDacl sobre una GPO enlazada a la raíz del dominio. La pestaña Delegation no lo muestra; hay que entrar en Advanced: WriteDacl = modificar permisos y propiedad, lo que permite a Samwell (o a quien él autorice) modificar la GPO y, por ejemplo, desplegar un archivo que se ejecuta al login de todos los usuarios en todos los equipos. Mitigación: auditar ACLs y <strong>ownership</strong> de las GPOs, empezando por la raíz del dominio, los DCs y las OUs protegidas.</li>
+<li><strong>Pass-the-hash desde credenciales locales:</strong> con los hashes locales del servidor web (del secretsdump anterior) se autentica en el resto de hosts del dominio. El hit inesperado: Winterfell, un controlador de dominio —el primer DC promovido hereda la contraseña del administrador local original—. Evil-WinRM da shell en el DC sin conocer la contraseña. Mitigación: <strong>LAPS</strong> (contraseñas locales únicas y rotadas; el antipatrón previo era la GPO con la contraseña del admin local, y el atributo CPassword la dejaba en texto claro legible —aún presente en GPOs viejas, incluso desvinculadas—).</li>
+<li><strong>Unconstrained delegation:</strong> el servidor web delega por cualquier usuario; basta esperar (o coaccionar) a que un administrador inicie sesión allí. Mimikatz exporta el TGT de Brandon, pass-the-ticket, <code>klist</code> lo carga en la sesión y PowerShell autentica como Domain Admin contra el DC. Mitigaciones: delegación <strong>constrained</strong> (servicios/servidores específicos) y marcar las cuentas privilegiadas como <strong>"Account is sensitive and cannot be delegated"</strong> —Brandon seguía logueado tras el flag, pero sin TGT exportable—.</li>
+</ul>
+<h2>Nivel 4: el jefe final — Print Nightmare y ADCS ESC1</h2>
+<ul>
+<li><strong>Print Nightmare:</strong> con una cuenta de usuario sin privilegios (Hodor) se autentica al DC; si el spooler está corriendo y los protocolos necesarios disponibles, la DLL maliciosa hospedada en Samba (exploit de cube0x0) crea una cuenta nueva directamente en el grupo Administrators. Mitigación favorita del recorrido por ser la más fácil: <strong>deshabilitar el Print Spooler</strong> en todo lo que no sea un servidor de impresión —el spooler sigue siendo vector de múltiples ataques de coacción—.</li>
+<li><strong>ADCS ESC1 (Certified Pre-Owned, SpecterOps):</strong> <code>certipy find</code> enumera plantillas vulnerables. ESC1 combina dos condiciones: la plantilla permite <strong>ENROLLEE_SUPPLIES_SUBJECT</strong> (el solicitante especifica el SAN) y <strong>Domain Users</strong> tiene derechos de enrollment. Resultado: cualquier usuario solicita un certificado como <code>administrator</code>, se autentica con el PFX (<code>certipy auth</code>) y obtiene el hash NT de administrator; <code>secretsdump</code> contra el DC vuelca el SAM y, lo importante, <strong>NTDS.dit</strong>: todos los NT hashes del dominio con privilegios mínimos iniciales. Game over técnico —pero no fin del trabajo—.</li>
+<li><strong>Por qué existía la plantilla vulnerable:</strong> el problema de fondo es el supply-in-request; mitigación adicional: requerir aprobación del manager en las plantillas peligrosas. <strong>Locksmith</strong> (de Jake Hildreth) detecta automáticamente ESC1 a ESC8 (excepto 7), habilita la auditoría que ADCS no trae por defecto y <strong>emite el PowerShell de corrección</strong> para cada hallazgo —útil igual desde el lado azul que desde el rojo—.</li>
+</ul>
+<h2>La tesis defensiva</h2>
+<p>Domain Admin no es el final: los administradores deben investigar por qué cada configuración vulnerable existía. El marco de madurez que propone el recorrido: cada ataque del lab es una misconfiguration con fix conocido; el trabajo defensivo es cerrarlas una a una (acceso anónimo, pre-auth Kerberos, SPNs muertos, LLMNR/NTLMv1, Protected Users, ACLs de GPO, LAPS, delegación, spooler, plantillas ADCS) y repetir el ciclo —hay siempre un siguiente nivel: "la princesa está en otro castillo". Recomendación final: assessment o pentest periódico y uso de las herramientas mostradas, siempre con autorización.</p>
+<h2>Herramientas y referencias</h2>
+<ul>
+<li><strong>GOAD</strong> (Orange Cyber Defense): laboratorio multi-dominio con +30 configuraciones vulnerables.</li>
+<li><strong>CrackMapExec, Impacket, Responder + NTLM RelayX, Hashcat/John, BloodHound, Mimikatz, Evil-WinRM, Certipy, Locksmith.</strong></li>
+<li>Artículos del autor: password policy ("Password Policy à la carte"), LLMNR, LAPS; Protected Users (material de Jake Hildreth); Certified Pre-Owned (SpecterOps).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/M-2d3sM3I2o">«DEF CON 33 - Winning the Game of Active Directory - Brandon Colley»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

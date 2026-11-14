@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wi-Fi wormhole: distancia geográfica barata con 802.11ah — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Wi-Fi wormhole: distancia geográfica barata con 802.11ah</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/RpkYQDaEKMo">«DEF CON 33 - RF Village - McJumpBox Leveraging free corporate Wifi for fun/profit - Loaning»</a> · ver el <a class="nz-link" href="https://youtu.be/RpkYQDaEKMo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> RpkYQDaEKMo · <strong>URL:</strong> https://youtu.be/RpkYQDaEKMo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - RF Village - McJumpBox Leveraging free corporate Wifi for fun/profit - Loaning</li>
+</ul>
+<h2>Resumen</h2>
+<p>La idea que motoriza el proyecto es vieja y tentadora: poner un dispositivo sobre el techo de un negocio con Wi-Fi gratuito, alejarse varios kilómetros, y seguir conectado a esa red desde un equipo compañero que se lleva encima — separación geográfica entre la persona y el punto de origen de la conexión. Una charla histórica sobre el concepto llegó a anunciarse en la conferencia y se canceló, con rumores de por medio; desde entonces la tecnología tardó años en ponerse a la altura de la idea, y el proyecto documenta el camino completo: el estándar elegido, los chips probados y descartados, el dispositivo que finalmente funciona, y una versión casera a mitad de precio.</p>
+<h2>802.11ah: Wi-Fi bajado de revoluciones</h2>
+<p>El eslabón clave es el estándar IEEE 802.11ah (Wi-Fi HaLow, publicado en 2017): conceptualmente es 802.11a/g relojeado hacia abajo — 26 canales de ~100 kbit/s que se pueden combinar hasta llegar a 347 Mbit/s, trabajando a distancias de kilómetros. Y como nació hace una década, su seguridad incorporada está actualizada: SHA-256/384/512 y WPA3, sin spoofing de management frames. Es el candidato natural para un enlace punto a punto de largo alcance y bajo consumo.</p>
+<h2>Los requisitos mínimos y la lista de deseos</h2>
+<ul>
+<li><strong>MVP:</strong> conectarse al Wi-Fi del negocio (2.4 GHz como mínimo), consumo bajo con batería integrada duradera, y una "radio wormhole" de largo alcance para el enlace hacia el operador.</li>
+<li><strong>Deseable:</strong> panel solar para permanencia indefinida en el techo, 5 GHz, soporte multi-cliente, Ethernet, y USB-C que funcione como ethernet gadget (como en una Raspberry Pi Zero).</li>
+<li><strong>Irrelevante:</strong> la topología interna (routing vs. bridging, quién es servidor o cliente de DHCP) — solo importa la conectividad de extremo a extremo.</li>
+</ul>
+<h2>Diario de una odisea de hardware: los chips que no</h2>
+<p>El relato de compra en Alibaba es una clase magistral sobre evaluación de dev boards:</p>
+<ul>
+<li><strong>Seeed Studio (chip QuickTel HaLow):</strong> pequeñísimo y "arrogable", pero obliga a programar en el IDF de Espressif de junio de 2023 (no Arduino IDE), con todo el boilerplate manual, y <strong>sin modo AP</strong> — con dos unidades solo se puede ser estación y estación, que no es una red. Descartado.</li>
+<li><strong>Lilygo T-Halo:</strong> ESP32-based, con Ethernet y porta-18650 integrados, biblioteca con soporte AP y station. Suena perfecto. El defecto es arquitectónico: en modo 1, la radio HaLow se conecta al ESP32 <strong>por UART serie</strong>, un cuello de botella que trunca el throughput por debajo de lo que la radio permite; en modo 2, el puerto Ethernet va directo a la radio y el ESP32 queda físicamente a bordo pero lógicamente desconectado. El cambio de modo exige cambiar un chip de ROM flash en un socket (y haber guardado el chip alternativo que viene en la caja).</li>
+<li><strong>La solución DIY con "más ESP32s":</strong> acoplar placas ESP32 con Ethernet por cable para cerrar el hueco que deja el diseño de la T-Halo. Funcionó a medias: la integración es un infierno (routing vs. bridging, DHCP, fragmentación de segmentos que funcionan por separado pero no de punta a punta), y sin ningún dispositivo capaz de poner una radio HaLow en modo monitor no hay forma de ver la "verdad de la RF" para depurar. El throughput final observado fue <strong>peor</strong> que el del enlace UART que se quería superar.</li>
+</ul>
+<h2>El dispositivo que sí funciona: HaLow dongle comercial</h2>
+<p>Después del empeño casero, apareció un producto comercial que hace exactamente lo buscado: un dongle con radio 2.4 GHz, radio HaLow de 900 MHz, puerto Ethernet, y USB-C que además opera como ethernet gadget. Se compran, se conecta el AP al Wi-Fi de casa, se configura el lado cliente, y "funciona de una". El vendor incluso publica el firmware OpenWrt.</p>
+<p><strong>Resultados medidos:</strong>
+- <strong>Alcance:</strong> 1,67 millas de enlace estable, limitado por la disponibilidad de línea de vista despejada (se usó el corredor del río Mississippi), no por la radio.
+- <strong>Velocidad vs. distancia:</strong> caracterizada con una app Android propia que dispara tests de iPerf y etiqueta cada medición con GPS y la orientación del giroscopio del teléfono (el dongle se apoya contra la espalda del teléfono para registrar la orientación de la antena).
+- <strong>Orientación de antenas:</strong> no degrada la velocidad gradualmente — es binaria: si la orientación o la distancia no acompañan, no hay enlace; si acompañan, hay velocidad plena. Mantener las antenas paralelas es lo que sostiene el link.
+- <strong>Obstáculos:</strong> a corta distancia (una pared), 900 MHz atraviesa sin drama (streaming de video fluido); el costo se nota al alejarse, porque cada pared absorbe/dispersa una parte apreciable de la potencia ya de por sí baja. Con línea de vista, kilómetros; con obstáculos, la penalización crece con la distancia.</p>
+<h2>La versión barata: ~40 USD con OpenWrt</h2>
+<p>Al abrir el dongle comercial se descubre el corazón: un SoC MT7628 corriendo <strong>OpenWrt</strong> (no un microcontrolador sin OS), más el módulo HaLow HC01. La clonación es casi aritmética:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Componente</th>
+<th>Costo aprox.</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Módulo OpenWrt MT7628</td>
+<td>~15 USD</td>
+</tr>
+<tr>
+<td>Radio HaLow HC01 (mismo módulo del producto comercial)</td>
+<td>~14 USD</td>
+</tr>
+<tr>
+<td>Interconexión SDIO→GPIO (breadboard o PCB propia)</td>
+<td>margen</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>~40 USD</strong> (la mitad del precio del dongle)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Las ventajas de que el corazón sea OpenWrt son sustanciales:</p>
+<ul>
+<li><strong>Configuración sin recompilar:</strong> las interfaces se configuran por la interfaz Lua como en cualquier router OpenWrt, y la radio HaLow se abstrae como cualquier otra radio Wi-Fi 2.4/5/6 GHz — lo que hace que paquetes escritos para Wi-Fi común funcionen sin modificación.</li>
+<li><strong>Travelmate:</strong> el paquete nacido para routers de viaje permite ejecutar un script definido según el SSID o la MAC de la red a la que se conecta — útil para resolver un captive portal automáticamente al asociarse a la red objetivo.</li>
+<li><strong>iPerf embebido:</strong> se puede correr el servidor de iPerf en el propio dispositivo en el techo, o hacer bridging completo hasta un servidor en casa (como en las mediciones mostradas, que reflejan ancho de banda real de internet).</li>
+<li><strong>Kismet corre en el módulo</strong>, y los GPIO soportan SPI, PCM, 2 UARTs, USB host, I²C, PWM y <strong>PCIe</strong> — lo que abre la puerta a radios Wi-Fi recientes (incluso Wi-Fi 7) que un ESP32 jamás podría manejar, y a montar varios módulos en paralelo como un "Wi-Fi coconut" casero.</li>
+</ul>
+<h2>Detalles de despliegue y límites conocidos</h2>
+<ul>
+<li>En un techo hay que pensar en el mantenimiento: si algo se encuentra, se acabó el dispositivo; calor, UV y <strong>excremento de pájaros sobre el panel solar</strong> (que dejó a una unidad fuera del war drive mundial, con puestos de por medio) son riesgos reales.</li>
+<li>La alternativa económica al dispositivo caro es el "network throwie": si el dispositivo de ~40 USD se puede tirar y perder, la ecuación del despliegue cambia por completo.</li>
+<li>Topología: un dongle en modo AP acepta múltiples clientes (se verificó ping cliente-a-cliente entre dos dongles conectados al tercero), y el estándar 802.11ah contempla un modo repetidor — aunque ninguna opción de configuración de OpenWrt lo expone, y en Wi-Fi un repetidor corta el throughput observado a la mitad (solo un nodo transmite por vez).</li>
+<li>Monitor mode en 900 MHz: no soportado por estos dispositivos hasta donde se sabe. Quien lo logre tendría un PR bienvenido en los proyectos de defensa de red que intentan trackear y triangular dispositivos de 900 MHz.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La separación geográfica entre usuario y punto de acceso es hoy factible con hardware de estantería: un par de dongles HaLow comerciales funcionan de punta a punta con 1,67 millas medidas de línea de vista.</li>
+<li>La lección de ingeniería es doble: leer la arquitectura del dev board antes de comprar (un UART entre MCU y radio mata el throughput; un ESP32 soldado pero lógico-desconectado no sirve de nada), y a veces el producto comercial existe y cuesta menos que las horas de depuración.</li>
+<li>La clonación con OpenWrt baja el costo a ~40 USD por nodo y habilita un ecosistema completo (Travelmate, iPerf, Kismet, radios PCIe) que un microcontrolador no puede tocar.</li>
+<li>El estándar 802.11ah es la pieza que faltaba: Wi-Fi familiar relojeado abajo, kilometros de alcance, WPA3 nativo, y con el ecosistema OpenWrt ya funcionando encima.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/RpkYQDaEKMo">«DEF CON 33 - RF Village - McJumpBox Leveraging free corporate Wifi for fun/profit - Loaning»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

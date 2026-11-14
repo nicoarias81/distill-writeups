@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Respuesta a incidentes donde no llegan los refuerzos: seguridad a bordo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Respuesta a incidentes donde no llegan los refuerzos: seguridad a bordo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/o6-H-3Sx6i0">«DEF CON 33 - Incident Response from a Maritime Sysadmin’s War Room - Kit Louttit, Steve Winston»</a> · ver el <a class="nz-link" href="https://youtu.be/o6-H-3Sx6i0">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> o6-H-3Sx6i0 · <strong>URL:</strong> https://youtu.be/o6-H-3Sx6i0 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Incident Response from a Maritime Sysadmin’s War Room - Kit Louttit, Steve Winston</li>
+</ul>
+<h2>Resumen</h2>
+<p>Un buque mercante es, en la práctica, una oficina remota con las peores condiciones posibles: un solo técnico de TI para una tripulación de veinte personas, conectividad satelital con latencia extrema, sin posibilidad de llamar a nadie cuando algo falla, y con la tripulación —marineros, no informáticos— como primer y último eslabón de seguridad. Este recorrido por la ciberseguridad marítima cubre el camino completo: por qué los barcos son tan difíciles de defender, cómo funciona una campaña de phishing contra tripulaciones, qué hace falta para responder a incidentes cuando el barco está en medio del océano, cómo montar un programa de concienciación para gente que no vive frente a una pantalla, y qué líneas base de detección conviene tener armadas antes de que el atacante llegue.</p>
+<h2>El entorno: por qué un barco no es una oficina</h2>
+<p>La flota mercante de bandera estadounidense opera con limitaciones que rompen cualquier suposición habitual de seguridad corporativa. La conectividad es satelital, con latencias de cientos de milisegundos y caídas frecuentes; el "equipo de TI" es una única persona a bordo que además suele tener otras responsabilidades; y la infraestructura —enrutadores, appliances de seguridad en el borde, servidores a bordo— debe funcionar sola durante meses. Si el appliance de firewall se rompe con el barco en altamar, no hay técnico que suba mañana: la disponibilidad manda, y esa presión constante juega en contra de aplicar parches con rapidez.</p>
+<p>A eso se suma que el perímetro es literalmente el océano: los servicios expuestos en el borde —accesos remotos, portales de la naviera— son el objetivo natural, porque permiten atacar de forma anónima, sin contacto físico con nadie. Pero el endpoint más expuesto en la práctica sigue siendo la persona: hay muchos servicios y canales con camino directo a la tripulación.</p>
+<h2>Phishing en el mar: una campaña tipo</h2>
+<p>Los atacantes que van tras las tripulaciones usan campañas de phishing por correo con el mismo esqueleto que en tierra, pero adaptadas al contexto. El patrón típico:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Recon de la naviera] --> B[Correo a tripulantes con dominio parecido]
+    B --> C[Pagina de credenciales clonada]
+    C --> D[Post-explotacion: acceso remoto a bordo]
+    D --> E[Pivote a la red corporativa de la naviera]
+
+</pre>
+
+<ul>
+<li><strong>Reconocimiento y cebo</strong>: el atacante investiga a la naviera y envía correos a los tripulantes desde dominios imitados, con pretextos creíbles para el entorno marítimo —horarios, nóminas, instrucciones del puerto—.</li>
+<li><strong>Cosecha de credenciales</strong>: el enlace lleva a una página clonada del portal corporativo o del proveedor de correo. Con credenciales en mano, el acceso remoto —RDP expuesto, VPN sin segundo factor, portales web— es la puerta de entrada; los atacantes hacen un escaneo de superficie y prueban combinaciones.</li>
+<li><strong>Pivote</strong>: desde la cuenta comprometida se avanza hacia la red corporativa de la naviera en tierra, donde viven los sistemas verdaderamente valiosos.</li>
+<li><strong>Detección tardía</strong>: con la latencia satelital y sin personal de seguridad a bordo, las señales llegan tarde. El caso límite relatado: un incidente detectado 24 horas después de la intrusión inicial, cuando el atacante ya se había movido a gusto.</li>
+</ul>
+<p>El punto crítico para la defensa marítima es reconocer esa asimetría: el atacante solo necesita acertar una vez con un tripulante que esté cansado, con mala conexión y sin entrenamiento reciente.</p>
+<h2>Concienciación a bordo: la única defensa que viaja con el barco</h2>
+<p>Como no hay equipo de seguridad a bordo, la concienciación de la tripulación es la primera línea real. El programa tiene que adaptarse al público: la tripulación no es personal técnico, el nivel educativo y la familiaridad digital varían mucho, y muchos tripulantes usan sus teléfonos personales para casi todo, mezclando correo laboral y personal.</p>
+<p>Las tácticas que funcionan:</p>
+<ul>
+<li><strong>Capacitación frecuente y en persona</strong>, apoyada en simulaciones de phishing y ejercicios tipo "captura la bandera" con premios —camisetas, reconocimiento— para convertir el aprendizaje en algo participativo en lugar de un video anual que nadie mira.</li>
+<li><strong>Cubrir el contexto personal, no solo el laboral</strong>: los mismos ataques que llegan al correo del barco llegan al WhatsApp y al correo personal; si la capacitación solo habla de la empresa, la mitad de la superficie queda fuera.</li>
+<li><strong>Debriefing honesto</strong>: cuando alguien cae en una simulación, el objetivo es explicar qué señales se perdieron, no avergonzar; y cuando alguien reporta un correo sospechoso, celebrarlo en voz alta para que el hábito se contagie.</li>
+<li><strong>Fechas ancla</strong>: campañas coordinadas con eventos del calendario —el Mes de la Concienciación de Seguridad en octubre, por ejemplo— ayudan a mantener el ritmo en un entorno donde la rotación de tripulaciones es constante.</li>
+</ul>
+<h2>Amenaza interna: el guion de la oferta de trabajo demasiado buena</h2>
+<p>En un barco aislado, la amenaza interna merece un capítulo propio. El escenario tipo que se describe es una variante de ingeniería social sofisticada contra un empleado con acceso a información sensible:</p>
+<ol>
+<li>El atacante contacta a la víctima ofreciéndole un trabajo con un salario aproximadamente <strong>el doble</strong> del actual. Ante esa cifra, la naturaleza humana hace el resto: la víctima <em>quiere</em> creer que es verdad, igual que quien apuesta quiere creer que ganará.</li>
+<li>El atacante dice que el puesto ya es suyo —"el jefe lo quiere contratar"— pero necesita verificar su experiencia: "muéstranos algo de tu trabajo". La víctima, enganchada por la cifra, entrega un primer fragmento de información confidencial de su empresa.</li>
+<li>Con esa primera entrega, la víctima ya cruzó la línea del despido y de posibles consecuencias legales: <strong>ya no puede echarse atrás</strong>. El atacante vuelve con un pedido mayor —"lo que mandaste era de alcance muy limitado; para confirmar que podés con el puesto completo, necesito el proyecto entero"—.</li>
+<li>Incluso si la víctima no entrega nada más, el atacante tiene de por vida la opción del chantaje: el primer documento ya es palanca suficiente.</li>
+</ol>
+<p>La lección operativa: el programa de concienciación tiene que incluir este tipo de escenarios —no solo correos falsos—, y las organizaciones deben monitorear patrones de exfiltración temprana, porque la primera entrega pequeña es la señal.</p>
+<h2>Controles: capas, no gadgets</h2>
+<p>La postura de defensa se apoya en la combinación de controles físicos, técnicos y administrativos, que deben ser complementarios: un sistema de tarjetas de acceso sin MFA técnica es tan débil como MFA sin seguridad física; y ambos necesitan políticas administrativas que los exijan. La seguridad no es solo tecnología: es postura, persistencia y preparación —el adversario encadena ataques, y la defensa debería hacer lo mismo—.</p>
+<p>Sobre la base proactiva:</p>
+<ul>
+<li><strong>Modelado de amenazas y mapeo de superficie de ataque</strong>: identificar puntos de entrada, enumerar activos y trazar los caminos de un atacante potencial, actualizando los modelos cuando los sistemas evolucionan.</li>
+<li><strong>Gestión continua de vulnerabilidades</strong>: escaneos y ciclos de parcheo rutinarios, listas de vigilancia de zero-days e inteligencia compartida. Un matiz importante: un pentest es una fotografía de un momento; si después del test se hacen cambios serios, deja de reflejar la postura real. Conviene madurar la gestión de vulnerabilidades y reservar el pentest —caro— para cuando la base ya está decente.</li>
+<li><strong>Revisión de accesos privilegiados</strong>: auditar regularmente usuarios con roles elevados y cuentas de servicio; el acceso just-in-time no termina en el "conceder": hay que monitorear lo que se hace durante esa ventana y revocar el acceso —automática o manualmente—.</li>
+<li><strong>Ejercicios de mesa (tabletop)</strong>: de nada sirve el plan en teoría; hay que probarlo y verificar que funciona.</li>
+<li><strong>Ciclo de vida de activos</strong>: el eslabón más débil de la red es siempre el objetivo. Sistemas sin parches, activos fuera de soporte —un firmware de servidor abandonado, un hipervisor ESXi sin soporte— son prioridad de remediación.</li>
+<li><strong>Caza de amenazas y detección por comportamiento</strong>: la detección por firmas ya no alcanza; hay que buscar proactivamente anomalías conductuales.</li>
+<li><strong>Continuidad del negocio y educación del usuario final</strong>: el endpoint más expuesto es todo lo publicado en internet tras el firewall —porque se ataca de forma anónima—, pero el usuario sigue siendo el endpoint vulnerable al que muchos servicios dan camino directo.</li>
+</ul>
+<h2>Líneas base: sin saber qué es normal, no hay anomalía</h2>
+<p>No se puede detectar lo anómalo sin línea base. Los patrones que conviene tener instrumentados desde antes del incidente:</p>
+<ul>
+<li>Uso de CPU, RAM y red; claves de registro y hashes de archivos de referencia.</li>
+<li>Uso esperado de PowerShell, CMD y WMIC; volúmenes normales de consultas DNS salientes por host.</li>
+<li>Horarios habituales de inicio de sesión por usuario: alguien que trabaja de 8 a 5 y aparece logueándose fuera de horario, repetidamente y con otras anomalías, es candidato a alerta automatizada.</li>
+<li>Árboles de generación de procesos: si PowerPoint abre sesiones de CMD o PowerShell, hay problema.</li>
+<li>Herramientas de acceso remoto y sus indicadores: ejecuciones desde carpetas como ProgramData o AppData, rutas y hashes de archivos sospechosos, escritura en directorios atípicos.</li>
+<li>Frecuencia de acciones privilegiadas: una cuenta elevando permisos mucho más de lo habitual.</li>
+<li>Patrones de comunicación endpoint a endpoint: un equipo que de pronto inicia sesiones remotas que nunca inició.</li>
+<li>Volumen de logging y fallos de logging: más errores de log de lo normal, o <strong>huecos en los logs</strong>, son señales directas de manipulación.</li>
+</ul>
+<p>Desde la perspectiva del equipo rojo, lo que más se explota contra esas líneas base son las tácticas de <em>living off the land</em>: usar binarios firmados que ya están en el sistema —PowerShell, WMIC— para no depositar nada detectable; beacons de Cobalt Strike sobre HTTPS para disimular el tráfico; abuso de permisos excesivos; configuraciones por defecto; deriva de línea base; shadow IT y activos huérfanos; y sobre todo, la falta de filtrado de salida (egress): la mayoría de los clientes evaluados apenas filtraban tráfico saliente, y todo lo que entra en la red tiene que comunicarse con algo fuera.</p>
+<h2>El borde: Fortinet, Palo Alto y la lección de CVE-2024-3400</h2>
+<p>La superficie digital empieza en el appliance de borde, normalmente el firewall. Parchear ese equipo apenas sale el firmware no siempre sale bien: con Fortinet se vio cómo la inestabilidad de actualizaciones apuradas rompe el equilibrio fino entre disponibilidad y seguridad, generando falsa confianza mientras variantes de zero-days saltan los parches y errores desconocidos afectan funciones críticas.</p>
+<p>El caso emblemático es CVE-2024-3400 en Palo Alto: una inyección de comandos en el endpoint del reporte HIP del VPN SSL. Cualquier atacante con el VPN SSL expuesto en la interfaz pública podía explotarlo con un simple POST y una cookie de ID de sesión maliciosa: la petición escribe un nombre de archivo que no necesita siquiera contenido —el propio nombre se parte y cada fragmento se ejecuta como comando—. Agravante estructural: el producto no ofrecía forma soportada de cambiar el puerto por defecto del VPN, de modo que quien lo exponía en la interfaz pública quedaba expuesto sí o sí; los workarounds (zonificación NAT, redirección manual) existían pero sin soporte del fabricante. La lección para entornos marítimos, donde el borde satelital es lo único entre el barco y el internet, es directa: conocer los endpoints expuestos del appliance, minimizar superficie y no confiar en que el parche llegue limpio.</p>
+<h2>Conclusiones</h2>
+<p>Defender un buque es defender un entorno donde el tiempo de respuesta, el soporte y el factor humano juegan todos en contra. Lo que sostiene la seguridad marítima no es una herramienta sino la superposición de capas: controles físicos, técnicos y administrativos complementarios; concienciación continua y adaptada a la tripulación; líneas base de comportamiento instrumentadas antes del incidente; filtrado de salida; y ejercicios que prueben los planes en lugar de asumirlos. En el mar no llegan los refuerzos: lo que está a bordo es lo que hay.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/o6-H-3Sx6i0">«DEF CON 33 - Incident Response from a Maritime Sysadmin’s War Room - Kit Louttit, Steve Winston»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

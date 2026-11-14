@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manipulación de odómetro: ingeniería inversa de un dispositivo MITM sobre CAN — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Manipulación de odómetro: ingeniería inversa de un dispositivo MITM sobre CAN</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/FYHvL8V_m-Q">«DEF CON 33 - Modern Odometer Manipulation - Colin»</a> · ver el <a class="nz-link" href="https://youtu.be/FYHvL8V_m-Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> FYHvL8V_m-Q · <strong>URL:</strong> https://youtu.be/FYHvL8V_m-Q · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Modern Odometer Manipulation - Colin</li>
+</ul>
+<h2>Resumen</h2>
+<p>Dos autos idénticos — mismo año, marca y modelo — se diferencian en valor casi por una sola variable: el odómetro, proxy del desgaste de un conjunto de partes consumibles. Un odómetro debería solo incrementar, nunca reiniciarse ni retroceder. El análisis parte de una discusión en un foro automotriz sobre un dispositivo que no "rebobina" el odómetro sino que hace algo distinto: <strong>impide que el valor aumente</strong>. La investigación termina en una tienda web europea que vende estos equipos para 53 marcas y una cantidad incontable de modelos, con modos configurables (bloquear todas las millas, permitir todas, o registrar solo una fracción — ideal para esquivar los chequeos de Carfax en cada cambio de aceite), control por app Bluetooth, precios de 300 a 600 euros, videos de demostración y un sitio hermano "sombra" con la misma infraestructura y fotos pero descripciones falsas para vender legalmente en EE.UU., donde el fraude de odómetro es delito federal.</p>
+<p>El dispositivo resulta ser una PCB diminuta con un arnés de dos conectores idénticos: una configuración de <strong>man-in-the-middle</strong> que se intercala entre el cluster de instrumentos y el resto del vehículo, con control total de los mensajes en ambas direcciones. La electrónica es simple: un STM32, circuitos de potencia (15 V → 5 V → 3.3 V) y dos transceptores CAN.</p>
+<h2>Extracción del firmware: glitch + flash patch block</h2>
+<p>El objetivo era obtener el código del STM32. El punto de entrada habitual es el protocolo de debug (SWD en este caso, vía un header de 3 pines no poblado, trazado con multímetro), porque casi siempre está disponible — el fabricante necesita programar la placa — y da acceso de lectura/escritura a toda la flash. Conectado con un debugger ST barato y alimentado mediante un módulo decoy USB-C PD (que entrega 15 V desde cualquier cargador de laptop), OpenOCD conectó y leyó registros correctamente... pero la flash devolvía ceros: <strong>readout protection</strong> habilitada.</p>
+<p>La clave vino del paper <em>One Exploit to Rule Them All</em>, que documenta media docena de ataques a flash protegida de microcontroladores y muestra la evolución del gato y el ratón entre protecciones y exploits. El ataque elegido: <strong>shellcode execution via glitch and flash patch block</strong>.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant A as Preparación (con debugger conectado)
+    participant P as Glitch de alimentación
+    participant R as Boot a SRAM
+    participant F as Boot a flash
+
+    Note over A: Payload de 2 etapas en SRAM<br/>(flash bloqueada por debugger)
+    A->>P: Power cycle ultra rápido (Pico controla VCC/nRESET)
+    Note over P: STM32 sin energía ~2 µs<br/>SRAM retiene datos, lock de debugger se limpia
+    P->>R: Boot a SRAM (lock de SRAM activo)
+    Note over R: Stage 1 configura flash patch block:<br/>entry point de flash → Stage 2 en RAM
+    R->>F: Reset a flash (lock limpio)
+    Note over F: El patch block redirige a Stage 2<br/>que vuelca la flash por UART
+
+</pre>
+
+<p>Sobre la protección: en estos STM32 las lecturas de flash devuelven ceros cuando hay debugger conectado, o al bootear al bootloader o a SRAM; los dos últimos locks se limpian con un reset simple, el del debugger solo con un power cycle completo. De ahí los dos trucos del ataque: el glitch de alimentación (quitar capacitores de VCC/nRESET para tener control fino; el Pico corta la energía ~2 µs, tiempo insuficiente para perder la SRAM pero suficiente para limpiar el lock del debugger) y el flash patch block (rasgo de debugging con registro comparador y valor de override que <strong>persiste entre resets</strong>: al intentar leer la dirección de entry point, el MCU recibe el puntero al Stage 2 en RAM). Para controlar los modos de boot hubo que quitar resistores de BOOT0/BOOT1. La implementación ya existía en GitHub (repo de CTXZ sobre un Raspberry Pi Pico).</p>
+<h2>Ingeniería inversa con Ghidra</h2>
+<p>Con el volcado, el análisis en Ghidra arrancó por las secciones bien definidas (RAM, flash espejada en la dirección 0, Cortex little endian) y el <strong>SVD Loader</strong> (script de Level Down Security), que etiqueta automáticamente periféricos — timers, watchdogs, SPI, controladores CAN — a partir de los archivos SVD de ARM, ahorrando muchísimo tiempo.</p>
+<p>La estrategia de navegación: seguir la última llamada de cada función hasta llegar a un loop. El corazón del firmware resultó un <code>do-while</code> con dos funciones gancho que interceptan mensajes CAN de un arbitration ID y DLC específicos, consultan el modo activo y <strong>modifican un único byte antes de reenviar el mensaje</strong>: el sexto byte, que Comma AI's OpenDBC etiqueta como <code>ODO</code> count. En modo bloqueo total lo ponen a cero; en los modos fraccionales lo dividen por un divisor. Nada más — ni verificaciones cruzadas, ni interacción con el indicador de vida del aceite. Sorprendentemente simple.</p>
+<p>Funcionalidad extra hallada: sin el adaptador Bluetooth, el dispositivo también escucha los <strong>botones del volante</strong> para cambiar de modo, y confirma el modo activo enviando al cluster un mensaje hardcodeado que lo hace parpadear.</p>
+<h2>Quién le importa y cómo detectarlo</h2>
+<p>El fraude afecta a compradores de usados, proveedores de garantía (que la dimensionan por millaje) y lessors (que calculan el valor residual sobre el odómetro) — con los OEM involucrados en ambos roles. El modelo de amenaza probablemente se concentró en impedir la reescritura directa del valor y nunca consideró el "no dejar que suba".</p>
+<p>El dispositivo cubre una marca y un modelo específico (la tienda vende uno distinto por vehículo). Pistas de detección en diagnóstico:</p>
+<ul>
+<li><strong>Comparar odómetros entre ECUs</strong>: muchos autos registran el valor en gateway, transmisión y otros módulos; un reporte completo debería mostrar valores casi iguales.</li>
+<li><strong>Horas de motor</strong> y otros atributos de uso: en un Jeep Grand Cherokee 2018 el tablero mostraba 19.000 millas pero el secure gateway reportaba más de 30.000.</li>
+<li><strong>Contador de resets del indicador de aceite</strong>: se resetea a intervalos fijos de millas; cuántas veces se resetió es un indicador que complementa el análisis.</li>
+</ul>
+<p>Contraestrategias que no alcanzan: comparar valores en runtime mientras el auto anda (el MITM puede mentir o suprimir la malfunction indicator lamp) o actualizaciones que cambien la especificación CAN (infrecuente: demasiadas ECUs procesan esos mensajes). El uso de <strong>SecOC</strong> aparece como el contramedida natural — el mensaje atacado es CAN puro, sin UDS ni seguridad alguna, "es una locura que esto esté tan desprotegido".</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>STM32 SWD + OpenOCD</strong>: acceso de debug y detección de flash readout protection.</li>
+<li><strong>Glitch de alimentación + flash patch block</strong> (attack de <em>One Exploit to Rule Them All</em>, implementación de CTXZ sobre Raspberry Pi Pico): bypass de readout protection.</li>
+<li><strong>USB-C PD decoy modules</strong>: alimentación portable de ECUs a 15 V.</li>
+<li><strong>Ghidra + SVD Loader</strong> (Level Down Security): etiquetado automático de periféricos ARM.</li>
+<li><strong>Comma AI OpenDBC</strong>: definiciones de mensajes CAN para identificar el campo <code>ODO</code> count.</li>
+<li><strong>CAN man-in-the-middle</strong>: interposición entre cluster de instrumentos y resto del vehículo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El "fraude moderno de odómetro" no rebobina el valor: un dispositivo MITM de ~300-600 € que modifica un solo byte de un mensaje CAN evita que el odómetro cuente millas, con modos fraccionales que degradan el registro para esquivar chequeos de historial.</li>
+<li>La protección de flash del STM32 se burla combinando un glitch de alimentación de 2 µs (SRAM retiene el payload, el lock del debugger se limpia) y un flash patch block que persiste entre resets y redirige la ejecución a código en RAM que vuelca la flash por UART.</li>
+<li>El firmware completo se analizó estáticamente en aproximadamente un día: el mecanismo es trivialmente simple y genérico en concepto, adaptable a cualquier marca mientras el mensaje quede desprotegido.</li>
+<li>Las defensas más prometedoras son comparativas (odómetros entre ECUs, horas de motor, resets del indicador de aceite) y estructural (SecOC); las comparaciones en runtime son derrotables por la posición MITM del dispositivo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/FYHvL8V_m-Q">«DEF CON 33 - Modern Odometer Manipulation - Colin»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

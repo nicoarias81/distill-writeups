@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguridad automotriz: la cadena de suministro del miedo y los ECU que casi matan ingenieros — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Seguridad automotriz: la cadena de suministro del miedo y los ECU que casi matan ingenieros</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/tRLYwYfhoV4">«The hack, the crash and two smoking barrels - Thomas Sermpinis - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/tRLYwYfhoV4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> tRLYwYfhoV4 · <strong>URL:</strong> https://youtu.be/tRLYwYfhoV4 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> The hack, the crash and two smoking barrels - Thomas Sermpinis - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los vehículos modernos son computadoras sobre ruedas, con más funcionalidad y entretenimiento que una sala de estar. La conectividad y los servicios ricos son algo que los usuarios piden; lo que no piden es que se implementen de manera insegura. Y la industria produce implementaciones inseguras todos los días, con casos que salen en las noticias cada semana.</p>
+<p>El foco aquí no está en el impacto financiero —robos de autos, costos para las fabricantes— sino en el aspecto de seguridad funcional (<em>safety</em>): qué pasa con la integridad física de las personas cuando los controles de un vehículo fallan. La tesis es doble: la industria automotriz sigue haciendo cosas absurdas en 2024, y el problema de fondo es cultural, no técnico.</p>
+<h2>Cómo está armado un auto: ECU y buses segmentados</h2>
+<p>Un vehículo se compone de decenas de <strong>ECU</strong> (<em>Electronic Control Unit</em>), componentes embebidos que casi siempre cumplen un único propósito. Estas unidades se segmentan en varios buses aislados para separarlas por funcionalidad y criticidad, evitando comunicación o interrupciones externas. Pero algunas interfaces se exponen hacia afuera por necesidad: el cargador de a bordo se comunica con el vehículo, y la unidad principal —con la que interactúa el usuario— está expuesta a internet a través de la unidad de telemática, usada para llamadas de emergencia, actualizaciones OTA y más.</p>
+<p>El protocolo que domina estos buses es <strong>CAN</strong>, con más de 40 años de existencia en los autos que todos usamos, y que sigue presente en la mayoría de los ECU que se auditan. Su problema de fondo, 40 años después de su creación: sin cifrado estándar y sin autenticación de mensajes. Los mensajes en esos buses son susceptibles a interceptación, inyección y replicación cuando no hay protecciones adicionales —algo mucho más común de lo que se cree—. A esto se suma un contexto regulatorio apenas naciente: el reglamento <strong>R155</strong> de la UNECE, un punto de partida para ordenar el desregulado desorden de la industria, aunque lejos de una solución completa.</p>
+<h2>UDS: el protocolo de diagnóstico y su control de acceso</h2>
+<p>El <strong>Unified Diagnostics Service</strong> vive en la capa de aplicación de los ECU y permite leer y borrar códigos de falla, reprogramar, testear y monitorear. Entre sus servicios está el <strong>ECU Reset</strong> (servicio 11), con sub-servicios para reseteo <em>hard</em>, <em>soft</em> o <em>key-on/off</em>. El reseteo <em>hard</em>, en la mayoría de los casos, equivale a un ciclo completo de energía —y ahí empiezan los problemas—.</p>
+<p>El mecanismo de control de acceso es <strong>Security Access</strong>, un esquema clásico de desafío-respuesta: el cliente pide una semilla aleatoria, el ECU calcula la clave con un algoritmo y clave secretos, y el cliente debe devolver la clave correcta para obtener acceso elevado. En teoría, sin poder controlar la semilla no se puede reemplazar un par semilla-clave exitoso. En la práctica, las implementaciones flojas producen backdoors, fuentes de aleatoriedad débiles y procesos inseguros.</p>
+<pre class="mermaid">
+flowchart TB
+    A[Interceptar par semilla + clave en el bus CAN<br>sin cifrado ni autenticación] --> B[ECU Reset hard<br>equivale a ciclo de energía]
+    B --> C[El reloj del sistema se reinicia]
+    C --> D[Semilla predecible: la misma,<br>con delay fijo tras el reset]
+    D --> E[Repetir el par interceptado<br>acceso elevado al ECU]
+    E --> F[Alternativa física: relé que corta<br>y restablece la energía del ECU]
+    F --> E
+
+</pre>
+
+<h2>Hallazgo 1: el sensor de punto ciego y el ADAS</h2>
+<p>En un auto de alquiler, de noche (para evitar el calor del desierto), inyectando mensajes sin autenticar en el bus se logró que el sensor de detección de punto ciego se activara. Un simple ECU Reset desde el puerto OBD accesible al usuario basta para resetear el ECU afectado y encender el aviso del sensor.</p>
+<p>Por sí solo, el hallazgo tiene severidad moderada: distraer al conductor mientras maneja. Pero las deducciones se encadenan: el sensor de punto ciego está conectado al ADAS, no hay precondiciones que restrinjan la acción (como límites por velocidad del vehículo), y el ECU se puede apagar y encender a voluntad. Eso abre la puerta a implicancias serias de seguridad funcional: interrupción de la dirección durante un cambio de carril, o frenado involuntario activado por un falso incidente en el sensor. El fabricante, con acceso a entorno controlado, es el único que puede verificar estas hipótesis —y ahí empezó el calvario de la divulgación—.</p>
+<h2>Hallazgo 2: la semilla que no era aleatoria</h2>
+<p>El efecto colateral del ECU Reset <em>hard</em> es que, en muchos casos, también resetea el reloj del sistema del ECU. Con una semilla que en teoría es robusta (32 bytes), tras el reseteo del reloj y con un delay fijo entre el reset y la petición, la "aleatoria" semilla es siempre la misma, con un 100% de aciertos en el caso probado. Eso invalida la premisa del desafío-respuesta: con un solo par semilla-clave —obtenible en una visita al taller o durante una actualización OTA— se obtiene acceso elevado a la unidad.</p>
+<p>Y cuando el ECU restringe los ciclos de energía por software (una unidad de telemática debe estar siempre disponible para llamadas SOS), existe la vía física: un relé que corta y restablece la energía del dispositivo. El resultado es un compromiso completo de la unidad. La prueba de concepto está publicada como <em>Karin Karibou Next</em>, un fork del original, y cualquiera puede armarla en minutos. Peor aún: muchos vehículos eléctricos traen un <strong>aislador de batería</strong> —interno o externo— pensado para cortar energía en incidentes y mitigar riesgo de incendio. Controlando ese aislador externamente, el ataque combinado se extiende a vehículos completos: se lo encontró expuesto en camiones pesados y, hace poco, también en un vehículo de pasajeros.</p>
+<h2>El hardware que nadie mira: SoC con doble controlador</h2>
+<p>Dentro de un ECU de telemática se encontró una arquitectura con <strong>dos SoC</strong>: un controlador de aplicación y uno seguro. Los componentes clasificados como <em>safety-related</em> exigen respuesta en tiempo real, y ejecutan cada instrucción dos veces —en los dos controladores, o en dos núcleos aislados—; si los resultados coinciden, la instrucción se ejecuta; si no, se activa un procedimiento de fallback. Son los dispositivos cuyo fallo puede causar daño a equipos, al ambiente, lesiones o muerte.</p>
+<p>En esa misma placa, los dos headers JTAG estaban bloqueados. Pero al apagar y encender manualmente la alimentación del ECU, y conectarse en la ventana breve del arranque, se obtiene acceso de depuración al controlador seguro: control de ejecución y volcado de memoria. En el mismo dispositivo, un módem Qualcomm tenía pines que, puenteados, activan el <em>download mode</em>; conectando un USB con el pinout adivinado, el firmware se volcó por varias vías.</p>
+<h2>El caso de la divulgación que se torció</h2>
+<p>Tras 200 proyectos de pentesting e investigación automotriz en cinco años, el equipo acumuló 25 hallazgos relacionados con seguridad funcional en dos años, de los cuales solo dos fueron aceptados —no por fuera de alcance, sino porque no existe canal real para divulgarlos—. Los programas de divulgación de vulnerabilidades no son la norma en la industria; los fabricantes que sí incentivan investigadores solo pagan hallazgos de criticidad de seguridad (<em>security</em>), no de seguridad funcional (<em>safety</em>).</p>
+<p>El caso puntual: el fabricante reconoció los hallazgos en privado, confirmó que afectan a varios modelos y años, y decidió que el costo de arreglarlos excede las expectativas. La excusa: la nueva arquitectura eléctrica y electrónica de 2025-2026 mitigará los problemas —o sea, los autos vendidos hoy quedan vulnerables—. Al intentar una divulgación responsable a través del Automotive Security Research Group (ASRG, autoridad central reconocida para emitir CVEs), el fabricante dejó de responder. Y apareció el plot twist: como la persona que manejaba el caso en el VDP público tenía ciudadanía de un país "hostil", el departamento legal del fabricante decidió que no convenía a su imagen —aunque esa persona residía en el propio país del fabricante y había sido elegida por su afiliación con la empresa—. La respuesta final al anuncio de publicación: "según el manual del propietario, se aconseja no manejar con un dongle insertado en el puerto OBD". Las vulnerabilidades se publicaron en agosto.</p>
+<h2>Safety en silencio: baterías, hidrógeno y relés</h2>
+<p>Hay hallazgos que no se pueden probar sin quemar un garaje. Al inyectar mensajes sin autenticar en un vehículo eléctrico se descubrió un sonido generado por el control de batería: cada conmutación del relé de contacto desgasta la superficie de contacto, aumenta la resistencia, genera calor excesivo y, a largo plazo, riesgo de incendio del pack de baterías. Probarlo implicaría dejar ardiendo una batería por días: el vehículo salió del taller, los ingenieros están a salvo, y "un par de cientos de miles de usuarios, no".</p>
+<p>Con hidrógeno, la historia es similar: fugas pequeñas en el tanque tras rotaciones específicas pueden provocar la asfixia de un garaje completo en cuestión de minutos, seguida de incendio. Ninguna de estas pruebas se puede (ni se debe) hacer fuera del entorno controlado del fabricante —y por eso la divulgación de seguridad funcional es tan urgente como imposible en el estado actual de la industria.</p>
+<h2>El contrapunto esperanzador: un ESP32 de 10 dólares</h2>
+<p>No todo es gris. Un fabricante pequeño contrató un pentesting y, tras varios intentos, no hubo punto de entrada único al ECU custom: el secreto fue usar un <strong>ESP32</strong> de 10 dólares, un SoC barato de baja potencia pensado para automatización, no para criticidad funcional. La gran diferencia: trae de fábrica un generador de números aleatorios verdadero, que combina ruido térmico del ADC hardware con desincronización de relojes asíncronos. Mientras que SoC automotrices que valen cientos de miles de dólares no mitigan ni lo básico.</p>
+<p>¿Eso resuelve el problema? No: siempre hay formas de rodear mitigaciones. El punto es la economía del ataque —qué tan caro y financieramente inviable se lo hace al atacante—. Sistemas como las consolas PlayStation, con chips no críticos para la seguridad funcional, implementan mitigaciones de vanguardia; la computadora sobre ruedas no mitiga ni lo elemental.</p>
+<h2>La raíz del problema: cultura, no tecnología</h2>
+<p>Las excusas de ingenieros y gerencias para no aceptar o corregir hallazgos se repiten: requisitos internos mal definidos, deadlines estrictos, ciclos de producto largos. La conclusión es siempre la misma: es un problema de cultura —de la empresa o de la cultura local— que define cómo se consumen, abordan y mitigan los hallazgos. Los desarrolladores de cada componente prueban contra simulaciones del vehículo, ignorando cómo su acción puede desencadenar un evento de seguridad fuera del alcance de su testing funcional; así nacen los hallazgos de <em>safety</em> en comportamientos inesperados para el fabricante. Un problema "aparentemente menor" de seguridad puede tener un desenlace devastador en seguridad funcional.</p>
+<p>El camino de salida es colectivo: transmitir la cultura de seguridad de arriba hacia abajo, no con quejas ni con actitudes pontificales, sino con prueba científica, pruebas de concepto, publicaciones y divulgaciones. Hacer el mundo más seguro, un PoC a la vez.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Bus CAN</strong>: protocolo de más de 40 años, sin cifrado ni autenticación de mensajes, presente en la mayoría de los ECU auditados.</li>
+<li><strong>UDS</strong>: protocolo de diagnóstico con esquema desafío-respuesta (semilla + clave), que colapsa cuando el ECU Reset resetea el reloj y hace la semilla predecible.</li>
+<li><strong>ECU Reset</strong> sin precondiciones desde el puerto <strong>OBD</strong>, usado para desencadenar fallos conectados al <strong>ADAS</strong> (sensor de punto ciego, dirección, frenos).</li>
+<li>Inyección de mensajes sin autenticar en el bus para activar sensores en marcha.</li>
+<li>Arquitectura de <strong>doble SoC</strong> en ECU de telemática: controlador de aplicación y controlador seguro (<em>safety-related</em>).</li>
+<li><strong>ESP32</strong> de 10 dólares con RNG verdadero como contraejemplo de hardware barato bien diseñado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>CAN sigue sin cifrado ni autenticación de mensajes 40 años después de su creación; UDS agrega un esquema desafío-respuesta que colapsa cuando el reseteo del ECU también resetea su reloj y hace la semilla predecible.</li>
+<li>El ECU Reset sin precondiciones (sin restricción de velocidad, desde el puerto OBD accesible al usuario) permite desencadenar fallos conectados al ADAS: activación de sensores en marcha, interrupción de dirección o frenado involuntario.</li>
+<li>La vía física siempre existe: relés y aisladores de batería —a veces expuestos en vehículos de pasajeros y camiones— permiten saltarse restricciones por software y extender los ataques a vehículos completos.</li>
+<li>Los componentes <em>safety-related</em> ejecutan instrucciones en doble controlador, pero hasta el controlador seguro puede abrirse con acceso de depuración durante la ventana de arranque, o vía <em>download mode</em> del módem.</li>
+<li>La divulgación está rota: 25 hallazgos de seguridad funcional en dos años, dos aceptados; fabricantes que no responden, que juegan a la política con la nacionalidad de los investigadores, y como mitigación final, un consejo en el manual del propietario.</li>
+<li>El problema es cultural y la solución también: hardware barato con RNG verdadero (el ESP32 de 10 dólares) demuestra que la barrera no es técnica sino de decisión, y que el cambio viene de la comunidad con PoCs, evidencia y divulgación responsable.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/tRLYwYfhoV4">«The hack, the crash and two smoking barrels - Thomas Sermpinis - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

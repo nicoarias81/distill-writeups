@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tokens de API rodantes: el experimento mental de rodar secretos como Signal — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Tokens de API rodantes: el experimento mental de rodar secretos como Signal</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/nOzZIUhlsyQ">«DEF CON SG1 - CSIT Village - Daryl Lim, Zhi Kai - Rolling Api Tokens A Thought Experiment»</a> · ver el <a class="nz-link" href="https://youtu.be/nOzZIUhlsyQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> nOzZIUhlsyQ · <strong>URL:</strong> https://youtu.be/nOzZIUhlsyQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON SG1 - CSIT Village - Daryl Lim, Zhi Kai - Rolling Api Tokens A Thought Experiment</li>
+</ul>
+<h2>Resumen</h2>
+<p>En la mayoría de las organizaciones hay 50 cuentas de máquina por cada persona: 200 empleados y 10.000 cuentas de servicio no es una rareza, sino la norma. Casi todas se autentican con tokens de API estáticos: se crean una vez, se apilan en un almacén de secretos y se usan para siempre. El experimento que se propone aquí ataca ese statu quo de frente: ¿qué pasaría si los tokens de API rodaran constantemente, como hace el protocolo Double Ratchet de Signal con sus claves de cifrado, al punto de que cada petición HTTP llevara un token distinto, inútil para cualquiera que lo capture?</p>
+<p>No es un producto ni una propuesta lista para producción: es un experimento mental con prototipo funcional, inspirado en la criptografía de mensajería, para reducir el riesgo de las identidades no humanas mediante diseño —no mediante promesas.</p>
+<h2>El problema: secretos estáticos y de alto privilegio</h2>
+<p>Los tokens estáticos de API son el tipo más común de credencial para identidades no humanas, y los pipelines de CI/CD los necesitan poderosos: construir imágenes Docker, desplegar en producción, aplicar Terraform. El problema no es que existan claves potentes, sino la combinación de estáticas y de alto privilegio: si alguien lee las variables de entorno de un runner de CI, esa clave queda expuesta indefinidamente. Para los secretos estáticos, el robo no es una interrupción: es un cambio de propietario.</p>
+<p>Los incidentes recientes dibujan el patrón, y varios son ya clásicos:</p>
+<ul>
+<li><strong>tj-actions/changed-files (marzo de 2025)</strong>: la GitHub Action, usada en decenas de miles de repositorios, fue comprometida vía un token de acceso personal filtrado; los atacantes modificaron todas las versiones históricas de la acción para volcar secretos del runner. Unos 23.000 workflows de CI quedaron comprometidos, y repos enteros vieron su historial reescrito con commits injuriosos (el caso Wiz documentó el historial completo). La cadena de confianza fue doble: la acción comprometida confiaba a su vez en otra acción (reviewdog), cuyos tokens previamente filtrados habilitaron el golpe.</li>
+<li><strong>The New York Times (enero de 2024)</strong>: un token de GitHub expuesto permitió la exfiltración de 270 GB de código fuente, vendido y sin que nadie lo notara hasta cinco meses después, cuando apareció en 4chan.</li>
+<li><strong>Cloudflare</strong>: no rotó credenciales tras la brecha de Okta, y esas credenciales siguieron siendo válidas para los atacantes.</li>
+<li><strong>Hugging Face</strong>: secretos de Spaces expuestos; la rotación masiva de tokens a nivel de organización evitó lo peor, pero el incidente mostró el alcance potencial.</li>
+<li><strong>Departamento del Tesoro de EE.UU.</strong>: una herramienta de API comprometida dio a los atacantes acceso a estaciones de trabajo de la nube.</li>
+<li><strong>Microsoft</strong>: el secuestro de una app OAuth concedió acceso a cuentas de Exchange sin interacción del usuario.</li>
+</ul>
+<p>El punto común en todos: mientras el token exista y sea estático, sigue siendo oro para quien lo robe, sin importar cuánto se proteja en reposo.</p>
+<h2>El diseño: dos trinquetes en cascada</h2>
+<p>La inspiración directa es el Double Ratchet de Signal, que combina dos trinquetes: el ratchet Diffie-Hellman, que renueva el acuerdo de claves entre cliente y servidor, y el ratchet de mensajes, que deriva una clave nueva por mensaje. La adaptación aquí es literal: el ratchet DH "cambia la cerradura" cada época, y el ratchet de tokens genera "una llave nueva por puerta" en cada petición.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant C as Cliente
+    participant S as Servidor
+    Note over C,S: Inicializacion: token estatico existente como master key (se usa una sola vez)
+    C->>S: DH publico inicial + HMAC(master key, dh_pub)
+    S->>C: DH publico propio + HMAC(master key, dh_pub)
+    Note over C,S: Ambos derivan dh_out compartido y borran la master key
+    loop Cada 60 s (epoch)
+        C->>S: Nuevo DH publico
+        S->>C: Nuevo DH publico
+        Note over C,S: dh_out nuevo; el anterior se borra
+    end
+    loop Cada peticion
+        C->>S: Token = KDF(chain_key, epoch, numero)
+        Note over S: Token valido una vez: se quema al usarlo
+    end
+
+</pre>
+
+<p>Las piezas concretas:</p>
+<ul>
+<li><strong>Inicialización</strong>: el token de API existente —un token Docker, un personal access token— se usa una sola vez como <em>master key</em> para autenticar el primer intercambio Diffie-Hellman (ECDH o superior). Es un depósito de seguridad: se usa y se borra.</li>
+<li><strong>Ratchet DH</strong>: cada 60 segundos ambos lados generan un nuevo par DH, intercambian claves públicas y derivan un nuevo secreto compartido, borrando el anterior. Ese periodo de 60 segundos define la <em>epoch</em>: un token robado en la época <em>n</em> no sirve en la <em>n+1</em>.</li>
+<li><strong>Ratchet de tokens</strong>: con KDF sobre el secreto DH y la clave de cadena se genera la primera <em>chain key</em>, y cada token sucesivo deriva del anterior. El token completo lleva como metadatos la epoch (válida durante la vida de su dh_out) y un número de secuencia.</li>
+<li><strong>Quema inmediata</strong>: cada token es válido para una única petición; al usarse, se borra y no se muestra nunca más. En la demo, reenviar una petición capturada falla al instante, y cada token es visiblemente distinto en cada llamada.</li>
+</ul>
+<h2>Fuera de orden: la ventana hacia adelante</h2>
+<p>El mundo real no entrega las peticiones en secuencia: hay reintentos, trabajo asíncrono y concurrencia; el 5 puede correr antes que el 4. La solución es la generación hacia adelante con ventana: si llega un token con número de secuencia más alto que el esperado, el servidor deriva y almacena provisionalmente las claves intermedias hasta ese número, y valida la petición. La ventana tiene tope —alrededor de 100, configurable— precisamente porque sin límite sería un vector de denegación de servicio: un atacante que enviara el número de secuencia un millón obligaría al servidor a generar un millón de claves. En la demo, peticiones enviadas en orden aleatorio se autentican correctamente.</p>
+<h2>Consideraciones de seguridad: dónde duele</h2>
+<p>Tres líneas de defensa —y sus límites, reconocidos sin maquillaje:</p>
+<ul>
+<li><strong>Las claves raíz deben vivir en hardware</strong>: la master key y las claves privadas DH deberían quedar en un TPM, con las operaciones dentro del chip y las claves sin tocar memoria. Si un atacante puede extraerlas, volvemos a punto de partida. El problema: la mayoría de los clientes de nube no tiene TPM —los runners de GitHub Actions, las funciones Lambda—. Existen TPMs por software virtualizados, pero sin esa protección las claves vuelven a vivir en memoria.</li>
+<li><strong>Escalado horizontal rompe la simplicidad</strong>: varias réplicas de cliente deberían compartir la misma master key (por ejemplo vía Redis) y todas las réplicas tendrían que protegerla con la misma garantía de hardware. No hay almuerzo gratis: el diseño transfiere el problema a la infraestructura de estado compartido.</li>
+<li><strong>Madurez</strong>: es un prototipo funcional, no un sistema con revisión formal ni producción probada a escala.</li>
+</ul>
+<p>Frente a lo existente: OAuth 2.0 está pensado para humanos y sus tokens son portadores estáticos vulnerables a rejugada hasta su expiración; los JWT verifican sin consulta a base de datos pero son casi imposibles de revocar antes de caducar; los gestores de secretos protegen las claves en reposo pero la inyección en runtime las convierte otra vez en portadores estáticos; y una PKI completa es operativamente pesadiza (ciclos de vida, revocación, CAs). El objetivo de los tokens rodantes es la seguridad a nivel de aplicación sin PKI, con ventana de exposición medida en segundos: si el sistema se ve comprometido, el token robado ya no sirve.</p>
+<h2>Dónde encaja y conclusiones</h2>
+<p>Los escenarios más naturales son los extremos: entornos <em>air-gapped</em>, donde los tokens se validan por completo sin llamar nunca a casa; infraestructuras de confianza cero, donde la red ya no es territorio confiable; y, sobre todo, agentes de IA y MCP: evitar que un agente cargue credenciales persistentes en su contexto —ese contexto es consumible por inyección de prompt o simplemente se puede loguear—. Con tokens rodantes, un agente nunca retiene una credencial útil más de unos segundos. El paso siguiente ya se insinúa: ligar criptográficamente la petición al token, metiendo el JSON de la petición en el KDF, para pasar de "sesión válida" a "autorización para esta acción exacta".</p>
+<p>Las conclusiones del experimento mental: los secretos estáticos son un único punto de fallo y todo lo demás son promesas; las respuestas humanas a la rotación llegan demasiado tarde; y tener un token no significa tener permiso —como demostró tj-actions—. Con tokens rodantes, un secreto robado deja de ser un billete dorado: el riesgo se mueve de lo estático a lo dinámico, la superficie de exposición se reduce dramáticamente, el sistema se contiene a sí mismo sin terceras partes, y el supuesto de partida cambia de "el entorno es confiable" a "el entorno no lo es".</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/nOzZIUhlsyQ">«DEF CON SG1 - CSIT Village - Daryl Lim, Zhi Kai - Rolling Api Tokens A Thought Experiment»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

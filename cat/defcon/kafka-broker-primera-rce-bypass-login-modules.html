@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kafka: la primera RCE del broker, cacería de bugs en todo el ecosistema y el bypass de la lista negra de login modules — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Kafka: la primera RCE del broker, cacería de bugs en todo el ecosistema y el bypass de la lista negra de login modules</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Sa6Onq53TsY">«DEF CON 32 - Apache Kafka: Founder or Servant, the Shield and Sword of Democracy in Kafka - Ziyang Lin, Ymir (Alibaba Cloud)»</a> · ver el <a class="nz-link" href="https://youtu.be/Sa6Onq53TsY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Sa6Onq53TsY · <strong>URL:</strong> https://youtu.be/Sa6Onq53TsY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Apache Kafka: Founder or Servant, the Shield and Sword of Democracy in Kafka - Ziyang Lin, Ymir (Alibaba Cloud)</li>
+</ul>
+<h2>Resumen</h2>
+<p>Apache Kafka es la plataforma de streaming distribuido que sostiene pipelines de datos, análisis en tiempo real y arquitecturas críticas en empresas de todo el mundo. Su broker —el corazón del sistema— nunca había tenido una vulnerabilidad de ejecución remota de código. Este trabajo parte de una vulnerabilidad conocida del cliente (CVE-2023-25194, inyección JNDI a través del login config), generaliza la técnica en tres direcciones y termina donde nadie había llegado: una RCE autenticada en el propio broker, confirmada por el equipo de Kafka y premiada por Confluent con el bug bounty más alto de su historia.</p>
+<p>El hilo conductor es una idea simple y potente: si el parche de 2023 pone en lista negra el JNDI login module, basta encontrar <em>otro</em> login module que se comporte igual. Esa búsqueda —ProxyLoginModule de JBoss, módulos de WebSphere, el LdapLoginModule del propio JDK— produce bypasses del parche, RCE en componentes del ecosistema (Kafka Connect, ksqlDB, Confluent CP Server) y, finalmente, la ruta hacia el broker. El trabajo fue presentado por ingenieros de seguridad de Alibaba Cloud.</p>
+<h2>De CVE-2023-25194 al patrón general</h2>
+<p>Kafka se organiza en productores (fuentes de datos), consumidores (lectores y procesadores) y el clúster, dividido en plano de control (metadatos: topics, brokers, replicación; con las implementaciones ZooKeeper y KRaft) y plano de datos (los brokers que atienden produce y fetch requests por topic).</p>
+<p>La vulnerabilidad original, CVE-2023-25194, vive en el cliente: si un atacante controla la cadena de conexión (<code>connection string</code>) con la que un cliente Kafka se conecta al servidor, puede inyectar un login config malicioso que dispare una búsqueda JNDI hacia un servidor LDAP controlado, y de ahí ejecución remota de código. El flujo de ataque: servidor LDAP malicioso → cadena de conexión maliciosa al cliente → construcción del JAAS login config → LoginContext.login → JNDI lookup → takeover.</p>
+<p>El parche de la versión 3.4.1 introduce una lista negra de login modules, y el JNDI login module está deshabilitado de fábrica: cualquier config que lo mencione lanza una excepción. La pregunta que estructura todo lo demás: ¿hay más login modules explotables?</p>
+<p>Los criterios de búsqueda: que implemente la interfaz LoginModule, que exista en librerías Java populares y que pueda terminar en RCE. Con esos filtros aparecen tres candidatos que valen por toda una familia de técnicas:</p>
+<ul>
+<li><strong>ProxyLoginModule (JBoss)</strong>: delega la autenticación en otro módulo cuyo nombre se configura libremente. Configurarlo para delegar en el JNDI login module —que sigue en la lista negra— hace que el módulo vetado termine ejecutándose igual. El bypass es directo: la lista negra revisa el config del usuario, pero no sigue la delegación.</li>
+<li><strong>Módulos de WebSphere</strong>: la cadena de dos payloads permite escribir un web shell. Primero un payload instruye al servidor para usar un login config controlado; el segundo provoca un error cuyo mensaje —con contenido malicioso— el servidor escribe en el archivo indicado. Web shell y RCE.</li>
+<li><strong>LdapLoginModule (integrado en el JDK)</strong>: obtiene usuario y contraseña vía callback handler y, si la contraseña no está vacía, dispara la misma inyección JNDI. Necesita un callback handler que cumpla tres condiciones a la vez: manejar NameCallback y PasswordCallback, devolver una contraseña no vacía, e implementar la interfaz <code>AuthenticatedCallbackHandler</code> de Kafka —el filtro que más reduce el universo de candidatos—.</li>
+</ul>
+<p>Ese tercer camino desemboca en Confluent: los custodios de Kafka publican una versión community (cp-kafka) y una comercial (CP Server). En CP Server existe un <code>FileBasedDynamicCredentialsCallbackHandler</code> que lee usuario y contraseña de un archivo local cuyo nombre se controla: no hace falta subir un archivo propio, basta apuntarlo a <code>/etc/passwd</code> y usar un usuario existente (por ejemplo root) como credencial no vacía. Con eso, LdapLoginModule + callback handler de Confluent = RCE en CP Server. Probado en la versión 7.7.1 (noviembre de 2024); corregido en versiones posteriores.</p>
+<h2>Del cliente al ecosistema: Kafka Connect y ksqlDB</h2>
+<p>El patrón general queda formulado así: con configuración de cliente Kafka controlada por el atacante y las técnicas de bypass, hay RCE. La pregunta siguiente es dónde aparece esa configuración controlable en sistemas reales.</p>
+<p><strong>Kafka Connect</strong>: siguiendo la documentación oficial de Confluent, la PoC de CVE-2023-25194 funciona sin cambios; convirtiéndola a formato YAML y sustituyendo el payload por el bypass del ProxyLoginModule, la RCE se reproduce.</p>
+<p><strong>ksqlDB</strong>: el hallazgo fue accidental. Leyendo un issue de GitHub ("the producer is closed falsely") surgió la duda de por qué hay un productor dentro de un motor de consultas. La respuesta: las operaciones INSERT producen datos, y la configuración de ese productor se obtiene de la "session config". Probando, la configuración es modificable —y con ella, inyectar el bypass y lograr RCE en el servidor ksqlDB. Con esta técnica se tomaron el control de despliegues Confluent de varios cloud proveedores.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Config de cliente Kafka<br/>controlada por atacante] --> B[Login config malicioso]
+    B --> C{Lista negra<br/>v3.4.1 vetoa JNDI}
+    C -- ProxyLoginModule JBoss --> D[Delega en JNDI vetado]
+    C -- LdapLoginModule JDK --> E[Callback handler de Confluent<br/>lee /etc/passwd]
+    D --> F[JNDI lookup a LDAP malicioso]
+    E --> F
+    F --> G[RCE]
+    G --> H[CP Server · Kafka Connect<br/>ksqlDB · Broker]
+
+</pre>
+
+<h2>El broker: RCE autenticada vía listeners dinámicos</h2>
+<p>El broker era el territorio sin explotar: sin RCE conocidas hasta entonces. El punto de entrada fue la documentación, buscando configuraciones sospechosas: existe una funcionalidad de <strong>listeners dinámicos</strong> —se pueden agregar (y quitar) listeners en caliente— y, lo más interesante, la configuración JAAS del listener también se puede fijar dinámicamente.</p>
+<p>El escenario de ataque: un atacante autenticado (con credenciales de cliente válidas) envía una petición <code>AddListener</code> al broker pidiendo un nuevo listener con protocolo SASL_PLAINTEXT. El broker intenta levantar el listener, descubre que no hay configuración JAAS asociada y falla —pero el mensaje de error revela el camino: Kafka autentica mediante JAAS, así que si se provee la configuración JAAS correcta, el proceso JAAS se dispara y con él la inyección JNDI hacia un servidor LDAP malicioso.</p>
+<p>La configuración se fija por clave dinámica: <code>listener.name.&lt;nombre&gt;.&lt;mecanismo&gt;.sasl.jaas.config</code>. Con el mecanismo por defecto GSSAPI falla en un primer intento (falta el server name); se resuelve añadiendo <code>sasl.kerberos.service.name</code>, o directamente cambiando el mecanismo a PLAIN. Con ambos ajustes, el broker emite la petición LDAP hacia el servidor del atacante: shell.</p>
+<p>La sorpresa llegó al probar contra la versión 3.4.0 —la que parcheó CVE-2023-25194—: la misma excepción del cliente. La explicación está en el código: cliente y servidor cargan el contexto JAAS por caminos distintos (<code>loadClientContext</code> / <code>loadServerContext</code>) pero ambos terminan en la misma función <code>load</code>, donde Kafka puso la restricción. El parche del cliente había <strong>arreglado por accidente una vulnerabilidad desconocida del servidor</strong>. De no ser por ese parche, el broker habría llevado una RCE sin descubrir.</p>
+<p>¿Y en Confluent? El bypass del ProxyLoginModule (presente en la versión comercial) reaparece aquí: en el broker hay que declarar antes el listener en <code>listener.security.protocol.map</code> y luego fijar el callback handler —que también se puede configurar dinámicamente— con la clave <code>listener.name.sasl_plaintext.sasl.login.callback.handler.class</code> apuntando al módulo que delega en el vetado. Con el servidor LDAP malicioso levantado y un puerto a la escucha, el exploit entrega shell dentro del contenedor del broker Confluent.</p>
+<p>Ambos hallazgos se reportaron: Kafka confirmó la vulnerabilidad —la primera RCE que afecta a su broker— y Confluent emitió el mayor bug bounty de su historia. El parche es directo: deshabilitar por defecto los módulos JNDI y LDAP.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>CVE-2023-25194</strong>: RCE en cliente Kafka vía <code>connection string</code> controlado → inyección JNDI; aplica a Kafka Connect y otros componentes.</li>
+<li><strong>Lista negra de login modules (3.4.1)</strong>: mecanismo de mitigación que bloquea el JNDI login module por nombre.</li>
+<li><strong>ProxyLoginModule (JBoss)</strong>: delegación de autenticación a un módulo configurable; evita la lista negra al invocar el módulo vetado indirectamente.</li>
+<li><strong>Módulos de WebSphere</strong>: doble payload que provoca escritura de un mensaje de error controlado en un archivo → web shell.</li>
+<li><strong>LdapLoginModule (JDK)</strong>: dispara JNDI lookup si el callback handler entrega contraseña no vacía; requiere <code>AuthenticatedCallbackHandler</code> de Kafka.</li>
+<li><strong>FileBasedDynamicCredentialsCallbackHandler (Confluent CP Server)</strong>: lee credenciales de un archivo controlable; <code>/etc/passwd</code> con usuario existente (root) como fuente de credenciales.</li>
+<li><strong>ksqlDB session config</strong>: configuración del productor interno modificable vía INSERT → RCE en el servidor.</li>
+<li><strong>Listeners dinámicos del broker</strong>: <code>AddListener</code> en caliente con <code>listener.name.&lt;listener&gt;.&lt;mechanism&gt;.sasl.jaas.config</code> para fijar JAAS malicioso.</li>
+<li><strong>SASL_PLAINTEXT + JAAS</strong>: combinación que dispara el proceso de autenticación del broker hacia el LDAP del atacante.</li>
+<li><strong><code>listener.security.protocol.map</code></strong>: mapa obligatorio de protocolos por listener en Confluent, requisito previo al exploit del broker comercial.</li>
+<li><strong>Kafka config tool</strong>: lectura de la configuración del broker (broker id, listeners, puertos 9092/9093) como reconocimiento previo.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La lista negra de login modules es una mitigación de superficie: bloquea nombres, no comportamientos. Cualquier módulo que delegue (ProxyLoginModule) o que alcance el mismo lookup (LdapLoginModule con un callback handler usable) la sortea.</li>
+<li>La RCE del broker nació de leer documentación en busca de configuraciones dinámicas: listeners y JAAS configurables en caliente convierten una función administrativa en superficie de ataque autenticada.</li>
+<li>Los parches tienen efectos laterales que nadie auditó: el fix del cliente en <code>load()</code> protegió también al servidor por accidente — la revisión de código de un parche es en sí misma una actividad de caza de vulnerabilidades.</li>
+<li>La defensa práctica se resume en tres capas: actualizar Kafka a versiones con el fix (módulos JNDI y LDAP deshabilitados por defecto), exigir autenticación habilitada y nunca exponer componentes del ecosistema de Kafka a internet: son piezas internas de infraestructura, y el catálogo de componentes explotables —CP Server, Connect, ksqlDB, broker— no deja de crecer.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Sa6Onq53TsY">«DEF CON 32 - Apache Kafka: Founder or Servant, the Shield and Sword of Democracy in Kafka - Ziyang Lin, Ymir (Alibaba Cloud)»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

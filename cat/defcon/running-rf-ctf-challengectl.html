@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo montar un RF CTF con ChallengeCTL — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cómo montar un RF CTF con ChallengeCTL</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/98_3eRPuuYM">«DEF CON 33 - RF Village - Running a Software Defined Radio CTF using challengectl - Dan Perret»</a> · ver el <a class="nz-link" href="https://youtu.be/98_3eRPuuYM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li>
+<p><strong>Video:</strong> 98_3eRPuuYM · <strong>URL:</strong> https://youtu.be/98_3eRPuuYM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - RF Village - Running a Software Defined Radio CTF using challengectl - Dan Perret
+<em>Ingeniería de capturas </em>capture the flag<em> de radiofrecuencia · RF Hackers Sanctuary · Wireless Village</em></p>
+</li>
+<li>
+<p><strong>TL;DR</strong></p>
+</li>
+<li>Un RF CTF es un concurso de capturar, identificar y decodificar señales inalámbricas (Wi-Fi, Bluetooth, RFID, radioaficionado, TPMS, sistemas industriales), con aprendizaje y experimentación como meta principal y el puntaje como marco.</li>
+<li>Un desafío bien diseñado es legal de transmitir y recibir, tiene solución definida, es repetible miles de veces idéntico a sí mismo y, a ser posible, se resuelve con hardware commodity (RTL-SDR, BladeRF, HackRF) y decodificadores existentes (multimon, FLDigi).</li>
+<li>ChallengeCTL es un wrapper Python multihilo que orquesta varias SDR: gestiona la lista de dispositivos, cicla 15-16 banderas sobre 3 BladeRF 2.0 y pinta el logo en el espectro antes de transmitir cada desafío.</li>
+<li>Todo es open source (github.com/RFHS/challengectl, con archivo de banderas de ediciones pasadas): clonar, generar el <code>devices.txt</code>, elegir un archivo de banderas y correr <code>challengectl.py</code> reproduce el RF CTF completo de ShmooCon 2025 en una laptop con una sola SDR.</li>
+<li>La arquitectura evolucionó de Raspberry Pis con PiFM (2014) a un estándar reproducible en casa; el roadmap incluye desafíos virtuales por ZMQ, cajas coordinadas por red y ganancias calibradas.</li>
+</ul>
+<h2>Qué es un RF CTF y qué lo hace desafío</h2>
+<p>La meta del concurso es capturar, identificar y decodificar o interactuar con tantas señales RF como sea posible: de Wi-Fi a Bluetooth, RFID, radioaficionado, sensores de presión de neumáticos o sistemas de control industrial — básicamente cualquier cosa que comunique inalámbricamente. La competencia importa (quién resuelve más, quién resuelve más rápido), pero el objetivo central es educativo: probar herramientas y ataques contra redes y señales que no se pueden tocar en casa o en público — hacer sonar los buscapersonas de restaurante propios y no los del restaurante local, experimentar modos digitales de radioaficionado.</p>
+<p>El puntaje se automatiza con <strong>CTFd</strong> (open source, self-hosted): cada desafío vale puntos, se envía la bandera, se valida, se asigna. Para eventos pequeños, papel y lápiz alcanzan; para un CTF de tamaño real, un sistema automático es imprescindible.</p>
+<p>Un desafío es una <strong>señal inalámbrica discreta o un dispositivo</strong> a decodificar o con el que interactuar: capturar esta señal en morse, hacer sonar ese buscapersonas, decodificar ese mensaje de Meshtastic. Los requisitos duros:</p>
+<ol>
+<li><strong>Legal</strong> — de transmitir para los organizadores y de recibir para los participantes. Por eso no hay desafíos celulares (sin licencias ni para transmitir ni para monitorear; una mala configuración podría meter en problemas legales a alguien). ADS-B requeriría modificaciones para que nadie envíe paquetes que perturben el tráfico aéreo real.</li>
+<li><strong>Resoluble</strong> — no hace falta que exista software off-the-shelf, pero tiene que haber un fin definido. "Estamos transmitiendo algo, buena suerte" no se puede puntuar y frustra.</li>
+<li><strong>Repetible</strong> — se transmite cientos o miles de veces durante el fin de semana, siempre igual. Mejor aún si las claves son "rolleables": fáciles de cambiar entre eventos.</li>
+</ol>
+<p>Los <em>nice-to-have</em>: resolución con hardware commodity (evitar, por ejemplo, Wi-Fi de 60 GHz salvo que se preste equipo), y existencia de decodificadores conocidos (multimon para buscapersonas, FLDigi para modos de radioaficionado; Inspectrum o URH como vía manual para los desafíos difíciles).</p>
+<p>Fuera del alcance del software SDR quedan tresmadriguera propias: los desafíos Wi-Fi (contenedor RFCTF en el GitHub de RFHS), los <strong>foxes</strong> (juego de zorro y sabuesos: una persona lleva un transmisor por el evento y hay que encontrarla solo por la señal; software Kitsune) y los desafíos RFID, que se corren con lectores reales (un "building in a box" construido por RTA) porque un lector físico configurado para las credenciales objetivo es mucho más envolvente.</p>
+<h2>De hardware dedicado a SDR: tres generaciones</h2>
+<pre class="mermaid">
+flowchart TD
+    A[Hardware dedicado<br/>buscapersonas, TPMS, 6LoWPAN] --> B[Flow graphs SDR individuales<br/>un dispositivo, un desafío]
+    B --> C[SDR football 2014<br/>2 Raspberry Pi + PiFM + HackRFs<br/>sincronización por base de datos]
+    C --> D[ChallengeCTL hoy<br/>3 BladeRF 2.0 + wrapper Python<br/>15-16 banderas en el aire]
+    D --> E[Roadmap<br/>virtuales ZMQ, cajas coordinadas,<br/>ganancia calibrada]
+
+</pre>
+
+<p><strong>Hardware dedicado</strong> (buscapersonas, sensores TPMS, radios 802.15.4, luces RGB): fiable y realista — la gente reconoce el buscapersonas del restaurante u hospital —. Sus contras: escalabilidad (más desafíos = más hardware que transportar), reemplazo (si el buscapersonas falla, el desafío muere; no se compra un TPMS en la esquina) y claves fijas: el buscapersonas 61 siempre será el 61 hasta que se muera la batería.</p>
+<p><strong>Flow graphs individuales</strong> (GNU Radio u otro script sobre HackRF/BladeRF/USRP): más fáciles de prototipar y de rollear claves, con hardware commodity. El contra: se ata una SDR a un desafío; los participantes esperan a que todos los desafíos de la fila pasen por el aire antes de que vuelva el que les interesa. Dentro de esta vía hay tres estilos:</p>
+<ul>
+<li><strong>Captura y repetición</strong> de IQ crudo: funcional pero ruidoso y desprolijo (captura ruido ajeno sin filtrado).</li>
+<li><strong>Generar archivos binarios o de audio</strong> para transmitir: fiable, pero rollear claves duele — con FLDigi generando en tiempo real, rollear todas las claves del box toma ~2 horas.</li>
+<li><strong>El estado ideal</strong>: generar la señal enteramente dentro del flow graph — se pasa el texto de la bandera como parámetro y la señal sale al instante, sin archivos intermedios.</li>
+</ul>
+<p><strong>Múltiples dispositivos</strong>: la escala real. Con una SDR hay un desafío en el aire por vez; con tres radios, tres desafíos simultáneos. El predecesor (el "SDR football" original, ~2014) usaba dos Raspberry Pi controlando varios HackRF con amplificadores, un dongle DVB-T, un script por dispositivo y sincronización por base de datos en una de las Pi — ChallengeCTL antes de llamarse ChallengeCTL. Una década después, el box actual corre tres BladeRF 2.0 orquestadas por ChallengeCTL: aplicación Python multihilo que administra la lista de dispositivos (verificando disponibilidad antes de transmitir), cicla las banderas entre radios y hace <em>spectrum painting</em> — dibuja el logo en el espectro justo antes de lanzar cada desafío para que los participantes sepan que viene uno.</p>
+<h2>Los tipos de desafío y el formato de archivos</h2>
+<p>ChallengeCTL transmite hoy seis familias de desafíos: código morse, amplitude shift keying (ASK), FM banda estrecha y banda lateral superior (USB) para los modos digitales de radioaficionado —herencia directa del SDR football original—, POCSAG y el desafío de buscapersonas de Long Range Systems (LRS).</p>
+<p>Todo es open source. El flujo reproducible en casa:</p>
+<ol>
+<li><code>git clone</code> del repositorio; el script <code>createDevicesText.py</code> consulta el sistema y genera el <code>devices.txt</code> (índice de dispositivo + cadena OsmoSDR) sin tener que memorizar el formato.</li>
+<li>Archivo de <strong>banderas</strong>: la primera línea lleva el nombre del evento y horarios de inicio/fin; después, un desafío por línea. En los modos digitales (RTTY, THOR, Feld Hell — cualquier cosa codificable en un WAV) se indica el archivo de audio, la tasa de muestreo y la frecuencia. Frecuencias tipo <code>HAM440</code> significan "en cualquier punto de la banda de 440 MHz": el desafío es más difícil porque no está siempre en la misma frecuencia.</li>
+<li>Los desafíos de <strong>morse y ASK</strong> son el estado ideal: se escribe el texto de la bandera y la frecuencia (con parámetros de velocidad en morse) y sale al aire, sin archivos previos. <strong>POCSAG</strong> añade el CAP code; <strong>LRS</strong> pasa sus parámetros al script que genera el bin sobre la marcha (efímero, mejorable); <strong>SSTV</strong> usa un WAV generado con QSSTV.</li>
+<li><code>python challengectl.py &lt;flags&gt; &lt;devices&gt;</code> y el CTF está al aire — en la demo, el desafío de ShmooCon 2025 en 905,55 MHz corrió desde una laptop con una sola BladeRF.</li>
+</ol>
+<p>Para rollear banderas de modos digitales: FLDigi (software de radioaficionado) tiene en el menú de audio la opción TX Generate para escribir el WAV; y su modo playback sobre el archivo sirve para verificar que decodifica antes de subirlo. La trampa clásica: una tasa de muestreo de 8.000 Hz no es 48.000 Hz — conviene verificar que coincida con la del flow graph. QSSTV hace lo propio para las imágenes SSTV. El archivo de banderas publicado incluye todos los WAV de ShmooCon 2025.</p>
+<h2>Implicaciones prácticas</h2>
+<ul>
+<li>Cualquiera puede correr el RF CTF completo en casa con una SDR: los archivos de banderas de eventos pasados están publicados, y con una sola radio se transmite un desafío por vez — suficiente para practicar.</li>
+<li>El diseño de desafíos RF es un ejercicio de ingeniería de restricciones: legalidad primero, fin definido después, repetibilidad siempre; las claves rolleables son lo que permite reutilizar la infraestructura entre eventos.</li>
+<li>La generación de señal dentro del flow graph (bandera como parámetro) es el patrón que elimina el cuello de botella de los archivos pre-generados.</li>
+<li>El <em>spectrum painting</em> es señalética operativa: dibujar el logo en el espectro antes de cada desafío informa a los participantes en su propio medio, sin canal aparte.</li>
+<li>Para RFID y fox hunting, el hardware real (lectores físicos, transmisores portados por personas) supera en envolvimiento a cualquier simulación; cada dominio tiene su herramienta.</li>
+</ul>
+<h2>Roadmap y límites</h2>
+<p>Desarrollo futuro declarado: integrar los desafíos <strong>virtuales</strong> (los mismos WAV transmitidos por ZMQ por internet, nacidos en el DEF CON virtual durante la pandemia; hoy corren con un runner aparte porque los parámetros cambian — no hay frecuencia, hay puerto —; la meta es un único formato y un solo stack para físico y virtual), <strong>cajas SDR múltiples coordinadas</strong> por red para más desafíos en el aire sin colisiones (hoy dos boxes no se comunican: una lleva los desafíos principales, otra los especiales de sala), <strong>múltiples front-ends de transmisión</strong> (los BladeRF tienen dos puertos TX — uno se partió en tránsito y ese dispositivo quedó hardcodeado al segundo puerto; hay que pulir esa lógica), <strong>ganancias sensatas por tipo de SDR</strong> (HackRF, BladeRF y USRP tienen escalas distintas) y la <strong>calibración de ganancia de BladeRF</strong> para una respuesta plana en todo el espectro. También falta el flow graph de captura y repetición, y siempre se buscan tipos nuevos de señales: no a todos le gusta el morse, y el objetivo es que cada participante elija su propia aventura.</p>
+<p>Límites a tener en cuenta: los desafíos virtuales no están open source todavía (entrarán a ChallengeCTL cuando lo estén, con sink ZMQ en lugar de OsmoSDR); el formato del archivo de banderas no es aún consistente entre tipos de desafío; y el rolleo de claves de modos digitales con FLDigi sigue siendo manual y secuencial — si existe una vía programática, es una mejora abierta.</p>
+<h2>Para profundizar</h2>
+<ul>
+<li>ChallengeCTL, repositorio oficial: https://github.com/RFHS/challengectl</li>
+<li>RF Hackers Sanctuary (sitio y archivo de banderas de eventos pasados): https://rfhackers.com/</li>
+<li>CTFd, plataforma de scoring open source: https://ctfd.io/</li>
+<li>GNU Radio, framework de flow graphs SDR: https://www.gnuradio.org/</li>
+<li>FLDigi, modos digitales de radioaficionado: https://sourceforge.net/projects/fldigi/</li>
+<li>URH (Universal Radio Hacker), decodificación manual de señales: https://github.com/jopohl/urh</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/98_3eRPuuYM">«DEF CON 33 - RF Village - Running a Software Defined Radio CTF using challengectl - Dan Perret»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

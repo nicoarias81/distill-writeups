@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hacking time: regenerar contraseñas del generador de RoboForm — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hacking time: regenerar contraseñas del generador de RoboForm</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/N2eKCAzM2kw">«DEF CON 32 - Joe &amp; Bruno Hack Time: Regenerate PWs from RoboForm&#x27;s PW Generator - J Grand, B Krauss»</a> · ver el <a class="nz-link" href="https://youtu.be/N2eKCAzM2kw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> N2eKCAzM2kw · <strong>URL:</strong> https://youtu.be/N2eKCAzM2kw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Joe &amp; Bruno Hack Time: Regenerate PWs from RoboForm's PW Generator - J Grand, B Krauss</li>
+</ul>
+<h2>Resumen</h2>
+<p>Una cartera Bitcoin con una contraseña olvidada se convierte en el caso de estudio perfecto para exponer un defecto clásico de generación de contraseñas: sembrar el generador pseudoaleatorio con la hora del sistema. Antes de la versión 7.9.14 (corregido en 2015), el generador de contraseñas de RoboForm llamaba a <code>srand(time)</code> en segundos Unix, con una manipulación mínima para evitar duplicados entre pulsaciones consecutivas del botón. La consecuencia es devastadora para la entropía real: el espacio de búsqueda deja de ser criptográfico y pasa a ser el número de segundos de un rango de fechas razonable.</p>
+<p>El recorrido completo —análisis de memoria con Cheat Engine, ingeniería inversa estática con Ghidra, análisis dinámico con x64dbg y un wrapper en C y ensamblador que engancha la DLL interna— permite regenerar a demanda cualquier contraseña producida por el generador en ese período, a razón de unas 100 contraseñas por segundo. El resultado práctico: la recuperación de la cartera del cliente, cuya contraseña resultó generada el 15 de mayo de 2013.</p>
+<h2>El encargo</h2>
+<p>El cliente, alemán, había generado su contraseña de la cartera en 2013 con el generador de RoboForm y ya no la recordaba. El equipo consultó directamente sobre detalles del entorno: versión del software, época aproximada de creación de la contraseña, y la lista de contraseñas que había usado para otros servicios —pista decisiva al final, porque casi todas incluían caracteres especiales, pero no todas.</p>
+<h2>El defecto: semilla = tiempo</h2>
+<p>La hipótesis inicial apunta a la granularidad de la semilla. Si el generador siembra su PRNG con la hora del sistema en segundos, generar la contraseña de un día dado requiere enumerar apenas 86.400 semillas. Los investigadores ya habían documentado generadores mal sembrados en otros gestores de contraseñas (incluyendo un gestor estándar de Unix y Kaspersky), así que el patrón era plausible para RoboForm.</p>
+<p>Hay un matiz que complica el esquema: cada pulsación del botón "generar" manipula el valor de tiempo antes de sembrar el PRNG. La manipulación existe porque <code>time</code> devuelve segundos desde el 1 de enero de 1970: sin ella, dos pulsaciones dentro del mismo segundo producirían la misma contraseña. Pero es una manipulación débil —un salto fijo adelante o atrás en el tiempo— que no resta espacio de búsqueda real, solo desplaza el rango de fechas. El detalle traicionero: el código resta un número negativo (o sea, suma unos 8-9 días), lo que hizo que las primeras listas se generaran recorriendo el tiempo en la dirección equivocada.</p>
+<h2>Ingeniería inversa en cuatro pasos</h2>
+<pre class="mermaid">
+flowchart LR
+    M[Memoria: Cheat Engine] --> S[Estatica: Ghidra]
+    S --> D[Dinamica: x64dbg]
+    D --> W[Wrapper en C + asm]
+    W --> R[Listas de contrasenas por segundo]
+
+</pre>
+
+<p><strong>Memoria con Cheat Engine.</strong> La herramienta de trampeo de juegos localiza la contraseña generada en texto plano dentro del proceso —dos veces: una para la GUI y otra en la lógica interna—. Otros generadores cifran u ocultan su salida en memoria; RoboForm no. Desde ahí se rastrea qué rutina escribe ese valor, para remontar hasta el generador dentro de una DLL repleta de funcionalidad ajena a la generación de contraseñas.</p>
+<p><strong>Estática con Ghidra.</strong> Sobre el binario completo, etiquetado progresivo, aparece la firma buscada: una llamada al tiempo del sistema (<code>time64</code>) seguida de la manipulación y de <code>srand</code>. Hay otros puntos que siembran el PRNG, pero ninguno llama al tiempo: esa sección es la correcta.</p>
+<p><strong>Dinámica con x64dbg.</strong> Con breakpoints en la llamada al tiempo, se verifica en vivo la correlación entre el registro EAX y la contraseña generada: alimentando un valor de EAX del pasado se regenera una contraseña ya producida. La manipulación se vuelve irrelevante: ajusta el rango de fechas, pero todo es precomputable.</p>
+<p><strong>Wrapper en C y ensamblador.</strong> En lugar de reimplementar el algoritmo —excesivamente enredado para extraerlo— el wrapper engancha la DLL original: busca por firma de opcodes la sección no exportada del generador, coloca los parámetros de configuración (mayúsculas, minúsculas, dígitos, especiales) en las posiciones de memoria correctas, fija la hora del sistema con <code>SetSystemTime</code> para cada iteración, llama a la función interna y recoge la contraseña de su registro de retorno. Después de "crasheos durante días", el bucle funcionó: unas 100 contraseñas por segundo, suficiente para cubrir el rango de meses objetivo en horas o días (el cuello de botella era el acceso a disco).</p>
+<h2>El hallazgo</h2>
+<p>Las listas con caracteres especiales no daban con la contraseña. El cliente estaba tan seguro de haberlas usado que llegó a plantearse la hipnosis. Pero su propia lista de contraseñas de otros servicios incluía algunas sin especiales, así que se regeneró el rango sin caracteres especiales —cambiar ese parámetro altera la contraseña entera—. Unos 20 minutos después de arrancar esa lista, apareció: generada el 15 de mayo de 2013, algo anterior a lo que sugería el historial de transacciones, explicable por pulsaciones múltiples del botón que desplazan la manipulación temporal.</p>
+<h2>Divulgación incomoda</h2>
+<p>Sin canal de seguridad ni plataforma de bug bounty localizables para RoboForm, y con el antecedente de cartas cesa-y-desista en DEF CON, el equipo optó por la vía pública coordinada: la periodista Kim Zetter escribió la historia y contactó al fabricante. La respuesta oficial —"arreglamos el problema"— no incluyó detalles cuando se le preguntó cómo, ni notificación visible a clientes. El código, las diapositivas y el video quedaron publicados.</p>
+<h2>Optimización posterior</h2>
+<p>Dean Pierce tomó el código y lo aceleró más de 600 veces (hasta 1.000x según máquina): 68.000 contraseñas por segundo por núcleo, multihilo, eliminando <code>SetSystemTime</code> —escribiendo el valor Unix directamente en el registro, sin requerir privilegios de administrador—, parcheando con NOP la reinicialización que obligaba a recargar la DLL en cada iteración, y con interfaz de línea de comandos para producir tablas arcoíris de cualquier rango de fechas del generador pre-corrección de 2015.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Cheat Engine</strong>: escaneo y localización de la contraseña en texto plano en memoria del proceso (GUI + lógica interna).</li>
+<li><strong>Ghidra</strong>: análisis estático; identificación de <code>time64</code> → manipulación → <code>srand</code> como firma del generador.</li>
+<li><strong>x64dbg / x32dbg</strong>: análisis dinámico con breakpoints; correlación EAX ↔ contraseña y regeneración por inyección de valor de tiempo.</li>
+<li><strong>Wrapper en C + ensamblador</strong>: enganche de la función interna no exportada de la DLL por firma de opcodes, configuración de parámetros en memoria y bucle de regeneración.</li>
+<li><strong><code>srand(time)</code> en segundos Unix</strong>: el defecto raíz; espacio de búsqueda reducido al rango temporal objetivo.</li>
+<li><strong>Manipulación temporal débil</strong>: resta de un número negativo (~8-9 días) para evitar duplicados por segundo.</li>
+<li><strong>Optimización de Dean Pierce</strong>: 68.000 pw/s por núcleo, multihilo, sin <code>SetSystemTime</code>, reinicialización parcheada con NOP, CLI.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La semilla basada en tiempo de baja granularidad destruye la entropía nominal del generador: basta enumerar los segundos de un rango de fechas plausible para regenerar cualquier contraseña producida antes del fix de 2015 (v7.9.14).</li>
+<li>La combinación metodológica completa (memoria → estática → dinámica → hooking) permite atacar generadores "opacos" sin reimplementar su algoritmo.</li>
+<li>La transparencia del proveedor importa: sin canal de divulgación y sin detalles públicos del parche, los usuarios no pueden saber si están expuestos, y la comunidad termina reconstruyendo y acelerando el ataque por su cuenta.</li>
+<li>El patrón probablemente sobrevive en otros generadores sin auditar: conviene revisar cualquier software que siembre PRNGs con relojes del sistema.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/N2eKCAzM2kw">«DEF CON 32 - Joe &amp; Bruno Hack Time: Regenerate PWs from RoboForm&#x27;s PW Generator - J Grand, B Krauss»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

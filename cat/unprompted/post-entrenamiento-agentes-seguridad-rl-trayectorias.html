@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post-entrenamiento de agentes de seguridad: enseñar las trayectorias antes de la prueba — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Post-entrenamiento de agentes de seguridad: enseñar las trayectorias antes de la prueba</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/4zoYCfHwhEk">«Aaron Brown - Trajectory-Aware Post-Training Security Agents | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/4zoYCfHwhEk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 4zoYCfHwhEk · <strong>URL:</strong> https://youtu.be/4zoYCfHwhEk · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Aaron Brown - Trajectory-Aware Post-Training Security Agents | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los modelos generalistas son buenos en tareas atómicas de seguridad —detectar un LFI, un XSS— pero fallan sistemáticamente en las tareas de horizonte largo que exigen encadenar varias vulnerabilidades para completar un objetivo. La razón es estructural: esos modelos fueron optimizados para todo menos para pentesting, y el andamiaje de agente (scaffolding) solo escala en tiempo de inferencia, no corrige el comportamiento base. La respuesta técnica es el post-entrenamiento: refuerzo sobre trayectorias, fine-tuning supervisado y optimización de prompts, aplicados a un agente pequeño y abierto.</p>
+<p>La pieza central es Open Trajectory Gym, un proyecto open source lanzado para que un profesional de ML —no un laboratorio con doctorados— pueda montar un pipeline completo de post-entrenamiento sobre sus propios benchmarks y modelos. La prueba de concepto: un Qwen 3.5 de 27B parámetros que pasó de un 12,5% de tasa de resolución en CyBench a alrededor del 35% en menos de un día de trabajo.</p>
+<h2>Por qué los agentes generalistas fallan en seguridad</h2>
+<p>Un agente, reducido a su mínimo, es un modelo invocado desde la capa de aplicación con memoria de largo plazo (un almacén externo de contexto), una conversación de corto plazo sujeta a truncado y podado, y herramientas: funciones con nombres, argumentos y docstrings que ejecutan acciones en un entorno local o remoto. Como el modelo es sin estado, cada llamada de herramienta reenvía en realidad el system prompt completo, los schemas de todas las herramientas con sus descripciones en texto, y toda la historia de conversación que crece paso a paso.</p>
+<p>Sobre esa base, los modelos de frontera puntúan bien en benchmarks como GPT-5-2 en tareas atómicas de pentesting web. Lo que no logran son las tareas multi-etapa: conjoin varias vulnerabilidades distintas hasta explotar el objetivo. Es exactamente el problema de ML abierto conocido como long horizon agents —el mismo que enfrentan los agentes de navegación web o los que juegan videojuegos—: explorar el entorno, entenderlo y unificar esa comprensión para invocar las funciones correctas hasta cumplir el objetivo.</p>
+<p>El hueco específico de seguridad es que el dominio carece de lo que matemáticas y código ya tienen: benchmarks maduros, frameworks de entrenamiento y evals creíbles. CyberBench, CVE-Bench y ExPAL validation son los cimientos existentes, pero nadie cree del todo en las métricas —la queja recurrente de que "no hay evals buenas, nadie se cree nada" tiene esa causa de fondo—. Un entorno de RL también exige recompensa verificable: una flag al final del CTF, un CVE identificado en el análisis estático. Y la mayoría de las tareas de seguridad, aunque sea de forma obtusa, sí la tiene.</p>
+<h2>Open Trajectory Gym: la receta de tres etapas</h2>
+<p>Montar infraestructura distribuida de RL exige conjuntar más de 36 librerías y SDKs, y depurar fallas donde el culpable puede ser el algoritmo, la infraestructura o los datos del entorno. Open Trajectory Gym (construido sobre TRL y sobre SkyRL, del Berkeley Sky Computing Lab) encapsula ese bucle: se conecta el agente —Strands, AutoGen, o el agente LangChain usado en la demo—, los contenedores, las reward functions y el benchmark propio, y el resultado es un modelo alineado con las llamadas a función correctas para su tarea.</p>
+<p>El pipeline tiene tres etapas, dos de las cuales modifican los pesos del modelo:</p>
+<ol>
+<li><strong>Instruction tuning (SFT):</strong> el modelo aprende el formato de tool calling y la terminología del dominio, primera capa de alineación. Los datos pueden venir de trayectorias reales o generarse sintéticamente: el proyecto incluye un módulo que acepta un manifiesto del mundo (topología de red, recompensa final verificable) y usa un modelo docente abierto —GLM5, Kimi K2— para destilar trazas de entrenamiento.</li>
+<li><strong>RL online:</strong> el agente se ejecuta en paralelo —ocho instancias con perturbaciones distintas sobre la misma tarea— contra los 40 contenedores de CyBench (mezcla de retos web y análisis estático de código). Cada traza se puntúa con reward functions compuestas, se calcula la media del grupo y se destila la mejor traza en los pesos.</li>
+<li><strong>GEPA (Genetic Pareto Prompt Evolution), en tiempo de inferencia:</strong> el system prompt, que normalmente queda fijo del paso 0 al paso 60, se hace evolucionar con una línea de reflexión fuera de banda que examina las llamadas previas y optimiza el prompt según lo aprendido. No toca los pesos; complementa el entrenamiento.</li>
+</ol>
+<p>Sobre las recompensas, la lección práctica: empezar con binarias (¿se obtuvo la flag o no?) y retroceder hacia recompensas progresivas. Una binaria pura no distingue al agente que llegó con buen criterio del que llegó ruidosamente, y esa diferencia importa en producción; las compuestas con decaimiento temporal y penalización por escasez de información puntúan el camino, no solo el final.</p>
+<h2>Resultados, costos y lecciones de campo</h2>
+<p>La configuración usó una DGX Spark doméstica para inferencia y pruebas locales, más H200s en la nube para el clúster de entrenamiento. Con Qwen 3.5 27B —un modelo denso, lanzado dos días antes— el agente Boxponer pasó del 12,5% baseline al 35% de tasa de resolución tras SFT + RL. Un caso ilustrativo: un reto criptográfico con una variante de AES de capa no lineal barajada, donde había que hacer ingeniería inversa del cifrado desde el código fuente, dialogar con un oráculo por red y escribir un solver para descifrar la flag; el modelo base de Hugging Face falló tras 25 turnos, el modelo ajustado lo resolvió en menos turnos.</p>
+<p>Las lecciones operativas son tan útiles como el resultado:</p>
+<ul>
+<li><strong>Modelo denso, no MoE.</strong> El plan original era GLM 4.7 Flash 30B, pero los modelos mixture-of-experts no tienen hoy una solución open source para la sincronización de pesos de los nodos expertos durante RL. Qwen 3.5 salió dos días antes y resolvió el problema por topicalidad.</li>
+<li><strong>Escalado progresivo de la dificultad.</strong> Como un humano en su primer CTF: no arrancar en experto; hacer que el agente avance de very easy a easy, medium y hard dentro del entorno de RL.</li>
+<li><strong>Los horizontes largos son caros en memoria.</strong> Servir un modelo 27B cuantizado cabe en 60 GB de VRAM, pero con contexto de 128K tokens la asignación se multiplica por dos o tres.</li>
+<li><strong>Más datos.</strong> El experimento usó 285 trazas open source de modelos más fuertes; la práctica estándar para la etapa SFT ronda los 20.000 a 30.000 trazas, seguidas de más RL sobre más retos para generalizar.</li>
+</ul>
+<p>La pregunta difícil de la sala —si escalar sobre CTFs generaliza a encontrar bugs reales, donde ni siquiera se sabe si existe el bug— tiene respuesta honesta: eso es generalización, un problema de cualquier tarea de ML. Lo que se necesita son mejores entornos de RL de seguridad que generalicen; por eso los laboratorios están pagando por entornos, no solo por scaffolding. El proyecto adopta el enfoque bring-your-own-environment precisamente porque quien construya un mejor entorno estará atacando ese problema de frente.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los modelos generalistas resuelven tareas atómicas de seguridad pero no las multi-etapa; el post-entrenamiento sobre trayectorias es la vía para alinear el comportamiento base, no solo el andamiaje de inferencia.</li>
+<li>Open Trajectory Gym demuestra que un pipeline completo de SFT + RL online + optimización de prompts (GEPA) es alcanzable a nivel practicante: 12,5% → 35% de tasa de resolución con un modelo denso de 27B en menos de un día.</li>
+<li>Las decisiones de ingeniería importan tanto como el algoritmo: modelos densos mientras el RL sobre MoE no esté resuelto en open source, dificultad progresiva, recompensas compuestas sobre binarias y presupuesto de VRAM que se triplica con contextos largos.</li>
+<li>El cuello de botella del dominio es la falta de benchmarks y entornos de RL creíbles para seguridad; construir y compartir entornos que generalicen es la contribución más valiosa que puede hacer la comunidad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/4zoYCfHwhEk">«Aaron Brown - Trajectory-Aware Post-Training Security Agents | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

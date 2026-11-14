@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Por qué falla la detección automática de vulnerabilidades: lecciones de 125.000 commits del kernel de Linux — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Por qué falla la detección automática de vulnerabilidades: lecciones de 125.000 commits del kernel de Linux</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/93jhfuL-ndo">«Jenny Guanni Qu - Why Most ML Vulnerability Detection Fails | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/93jhfuL-ndo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 93jhfuL-ndo · <strong>URL:</strong> https://youtu.be/93jhfuL-ndo · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Jenny Guanni Qu - Why Most ML Vulnerability Detection Fails | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>El kernel de Linux es, paradójicamente, uno de los mejores campos de entrenamiento que existen para la detección automática de vulnerabilidades: 1.400 correos diarios en su lista de correo, mantenedores voluntarios que se ahogan sin seguimiento centralizado, y a la vez un conjunto de datos etiquetado de 125.000 vulnerabilidades construido a partir de la convención del tag <code>fixes</code>, con el que cada commit de corrección señala al commit que introdujo el bug. Esa etiqueta, que solo existe gracias al trabajo de Dan Carpenter —quien además acumula más de 2.000 correcciones—, permite entrenar modelos de ML con datos reales en lugar de heurísticas.</p>
+<p>Los resultados del experimento desmienten varias intuiciones extendidas sobre ML aplicado a seguridad: los baselines "tontos" son difíciles de superar, el tamaño de contexto importa más que la arquitectura, los ejemplos difíciles no son los que parecen, y los patrones de vulnerabilidad caducan. Todo documentado en un blog post que llegó al número uno de Hacker News.</p>
+<h2>Qué esconden los datos: bugs de 19 años y la anatomía del bug longevo</h2>
+<p>La distribución temporal de los bugs del kernel es en sí misma reveladora. El 13% permanece oculto más de cinco años; cada subsistema tiene su propia vida útil típica; y el caso extremo es un bug que vivió 19 años en el kernel: introducido en agosto de 2006 y corregido en agosto de 2025. El detalle perverso es que el commit que lo introdujo era, a su vez, un commit de corrección —la propia medicina creó la enfermedad—.</p>
+<p>Ojo con la trampa estadística: parece que los bugs introducidos en años recientes se corrigen mucho más rápido, pero los datos están censurados a la derecha —los bugs de 2022 se encuentran "más rápido" simplemente porque a 2026 todavía no les dio tiempo de envejecer—. Las condiciones de carrera son la categoría que más tiempo sobrevive, porque exigen timings precisos para dispararse. La anatomía de los bugs longevos tiene patrones reconocibles:</p>
+<ul>
+<li><strong>Errores de conteo de referencias:</strong> no crashean de inmediato; filtran memoria lentamente, y pueden pasar meses hasta que alguien lo note.</li>
+<li><strong>Checks de nulo faltantes tras desreferenciar:</strong> el compilador los elimina, porque si ya se desreferenció el puntero, el check posterior se considera optimizable; sobreviven porque en la práctica el puntero rara vez es nulo.</li>
+<li><strong>Overflows de enteros en cálculos de tamaños</strong> y <strong>carreras en máquinas de estados</strong>, que requieren timing preciso para manifestarse.</li>
+</ul>
+<h2>La humillación de los baselines: si no les ganás, sos un tokenizer bonito</h2>
+<p>Antes de entrenar nada sofisticado, la prueba de fuego fue construir baselines deliberadamente ingenuos. B1 mira solo tres números por diff —líneas añadidas, eliminadas, archivos cambiados—; B4 lee únicamente los asuntos de los commits; B6 combina asuntos y diffs; B8 entrena árboles de decisión sobre 118 features diseñadas a mano. Sin ninguna red neuronal, B1 alcanzó un área bajo la curva de 0,779. La explicación es incómoda pero importante: hay muy pocos commits vulnerables, así que acertar patrones superficiales ya rinde bien en recall. La conclusión del análisis es una regla que vale para cualquier paper de detección de vulnerabilidades: si tu modelo no supera estos baselines, es un tokenizer elegante.</p>
+<h2>Las cinco lecciones de entrenamiento</h2>
+<ol>
+<li><strong>El contexto desbloquea la comprensión del código.</strong> Con ventanas de 512 tokens, los transformers leen mensajes, no código: no alcanzan a ver los diffs completos. Ampliar a 8.000 tokens produjo resultados mucho mejores, más que cualquier cambio de arquitectura.</li>
+<li><strong>Los patrones de vulnerabilidad caducan.</strong> Midiendo el rendimiento del modelo sobre distintos períodos, predice mucho mejor los ejemplos antiguos que los recientes. Eso traduce directamente en la frecuencia con que hay que re-entrenar.</li>
+<li><strong>El curriculum learning está al revés de lo esperado.</strong> La intuición inicial era que los diffs grandes y complejos son los difíciles; la realidad es la opuesta: los diffs grandes traen más señal. Los ejemplos realmente duros son los cambios de una a cinco líneas —un check de nulo faltante, un incremento de conteo de referencias en un camino de error obvio, un lock requerido en una función y liberado en otra—, donde casi no hay contexto para discernir.</li>
+<li><strong>Los negativos difíciles no son universalmente buenos.</strong> Curar el dataset con muchos negativos difíciles empeoró los resultados; lo que ayudó fue incluir muchos bugs fáciles, porque el modelo necesita aprender qué es obviamente seguro antes de aprender qué es sutilmente peligroso. La mayoría de las superficies son, en efecto, obviamente seguras.</li>
+<li><strong>Mejores datos ganan a mejores arquitecturas.</strong> La palanca que más rindió no fue una arquitectura novedosa sino curar mejor el conjunto de entrenamiento.</li>
+</ol>
+<h2>Conclusiones</h2>
+<ul>
+<li>El tag <code>fixes</code> del kernel de Linux es un regalo para el ML de seguridad: 125.000 vulnerabilidades etiquetadas por pares introduce/corrige, sin anotación manual.</li>
+<li>Los baselines triviales (tres números por diff) alcanzan AUC 0,779 por el desbalance extremo de clases; cualquier modelo de detección que no los supere no aporta nada.</li>
+<li>Contexto de 8.000 tokens, re-entrenamiento periódico por caducidad de patrones, curriculum con diffs pequeños como casos difíciles y datasets con bugs fáciles incluidos: esas cuatro decisiones importan más que la arquitectura.</li>
+<li>Queda el hueco del veredicto: el modelo puede marcar un commit como sospechoso con cierta confianza, pero un crash no es una vulnerabilidad explotable. La aplicación más inmediata es priorizar la avalancha de crashes que los agentes de código ya encuentran en el kernel, ordenándolos por severidad estimada para que el tiempo humano se gaste en los más prometedores.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/93jhfuL-ndo">«Jenny Guanni Qu - Why Most ML Vulnerability Detection Fails | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

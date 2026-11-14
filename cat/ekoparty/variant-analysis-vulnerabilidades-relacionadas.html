@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Variant analysis: de un bug conocido a todas sus ocurrencias — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Variant analysis: de un bug conocido a todas sus ocurrencias</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Z3w17Y0gYu8">«Variant Analysis: Identifying and Addressing/Reporting related vulnerabilities -Jeffrey Guerra»</a> · ver el <a class="nz-link" href="https://youtu.be/Z3w17Y0gYu8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Z3w17Y0gYu8 · <strong>URL:</strong> https://youtu.be/Z3w17Y0gYu8 · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Variant Analysis: Identifying and Addressing/Reporting related vulnerabilities -Jeffrey Guerra</li>
+</ul>
+<h2>Resumen</h2>
+<p>El análisis de variantes es el proceso de tomar un problema conocido y encontrar otras ocurrencias de ese problema. En teoría suena fácil — tomá este bug y mirá hacia afuera —, pero el enfoque cambia radicalmente según desde dónde se mire: desde la seguridad de producto de una empresa (¿dónde más están afectados mis productos? esta vulnerabilidad seguramente no es única) o desde la caza de bugs por recompensa (¿dónde más puedo ganar dinero con un tiempo y esfuerzo mínimos?). Para ambos lados, además, es un excelente punto de partida de investigación: leer reportes divulgados permite ver el detrás de escena de cómo otro encontró la vulnerabilidad, y desde ahí aportar la propia perspectiva sobre lo que se pasó por alto.</p>
+<h2>Herramientas y técnicas</h2>
+<p>El repertorio depende del interés y del nivel de conocimiento del momento:</p>
+<ul>
+<li><strong>Análisis de código y búsqueda de patrones</strong>: dónde vive la lógica vulnerable y qué formas tiene de manifestarse.</li>
+<li><strong>Datos históricos</strong>: revisar reportes pasados que parezcan similares y observar cómo evolucionó el problema en el tiempo.</li>
+<li><strong>Testing automatizado</strong>: la automatización es genial, pero solo llega hasta cierto punto.</li>
+<li><strong>Análisis estático, dinámico y de flujo de datos</strong>: según lo que se esté probando o protegiendo.</li>
+</ul>
+<p>Entre las técnicas de trabajo diario, tres se destacan. Primero, el testing manual: hay gente brillante en automatización, pero el valor personal está en probar a mano. Segundo, los mapas mentales con software como Miro o MindMaster — dos páginas de diagrama para una investigación, por ejemplo —, porque la persona visual entiende mejor qué está sucediendo realmente. Tercero, desplazar objetivos: qué se quiere lograr hoy, en las próximas tres horas — explorar esta función específica, entender cómo se hace la autenticación acá, encontrar todos los endpoints de GraphQL —, lo que ayuda a evitar el burnout en análisis que pueden durar días, semanas o meses según la motivación (financiera o un lanzamiento interno que hay que terminar de probar).</p>
+<p>Y la técnica que más se repite: documentar mientras se explora. Cuando se encuentran cosas, hace falta volver y pensar cómo se encontraron; mirar setenta requests de Burp Intruder o Repeater sin recordar cuándo apareció el hallazgo es el escenario típico de quien no documentó. Cualquier formato sirve — dibujo a mano, software de mapas mentales —; lo importante es que exista.</p>
+<h2>Caso interno: espacios de nombres en GitHub</h2>
+<p>El caso interno gira alrededor del renombrado y el "tombstoning" de espacios de nombres de usuario. Cuando se tiene una cuenta u organización y el nombre de repositorio, ese conjunto completo es un namespace. Llegaron unos reportes de bugs en la forma de reservar espacios de nombre; después de dos reportes, la pregunta que disparó el análisis de variantes fue si el problema era más grande que esos dos hallazgos.</p>
+<p>El razonamiento, apalancado en el acceso interno a la base de código:</p>
+<ol>
+<li><strong>¿Qué estoy buscando realmente?</strong> Otras maneras en que se reservan namespaces: cuenta/empresa/organización + nombre de repositorio. ¿Dónde vive esa lógica?</li>
+<li><strong>¿El bug actual está en esas dos funciones concretas o está más arriba?</strong> ¿O es la lógica entera de a qué espacios de nombre se tiene derecho?</li>
+<li><strong>¿Qué fue reportado y qué parece no explorado?</strong> Mapear visualmente qué incluye el comportamiento de un namespace.</li>
+<li><strong>Enumerar todas las operaciones que tocan un namespace</strong>: renombrar una cuenta, una organización, una empresa, una cuenta de usuario — ¿qué pasa entonces? ¿Qué pasa con la transferencia de una cuenta a otra? ¿Qué pasa si se archiva — el espacio queda reservado?</li>
+<li><strong>Sumar condiciones de carrera</strong>: en plena investigación, James Kettle publicó su trabajo sobre race conditions, y entró directo al mapa de ataques.</li>
+</ol>
+<p>El resultado fueron varias vulnerabilidades más de reserva de namespaces, todas arregladas — y por delante de otros cazadores de bugs en el proceso.</p>
+<h2>Caso externo: Ticket Trick y sus variantes</h2>
+<p>El caso externo emblemático es Ticket Trick, la investigación de hace siete años sobre la interacción entre Zendesk y Slack: si los tickets de soporte pueden crearse por correo electrónico y los tickets son accesibles a usuarios con direcciones de correo no verificadas, la vulnerabilidad existe. También aplica a trackers de issues públicos o sistemas que ofrecen una dirección de correo única de la compañía para enviar información directamente a un ticket, un post de foro, un mensaje privado o una cuenta de usuario.</p>
+<p>Cuando salió, la pregunta de todos fue "¿soy vulnerable?" y la respuesta era "probablemente sí". La investigación siguió con muchas otras empresas, y cuando el autor la dio por cerrada — "cómo hackié cientos de compañías a través de su helpdesk" —, la comunidad tomó la posta y siguió iterando. El proceso de pensamiento para replicarla: ¿qué compañías emiten direcciones de correo corporativas de dominios que puedo aprovechar? El propio artículo lo señalaba: GitLab lo hace, GitHub lo hace, y un montón más. Si no hace falta verificación para usarlas, se puede avanzar directo a registrarse en instancias de Slack y demás, y ver qué pasa.</p>
+<p>Más de quince reportes surgieron después de que Ticket Trick se publicara — y varios son de los últimos dos años; hace apenas unas semanas bajó un bug grande de Zendesk, de más de 50 mil dólares. Investigar lo que ya publicaron otros, y darle sabor propio — si ese researcher se enfocó en esas compañías, enfocarse en otro sector que probablemente haga las cosas diferente — es una de las formas más eficientes de empezar: da una base y una manera más saludable de encarar un tema nuevo, en lugar de la noche en vela que consume cualquier investigación desde cero.</p>
+<h2>IA como asistente del análisis de variantes</h2>
+<p>El uso que da resultado hoy es el asistido, no el mágico: Copilot, ChatGPT y similares ayudan a automatizar, a producir inputs efectivos, a fuzzear y a dar recomendaciones con contexto — aunque esta última requiere ajuste fino, porque depende de cómo se le plantean los prompts. Quien trabaja extensivamente con Copilot (como en GitHub, donde se usa internamente desde hace tiempo) sabe cómo pedirle las cosas correctas y obtiene buenas recomendaciones sobre qué probar después, porque realmente entiende lo que se está haciendo.</p>
+<p>Los casos de uso concretos de las preguntas del público lo resumen: si se encuentra un password o un token y se quiere listar todos los endpoints de la API, la IA sirve para consumir y resumir la documentación mucho más rápido; también para esas tareas pequeñas que nadie quiere hacer y para debuggear un script propio que no funciona. Para escribir el análisis de variantes en sí hay demasiados casos únicos todavía.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>"Arreglar y olvidar" es el anti-patrón</strong>: el análisis de variantes obliga a la reparación holística — no parchar una instancia y confiar en haber hecho una investigación exhaustiva, sino mapear la clase completa del problema.</li>
+<li><strong>El costo inicial se paga solo</strong>: cuesta tiempo adelante, pero reduce reportes repetidos, horas de ingeniería en parches y re-revisiones de si el fix de esta vez es igual al de la anterior — el mejor retorno de inversión por bug.</li>
+<li><strong>En incidentes, el análisis de variantes produce reparaciones comprensivas</strong>: los ítems de "arreglar después" que no se documentan se olvidan.</li>
+<li><strong>Para el cazador, el tiempo y esfuerzo pueden ser mínimos</strong>: partir de la investigación publicada por otro, darle el giro propio y colaborar — las conversaciones con otros researchers generan ideas que no surgen en solitario.</li>
+<li><strong>El testing manual y la documentación en el momento son insustituibles</strong>, con la IA como acelerador de tareas auxiliares (documentación, fuzzing, inventarios de endpoints), no como sustituto del razonamiento.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Z3w17Y0gYu8">«Variant Analysis: Identifying and Addressing/Reporting related vulnerabilities -Jeffrey Guerra»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

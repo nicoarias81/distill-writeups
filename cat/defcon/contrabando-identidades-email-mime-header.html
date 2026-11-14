@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contrabando de identidades: abuso del parsing MIME en proveedores de email — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Contrabando de identidades: abuso del parsing MIME en proveedores de email</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/CtUc_45UUlw">«Smuggling Identities: Abusing MIME Header Parsing Across Major Email Providers»</a> · ver el <a class="nz-link" href="https://youtu.be/CtUc_45UUlw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> CtUc_45UUlw · <strong>URL:</strong> https://youtu.be/CtUc_45UUlw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> Smuggling Identities: Abusing MIME Header Parsing Across Major Email Providers</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los grandes proveedores de email no acuerdan una cosa básica: quién envió el mensaje. El campo From —la identidad más fundamental del correo— se parsea de forma distinta en cada proveedor, y esa discrepancia se convierte en suplantación de identidad total, con SPF, DKIM y DMARC en verde. No es criptografía rota ni compromiso de cuentas: es desacuerdo entre parsers sobre el RFC.</p>
+<p>La investigación (PayPal, equipo ofensivo) recorre seis casos de estudio que escalan desde suplantar dominios específicos entre pares concretos de proveedores hasta suplantar cualquier dominio hacia cualquier bandeja de entrada, pasando por un fallo de renderizado en Roundcube que afecta millones de buzones detrás de cPanel, Plesk, Bluehost, HostGator o GoDaddy.</p>
+<h2>Fundamentos: tres capas de identidad y tres controles</h2>
+<p>Un email tiene tres identidades en juego: el <strong>envelope</strong> (lo que se declara en el diálogo SMTP), los <strong>headers del mensaje</strong> y el <strong>remitente mostrado</strong> al usuario. Los controles de autenticación operan así:</p>
+<ul>
+<li><strong>SPF</strong>: lista de IPs autorizadas a enviar en nombre del dominio. "¿Estás en la lista?"</li>
+<li><strong>DKIM</strong>: firma criptográfica con clave publicada en el DNS del dominio. "¿El sello es válido?"</li>
+<li><strong>DMARC</strong>: el árbitro. Verifica alineación de SPF o DKIM contra el From y decide la política final (entregar, cuarentena o rechazar).</li>
+</ul>
+<p>Un mensaje con SPF/DKIM/DMARC en verde puede ser perfectamente suplantado: la autenticación valida el sello, no al autor.</p>
+<h2>Genealogía: smuggling HTTP → SMTP → MIME</h2>
+<p>El patrón raíz es el <strong>parser disagreement</strong>: cuando dos sistemas interpretan distinto la misma entrada, uno puede contrabandear contenido al otro.</p>
+<pre class="mermaid">
+flowchart LR
+    A["HTTP Request Smuggling<br/>(2005, Watchfire)"] --> B["SMTP Smuggling<br/>(2023, Timo Longin / SEC Consult)"]
+    B --> C["Message Identity Smuggling<br/>(esta investigación)"]
+    C --> D["Inyección en el header From:<br/>group syntax, comentarios, display name"]
+
+</pre>
+
+<ul>
+<li><strong>HTTP request smuggling</strong> (2005): desacuerdo entre proxy front-end y servidor back-end divide una petición en dos; la segunda salta autenticación y autorización.</li>
+<li><strong>SMTP smuggling</strong> (2023): un mensaje cruzado hace que el SMTP entrante y el saliente disientan, dividiendo un email en dos; el segundo permite manipular el MAIL FROM del envelope.</li>
+<li><strong>Message identity smuggling</strong> (nuevo): el ataque se traslada al interior del mensaje, al header From, con inyección de payloads para suplantar al remitente.</li>
+</ul>
+<p>En un barrido previo de los autores, cerca de la mitad de internet resultó vulnerable a ataques de multi-tenancy sin autenticación de dominio (dos CVEs). La diferencia con este trabajo: aquí no hay problema de autorización de dominio, hay inyección de payload y contrabando de identidad.</p>
+<h2>Sintaxis del From: los cuatro vectores</h2>
+<p>El header From admite construcciones que los proveedores tratan de forma desigual:</p>
+<ol>
+<li><strong>Bare email</strong>: <code>usuario@dominio.com</code>.</li>
+<li><strong>Display name con comillas</strong>: <code>"Nombre Apellido" &lt;usuario@dominio.com&gt;</code>.</li>
+<li><strong>Group syntax</strong>: <code>nombre-grupo: miembro1@a.com, miembro2@a.com;</code> — un nombre de grupo seguido de miembros separados por comas.</li>
+<li><strong>Comentarios</strong>: <code>(cualquier cosa)</code> dentro del header; el RFC dice que los servidores deben ignorarlos. En la práctica, no lo hacen.</li>
+</ol>
+<p>Variantes no canónicas —paréntesis angulares alrededor de direcciones dentro del grupo, emails en el campo de nombre de grupo, comas duplicadas— que ningún proveedor normaliza igual completan el arsenal.</p>
+<h2>Casos de estudio</h2>
+<h3>1. Gmail → Outlook (dominio específico)</h3>
+<p>Payload de group syntax en el From: el email suplantado en el campo de nombre de grupo y la cuenta real del atacante como miembro. El SMTP saliente de Gmail no normaliza; el receptor (Outlook) interpreta el contenido del grupo como remitente legítimo y descarta el resto. Resultado: <code>admin@gmail.com</code> suplantado desde una cuenta real de Gmail, con SPF, DKIM y DMARC en verde, en la bandeja de entrada. Menos de 20 líneas de Python.</p>
+<h3>2. iCloud → Gmail</h3>
+<p>Variante con dos comas en el mismo From (no permitida por el RFC). Gmail combina el nombre de grupo y la dirección real del atacante en un display name, y muestra la dirección suplantada como remitente. DMARC en verde.</p>
+<h3>3. Comentarios: cualquier email de un dominio, a cualquier receptor</h3>
+<p>Payload de estilo comentario: iCloud "comenta" la dirección real del atacante —como quien comenta una línea de código— e inserta la suplantada. La responsabilidad del arreglo es del lado del emisor, que está haciendo un desservicio a todos al reescribir el From. Esta técnica rompe la restricción de pares concretos: un solo proveedor emisor vulnerable alcanza para golpear a cualquier receptor.</p>
+<h3>4. Outlook → ProtonMail: dominio arbitrario</h3>
+<p>Payload de group syntax con display name entre comillas. ProtonMail —el proveedor "de seguridad"— elimina la dirección real y compone un nuevo From donde el display name (<code>hello world</code>) es decorativo y la dirección suplantada (<code>admin@github.com</code>) es el remitente. Se demostraron suplantaciones de <code>admin@openai.com</code> y <code>user@microsoft.com</code>. DMARC en verde.</p>
+<h3>5. Gmail → Fastmail: suplantación sin DMARC</h3>
+<p>Payload de display name: la dirección suplantada va como display name y Fastmail elimina la cuenta real que la envió. DMARC no pasa — devuelve <strong>perm error</strong> (no encuentra el dominio a validar) — pero el email entra igual en la bandeja de entrada. Demostración en vivo con <code>@coinbase.com</code>, <code>@defcon.org</code> y una dirección de HTX.</p>
+<h3>6. Roundcube: el renderizado miente</h3>
+<p>El SMTP puede estar arreglado y aun así el cliente muestra al suplantante. Roundcube —el webmail open source más desplegado que casi nadie conoce: detrás de cPanel, Plesk, Bluehost, HostGator, GoDaddy— mal interpreta las comillas del group syntax: encierra todo el grupo entre comillas simples y presenta la dirección inyectada como remitente. DMARC pasa porque la autenticación alinea con el remitente real. Un solo bug, millones de buzones afectados. Divulgación coordinada con Nextcloud; corregido. Requiere entrega directa —un gateway intermedio como Cisco puede sanear el payload antes de que llegue.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Cuenta atacante<br/>Gmail/iCloud/Outlook] --> B[Payload en header From<br/>group syntax / comentario / display name]
+    B --> C[Emisor no normaliza]
+    C --> D[Receptor parsea distinto]
+    D --> E{Etapa}
+    E --> F[DMARC en verde<br/>o perm error]
+    E --> G[Cliente renderiza<br/>al suplantante]
+    F --> H[Bandeja de entrada<br/>con identidad falsa]
+    G --> H
+
+</pre>
+
+<h2>Lo que dijo la IA</h2>
+<p>Como control cruzado, los investigadores alimentaron el RFC a modelos de lenguaje pidiéndoles buscar vulnerabilidades lógicas. La IA encontró independientemente los mismos hallazgos, sin poder validarlos por la complejidad de montar decenas de combinaciones de buzones. Tres insights destacados: el RFC no exige propiedad de dominio a nivel de protocolo; no existe mandato de rechazo; y el tratamiento de comentarios y group syntax está insuficientemente especificado.</p>
+<h2>Mitigaciones</h2>
+<p>Tres partes comparten responsabilidad: el <strong>emisor</strong> debe normalizar payloads mal formados según RFC; el <strong>receptor</strong> debe filtrar estrictamente lo no permitido; y el <strong>cliente</strong> debe renderizar correctamente. Para defensores:</p>
+<ul>
+<li>Auditar la capa de display: abrir headers y verificar que el remitente real coincide con el mostrado.</li>
+<li>Configurar DMARC con política <code>reject</code>, no fiarse de <code>quarantine</code>.</li>
+<li>Monitorear mismatches entre envelope y datos del mensaje desde detección.</li>
+<li>Educar usuarios: badges de remitente, comas o comillas extrañas en el From son señales de alarma.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Message identity smuggling</strong>: inyección de payloads en el header From para suplantar remitentes.</li>
+<li><strong>Group syntax RFC</strong>: <code>grupo: a@x, b@x;</code> explotada con direcciones en el nombre de grupo y comas duplicadas.</li>
+<li><strong>Comentarios RFC en headers</strong>: contenido entre paréntesis que los emisores reescriben en lugar de ignorar.</li>
+<li><strong>Display name payload</strong>: la dirección suplantada como nombre visible, eliminando la cuenta real.</li>
+<li><strong>DMARC perm error</strong>: fallo de validación que aún permite entrega a bandeja de entrada.</li>
+<li><strong>Roundcube</strong>: webmail open source masivamente desplegado vía cPanel/Plesk/hosting compartido; bug de renderizado de comillas.</li>
+<li><strong>LLMs sobre el RFC</strong>: uso de modelos de lenguaje para descubrir ambigüedades lógicas del estándar.</li>
+<li><strong>SMTP smuggling / HTTP request smuggling</strong>: antecedentes del mismo patrón de parser disagreement.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>SPF + DKIM + DMARC no equivalen a confianza: la autenticación confirma que la carta está sellada, nunca quién la escribió.</li>
+<li>Los headers MIME son el eslabón débil: la validación, la autenticación y el renderizado ocurren en pipelines separados que rara vez acuerdan.</li>
+<li>El problema es sistémico, no puntual: Gmail, Outlook, iCloud, ProtonMail y Fastmail fueron vulnerables en algún grado; miles de millones de direcciones afectadas.</li>
+<li>Arreglar solo el SMTP no basta: el caso Roundcube demuestra que el renderizado en el cliente es una tercera superficie de ataque que exige su propia corrección.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/CtUc_45UUlw">«Smuggling Identities: Abusing MIME Header Parsing Across Major Email Providers»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

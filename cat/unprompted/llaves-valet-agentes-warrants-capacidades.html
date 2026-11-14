@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Llaves de valet para agentes: autorización por capacidades con warrants criptográficos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../unprompted.html">[un]prompted</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · [un]prompted</p>
+<h1 class="nz-h2">Llaves de valet para agentes: autorización por capacidades con warrants criptográficos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/bw928cFShK4">«Niki Aimable Niyikiza - Capability-Based Authorization for AI Agents | [un]prompted 2026»</a> · ver el <a class="nz-link" href="https://youtu.be/bw928cFShK4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> bw928cFShK4 · <strong>URL:</strong> https://youtu.be/bw928cFShK4 · <strong>Conferencia:</strong> 04_unprompted · <strong>Título original:</strong> Niki Aimable Niyikiza - Capability-Based Authorization for AI Agents | [un]prompted 2026</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando los workflows multiagente empezaron a aparecer en entornos corporativos, la infraestructura de seguridad existente mostró una grieta estructural: los equipos de infraestructura pasaron una década resolviendo la identidad de workloads —asegurar que un pod use la autorización que corresponde a quien lo desplegó— bajo un supuesto que ya no vale. El workload clásico era un servicio determinista: se sabía qué iba a hacer. Un workflow agéntico razona en runtime, puede invocar subagentes, y al desplegarlo nadie sabe qué va a pasar en la ejecución.</p>
+<p>Ese hueco produce el clásico problema del diputado confundido (confused deputy), y su causa de fondo es la autoridad ambiental: los agentes heredan permisos amplios que no tienen relación con la tarea concreta que ejecutan en ese momento. La analogía del valet lo resume: la opción equivocada es entregar la llave del auto después de revisar el credencial del estacionador —esa llave permite manejar por toda la ciudad, abrir el baúl y la guantera, nada de eso forma parte del servicio pedido. La opción correcta es la llave de valet: geolimitada, con velocidad topada, sin acceso a funciones auxiliares. Con esa llave no hace falta confiar en el valet; puede tener ideas y sugerencias de sus amigos, pero no puede ir más allá de la autoridad delegada. La delegación es la aplicación de la política.</p>
+<p>La consecuencia de diseño: se puede mejorar el proceso de pensamiento del modelo con filtros y guardrails, pero esos mecanismos son probabilísticos —trabajan sobre la capa de contenido, con niveles de confianza, sin posibilidad de auditar por qué decidieron—. Cuando el workflow toca infraestructura, datos personales o dinero, hace falta autorización determinista, predecible y auditable, y esa vive en la capa de ejecución: donde el agente toca el mundo real.</p>
+<h2>El hueco de la delegación y la tradición de las capacidades</h2>
+<p>El inventario de la infraestructura actual es reconocible: identidad de workload que decide qué puede hacer el agente según lo que recibió al desplegarse, motores de políticas muy valiosos, filtros de salida del modelo y sandboxes con límites globales. Lo que falta es una primitiva que exprese la arquitectura fundamental de los multiagentes: la delegación. Cuando la tarea va del agente A al agente B, no existe hoy una primitiva que encode en ejecución la cadena de delegación y la autoridad que vino con la tarea; todas las primitivas existentes dependen de la identidad del workload o de la salida del modelo, sin el contexto del flujo hasta el punto de ejecución.</p>
+<p>Las capacidades, la base de la primitiva, tienen más de 60 años: Dennis y Van Horn las propusieron en los 60 justamente contra el problema del diputado confundido. Google publicó Macaroons en 2014, introduciendo tokens con caveats —la atenuación de lo que un token puede hacer—; a fines de la década pasada y principios de esta, UCAN y Biscuit llevaron el modelo a tokens criptográficos. En marzo del año pasado un equipo de DeepMind publicó el conocido trabajo "Defeating Prompt Injection by Design", la primera propuesta formal de autorización por capacidades contra la inyección de prompts, con un modelo de dos agentes —privilegiado y trabajador— mirando el flujo de datos. En febrero volvieron con otro trabajo reiterando que el marco correcto para la autorización de workflows multiagente son los sistemas de capacidades. Sobre esa base probada se construye la primitiva presentada aquí, llamada Tenuo warrant, con implementación en Rust de código abierto y bindings de Python.</p>
+<h2>Las seis propiedades del warrant</h2>
+<ul>
+<li><strong>Firmado por el emisor</strong>: la criptografía garantiza quién acuñó el warrant.</li>
+<li><strong>Esculpido a la tarea</strong>: si una acción no está codificada en el warrant, el agente no puede hacerla.</li>
+<li><strong>Efímero</strong>: expira dentro del alcance temporal de la tarea; personalizable, pero sin autoridad más allá de ese scope.</li>
+<li><strong>Ligado al portador (holder-bound)</strong>: la prueba de posesión es fundamental, a diferencia de diseños previos basados en tokens OAuth. El warrant no es un secreto: si lo roban y el ladrón no tiene la clave privada del portador, se rechaza.</li>
+<li><strong>Verificable offline</strong>: cualquier verificador, en cualquier lugar, valida sin llamar a un servidor central.</li>
+<li><strong>Consciente de la delegación</strong>: codifica toda la cadena desde el acuñador original hasta cada agente intermedio.</li>
+</ul>
+<p>La analogía práctica es la tarjeta de débito corporativa para un pasante en viaje de trabajo: no se le da la tarjeta principal con todos los límites, sino una específica para la tarea, con vendedores acotados a transporte y comidas, que expira al final del viaje, está ligada a él y no requiere llamar a nadie para validar el pago.</p>
+<p>La regla matemática que ordena la delegación es la atenuación monótona: el warrant de un agente hijo nunca puede exceder el scope del padre. A medida que la delegación baja por el workflow, las capacidades solo pueden encoger. De副产品 del diseño surgen los registros de auditoría criptográficos: recibos temporales que prueban quién aprobó qué, quién inició la tarea y qué agente delegó a cuál, sin confiar en nadie intermedio. Y el radio de impacto queda congelado al iniciar la tarea: por más agentes que se generen aguas abajo, nunca tendrán más autoridad que la del warrant raíz.</p>
+<h2>Demo: triage e investigación de un incidente</h2>
+<p>El escenario: un equipo de detección y respuesta con un workflow agéntico para triagear e investigar un incidente, con dos agentes reales sobre LangGraph (integración de una sola línea que reemplaza el modo de tools por el modo warrant). El lead de SOC acuña un warrant amplio para el agente de triage; este acuña warrants escopedos para el agente de investigación. Al delegar hacia investigación, el triage quita la capacidad de aislar hosts y deja solo HTTP de envío, lectura de configuración y lectura de logs sobre el servicio puntual.</p>
+<pre class="mermaid">
+flowchart TD
+    SOC[Lead de SOC<br/>acuña warrant raíz] --> T[Agente de triage<br/>sin capacidad de aislar hosts]
+    T --> I[Agente de investigación<br/>solo lectura de logs<br/>del servicio]
+    L[Logs con prompt injection] --> I
+    I -->|pedido de lectura<br/>del vault| D[Rechazado por el verificador]
+    I -->|envío a atacante.com| D2[Rechazado: HTTP fuera del warrant]
+    T -->|envío de logs al SIEM<br/>URL interna del warrant| OK[Ejecutado]
+    S[Warrant robado<br/>sin clave privada] --> D3[Rechazado: holder-bound]
+
+</pre>
+
+<p>Tres ataques fallan de forma determinista y con prueba criptográfica. Uno: un prompt injection dentro de los logs que el agente de investigación lee sugiere que el problema está en una credencial del vault y lo invita a leer esa ruta; como el triage esculpió su scope a la ruta del servicio, la lectura del vault se rechaza en ejecución. Dos: el agente de investigación es engañado para enviar información a un dominio atacante; no tiene warrant que permita enviar HTTP en ese momento, y se rechaza. Tres: un warrant robado sin la clave privada del portador no sirve. El camino feliz también existe: el triage sí tiene capacidad de envío HTTP y manda logs al SIEM en la URL interna especificada; si intentara una ruta fuera del warrant, también caería. Cada rechazo y cada ejecución deja un recibo criptográfico verificable que va al plano de control.</p>
+<h2>Despliegue, límites declarados y lecciones</h2>
+<p>Hay cuatro modos de despliegue, pensados para la infraestructura que las empresas ya usan: en proceso (middleware de frameworks —nueve soportados, incluyendo CrewAI, A2A y Temporal—), sidecar (extensión de Envoy en un service mesh, verificando el warrant del pod antes de tocar las APIs), gateway (los warrants viajan en headers HTTP —no son secretos— y la gateway corta la ejecución de llamadas remotas fuera del warrant) y proxy MCP (cliente, servidor o ambos, la implementación más fácil gracias a la definición estructurada de tools y argumentos).</p>
+<p>Un punto de honestidad conceptual: no se pretende resolver la inyección de prompts. Se pretende constreñir al agente en ejecución aunque esté inyectado. No se promete ausencia de alucinaciones, sino autorización congelada aun con el agente comprometido.</p>
+<p>La medición tuvo que construirse ad hoc: no existe benchmark público de autorización multiagente. El lado criptográfico suma 53 tests con más de 5.000 escenarios de fuzzing, usando un LLM para generar situaciones adversarias que intenten engañar al sistema y lograr acciones no autorizadas. Con scopes bien definidos, la superficie de ataque baja de 90% a 0%.</p>
+<p>La lección más dura: el mapa no es el territorio. La lógica de constraints, los regex y el glob matching, junto con toda la criptografía, no son el cuello de botella; el mundo real sí. En el entorno real aparecen path traversals y encodings de URL que burlan el matching. La respuesta fue avanzar en tres capas: el mapa (lógica de constraints pura), el mapa atenuado (constraints que entienden el objetivo, normalizan rutas y URLs) y el mapa real (lógica y runtime hablando el mismo idioma, con execution guards de código abierto para sistema de archivos y ejecución de procesos). La meta declarada: acoplar el sistema de warrants a un sandbox que entienda lo que el warrant intenta decir.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Tenuo warrant</strong>: primitiva de autorización por capacidades con las seis propiedades (firmado, escupido a tarea, efímero, holder-bound, verificable offline, delegación-aware); implementación Rust de código abierto con bindings Python.</li>
+<li><strong>Atenuación monótona</strong>: el warrant hijo nunca excede el scope del padre; el radio de impacto se congela al inicio de la tarea.</li>
+<li><strong>Recibos criptográficos</strong>: evidencia de auditoría verificable de acuñación, delegación, aprobación y rechazo.</li>
+<li><strong>Tradición de capacidades</strong>: Dennis y Van Horn (60s), Macaroons (Google, 2014), UCAN y Biscuit, y los trabajos de DeepMind "Defeating Prompt Injection by Design" y su sucesor.</li>
+<li><strong>Modos de despliegue</strong>: in-process (LangGraph, CrewAI, A2A, Temporal), sidecar Envoy, gateway con warrants en headers, proxy MCP.</li>
+<li><strong>Lenguaje de constraints</strong>: operaciones lógicas, regex y soporte de CEL; mapeo a tools y argumentos MCP, host y path de URLs.</li>
+<li><strong>Aprobaciones con identidad humana</strong>: pares de claves de aprobador mapeados a identidades reales (Google Workspace, Okta SSO) sin perder pureza criptográfica.</li>
+<li><strong>Fuzzing adversario con LLM</strong>: 5.000+ escenarios generados para intentar forzar acciones fuera del warrant.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El problema del diputado confundido en workflows agénticos no se arregla con mejores guardrails probabilísticos: exige autorización determinista, delegación-aware, en la capa de ejecución.</li>
+<li>La delegación correcta es como la llave de valet: autoridad específica a la tarea, expirable, ligada al portador, verificable sin servidor central y con la cadena de delegación codificada criptográficamente.</li>
+<li>La atenuación monótona convierte la seguridad multiagente en una propiedad matemática: por más que el workflow se ramifique, la autoridad nunca crece.</li>
+<li>El desafío pendiente es el acople con el mundo real: normalizar rutas y URLs no basta; el fin del camino es un sandbox que hable el idioma del warrant, y para llegar ahí hacen falta benchmarks públicos y validación comunitaria.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/bw928cFShK4">«Niki Aimable Niyikiza - Capability-Based Authorization for AI Agents | [un]prompted 2026»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

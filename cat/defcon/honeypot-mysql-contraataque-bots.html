@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Honeypot MySQL: contraatacar a los bots que vacían bases de datos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Honeypot MySQL: contraatacar a los bots que vacían bases de datos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8oAxv7UBZJA">«DEF CON 32 - Atomic Honeypot-A MySQL Honeypot That Drops Shells - Alexander Rubin, Martin Rakhmanov»</a> · ver el <a class="nz-link" href="https://youtu.be/8oAxv7UBZJA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 8oAxv7UBZJA · <strong>URL:</strong> https://youtu.be/8oAxv7UBZJA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Atomic Honeypot-A MySQL Honeypot That Drops Shells - Alexander Rubin, Martin Rakhmanov</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los bots de ransomware llevan años escaneando Internet en busca de servidores MySQL expuestos en el puerto 3306: fuerzan la contraseña, descargan lo que pueden, borran las bases y dejan una nota pidiendo rescate. La investigación detrás de este proyecto invierte el juego: en lugar de solo defender, se levanta un honeypot MySQL (el "Atomic Honeypot") para capturar y fingerprintear los ataques, y luego usar las debilidades del propio malware y de sus herramientas para contraatacar a los atacantes desde el servidor "víctima".</p>
+<p>El desenlace: tres técnicas ofensivas contra los bots —lectura arbitraria de archivos del atacante, ejecución remota de código vía plugin de MySQL, e inyección de comandos a través de <code>mysqldump</code>— y un consejo práctico para víctimas: no pagar, porque los bots que dicen haber descargado tu base de datos solo se llevan 10 registros.</p>
+<h2>El ecosistema: bots por todas partes</h2>
+<p>El punto de partida es la exposición masiva de MySQL en Internet (millones de instancias visibles en servicios tipo Shodan). Los atacantes automatizados bruteforcean credenciales débiles, se conectan, enumeran las bases con <code>SHOW DATABASES</code> y ejecutan su cadena de explotación. El método de investigación fue montar un honeypot con un MySQL deliberadamente vulnerable, dejar que los bots llegaran, y registrar todo: comandos, fingerprints del cliente, utilidades que ejecutan y malware que intentan desplegar.</p>
+<p>Del análisis de las capturas emergió un patrón repetido con dos grandes familias de ataque, cada una con su fingerprint característico —y cada una, resultó, con una debilidad explotable de vuelta.</p>
+<h2>Técnica 1: lectura arbitraria de archivos hacia el atacante</h2>
+<p>El primer fingerprint corresponde a clientes MySQL viejos. Contra ellos funciona la técnica clásica del "rogue MySQL server": el atacante se conecta a un servidor falso que pide al cliente, mediante <code>LOAD DATA LOCAL INFILE</code> invertido, enviar un archivo cualquiera de su propia máquina. Es una lectura arbitraria de archivos en el cliente, con herramienta pública en GitHub: se levanta en el puerto 3306, se pide la contraseña, el cliente viejo se conecta al servidor falso y el archivo pedido viaja de vuelta.</p>
+<p>Usándola contra los propios bots se identificó su entorno: descargando archivos característicos se determinó que las máquinas atacantes corren <strong>Windows Server 2003</strong> —un sistema operativo sin soporte desde 2015, confirmando la baja calidad de la infraestructura atacante.</p>
+<h2>Técnica 2: ejecución remota de código vía plugin</h2>
+<p>Con el fingerprint de versiones viejas también es viable la RCE por plugin de MySQL (ataque presentado el año anterior, explotando la carga dinámica de plugins con directory traversal). El problema operativo era la entrega: el DLL malicioso tiene que estar en la máquina del atacante antes de poder dispararlo.</p>
+<p>La solución salió de observar los comandos que los bots ejecutan contra el honeypot: el propio malware descarga su código desde un servidor FTP que corre en la máquina del atacante, con usuario, contraseña y puerto visibles en el fingerprint. El plan contraataque:</p>
+<ol>
+<li>Subir el DLL malicioso vía ese FTP (credenciales conocidas) a una ubicación pública del servidor comprometido del atacante.</li>
+<li>Arrancar el honeypot con el <code>plugin_dir</code> apuntando a esa ubicación pública.</li>
+<li>Esperar la conexión del bot y disparar la RCE vía directory traversal, que termina invocando <code>LoadLibrary</code> sobre el DLL controlado.</li>
+</ol>
+<p>Demostración en laboratorio incluida: cliente MySQL real conectándose al honeypot, DLL que despliega un diálogo de "código ejecutado", RCE confirmada contra la máquina atacante.</p>
+<h2>Técnica 3: inyección de comandos vía mysqldump</h2>
+<p>La segunda familia de bots es más moderna: versiones nuevas de MySQL cliente donde el plugin y la lectura de archivos ya no funcionan. Pero su fingerprint delata una rutina: una aplicación con conector MySQL/ADO se conecta, ejecuta <code>SHOW DATABASES</code>, y luego lanza la utilidad <strong>mysqldump</strong> pasando base de datos y tabla —el objetivo es descargar la base de datos para poder afirmar que la tienen "backupeada".</p>
+<p>Dato clave para las víctimas: solo descargan <strong>10 registros</strong>. No tienen los datos; reclamar lo contrario es parte del extortion playbook. Y para el investigador, la superficie de ataque estaba en cómo construyen ese dump: ejecutan <code>mysqldump</code> interpolando nombres de bases de datos sin sanitizar. Creando en el honeypot una base con nombre inyectado entre backticks (la clásica inyección de comandos a nivel de shell), el comando del atacante ejecuta código adicional en su propia máquina.</p>
+<p>Con esa inyección se descargó el código malicioso del atacante: un script Python que se conecta a la base de datos víctima, bruteforcea la contraseña y lanza el mysqldump —con múltiples puntos donde ejecutar el comando inyectado. La PoC final: script VBS que despliega "you have been pwned" al ejecutarse mysqldump en un Windows con MySQL 5.7.36 (una versión antes de la última de la rama).</p>
+<h2>Cómo replicarlo sin riesgo</h2>
+<p>El contraataque es reproducible por cualquiera con una instalación mínima: un servidor MySQL cualquiera (versión indiferente) con root sin contraseña —si los bots se llevan los datos falsos, no importa—, más la creación de una base de datos cuyo nombre lleva la inyección en backticks. El resto lo hace el bot al conectarse y lanzar su mysqldump.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Bot ataca honeypot<br>MySQL expuesto] --> B[Fingerprint: cliente,<br>comandos, utilidades]
+    B --> C{Familia de ataque}
+    C -->|Cliente viejo| D[Lectura arbitraria<br>de archivos del bot<br>+ RCE vía plugin]
+    C -->|Cliente nuevo<br>con mysqldump| E[Inyección de comandos<br>en nombre de BD<br>backticks]
+    D --> F[Código y evidencia<br>extraídos del atacante]
+    E --> F
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>No pagar: el modus operandi capturado muestra que los bots solo extraen 10 registros antes de borrar; la nota de rescate miente sobre el volumen de datos comprometidos.</li>
+<li>Las herramientas de los atacantes son attack surface: fingerprints, utilidades (mysqldump, FTP propio), credenciales embebidas y sistemas operativos abandonados convierten al atacante en objetivo.</li>
+<li>Para exponer MySQL: no exponer 3306 a Internet, credenciales fuertes, y monitoreo de conexiones anómalas —el honeypot es a la vez técnica de investigación y formulario de detección temprana.</li>
+<li>La investigación se completó con reporte responsable del problema de inyección de comandos detectado (detalles de CVE pendientes de número al momento de la exposición).</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8oAxv7UBZJA">«DEF CON 32 - Atomic Honeypot-A MySQL Honeypot That Drops Shells - Alexander Rubin, Martin Rakhmanov»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

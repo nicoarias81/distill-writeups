@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hackear la inteligencia artificial que detecta ransomware — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Hackear la inteligencia artificial que detecta ransomware</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SC2-zDpOc4Q">«Ransomware y Machine Learning - C. Urcuqui &amp; J. Angulo»</a> · ver el <a class="nz-link" href="https://youtu.be/SC2-zDpOc4Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> SC2-zDpOc4Q · <strong>URL:</strong> https://youtu.be/SC2-zDpOc4Q · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Ransomware y Machine Learning - C. Urcuqui &amp; J. Angulo</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los modelos de machine learning se usan cada vez más para detectar malware, pero esos mismos modelos tienen una debilidad estructural: parten de datos y predicen con base en un error, y ese error se puede explotar. Este trabajo muestra el ciclo completo: cómo se construye un modelo de defensa que clasifica tráfico de ransomware con alta precisión, cómo un atacante usa deep reinforcement learning para generar muestras adversarias que lo engañan, y cómo reentrenar el modelo con esas muestras lo vuelve mucho más robusto.</p>
+<p>El proyecto — documentado en un libro gratuito en español sobre adversarial machine learning — combina un laboratorio de malware con red aislada y simulación de internet, un clasificador Random Forest entrenado sobre paquetes UDP, y un agente de deep reinforcement learning que perturba el tráfico hasta que el defensor deja de verlo como malware. El resultado: un modelo que pasaba de detectar el 0% del tráfico adversario pasa a reconocer en promedio el 85% tras el adversarial training.</p>
+<h2>Cualquier modelo de machine learning es hackeable</h2>
+<p>La premisa de partida es simple: todo modelo de clasificación dibuja una frontera de decisión, y basta una perturbación mínima — una máscara, una matriz de números aplicada a la entrada — para que la entrada salte de un lado a otro de esa frontera sin que un humano note la diferencia. Se vio en vivo con un sistema biométrico de detección de rostros falsos: una imagen etiquetada como falsa con 100% de confianza pasa a clasificarse como real tras aplicar una máscara. El famoso ejemplo del panda que se convierte en gibón ante un clasificador de imágenes es la ilustración clásica del mismo fenómeno.</p>
+<p>Esto se conecta con el hacking tradicional: se pueden romper la integridad, la disponibilidad y la privacidad de un sistema de IA igual que en cualquier otro sistema. Y no es un área cerrada: OWASP ya publicó un top 10 de vulnerabilidades para large language models, con ejemplos como el prompt injection — logrando que un modelo que se niega a entregar código de ransomware lo entregue en Python tras una frase bien colocada.</p>
+<h2>El laboratorio: capturar tráfico de ransomware de forma controlada</h2>
+<p>Para tener datos reales de ransomware sin riesgo, el montón de laboratorio es una red privada virtual sin salida a internet ni conexión con el host. Dos máquinas virtuales:</p>
+<ul>
+<li><strong>Máquina de análisis (Ubuntu)</strong>: corre InetSim (que simula las respuestas de internet en los puertos 80 y 443), un proxy que redirige el tráfico y Wireshark para capturarlo.</li>
+<li><strong>Máquina víctima (Windows)</strong>: corre las muestras de ransomware, con el DNS apuntando a la máquina de análisis.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    V[VM víctima Windows
+DNS -> análisis] -->|tráfico| P[Proxy]
+    P --> I[InetSim
+simula internet]
+    V -.-> W[Wireshark captura]
+    I -.->|respuestas falsas| V
+
+</pre>
+
+<p>El ransomware se ejecuta, cifra archivos y pide el rescate en Bitcoin como siempre, pero sus conexiones reciben respuestas genéricas del simulador. De ese entorno salen las capturas de tráfico malware reales que alimentan todo el resto del proyecto.</p>
+<h2>El modelo de defensa</h2>
+<p>El dataset es el USTC-TFC2016: 14 capturas de tráfico benigno y 10 de tráfico malware, alrededor de un millón de registros y más de 20 GB. La decisión técnica clave: quedarse solo con el campo de paquetes UDP, recortado a los primeros 1024 bytes. El estado del arte muestra que las diferencias entre tráfico benigno y malware se concentran entre los bytes 750 y 1250, así que ese recorte es suficiente para discriminar.</p>
+<p>Con ese feature extraction (capturas .pcap → CSV) se probaron Naive Bayes, Random Forest y DeepMal. El mejor modelo fue <strong>Random Forest</strong>, con una precisión de 0.8371 — los falsos positivos visibles en la matriz de confusión se explican por el desbalance entre datos benignos y malware del entrenamiento.</p>
+<h2>El ataque: deep reinforcement learning en modo black box</h2>
+<p>Sobre ese modelo de defensa — que funciona — se plantea la pregunta del atacante: ¿qué comportamiento debo cambiar para que no me detecte? El enfoque es black box, sin ningún acceso al algoritmo, datos de entrenamiento o formato de entrada del defensor, que es el escenario realista de un atacante.</p>
+<p>El agente de deep reinforcement learning recibe el CSV de tráfico malware capturado y, mediante un sistema de recompensas, aprende a modificar los primeros 1024 bytes hasta que el modelo de defensa los clasifica como tráfico benigno. Los hiperparámetros elegidos tras experimentar: learning rate de 0.0001, gamma de 0.9, epsilon de 1, entrenamiento durante 1000 épocas. Los discriminadores usados para generar los datos adversarios fueron el propio modelo de defensa (DeepMal) y el Random Forest. Cuando el agente logra engañar al defensor, el resultado se guarda como muestra adversaria.</p>
+<h2>El contragolpe: adversarial training</h2>
+<p>Las muestras adversarias se mezclan con las originales (80% entrenamiento, 20% validación) y el modelo de defensa se reentrena — con una decisión importante: las muestras adversarias se pasan con su etiqueta correcta de malware, no con la que el atacante quería que creyeran. El modelo aprende a diferenciar ese comportamiento.</p>
+<p>Resultados: la precisión sube de 0.8371 a 0.8448, con menos falsos positivos y falsos negativos. Pero lo relevante es la validación cruzada (k=5) sobre los datos adversarios: el modelo pasó de reconocer el 0% del tráfico adversario a reconocer en promedio el 85%. El adversarial training, aplicado en un ciclo continuo — igual que el trabajo de un pentester — robustece el modelo de forma medible.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Adversarial machine learning</strong>: campo que estudia entradas sintetizadas para forzar resultados erróneos en modelos de clasificación.</li>
+<li><strong>Deep Reinforcement Learning</strong>: redes neuronales profundas que aproximan funciones de valor y políticas; usado para perturbar el tráfico malware.</li>
+<li><strong>Random Forest / Naive Bayes / DeepMal</strong>: algoritmos evaluados para el modelo de defensa; ganó Random Forest.</li>
+<li><strong>USTC-TFC2016</strong>: dataset de tráfico benigno y malware (~1 millón de registros, 20+ GB).</li>
+<li><strong>InetSim, Wireshark, proxy</strong>: laboratorio de análisis con internet simulado y captura completa del tráfico.</li>
+<li><strong>Prompt injection / OWASP LLM Top 10</strong>: vulnerabilidades de los modelos generativos de lenguaje.</li>
+<li><strong>Adversarial training</strong>: reentrenamiento con muestras adversarias etiquetadas correctamente; mejora la robustez del 0% al 85% de detección.</li>
+</ul>
+<h2>Recomendaciones de desarrollo seguro para modelos de ML</h2>
+<p>El proyecto deja cuatro medidas concretas para proteger modelos de machine learning en producción:</p>
+<ol>
+<li><strong>Mantener privadas las entradas</strong> del modelo, para que un atacante no pueda enumerar ni explorar cómo recibe sus datos.</li>
+<li><strong>Limitar el acceso a los datos de entrenamiento</strong>: quien los obtiene deduce estructura, tipos y comportamiento.</li>
+<li><strong>Hacer adversarial training</strong> siempre que sea posible — es la medida con efecto demostrado.</li>
+<li><strong>Dificultar el reconocimiento</strong>: limitar el número de consultas al modelo, ocultar información sensible de los logs de error y cifrar los datos en tránsito cuando sean sensibles.</li>
+</ol>
+<p>Como trabajo futuro: ampliar las columnas de entrada más allá de los paquetes UDP, explorar perturbaciones variando el tamaño de los datos (no solo los primeros 1024 bytes) y continuar el entrenamiento desde un enfoque black box, que es el más realista.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Todo modelo de machine learning es hackeable porque predice con base en un error, y ese error se explota con perturbaciones imperceptibles.</li>
+<li>Un laboratorio controlado (red aislada + internet simulado) permite capturar tráfico de ransomware real de forma segura para entrenar y atacar modelos.</li>
+<li>Para detectar malware por sus paquetes UDP, Random Forest fue el mejor algoritmo del conjunto probado.</li>
+<li>El adversarial training con etiquetas correctas convierte las muestras de ataque en material de defensa: del 0% al 85% de reconocimiento del tráfico adversario.</li>
+<li>La seguridad de un modelo no es un estado final sino un ciclo: atacar, reentrenar, validar, y volver a empezar.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SC2-zDpOc4Q">«Ransomware y Machine Learning - C. Urcuqui &amp; J. Angulo»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

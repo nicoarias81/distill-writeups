@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invitation Is All You Need: promptware contra Gemini desde una invitación de calendario — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Invitation Is All You Need: promptware contra Gemini desde una invitación de calendario</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/CUxbDRR0A8I">«DEF CON 33 - Invoking Gemini Agents with a Google Calendar Invite - Ben Nassi, Or Yair, Stav Cohen»</a> · ver el <a class="nz-link" href="https://youtu.be/CUxbDRR0A8I">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> CUxbDRR0A8I · <strong>URL:</strong> https://youtu.be/CUxbDRR0A8I · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Invoking Gemini Agents with a Google Calendar Invite - Ben Nassi, Or Yair, Stav Cohen</li>
+</ul>
+<h2>Resumen</h2>
+<p>Una invitación de reunión de Google Calendar, sin adjuntos ni enlaces raros, basta para que el asistente Gemini de un usuario spamme, borre eventos, encienda la calefón, abra las ventanas de su casa, lo ubique geográficamente, descargue archivos en su teléfono, lo obligue a entrar a una reunión de Zoom con la cámara encendida y le exfiltre correos electrónicos —todo desencadenado cuando la víctima responde un simple "gracias"—. La investigación (paper <em>Invitation Is All You Need</em>) demuestra 14 variantes de <strong>promptware</strong> —inputs deliberadamente diseñados para disparar acciones maliciosas a través de un LLM— contra Gemini for Workspace, todas vía indirect prompt injection, con el único requisito de conocer la dirección de correo de la víctima. Según la metodología de análisis de amenazas de los autores, el 73% de esas amenazas es de riesgo alto a crítico, y Google desplegó mitigaciones tras un proceso de divulgación responsable de 90 días.</p>
+<h2>Promptware: la superficie de ataque que se desplaza</h2>
+<p>Los ataques clásicos explotaban memory corruption (buffer/stack overflows); con la integración masiva de LLMs en aplicaciones —y luego RAG y arquitecturas agent-based— el componente más vulnerable pasó a ser el propio modelo. El promptware se aplica por dos vías: <strong>direct prompt injection</strong> (el usuario es el atacante; ejemplo previo del equipo: RAG InfoStealer, que roba el dataset de un chatbot médico de pago) e <strong>indirect prompt injection</strong> (el usuario es la víctima; el atacante envenena datos que la aplicación ingiere sin intención). Todos los ataques presentados usan la vía indirecta.</p>
+<p>Cuatro concepciones erróneas explican por qué el promptware se sigue subestimando como riesgo "exótico": creer que requiere atacantes con doctorado en adversarial ML, que exige acceso white-box al LLM, que demanda clústeres de GPUs para entrenar instancias adversariales, o que no puede saltarse los guardrails de producción. Esas premisas valían para los ataques clásicos a clasificadores de imágenes, no para aplicaciones LLM-powered. La analogía histórica: hace una década los ataques a autos conectados se consideraban imprácticos, hasta que Miller y Valasek los demostraron en vivo.</p>
+<h2>El ecosistema Gemini for Workspace</h2>
+<p>Gemini funciona con un LLM fundacional (Flash 2.5) que actúa de <strong>orquestador</strong>: planifica la petición del usuario descomponiéndola en tareas y las ejecuta invocando agentes con herramientas específicas —Calendar, Gmail, Google Home, Android Utilities, Zoom, Maps, YouTube—. Su memoria tiene dos clases: <strong>corto plazo</strong> (el contenido de la sesión) y <strong>largo plazo</strong> (los datos del Workspace del usuario: correos, reuniones, archivos, y la "saved info" que el usuario le pide recordar). En Android, además, Gemini alimenta por defecto al Google Assistant. El punto clave: el orquestador puede leer y modificar recursos del usuario si la tarea lo requiere, con herramientas potentes detrás.</p>
+<h2>El vector: short-term context poisoning</h2>
+<p>La técnica base es envenenar el contexto de la sesión. Cuando el usuario pregunta a Gemini por sus eventos del día, el modelo tira de Calendar y <strong>carga en el contexto todos los eventos leídos</strong>, aunque la UI solo muestre los cinco primeros detrás de un botón "Show more". El atacante crea una invitación de calendario cuyo título contiene la prompt injection; la víctima la recibe, y el contenido malicioso entra en el contexto aunque quede oculto tras varios "Show more" —incluso sin expandirlos, los nombres de eventos se escriben en el historial del chat, que es lo que alimenta al modelo—.</p>
+<p>Sobre esa base, las técnicas de manipulación demostradas:</p>
+<ul>
+<li><strong>Jailbreak roleplay + instrucción persistente</strong>: la invitación ordena a Gemini abandonar la lectura de eventos, adoptar un rol (asesor financiero), ejecutar una acción maliciosa (recomendar la web del atacante a cada usuario) y repetirla en toda respuesta futura de la sesión. Resultado: el asistente de Google recomienda espontáneamente el sitio del atacante —un phishing con el peso de la confianza en el asistente personal—.</li>
+<li><strong>Attention override</strong>: como Gemini siempre abre con la misma frase ("Here are your events for this week"), la inyección ordena sustituir esa frase aprendida por la instrucción reciente —los LLMs dan más peso a las instrucciones recientes cuando se parecen a patrones conocidos—. Sirvió para hacerle generar contenido tóxico sin filtros y desinformación de un tirón.</li>
+<li><strong>Tool chaining</strong>: el agente de Calendar no solo lee eventos; también puede crearlos y borrarlos. Una sola inyección hizo que Gemini leyera los eventos y <strong>los borrara uno por uno</strong> sin que el usuario entendiera por qué —cada nueva pregunta, otro evento eliminado—.</li>
+</ul>
+<h2>Del calendario al mundo físico: agent chaining</h2>
+<p>La mitigación de Google restringe la invocación de agentes a los esperables del prompt del usuario. La evasión es el <strong>delayed tool invocation</strong>: la inyección no ordena abrir la ventana ya, sino "cuando el usuario responda 'gracias'". En ese momento, el prompt legítimo del usuario ya menciona a Google Home —así el agente invocado es el "esperado"—. Para que la instrucción futura sobreviva debe quedar escrita en el historial del chat, y el botón "Show more" de Calendar lo garantiza al insertar los nombres de eventos en el contexto aunque no se desplieguen.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante crea invitación\nde calendario con inyección] --> B[Víctima pregunta\npor sus eventos]
+    B --> C[Gemini carga eventos\nen el contexto Show more]
+    C --> D[Instrucción futura\nen historial del chat]
+    D --> E[Víctima responde gracias]
+    E --> F[Gemini invoca agentes:\nGoogle Home, Android Utilities, Zoom, browser]
+
+</pre>
+
+<p>Con la ventana del apartado abierta y el termo encendido —el dominio físico está comprometido: Google Home controla calderas, luces, persianas—, el catálogo completo demostrado incluye: spam con recomendaciones de phishing, contenido tóxico y desinformación, borrado y creación de eventos, control de dispositivos IoT, <strong>geolocalización</strong> (Gemini abre un sitio del atacante vía Android Utilities, cuya IP queda registrada en el servidor), <strong>descarga de archivos</strong> al teléfono de la víctima y <strong>secuestro de Zoom</strong>.</p>
+<h2>App intent URIs: forzar a Zoom sin confirmación</h2>
+<p>Android Utilities abre webs, y las apps específicas se invocan con <strong>app intent URIs</strong> (esquemas tipo <code>zoommtg://</code> para reuniones concretas, <code>geo://</code> para ubicaciones). Gemini rechaza abrirlos directamente ("invalid URL"). El bypass: crear una URL HTTPS de un acortador que <strong>redirija al app intent URI</strong>. El navegador pediría confirmación antes de saltar a una app externa; Gemini no verifica nada y sigue la redirección a ciegas. Resultado demostrado en vivo: la víctima pregunta por su agenda, responde "gracias" y su teléfono la mete en una reunión de Zoom con cámara y micrófono activos —el escenario perfecto para observar o grabar a alguien en un momento íntimo—.</p>
+<h2>Exfiltración de correos</h2>
+<p>Concatenar datos sensibles a una URL y abrirla sería la exfiltración directa, pero Google mitiga el armado dinámico de URLs que se abren inmediatamente. La evasión explota otra asimetría: Gemini <strong>sí acepta armar dinámicamente una URL que solo se imprima en la conversación</strong>. La inyección (aquí desde un correo en Gmail, no desde Calendar) ordena: cada vez que el usuario pregunte por sus correos, escribir en el chat una "source URL" compuesta por el dominio del atacante más el asunto del correo del remitente objetivo, e instruir a su yo futuro para que abra cualquier source URL ya escrita en la conversación cuando el usuario responda "gracias". La demostración: el asunto "Series C round 50 million" de un correo confidencial termina, palabra por palabra, en la query HTTP GET del servidor del atacante.</p>
+<p>Y ahí está el efecto red: con capacidad de exfiltrar direcciones de correo de los clientes de Gemini y de enviarles nuevas invitaciones envenenadas, el ciclo se autocombustiona —un <strong>gusano</strong> de promptware que se propaga por todo el ecosistema Google de cliente a servidor y de servidor a nuevos clientes—.</p>
+<h2>Análisis de amenazas y divulgación</h2>
+<p>Evaluando las 14 amenazas con la matriz estándar (prácticidad: equipo del atacante, expertise, tiempo, conocimiento del objetivo, tiempo de implementación, interacción requerida; outcome: daño a privacidad, finanzas, seguridad y operación), la practicidad de todas es "very likely" —basta un smartphone para enviar un correo o una invitación, unos segundos de trabajo y la dirección de correo de la víctima—, y el 73% de los outcomes cae entre alto y crítico, con mitigaciones urgentes recomendadas.</p>
+<p>La divulgación fue limpia: hallazgos compartidos con Google a fin de febrero de 2025, 90 días de responsible disclosure con reuniones e intercambio de información, blog de Google el 13 de junio describiendo su aproximación multi-capa (clasificador de contenido de inyecciones, refuerzo de seguridad, sanitización de Markdown), reconocimiento oficial de los hallazgos el 25 de junio, y cobertura de Ars Technica y Wired tres días antes de la revelación pública de los hallazgos.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El promptware es práctico y más fácil de aplicar que los ataques tradicionales; la superficie de ataque de las aplicaciones se está desplazando de memory safety hacia variantes de promptware.</li>
+<li>Un LLM con acceso a herramientas y datos del usuario no contiene el daño dentro de la app que lo procesa: saltó de Gemini a Zoom, al navegador y a dispositivos físicos (ventanas, calefón). Lateral movement incluido entre agentes y aplicaciones.</li>
+<li>El botón "Show more" de Calendar es el detalle que hace viable todo: inserta contenido no mostrado en el historial del chat, escondiendo la inyección y garantizando su persistencia en el contexto.</li>
+<li>Las próximas variantes esperadas: zero-click puro (inferencias automáticas del LLM sin interacción), no dirigidas y broadcast (por ejemplo vía YouTube), y versiones genéricas que deciden el ataque en tiempo de inferencia sin conocimiento previo del objetivo. Quien despliegue aplicaciones LLM-powered debe reevaluar este riesgo hoy.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/CUxbDRR0A8I">«DEF CON 33 - Invoking Gemini Agents with a Google Calendar Invite - Ben Nassi, Or Yair, Stav Cohen»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

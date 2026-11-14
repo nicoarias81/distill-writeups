@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dominando Endpoint Security: el framework de Apple para herramientas de seguridad en macOS — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Dominando Endpoint Security: el framework de Apple para herramientas de seguridad en macOS</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/AgYGwZjcsLo">«DEF CON 33 - Mastering Apple&#x27;s Endpoint Security - Patrick Wardle»</a> · ver el <a class="nz-link" href="https://youtu.be/AgYGwZjcsLo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> AgYGwZjcsLo · <strong>URL:</strong> https://youtu.be/AgYGwZjcsLo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Mastering Apple's Endpoint Security - Patrick Wardle</li>
+</ul>
+<h2>Resumen</h2>
+<p>Endpoint Security (ES) es la API en C que Apple publicó específicamente para que herramientas de seguridad de terceros monitoreen eventos del sistema y detecten actividad maliciosa. Antes de su existencia, escribir algo tan simple como un monitor de procesos en macOS era una batalla contra APIs no pensadas para eso y contra los cambios de cada versión del sistema. Hoy es el camino recomendado, documentado y en mejora continua por Apple — y tan potente que hasta el malware más sofisticado queda observable mientras actúa.</p>
+<p>Este artículo recorre cómo construir un cliente de ES desde cero y luego se adentra en las esquinas oscuras: la caché global de respuestas de autorización (y cómo un cliente sin caché puede saturar el CPU de otro), el campo de scripts que queda vacío cuando el intérprete recibe el script como argumento, los deadlines de autorización cuyo incumplimiento mata al cliente sin reiniciarlo, el muting y la inversión de muting, los eventos nuevos (XProtect, persistencia BTM, modificaciones de TCC, categorías de firma de código en macOS 26) y las limitaciones que conviene conocer antes de diseñar una herramienta completa.</p>
+<h2>El modelo básico: cliente, eventos y mensajes</h2>
+<p>Escribir una herramienta de ES son dos pasos conceptuales:</p>
+<ol>
+<li><strong>Crear un cliente de Endpoint Security</strong> (<code>es_new_client</code>) pasándole un <em>handler block</em>: la función que ES invocará automáticamente cada vez que ocurra un evento subscrito, en cualquier parte del sistema. Verificar el resultado de esta llamada es crítico: falla sin los entitlements, privilegios o permisos correctos.</li>
+<li><strong>Subscribirse a los eventos de interés</strong> (<code>es_subscribe</code>) sobre una estructura con más de 150 eventos: procesos, archivos, actividad USB, y más, con Apple agregando nuevos en cada versión.</li>
+</ol>
+<p>Los eventos vienen en dos sabores:</p>
+<ul>
+<li><strong>Notificación</strong> (<em>notification</em>): llegan <em>después</em> de que el hecho ocurrió. Ideales para monitores pasivos de procesos o archivos.</li>
+<li><strong>Autorización</strong> (<em>auth</em>): llegan <em>antes</em>; el sistema operativo pausa la operación hasta que el cliente responde permitir o denegar. Con <code>auth::exec</code>, por ejemplo, un proceso puede impedirse antes de arrancar.</li>
+</ul>
+<p>Cada mensaje entrega, entre otros: el <strong>proceso responsable</strong> (quién disparó el evento — esencial para distinguir si quien tocó la base de datos del llavero fue el usuario, la app legítima o un stealer), el <strong>tipo de evento</strong> (los datos son específicos por tipo: PID y ruta para procesos; rutas origen/destino para archivos) y, para los eventos de autorización, el deadline.</p>
+<p>La documentación en línea es decente y Apple hasta incluye <code>eslogger</code>, una utilidad para explorar ES desde la terminal — pero el consejo que da cualquiera que desarrolle herramientas en serio es: <strong>ignorá la web e id a los header files</strong> (<code>es_client.h</code>, <code>es_message.h</code>, <code>es_types.h</code> en el SDK). Incluyen diagramas ASCII de las partes más complicadas del framework.</p>
+<pre class="mermaid">
+flowchart LR
+    A[es_new_client<br/>+ handler block] --> B[es_subscribe<br/>eventos de interés]
+    B --> C{Evento en el sistema}
+    C -->|notification| D[Mensaje post-facto<br/>monitoreo pasivo]
+    C -->|auth| E[Sistema pausa la operación]
+    E --> F{Decisión del cliente}
+    F -->|allow| G[Operación continúa]
+    F -->|deny| H[Operación bloqueada]
+
+</pre>
+
+<h2>Prerrequisitos: entitlement, root y Full Disk Access</h2>
+<p>Apple protege un framework con observabilidad casi total del sistema. El costo de entrada:</p>
+<ul>
+<li>Un <strong>entitlement</strong> que hay que solicitar a Apple.</li>
+<li>Binario <strong>notarizado y con entitlement</strong>, desplegado a los usuarios.</li>
+<li>Los usuarios deben ejecutarlo <strong>como root</strong> y otorgar <strong>Full Disk Access</strong> a la utilidad (o a la terminal).</li>
+</ul>
+<h2>Caché de autorizaciones: necesaria, global y con trampas</h2>
+<p>Para eventos de autorización, la respuesta se envía con <code>es_respond_auth_result</code>, que lleva la decisión y un flag de <strong>caché</strong>. Con caché activada, ejecuciones posteriores del mismo binario no generan nuevos mensajes.</p>
+<p>Un caso real de por qué importa: una herramienta anti-persistencia con modo "bloquear todo lo no notarizado" subscribía <code>auth::exec</code> y verificaba la notarización en cada lanzamiento, sin cachear. Con compilaciones grandes, donde el compilador se invoca una vez por archivo, el CPU se disparaba: ES preguntaba una y otra vez por el mismo compilador confiado. Cachear una vez resolvía todo.</p>
+<p>Pero la historia siguió: usuarios con esa herramienta <strong>y</strong> Jamf Protect instalados vieron el CPU de Jamf irse a las nubes. Razón: la caché de ES es <strong>global</strong>, y si algún cliente en el sistema no cachea, eso deshace el caching de los demás. Jamf hacía hashing y escaneo YARA (caro) una sola vez gracias a su caché... que el otro cliente invalidaba al no cachear. Culpa compartida: quien no cachea, Apple por hacer la caché global, y cualquier cliente serio debería además implementar <strong>su propia caché interna</strong> (Apple incluso documenta que la caché se invalida cuando entra un cliente nuevo).</p>
+<p>Y la nuance final: la caché se basa en el binario/inode y <strong>ignora los argumentos</strong>. Si se cachea <code>bash</code> o <code>curl</code> aprobados al instalar Homebrew, un malware que después ejecute <code>curl</code> con argumentos maliciosos no generará evento: mismo binario, misma caché. Regla: <strong>no cachear binarios cuyo comportamiento depende de argumentos</strong> — <code>curl</code>, <code>python</code>, intérpretes de scripts.</p>
+<h2>Scripts e intérpretes: el campo nulo</h2>
+<p>Mucho malware macOS se distribuye como scripts sueltos (Joker Spy en Python, SIGINT en bash). Los eventos de ES están atados al <strong>proceso responsable</strong>, que para un script es el intérprete — y del intérprete no nos importa nada: queremos escanear el script.</p>
+<p>Apple lo resolvió en ES 2.0 agregando el campo <code>script</code> a las estructuras de exec. Con dos verificaciones previas (versión de ES compatible para no crashear en macOS viejos, y campo no nulo), el flujo funciona: ejecutar el script directamente genera el evento con la ruta del script, que se escanea, se detecta como malware y se bloquea.</p>
+<p>El problema: ejecutar <code>python script.py</code> (el script como <strong>argumento</strong> del intérprete) genera el evento con <code>script</code> <strong>nulo</strong>. El comentario en el header lo dice en una línea: <em>el campo solo es válido si el script se ejecutó directamente, no como argumento</em>. Solución parcial: ante un intérprete, enumerar los argumentos manualmente y tratar como scripts los que sean rutas de archivo.</p>
+<pre class="mermaid">
+flowchart TD
+    E[Evento exec] --> Q{¿Proceso es intérprete?}
+    Q -->|script directo| S[Campo script poblado<br/>escanear y decidir]
+    Q -->|script como argumento| N[Campo script NULO<br/>enumerar argv y tratar rutas como scripts]
+
+</pre>
+
+<h2>Deadlines de autorización: responder o morir</h2>
+<p>Mientras el cliente decide en un evento <code>auth</code>, la operación queda pausada — y Apple no tolera que la experiencia de usuario sufra. Si el cliente no responde a tiempo, <strong>macOS lo mata</strong> (genera crash report y no lo reinicia: el sistema queda desprotegido).</p>
+<p>Datos duros de los headers: el deadline es un <code>mach_absolute_time</code>, "failure to respond: you will get nuked", y <strong>varía por mensaje</strong> — unos 3-4 segundos para procesos del sistema, ~15 para aplicaciones. No conviene pedirle a Apple que lo alargue.</p>
+<p>Dos trampas al implementarlo:</p>
+<ol>
+<li><strong>Conversión de unidades</strong>: casi todas las APIs de tiempo quieren nanosegundos, y en Apple Silicon no se puede convertir <code>mach_absolute_time</code> a nanosegundos directamente — hay que usar la función auxiliar que Apple provee (documentado en "Addressing Architectural Differences").</li>
+<li><strong>Esperar al usuario</strong>: si la herramienta consulta al usuario (¿permitir este proceso no notarizado?) y el usuario está distraído, hay que responder programáticamente antes del deadline. Patrón: calcular el delta restante, restar un margen de seguridad, y usar un <code>dispatch_semaphore</code> con timeout justo antes del deadline.</li>
+</ol>
+<h2>Muting: dominar el ruido</h2>
+<p>Subscribirse a todos los eventos de archivo satura al cliente por dos razones: el I/O legítimo del sistema es masivo, y la propia salida de la herramienta genera eventos de archivo que generan más salida — un loop recursivo.</p>
+<ul>
+<li><strong><code>es_mute_process</code></strong> (audit token) o <strong><code>es_mute_path</code></strong> (ruta): silencian a un proceso. El audit token es la forma moderna de identificar procesos (los PIDs se reutilizan); para obtenerlo desde un PID, <code>task_name_for_pid</code> — siempre con <code>mach_port_deallocate</code> o habrá leak de memoria.</li>
+<li><strong>Muting de eventos</strong>: el mismo <code>es_mute_path</code> con un parámetro de target distingue mutear un <em>proceso</em> o un <em>evento/ruta</em>, cada uno en variantes <code>literal</code> (ruta completa) y <code>prefix</code> (prefijo, útil para silenciar todo lo que va al directorio temporal). Nuance: <strong>ES no resuelve symlinks</strong> — mutear <code>/tmp</code> en macOS (que es symlink) silencia la ruta pero no los eventos reales; hay que resolver el path antes.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    M[es_mute_path / es_mute_process] --> T{Target}
+    T -->|process literal/prefix| P[Silencia eventos de un proceso]
+    T -->|path literal/prefix| V[Silencia eventos hacia una ruta]
+
+</pre>
+
+<h3>Inversión de muting</h3>
+<p>Para el caso inverso — un monitor de archivos que analiza malware y quiere ver <strong>solo</strong> los eventos de ese proceso, o proteger el directorio de cookies de Chrome autorizando únicamente al navegador — Apple no agregó APIs nuevas: agregó <code>es_invert_muting</code>, que invierte la semántica de las APIs de mute existentes (lo muteado pasa a ser lo único visible).</p>
+<p>Antes de invertir hay que conocer el <strong>default mute set</strong>: ES silencia por defecto un conjunto de binarios críticos del sistema (para evitar panics y timeouts del cliente). Invertir el muting <em>desmutea</em> todo, incluido ese conjunto. La secuencia correcta documentada por Apple: llamar primero <code>es_unmute_all</code> (desmutea temporalmente el default set) y luego invertir — al mutear todo, el default set vuelve a quedar muteado. Después, cada llamada a <code>es_mute_path</code> sobre el directorio protegido lo "desmutea", convirtiéndolo en lo único observable.</p>
+<h2>Eventos nuevos que valen la pena</h2>
+<p>Apple sigue invirtiendo y agregando eventos (declarados al final de la estructura de eventos en <code>es_types.h</code>, con comentarios que indican desde qué versión de macOS — <strong>no se backportean</strong>; envolver su uso en checks de runtime, p. ej. <code>@available</code> en Objective-C):</p>
+<ul>
+<li><strong><code>XProtect::malware_detected</code></strong> (macOS 13): cuando el antivirus integrado de Apple detecta malware, la herramienta también se entera.</li>
+<li><strong><code>BTM::launch_item_add</code></strong>: notifica cualquier persistencia como login item, launch daemon o launch agent — el mecanismo de persistencia de la gran mayoría del malware, observable genéricamente.</li>
+<li><strong><code>TCC::modify</code></strong> (macOS 15.4): eventos de modificación de permisos TCC. Antes, cuando un troyano como GravityRAT pedía al usuario "otorgame Full Disk Access" para esquivar TCC, ninguna herramienta de seguridad podía verlo. Ahora sí: el evento expresa el acceso concedido, el sujeto (proceso que recibe el permiso) y el instigador. Consejo práctico: como la estructura es compleja y la documentación escasa, usar <code>eslogger</code> con el evento, disparar la acción en System Settings y leer los valores reales.</li>
+<li><strong><code>ESCS validation category</code></strong> (macOS 26): ES reporta directamente la categoría de validación de firma del proceso — <code>platform</code>, <code>development</code>, <code>app_store</code>, <code>locally</code> (ad hoc), etc. Antes cada cliente lo deducía por su cuenta con código complicado y costoso en CPU. Diferencia práctica: el malware firmado ad hoc es abundante; el que sale de la Mac App Store (firmado, validado y sandboxeado) es rarísimo.</li>
+</ul>
+<h2>Limitaciones a tener en cuenta</h2>
+<ul>
+<li><strong>Los eventos no cubren todo lo deseable</strong>: <code>TCC::modify</code> solo se emite cuando TCC se <em>modifica</em>. Un malware que <em>verifica</em> si tiene permisos TCC (Joker Spy) o intenta una acción bloqueada por TCC (WindTail intentando capturar pantalla) no genera ningún evento — y justamente el software legítimo rara vez consulta permisos, así que detectar esas consultas sería oro.</li>
+<li><strong>Solo actividad nueva</strong>: ES notifica lo que ocurre <em>después</em> de instalarse. Enumerar persistencia preexistente o permisos TCC ya otorgados no es su trabajo; la herramienta debe hacer ese barrido inicial por otros medios.</li>
+<li><strong>No cubre redes</strong>: para monitoreo de red hace falta complementar con los frameworks de Network Extension. Una herramienta de seguridad completa en macOS suele necesitar más de una tecnología.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Endpoint Security (ES)</strong> — framework en C de Apple para herramientas de seguridad de terceros en macOS.</li>
+<li><strong><code>es_new_client</code> / <code>es_subscribe</code></strong> — creación del cliente con handler block y suscripción a eventos.</li>
+<li><strong><code>eslogger</code></strong> — utilidad de Apple para explorar eventos ES desde la terminal.</li>
+<li><strong>Header files del SDK</strong> (<code>es_client.h</code>, <code>es_message.h</code>, <code>es_types.h</code>) — fuente de verdad documental.</li>
+<li><strong><code>es_respond_auth_result</code></strong> — respuesta a eventos de autorización, con flag de caché global.</li>
+<li><strong><code>es_mute_path</code> / <code>es_mute_process</code> / <code>es_invert_muting</code> / <code>es_unmute_all</code></strong> — control de ruido e inversión de muting.</li>
+<li><strong>Audit token</strong> — identificador moderno de procesos (los PIDs se reutilizan); <code>task_name_for_pid</code> + <code>mach_port_deallocate</code>.</li>
+<li><strong><code>mach_absolute_time</code></strong> — base del deadline de autorización; conversión a nanosegundos distinta en Apple Silicon.</li>
+<li><strong><code>dispatch_semaphore</code></strong> — mecanismo para responder antes del deadline cuando se espera al usuario.</li>
+<li><strong>XProtect, BTM, TCC, ESCS</strong> — eventos nuevos: malware detectado, persistencia como launch item, cambios de permisos TCC y categoría de validación de firma de código.</li>
+<li><strong>Network Extension</strong> — complemento necesario para monitoreo de red, fuera del alcance de ES.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Endpoint Security es, por fin, un framework de Apple diseñado para herramientas de seguridad de terceros: con ~15 líneas se arma un monitor de procesos y con eventos de autorización se bloquea malware antes de que corra.</li>
+<li>La potencia viene con matices que muerden: la caché global de autorizaciones (cacheá siempre, y además implementá caché propia; no cachees intérpretes), el campo <code>script</code> nulo para scripts pasados como argumento, los deadlines que matan al cliente que no responde, el default mute set antes de invertir el muting, y los symlinks sin resolver.</li>
+<li>Las fuentes de verdad son los header files del SDK, no la documentación web; y <code>eslogger</code> es el atajo para inspeccionar estructuras de eventos nuevos.</li>
+<li>Conociendo estas piezas, hasta el malware más sofisticado resulta observable en macOS: el trabajo restante del defensor es decidir qué es malicioso.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/AgYGwZjcsLo">«DEF CON 33 - Mastering Apple&#x27;s Endpoint Security - Patrick Wardle»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

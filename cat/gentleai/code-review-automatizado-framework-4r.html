@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code review automatizado: el framework 4R llevado a la nube — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">Code review automatizado: el framework 4R llevado a la nube</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/eZkdvPMBwYI">«AUTOMATE your CODE REVIEW without losing quality: My 4R framework + Skills»</a> · ver el <a class="nz-link" href="https://youtu.be/eZkdvPMBwYI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> eZkdvPMBwYI · <strong>URL:</strong> https://youtu.be/eZkdvPMBwYI · <strong>Conferencia:</strong> 05_gentleai · <strong>Título original:</strong> AUTOMATE your CODE REVIEW without losing quality: My 4R framework + Skills</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando un equipo acelera con IA, el code review se vuelve cuello de botella. La escena es reconocible: viernes a las 5 de la tarde, ocho pull requests abiertos, juniors esperando feedback y el senior entrando a una llamada con un cliente. El resultado previsible: cero reviews o reviews mediocres hechos con apuro, PRs durmiendo todo el fin de semana y lunes con salidas a producción que nadie revisó a profundidad.</p>
+<p>La salida no es reemplazar el criterio técnico, sino convertirlo en una automatización de equipo: una metodología de review definida como skill, ejecutada por un agente en la nube ante cada evento del repositorio, con hallazgos estructurados, severidad y notificación al canal — siempre con human in the loop. La pieza metodológica es el framework 4R (risk, readability, reliability, resilience); la pieza de plataforma, Skywork, un cloud workforce con skills y memoria contextual. La idea de fondo: el criterio de review puede correr como automatización mientras las personas se concentran en las decisiones que importan.</p>
+<h2>Del review individual al team automation</h2>
+<p>Para el desarrollador individual ya existe una capa previa: GGA (Gentleman Garden Angel), un CLI propio que corre en el repositorio, en GitHub Actions o en la terminal antes de subir un PR. Cubre el día a día de quien escribe código.</p>
+<p>El problema cambia de escala cuando lo afronta un equipo. Entonces la pregunta ya no es "cómo reviso mejor yo" sino cómo armar un team automation: algo que se dispare con eventos del repo, notifique al canal de Slack, respete una metodología definida y no obligue a mantener una integración casera. Esa es la brecha que cierra la combinación de plataforma más framework.</p>
+<h2>Qué es Skywork</h2>
+<p>Skywork se posiciona como un cloud workforce: a diferencia de un LLM tradicional que se queda esperando el próximo prompt, recibe un objetivo y sigue ejecutando en background, incluso cuando nadie está mirando. Su promesa más relevante para equipos es la de cero configuración: nada de levantar VMs, nada de setup técnico pesado, nada de infraestructura propia. Se autoriza la app en la cuenta de GitHub por OAuth, se elige el repositorio y el agente puede leer el PR y el diff directamente desde Git — sin webhooks armados a mano, sin servidores, sin GitHub Actions propias.</p>
+<p>La pieza clave es el modelo de skills: en vez de una prompt distinta cada vez, se definen skills como bloques modulares de capacidad, cada una con reglas, criterios y comportamientos esperados. Las skills se stackean para armar workflows complejos sin repetir contexto todo el tiempo. Los canales de comunicación son nativos: Slack, WhatsApp, Telegram — un voice note o un evento de repo arranca el workflow, sin abrir el navegador.</p>
+<h2>Las 4R: cuatro puertas de calidad</h2>
+<p>El framework 4R — presentado en el Code Motion de Madrid, entre otros eventos — define cuatro dimensiones que la IA debe evaluar antes de que un cambio llegue a producción:</p>
+<ol>
+<li><strong>Risk</strong> — ¿este cambio puede introducir un riesgo de seguridad? ¿Puede romper producción? ¿Toca una zona sensible y se está mergeando sin guardrails suficientes?</li>
+<li><strong>Readability</strong> — ¿el código se entiende? ¿Tiene una estructura razonable? ¿Respeta el complexity budget, o se está aceptando una bola de barro generada con IA "porque funciona"?</li>
+<li><strong>Reliability</strong> — ¿se está testeando de verdad? No cobertura vanity, sino cobertura útil: casos explícitos, errores manejados, timeouts considerados.</li>
+<li><strong>Resilience</strong> — ¿qué pasa cuando esto falla? ¿Hay retries? ¿Hay degradación elegante? ¿Hay observabilidad? ¿O una falla local termina en caída en cascada?</li>
+</ol>
+<p>Las cuatro funcionan como puertas de calidad para que la IA acelere el delivery sin comprometer mantenibilidad ni producción.</p>
+<h2>Memoria contextual: el criterio no se improvisa</h2>
+<p>En un setup como este, nadie explica las cuatro dimensiones desde cero en cada PR. La plataforma mantiene una memoria contextual adaptativa sobre la metodología: las 4R, los criterios de severidad, el formato de comentario y las señales que hay que buscar en cada PR. La skill no arranca con un prompt genérico tipo "review this code": arranca con el estándar de calidad del equipo ya cargado.</p>
+<p>Cada R se traduce en reglas verificables: scanners y hooks para risk, linters y complexity gates para readability, cobertura útil y edge cases para reliability, retries, degradación elegante y observabilidad para resilience. La skill aporta el criterio al workflow; la memoria contextual aporta la continuidad. El agente no improvisa: aplica criterios definidos de antemano, y esa es la diferencia con un bot genérico que tira comentarios al azar.</p>
+<h2>La demo, punta a punta</h2>
+<p>La prueba se corrió sobre un PR real de un servidor de memoria persistente que agregaba soporte FTS5 con BM25 para búsqueda sobre SQLite: dos archivos, alrededor de 100 líneas. El tamaño no es casualidad — en el framework, una unidad de review tiene que ser humana, chica, contextual y testeable, idealmente entre 200 y 400 líneas como máximo (600 en un caso extremo), para que el reviewer pueda hacer una revisión profunda sin quemarse; 400 líneas es el sweet spot.</p>
+<p>El flujo: "tomá este PR, aplicá la skill 4R, generá hallazgos estructurados y dejame un resumen". Los hallazgos, organizados por dimensión y con severidad:</p>
+<ul>
+<li><strong>Risk</strong>: el parámetro <code>titleBoost</code> se interpolaba directamente en el string SQL. Hoy no hay una SQL injection explotable, pero si ese valor pasara del código a una configuración externa, la puerta queda abierta — con su "why it matters" y su fix propuesto.</li>
+<li><strong>Readability</strong>: el valor <code>8.0</code> pasado como peso del campo <code>title</code> sin ningún comentario que lo explique; cualquier colaborador que ajuste el ranking en el futuro tendría que inferir el esquema de columnas.</li>
+<li><strong>Reliability</strong>: el SQL aplicaba <code>LIMIT</code>, pero la función <code>search</code> iteraba todas las filas devueltas por la query sin una capa adicional de tope.</li>
+<li><strong>Resilience</strong>: la query BM25 no tenía ningún mecanismo de timeout — una query costosa suficiente para colgar el flujo.</li>
+</ul>
+<p>La salida del review no termina en el chat: el resumen con veredicto y hallazgos por severidad llega a Slack, los comentarios se publican inline en el GitHub del PR, y la revisión completa se guarda en Notion con su formato. Todo se puede programar: revisar automáticamente cada PR nuevo del repositorio o mandar un resumen diario a Slack. En un equipo real, el review estructurado llega al teléfono; el autor del PR itera sobre las observaciones sin quedarse bloqueado esperando un review manual, y nadie tiene que estar refrescando GitHub.</p>
+<h2>Más allá del review: skill stacking</h2>
+<p>El mismo workflow acepta más skills apiladas. Al mergear un PR, se auto-genera la entrada de release notes con descripción técnica, breaking changes y referencias al issue, y se publica en Google Doc, en un repositorio de documentos o en Notion. Al cerrar el sprint, se leen los PRs mergeados, se agrupan por feature y se genera un deck de overview con la herramienta de slides. La review alimenta las release notes, las release notes alimentan el deck: todo concatenado, sin silos de información.</p>
+<h2>Por qué funciona este setup</h2>
+<p>Cuatro razones separan este tipo de integración de los bots de review olvidados:</p>
+<ol>
+<li><strong>Skill stacking</strong>: las capacidades se combinan en cadena en lugar de quedar aisladas.</li>
+<li><strong>Conexiones nativas</strong>: GitHub, Slack, Drive, Notion y otras herramientas ya integradas, con la plataforma orquestando sola entre servicios una vez definido el flujo.</li>
+<li><strong>Cero configuración y consistencia</strong>: el lead define las skills una vez y todo el equipo opera con el mismo criterio, en lugar de que cada miembro arme su propio setup.</li>
+<li><strong>Modelo visible</strong>: nada de caja negra; se puede elegir entre un modo automático (la plataforma elige la mezcla según la tarea) o fijar modelos flagship disponibles en la plataforma (entre ellos Claude Opus 4.8, ChatGPT 5.5 o Gemini 3.1 Pro) para cada tarea o conversación.</li>
+</ol>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Framework 4R</strong> — risk, readability, reliability, resilience: cuatro puertas de calidad para automatizar el review sin perder rigor.</li>
+<li><strong>Skywork</strong> — plataforma de cloud workforce con ejecución en background, skills y orquestación entre servicios.</li>
+<li><strong>Skills</strong> — bloques modulares de capacidad con reglas, criterios y comportamientos esperados, apilables en workflows.</li>
+<li><strong>Memoria contextual adaptativa</strong> — contexto persistente sobre metodología, severidades y formato de comentario; da continuidad al criterio.</li>
+<li><strong>GGA (Gentleman Garden Angel)</strong> — CLI propio de co-review individual, utilizable en terminal y GitHub Actions.</li>
+<li><strong>GitHub OAuth</strong> — autorización nativa de la app para leer PRs y diffs sin webhooks ni infraestructura propia.</li>
+<li><strong>Slack / WhatsApp / Telegram</strong> — canales de notificación y disparo del workflow.</li>
+<li><strong>Notion</strong> — archivo de las revisiones completas con formato, vía skill integrada.</li>
+<li><strong>FTS5 + BM25 sobre SQLite</strong> — el dominio técnico del PR de ejemplo: búsqueda full-text con ranking.</li>
+<li><strong>Complexity budget</strong> — límite razonable de complejidad por unidad de código, criterio de readability.</li>
+<li><strong>Cobertura útil vs cobertura vanity</strong> — tests que prueban casos explícitos, errores y timeouts, no métricas de vidriera.</li>
+<li><strong>Unidad de review de 200–400 líneas</strong> — tamaño máximo recomendado por PR para permitir revisión profunda.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El objetivo no es que la IA haga el review en lugar del equipo, sino que el criterio de review del equipo corra como automatización disponible 24/7 mientras las personas se reservan las decisiones importantes.</li>
+<li>Un bot genérico y una metodología automatizada se distinguen por una sola cosa: los criterios están definidos de antemano y son verificables; el agente aplica, no inventa.</li>
+<li>El human in the loop sigue siendo innegociable: la automatización adelanta el review, estructura los hallazgos y libera al senior, pero la aprobación final sigue siendo humana.</li>
+<li>La escalabilidad del criterio técnico — que el mismo estándar se aplique con o sin el senior sentado frente a cada PR — es el verdadero producto de esta combinación de framework más plataforma.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/eZkdvPMBwYI">«AUTOMATE your CODE REVIEW without losing quality: My 4R framework + Skills»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saflok dos años después: el parche a medias que sigue abriendo puertas de hotel — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Saflok dos años después: el parche a medias que sigue abriendo puertas de hotel</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ZODLZuy6H4U">«DEF CON 33 - Hacking Hotel Locks: The Saflok Vulnerabilities Expanded -Noah Holland, Josh Stiebel»</a> · ver el <a class="nz-link" href="https://youtu.be/ZODLZuy6H4U">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> ZODLZuy6H4U · <strong>URL:</strong> https://youtu.be/ZODLZuy6H4U · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Hacking Hotel Locks: The Saflok Vulnerabilities Expanded -Noah Holland, Josh Stiebel</li>
+</ul>
+<h2>Resumen</h2>
+<p>En 2024, la vulnerabilidad de las cerraduras Saflok de Dormakaba (el famoso "Unsafelock") terminó parchada y enterrada: todo el mundo asumió que el problema era historia. Noah Holland y Josh Stiebel (BadSec LLC, cofundadores del Access Control Village) se tomaron el trabajo de comprobarlo, y el resultado es incómodo: el exploit original no solo se puede recrear en un laboratorio casero con piezas de eBay, sino que la solución oficial del fabricante es de dos pasos y la mayoría de los hoteles se quedaron en el primero. Pagar con tarjeta Ultralight C "estándar" es, en la práctica, casi lo mismo que seguir en Mifare Classic: en menos de un minuto se puede fabricar una llave maestra de todo el establecimiento.</p>
+<h2>De la tarjeta al control de acceso offline</h2>
+<p>Para entender el problema hay que entender primero cómo funciona un PACS (Physical Access Control System). En la modalidad online —la habitual en oficinas— la credencial solo lleva un código de facility y un número de tarjeta (generalmente en formato Wiegand), y el controlador le pregunta al servidor: "la tarjeta 123 quiere abrir la puerta 100". El servidor consulta su base de datos, ve que esa tarjeta es de Bob y autoriza. Ventajas claras: auditoría centralizada, alertas en tiempo real y revocación instantánea.</p>
+<p>Los hoteles no usan eso. Usan PACS offline: no hay red, no hay servidor, y los datos de acceso viven codificados dentro de la propia tarjeta. Como contrapartida, la escalada de privilegios es mucho más fácil y la auditoría es perversa: los logs quedan repartidos entre cerraduras y tarjetas, y hay que ir puerta por puerta a leerlos.</p>
+<h2>El legado de Unsafelock</h2>
+<p>Lo que documentó la divulgación original de DEF CON 32: las tarjetas Saflok usan Mifare Classic como contenedor, con cifrado débil y secreto-por-oscuridad, 17 bytes de datos útiles en el sector 0, y un detalle demoledor: el pestillo (deadbolt) se anula por software, así que una llave falsificada lo ignora sin esfuerzo. La respuesta del fabricante fue "ya está parchado, no hay nada que ver".</p>
+<p>Lo primero que demuestran los autores es que el problema no se limita a la marca Saflok: Sapphire y otras líneas de Dormakaba comparten el mismo formato de bits y el mismo cifrado. El disparador del proyecto fue tan mundano como un departamento de alquiler recién construido que seguía instalando núcleos Saflok nuevos —de fábrica— en pleno 2025.</p>
+<h2>Un laboratorio por menos de 250 dólares</h2>
+<p>Sin acceso al software actual de hoteles (Ambiance/Community, la plataforma web hospedada localmente en cada propiedad), los autores replicaron el camino del equipo original: System 6000, la versión anterior, con los mismos campos y formatos. El equipamiento:</p>
+<ul>
+<li>Dos codificadores de tarjetas: ~60 dólares en eBay (baratísimos desde la divulgación original, porque los hoteles se quisieron deshacer de ellos).</li>
+<li>Una cerradura de demostración: ~60 dólares.</li>
+<li>Un programador portátil HH6 (antes llamado LPI y M unit; hay que buscar los tres nombres): 100 dólares "por las partes", y funcionaba completo. Variantes 007/009 para programar por serial o NFC; otras variantes apuntan a líneas como Oracode y no sirven.</li>
+<li>La base de datos se abre con Firebird Editor Pro 32, un programa gratuito, usando la librería cliente de Firebird que trae Saflok y las credenciales ya reveladas en la divulgación original.</li>
+</ul>
+<p>Un hallazgo infravalorado: las patentes. Dormakaba lista en el System 6000 las patentes que protegen el sistema (la más reciente de 1993, la más vieja de 1977), y están todas las tablas de campos de bits documentadas: qué valor de "key type" corresponde a cada nivel de llave, etc. Es el manual perfecto del formato, público desde hace décadas.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Llave de huesped legitima] --> B[Descifrar los 17 bytes del sector 0]
+    B --> C[Conocer el property ID de la tarjeta]
+    C --> D[Llave 1: resecuenciadora a nivel emergency]
+    D --> E[Fuerza al candado a un sequence + combination conocido]
+    E --> F[Llave 2: emergency con ese valor]
+    F --> G[Abre cualquier puerta de la propiedad]
+
+</pre>
+
+<h2>Re-creando el exploit</h2>
+<p>El corazón del ataque: cada cerradura tiene un valor de "sequence + combination" y solo lee tarjetas que lo emparejen —funciona como contraseña de la cerradura—. La divulgación original lo resolvió con llaves resecuenciadoras: una tarjeta de nivel emergency que reescribe el sequence+combination de la cerradura a un valor conocido. Después, una segunda llave emergency fabricada con ese valor abre la puerta. Dos tarjetas en combinación abren cualquier puerta de la propiedad. Los autores llegaron a ese mismo punto con sus propias llaves funcionales, y además ampliaron el mapa de la tarjeta: más abajo de los 17 bytes hay logs de lectura fallida y "variable keys" (puertas adicionales que la tarjeta abre) almacenados sin cifrar —nadie los había documentado, y sus herramientas para Proxmark los parsean.</p>
+<p>Mientras preparaban la publicación, apareció algo curioso: un exploit completo para Flipper Zero publicado por un residente de Seattle cuya empresa administraba 25.000 unidades con Saflok. Reportó la vulnerabilidad, la empresa no le creyó, le amenazó con acciones legales, y él respondió imprimiendo una llave maestra, enviándola por correo y publicando el exploit tres días antes del comunicado de Dormakaba. Cero estrellas, cero forks: prácticamente nadie lo conocía.</p>
+<h2>El programador HH6: la puerta de servicio</h2>
+<p>La segunda mitad del análisis desmonta una suposición de la divulgación original: que el HH6 da error si el property ID no coincide. Falso. El HH6 interroga cualquier cerradura Saflok, sea de la propiedad que sea, y entrega el property ID y los horarios de turno del personal (útiles para saber cuándo entra y sale limpieza). Esto elimina el requisito más engorroso del exploit: conseguir una tarjeta descartada del hotel para leer el property ID —y los hoteles de Las Vegas ya habían puesto cajas de devolución con ranura precisamente para evitarlo—.</p>
+<p>Peor todavía: el HH6 soporta ELPS (Emergency Lock Power Supply), que emula una llave de emergencia y abre la cerradura por el puerto serial. Es esencialmente el exploit de Onity de 2012 ("My Arduino Can Beat Up Your Hotel Lock", de Sarah Brocious/Dakin), donde el puerto de programación daba acceso a memoria y un Arduino de 6 dólares abría millones de habitaciones. La respuesta de la industria entonces: tapas de plástico, epoxi en el puerto o un cambio de PCB que casi nadie pagó. La historia se repite con mejor hardware.</p>
+<h2>El parche a medias</h2>
+<p>La mitigación de Dormakaba (Lock Update Project) tiene dos partes:</p>
+<ol>
+<li>Migrar las credenciales de Mifare Classic a Mifare Ultralight C.</li>
+<li>Cifrar los datos en reposo con una clave AES-128 diversificada por sitio.</li>
+</ol>
+<p>Casi todos los hoteles que visitaron (Minneapolis y Las Vegas) completaron el paso 1. Casi ninguno el paso 2. Y Ultralight C en modo "standard security" no aguanta nada:</p>
+<ul>
+<li>El handshake de la tarjeta es seguro, pero después de autenticarse la tarjeta envía todos los datos en texto plano: con un Proxmark se sniffa la comunicación tarjeta-lector y se obtiene el property ID.</li>
+<li>No se puede escribir sin las claves de la tarjeta, pero la KDF de Saflok ULC está descifrada y circulan dumps completos con UID y claves válidas: se editan, se emulan con Flipper o Proxmark, o se graban en tarjetas UID-changeable. Dos toques y adentro.</li>
+<li>Método alternativo con codificador Gen 1: la KDF de ULC vive dentro del codificador (no en el software, como en Classic), y estos aparatos escriben las claves en texto plano. Son abundantes y baratos en línea.</li>
+</ul>
+<p>Del momento en que se conecta el HH6 a una cerradura hasta tener una llave maestra funcional de toda la instalación en Ultralight C estándar, transcurre menos de un minuto. En Vegas, casi todas las propiedades están parchadas de verdad, pero encontraron al menos una vulnerable —razón por la que retrasan la publicación de sus herramientas hasta después de la conferencia—.</p>
+<h2>Qué significa "seguro" aquí</h2>
+<p>La pirámide de seguridad de Dormakaba distingue standard y enhanced security. La conclusión de los autores es más simple: todo lo que sea standard o inferior es inseguro, punto; solo enhanced security (la clave AES-128 por sitio) resiste. El fabricante no lo comunica con esa claridad a los administradores de hoteles, y edificios nuevos siguen instalándose con Mifare Classic, como el departamento de los autores.</p>
+<p>También hay que dar crédito donde corresponde: el parche existe, es gratuito (no cobran los 10.000 dólares que otros fabricantes piden por una clave por sitio), y Dormakaba lo gestionó razonablemente bien para los estándares de la industria. El problema es sistémico: los hoteles compran siempre la opción más barata, y la seguridad es la variable que se recorta. Los autores anticipan además que las tarjetas DESFire —más caras por unidad, por eso evitadas— terminarán imponiéndose, porque ya circulan ataques de recuperación de claves contra Ultralight C aún no divulgados.</p>
+<p>El trabajo futuro que ellos mismos dejan abierto: banda magnética (mismo formato y mismos 17 bytes cifrados), reversing completo del HH6 (el JTAG y el serial de debugging están bloqueados, pero el MCU tiene una vulnerabilidad conocida tipo Pico EMP sin explotar), y las variable keys sin cifrar, que funcionan incluso en Ultralight C pese a que el fabricante dice lo contrario, y que podrían servir de vector de acceso incluso contra instalaciones con enhanced security.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ZODLZuy6H4U">«DEF CON 33 - Hacking Hotel Locks: The Saflok Vulnerabilities Expanded -Noah Holland, Josh Stiebel»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

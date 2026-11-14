@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ingeniería inversa bare metal: de la hoja de datos al código fuente — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ingeniería inversa bare metal: de la hoja de datos al código fuente</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/zfxKbsLKb3E">«DEF CON 33 - Bare Metal Reverse Engineering - SolaSec»</a> · ver el <a class="nz-link" href="https://youtu.be/zfxKbsLKb3E">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> zfxKbsLKb3E · <strong>URL:</strong> https://youtu.be/zfxKbsLKb3E · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Bare Metal Reverse Engineering - SolaSec</li>
+</ul>
+<h2>Resumen</h2>
+<p>Gran parte de la ingeniería inversa que se publica se concentra en Intel x86, pero el mundo de los microcontroladores ARM de 32 bits —donde viven los RTOS y el bare metal— es un mercado casi virgen y con salarios a la altura. El bare metal es un mundo distinto del software que corre sobre Linux o Windows: sin separación real de privilegios, con scheduling liviano, abstracción mínima y acceso directo a registros. Cuando exfiltrás firmware de una placa —vía JTAG o SWD— lo que obtenés es un binario crudo, a menudo stripped, sin símbolos. El objetivo de este recorrido es reconstruir desde ahí el camino de vuelta al código fuente, pasando por ensamblador ARM, desarrollo de firmware y un arsenal de herramientas (Ghidra, SVD Loader, Type Loader y BSim).</p>
+<h2>Las capas del firmware</h2>
+<p>Antes de invertir el binario conviene saber qué se construyó. Un firmware típico se apila en tres niveles:</p>
+<ul>
+<li><strong>BSP (board support package)</strong>: las llamadas fundamentales al hardware; por ejemplo, escribir un registro para habilitar un pin GPIO.</li>
+<li><strong>HAL (hardware abstraction layer)</strong>: encima, capas de abstracción como las de STMicroelectronics para sus STM32, que facilitan muchísimo el desarrollo —y complican la ingeniería inversa, como se verá—.</li>
+<li><strong>RTOS</strong>: gestiona el scheduling y ofrece threads, queues, semáforos y mailboxes (QNX, FreeRTOS, Zephyr). Desde la óptica de la ingeniería inversa, un RTOS es prácticamente bare metal con esteroides.</li>
+</ul>
+<h2>Ensamblador ARM en quince minutos</h2>
+<p>ARM frente a x86: reduced instruction set contra complex instruction set, decodificación más simple y registros dedicados. Lo más confuso de ARM es <strong>Thumb</strong>: ARM es siempre de 32 bits, Thumb es a medias entre 32 y 16 bits, y muchos microprocesadores alternan entre ambos modos —el último bit de la instrucción decide el cambio—, lo que genera offsets distintos y hace el análisis especialmente doloroso.</p>
+<p>Lo esencial del set: los registros de propósito general R0-R12, más R13/R14/R15 (stack pointer, link register y program counter). Los tipos de datos quedan codificados dentro de la propia instrucción: load word, load half word, load signed byte. Conceptos que hay que dominar:</p>
+<ul>
+<li><strong>Load y store</strong>: la load toma el segundo operando (una dirección) y lo mete en el primer registro; la store hace lo inverso.</li>
+<li><strong>Branching</strong>: todos los if y switch del código fuente terminan compilados en branch equals, branch not equals, branch with link (y BX, que alterna a Thumb).</li>
+<li><strong>Direccionamiento relativo</strong>: por optimización del compilador, muchas loads no llaman una dirección directa sino que computan la dirección desplazando dentro de la propia instrucción (por ejemplo, cargar en R2 el valor de R0 desplazado 4).</li>
+<li><strong>Stack frames</strong>: el prólogo y el epílogo de cada función, que gestionan link register y stack pointer.</li>
+</ul>
+<p>La mejor forma de aprender esto no es memorizar: escribir una función trivial que compare dos valores, ejecutarla en el propio ordenador y recorrerla instrucción por instrucción con <strong>GEF</strong> (sobre GDB), observando cómo cambian registros y pila en cada paso.</p>
+<h2>Firmware development: la forma difícil y la fácil</h2>
+<p>Para inicializar un simple GPIO en modo entrada con pull-up en un STM32, a la manera dura hay que saber que los periféricos viven en un bloque gigante de memoria mapeada (el RCC alrededor de 0x40023800, los GPIO en sus propios offsets, todo documentado en la hoja de datos). Habilitar el reloj del periférico significa poner un bit específico en un registro (el bit GPIOC enable para usar PC2); configurar el modo significa escribir dos bits concretos de otro registro; el pull-up, lo mismo. Y ojo: asignar el registro entero destruiría la configuración de los demás periféricos que comparten ese registro, así que la práctica correcta usa lógica bit a bit —or igual para setear, and igual con el complemento para limpiar—.</p>
+<p>La manera fácil son los <strong>drivers HAL</strong>: estructuras preconstruidas por el fabricante donde se asignan los valores y una función de setup. Pero acá está la trampa para el reverser: al abstraer las llamadas discretas, la HAL genera inherentemente código más enredado en el binario. Saber cómo se ve la HAL compilada —y cómo se ve el BSP puro— acelera el camino de vuelta.</p>
+<h2>Lo que no funciona (y lo que sí)</h2>
+<p>Sobre el binario crudo extraído de la placa:</p>
+<ul>
+<li><strong>Strings</strong>: dan algo, pero nunca todo, y no sabés cómo se usan.</li>
+<li><strong>file</strong>: prácticamente inútil sobre un binario crudo.</li>
+<li><strong>Binwalk</strong>: sirve para ver si está cifrado; a veces encuentra claves AES, pero no suele ser el caso.</li>
+</ul>
+<p>La herramienta central es <strong>Ghidra</strong>, con un flujo concreto: importar el archivo (endianness little-cortex), añadir un flash mirror block, y —antes de analizar— configurar el memory map a mano con flash, mirror y RAM tomados de la hoja de datos. Recién entonces analizar, activando el "ARM aggressive instruction finder". Desde ahí: renombrar funciones, retypear, buscar strings y seguir sus referencias cruzadas. El scripting nativo en Python permite sumar herramientas propias.</p>
+<h3>SVD Loader: la hoja de datos dentro de Ghidra</h3>
+<p>El salto de productividad viene del <strong>SVD Loader</strong> (de Level Down Security). Las tablas de registros de la hoja de datos suelen existir como archivos SVD (XML) descargables para casi cualquier microcontrolador. La herramienta los parsea y los inyecta en el memory map: las direcciones genéricas con offsets se convierten en periféricos con nombre, dereferenciados por Ghidra, con referencias cruzadas navegables. A partir de ahí, castear el puntero triple sin sentido a su tipo real (por ejemplo, RCC) revela código casi idéntico al fuente original —probado escribiendo código propio y revirtiéndolo, pero aplicable en general—.</p>
+<h3>Type Loader y BSim: los niveles HAL y RTOS gratis</h3>
+<p><strong>Type Loader</strong> (herramienta propia del expositor) parsea los archivos de la HAL del STM32 y genera en Ghidra todos los data types de sus objetos. Así, cuando el código desensamblado tiene la firma de, digamos, un UART handle, se castea a ese tipo y aparece el código fuente exacto de la capa HAL —igual que antes con la capa BSP—.</p>
+<p><strong>BSim</strong> (de la NSA, integrado en Ghidra) hace binary similarity: se compila un proyecto de muestra que use el mismo stack —STM32, HAL, FreeRTOS—, se revierte ese binario conocido y se carga en una base de datos H2. Al analizar el binario objetivo contra esa base, ajustando umbrales de similitud y confianza, se aplican las firmas. El caso de uso típico: una función rara con context switching y yields que, sin más, consumiría días de análisis, se identifica en segundos como una llamada del RTOS (por ejemplo, creación de thread) que probablemente no interesa —el objetivo real es llegar a la aplicación—. Desde ahí, buscar dónde se la llama y avanzar hacia el código de la aplicación, que es lo que importa.</p>
+<h2>Conclusión</h2>
+<p>El camino del binario crudo al código fuente en microcontroladores ARM se recorre entendiendo primero cómo se construye el firmware: BSP con lógica bit a bit sobre registros mapeados, HAL que abstrae a costa de complicar el binario, RTOS que agrega scheduling. Después, la combinación de Ghidra con SVD Loader (periféricos nombrados), Type Loader (tipos de la HAL) y BSim (firmas de funciones conocidas del RTOS y la HAL) convierte semanas de reversa manual en horas. El conocimiento de desarrollo de firmware es lo que hace efectiva la ingeniería inversa de firmware —y, de paso, si sabés hacer firmware, sos el mejor programador: full stack elitism, opinión personal del expositor—. Las slides estarán en solasec.io, y hay demo hands-on en el CTF del Biohacking Village.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/zfxKbsLKb3E">«DEF CON 33 - Bare Metal Reverse Engineering - SolaSec»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Orquestador, subagentes y SDD: construir una aplicación completa con IA sin salir del 18% de contexto — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../gentleai.html">Gentle AI</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Gentle AI</p>
+<h1 class="nz-h2">Orquestador, subagentes y SDD: construir una aplicación completa con IA sin salir del 18% de contexto</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/c5Gwx0RcxNE">«They ASKED me to show HOW I work with AI -&gt; Here is EVERYTHING | Engram + Agent Teams + SDD»</a> · ver el <a class="nz-link" href="https://youtu.be/c5Gwx0RcxNE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> c5Gwx0RcxNE · <strong>URL:</strong> https://youtu.be/c5Gwx0RcxNE · <strong>Conferencia:</strong> 05_gentleai · <strong>Título original:</strong> They ASKED me to show HOW I work with AI -&gt; Here is EVERYTHING | Engram + Agent Teams + SDD</li>
+</ul>
+<h2>Resumen</h2>
+<p>La semana previa al proyecto que se documenta acá dejó un registro elocuente: 25 commits, más de 5.270 líneas y 10 releases entre varios repositorios. La afirmación de fondo es directa: la IA no reemplaza el trabajo, multiplica la capacidad de ejecución —se itera más, se testa más, se shippea más—, y si no se sabe lo que se está haciendo, también multiplica los problemas. Este artículo recorre las herramientas de ese flujo de trabajo y el proceso completo de construcción de una aplicación real con ellas: un instalador TUI escrito en Go, hecho de principio a fin con un orquestador que delega en subagentes bajo desarrollo dirigido por especificaciones.</p>
+<p>Tres repositorios sostienen el flujo. <strong>Engram</strong>, un binario único en Go con SQLite y búsqueda full-text (FTS5) expuesta vía MCP, que guarda lo que el agente aprende —decisiones de arquitectura, bugs resueltos, releases— y lo recupera en sesiones futuras. <strong>Agent Teams Lite</strong>, una combinación de spec-driven development con orquestación de subagentes que funciona con cualquier agente CLI. Y <strong>GGA (Gentleman Guardian Angel)</strong>, revisión de código automatizada con el agente CLI que cada uno prefiera. Todo open source, con GGA superando las 625 estrellas y Engram acercándose a las 600 en su primera semana.</p>
+<h2>Engram: memoria barata y universal</h2>
+<p>Engram nació como alternativa a CloudMem para quien no usa Claude: un solo binario Go, cero dependencias más allá de Go, una base SQLite chica en la máquina y FTS5 para búsquedas rankeadas por ocurrencias. Frente a alternativas que exigen Python y Node, instalan dos bases de datos (una vectorizada) y guardan absolutamente todo, Engram apuesta a la sobrecomplejidad cero.</p>
+<p>Su protocolo de memoria es un system prompt simple: cada vez que el agente aprenda algo nuevo —una decisión de arquitectura, un bug arreglado, un release— lo guarda en la base. Y cuando una sesión nueva va a hacer algo, lo primero que hace es preguntar si hay información previa sobre eso. La recuperación es por capas, como una cebolla: primero busca el tópico puntual; si no encuentra, va más profundo, y solo al hallar algo relevante lee las observaciones relacionadas en detalle. Las observaciones se guardan como resúmenes (qué se hizo, cómo, por qué y dónde), no como transcripts completos: exactamente lo que un agente necesita, sin reventar el contexto.</p>
+<p>Los resúmenes no son solo de inicio y fin de sesión: si a mitad de trabajo la IA aprende que se cambió de arquitectura, lo registra. Y hay privacidad incorporada: cualquier secreto detectado se marca y se filtra antes de tocar la base. Las mismas especificaciones de OpenSpec pueden almacenarse en Engram, útil para proyectos públicos donde no conviene versionar las specs en el repo.</p>
+<h2>GGA: revisión de código con el agente que uno elija</h2>
+<p>GGA es una alternativa open source a herramientas pagas de análisis de calidad de código. La diferencia clave: usa el CLI que ya se tenga (Claude Code, OpenCode, Codex, Gemini) con un set de instrucciones de revisión configurable, y se integra en tres puntos del ciclo: pre-commit, pre-push, o directamente en el CI de GitHub —que es una máquina virtual donde se puede instalar cualquier agente más GGA—.</p>
+<p>El temor obvio es el costo en tokens, y acá entra el caché inteligente: si un archivo ya pasó la revisión y no cambió, no se vuelve a validar. Cada corrida solo revisa el delta, de a poco. El mismo mecanismo sirve para flujos de equipo: revisar todos los PRs abiertos de un repositorio, ver sus relaciones y recibir un resumen con estrategia de merge sugerida antes de decidir.</p>
+<h2>Agent Teams Lite: la versión liviana de la orquestación multiagente</h2>
+<p>El diagnóstico de partida: el problema central de los agentes es el contexto. La ventana se llena, se compacta (resumen + sesión nueva) y en la compactación se pierden cosas. Las soluciones existentes son parciales: Engram resuelve la memoria, los subagentes aíslan el trabajo —pero compartir información entre subagentes es, literalmente, una prompt— y frameworks como OpenSpec (openspec.dev) ponen especificaciones técnicas en el repositorio que la IA puede seguir.</p>
+<p>Agent Teams Lite combina esas piezas. Frente al sistema de agent teams de Claude Code —que solo existe para Claude y quema tokens sin freno—, propone un orquestador que abre un subagente por tarea, y cada resultado se persiste en un "lugar de la verdad": Engram, OpenSpec o ambos. La versión ingenua —un agente principal que tira tareas a dos subagentes— falla porque los subagentes trabajan sobre un lienzo en blanco sin saber si alguien más tocó lo mismo ni qué decisiones se tomaron; el lugar de la verdad compartido es lo que elimina ese problema.</p>
+<p>La implementación es deliberadamente simple: se clona el repositorio, se corre <code>install.sh</code>, se elige el asistente, y cada subagente se instala como una skill —porque las skills se cargan solo cuando se necesitan, y porque así funciona en cualquier agente, no solo en uno. Cada skill declara su fase del flujo SDD y puede cargar otras skills adentro.</p>
+<p>Una regla de oro del diseño: <strong>el orquestador nunca escribe código</strong>. Siempre que hay que implementar, crea un subagente. La razón es mantener el hilo del agente principal lo más limpio posible para que se compacte lo menos posible. Y no todo amerita el aparato completo: para tareas simples el flujo SDD no se dispara; el agente decide según el tamaño del cambio, y también puede iniciarse a mano con lenguaje natural ("implementá esto con SDD").</p>
+<h2>El flujo SDD de punta a punta: un instalador real en Go</h2>
+<p>La demostración de trabajo es un proyecto completo: un instalador con TUI (Go + Bubble Tea) que detecta el sistema operativo, elige agentes de IA, resuelve dependencias y configura el ecosistema entero. El input es un PRD (Product Requirements Document): el documento que define qué se va a construir y por qué antes de tocar código —problema, objetivos, alcance, user stories, requerimientos funcionales y no funcionales, criterios de aceptación, dependencias y riesgos—. Sobre el PRD se deriva el RFC: la propuesta técnica con contexto, solución planteada, alternativas consideradas y descartadas, trade-offs, plan de implementación y preguntas abiertas para el equipo.</p>
+<pre class="mermaid">
+flowchart TD
+    PRD[PRD] --> P["Propose<br/>(subagente explora + propone)"]
+    P --> SP["Specs<br/>(qué se construye)"]
+    P --> DE["Design<br/>(cómo se construye)"]
+    SP --> T[Tasks]
+    DE --> T
+    T --> AP["Apply en batches<br/>con TDD: rojo → verde → refactor"]
+    AP --> V["Verify: validar contra<br/>propuesta, specs, diseño y tareas"]
+    V -- "gaps encontrados" --> AP
+
+</pre>
+
+<p>El ciclo completo, tal como se ejecutó: el orquestador lee el PRD, consulta Engram (donde ya había observaciones), y delega. El subagente de exploración investiga el estado actual y produce una propuesta guardada en Engram, junto con los riesgos identificados (cambios de configuración de los agentes, versionado de Node, complejidad de una TUI de nueve pantallas). Specs y diseño corren en paralelo con otro modelo, cada uno en su subagente, leyendo su skill y persistiendo en Engram. Luego se generan las tareas —8 fases, 9 batches de apply, con orden de dependencias correcto— y el apply se ejecuta batch por batch con TDD: primero los tests en rojo, luego el código mínimo para ponerlos en verde, después refactor con triangulación de casos borde. Nada pasa al siguiente batch hasta que todos los tests pasan.</p>
+<p>La fase de verificación es la que cierra el loop: valida todo lo construido contra la propuesta, las especificaciones, el diseño y las tareas, y en la primera pasada reportó fallos honestos —módulos del MVP sin conectar al runtime, pasos simulados en vez de reales—. Se re-ejecutó el apply con los gaps identificados y la segunda verificación terminó en <em>pass with warnings</em>, con una advertencia no bloqueante de trazabilidad (checkboxes sin marcar en el artifact de tareas). El resultado: la aplicación compilada, su TUI corriendo, con backups, detección de OS y sistema de extensión plug-and-play para agregar agentes nuevos implementando una interfaz.</p>
+<h2>La economía que sostiene todo: separación de contextos</h2>
+<p>Los números del proceso son el argumento más fuerte. Con el proyecto entero en marcha —propuesta, specs, diseño, tareas, apply de múltiples batches, verificación— el orquestador principal nunca superó el 15-18% de su ventana de contexto (unos 58.000-72.000 tokens), mientras subagentes individuales llegaban a los 45.000-60.000 tokens por su cuenta sin afectarlo. La causa es doble: el orquestador no ejecuta, y Engram retiene lo aprendido fuera de la conversación. Nunca se limpia el contexto: se sigue, y lo que se necesita se busca en Engram.</p>
+<p>Este patrón tiene raíces reconocibles: es gestión de estado —la misma disciplina de Redux o Zustand aplicada a la orquestación de agentes—. Y tiene una consecuencia práctica sobre la elección de modelos: planificar con modelos caros y potentes (Opus), ejecutar con modelos económicos o gratuitos (MiniMax, Kimi funcionaron muy bien), verificar con modelos fuertes en detección de bugs (Codex), y documentar con cualquiera. La suscripción de entrada de unos 20 euros alcanzó para todo el proyecto.</p>
+<p>Lo que más consume tokens, por otra parte, no es programar: es la documentación. Crear PRDs y RFCs, leerlos, explicarlos, validarlos, generar tablas y páginas —todo eso es el verdadero devorador de presupuesto, mucho más que el código.</p>
+<h2>Comportamiento del agente y criterios de fondo</h2>
+<p>El orquestador está configurado con una persona confrontadora y pedagógica: pregunta antes de actuar, exige contexto ("¿qué componente exactamente, qué hace, en qué pantalla vive?"), y ante una respuesta vaga devuelve la pregunta. La filosofía explícita: los conceptos importan más que el código; somos directores, no ejecutores (la analogía usada es Tony Stark y Jarvis); hay que tener fundamentos sólidos —patrones de diseño, arquitectura— antes que frameworks, y no existen shortcuts reales para aprender.</p>
+<p>De ahí también la diferencia declarada entre <em>vibe coding</em> (odiado explícitamente) y <strong>software engineering con IA</strong>: el mismo uso de herramientas, pero con criterio, verificación y control humano en cada fase. Y una predicción de fondo que enmarca todo: los lenguajes pueden terminar dando igual, porque la IA será la capa que hable lenguaje máquina; lo que no da igual es saber planificar, especificar y verificar, que es exactamente lo que este flujo industrializa.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Engram</strong>: memoria persistente en Go + SQLite + FTS5 vía MCP; resúmenes por capas, filtrado de secretos, persistencia de observaciones a mitad de sesión.</li>
+<li><strong>Agent Teams Lite</strong>: orquestación liviana multiagente con SDD, instalada como skills, con Engram/OpenSpec como lugar de la verdad; el orquestador nunca implementa código.</li>
+<li><strong>SDD (spec-driven development)</strong>: fases propose → specs → design → tasks → apply (en batches con TDD) → verify, iterando hasta pasar.</li>
+<li><strong>PRD / RFC</strong>: documento de requerimientos de producto y su derivación técnica (contexto, propuesta, alternativas, trade-offs, plan, preguntas abiertas).</li>
+<li><strong>TDD dentro del apply</strong>: tests en rojo, código mínimo en verde, refactor con triangulación de casos borde; ningún batch avanza con tests fallando.</li>
+<li><strong>GGA (Gentleman Guardian Angel)</strong>: revisión de código con cualquier CLI de agente, como pre-commit, pre-push o job de CI, con caché inteligente de archivos ya validados.</li>
+<li><strong>OpenSpec (openspec.dev)</strong>: framework spec-driven que versiona especificaciones técnicas en el repositorio.</li>
+<li><strong>Go + Bubble Tea + Lipgloss</strong>: stack elegido para el instalador TUI con nueve pantallas, modo interactivo y no interactivo, y sistema de backups.</li>
+<li><strong>Golden files</strong>: técnica de testing end-to-end estilo Playwright, usada para tests del instalador, con contenedores Docker por sistema operativo soportado.</li>
+<li><strong>MCP de Notion</strong>: creación y edición de páginas y tablas (PRDs, tablas de comparación de modelos) directamente desde el agente.</li>
+<li><strong>Selección de modelos por fase</strong>: Opus para planificar, Sonnet/MiniMax/Kimi para ejecutar, Codex para verificar; plugins gratuitos y límites de suscripción como factor de decisión.</li>
+<li><strong>Prowler / GentlemanDots</strong>: repositorios del autor donde vive aplicada esta arquitectura.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La combinación de orquestador que solo delega + subagentes con contexto aislado + memoria persistente en Engram mantiene el contexto del hilo principal en torno al 15-18% durante un proyecto completo; esa separación de contextos es el motor de la velocidad del flujo.</li>
+<li>El SDD con verificación honesta funciona como control de calidad real: la primera verificación encontró los gaps del MVP y el ciclo apply-verify iteró hasta cerrarlos, en vez de entregar una impresión optimista.</li>
+<li>Agent Teams Lite demuestra que la orquestación multiagente no necesita estar atada a un proveedor: implementada como skills con un lugar de la verdad compartido, corre sobre cualquier agente CLI.</li>
+<li>El trabajo con IA no reduce el volumen de ingeniería: aumenta los commits, los releases y las líneas; lo que cambia es el reparto del esfuerzo, hacia planificar, especificar y verificar.</li>
+<li>Documentar es lo que más tokens consume, y por eso las herramientas de memoria y los resúmenes estructurados (qué, cómo, por qué, dónde) son la inversión de mayor retorno del sistema.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/c5Gwx0RcxNE">«They ASKED me to show HOW I work with AI -&gt; Here is EVERYTHING | Engram + Agent Teams + SDD»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

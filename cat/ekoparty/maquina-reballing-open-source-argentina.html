@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reballing accesible: una máquina BGA open hardware hecha en Argentina — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Reballing accesible: una máquina BGA open hardware hecha en Argentina</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/LwLx1H2FKQI">«Máquina de reballing Open source , Open hardware argentino -Matias Leon / Fabian Dorrego»</a> · ver el <a class="nz-link" href="https://youtu.be/LwLx1H2FKQI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> LwLx1H2FKQI · <strong>URL:</strong> https://youtu.be/LwLx1H2FKQI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Máquina de reballing Open source , Open hardware argentino -Matias Leon / Fabian Dorrego</li>
+</ul>
+<h2>Resumen</h2>
+<p>Casi toda la electrónica moderna —celulares, tablets, notebooks, monitores e incluso hornos microondas— depende de chips montados con soldadura de superficie tipo BGA: en lugar de pines, el integrado reposa sobre una matriz de esferas de soldadura que lo conectan a la PCB. Para los fabricantes es una bendición: abarata la manufactura, reduce tamaño, mejora la disipación y soporta altas frecuencias. Para quienes reparan, es un dolor de cabeza: una sola esfera defectuosa puede impedir que un equipo encienda, que dé video o generar fallas aleatorias, y no hay forma de inspeccionar visualmente lo que queda debajo del chip.</p>
+<p>Reemplazar o resoldar un BGA exige una estación de reballing con control térmico por zonas, y esas máquinas comerciales cuestan alrededor de 9.500 dólares en Argentina (algo menos afuera), antes de impuestos y trabas a la importación. Frente a ese vacío, un equipo argentino desarrolló durante cuatro años una máquina de reballing completamente open source y open hardware: planos, cálculos de pistas, firmware y software de control descargables gratuitamente, con un costo de armado de unos 1.100 dólares —casi nueve veces menos que una comercial equivalente—.</p>
+<h2>Por qué el BGA es tan difícil de reparar</h2>
+<p>La soldadura BGA se basa en esferas que permiten que el chip repose sobre la placa con conducción casi perfecta. No todos los pads conducen señal: muchos sirven para disipación, lo que da a estos encapsulados una ventaja térmica frente a los de pines. La tecnología no es nueva —ya se usaba en una de las primeras versiones del 486, con esferas más grandes y mayor espaciado— y hoy un teléfono lleva al menos diez integrados de este tipo controlando fuentes, video, señales digitales y RF.</p>
+<p>El problema aparece al diagnosticar y al intervenir. Debajo de las esferas no se ve nada, y dar calor "a lo bruto" con un soldador o una pistola de aire termina deformando la placa o arruinando el integrado. La clave está en los perfiles de temperatura: el fabricante especifica qué temperatura debe alcanzar el conjunto y en cuánto tiempo, tanto por arriba como por abajo, con precalentadores que mantienen la placa homogénea para que no se deforme. Si el centro queda muy caliente y los bordes fríos, la placa se comba hacia abajo y el trabajo se vuelve imposible.</p>
+<p>Dentro del encapsulado, el chip propiamente dicho es un cristal de silicio minúsculo (el die) montado sobre un sustrato verde que actúa como adaptador mecánico y térmico, y que lleva capacitores de filtrado de frecuencia lo más cerca posible del die. Ese cristal es básicamente vidrio: cualquier rayadura o golpe lo quiebra. Además, arriba también hay una matriz de esferas de soldadura mucho más miniatura; si se aplica temperatura sin control, esas esferas internas se funden y se pegan entre sí, y el chip queda inutilizable.</p>
+<p>La historia se repite: en su momento las placas con GPU de AMD o NVIDIA llegaban al taller destinadas al reballing (las máquinas de esa época: JPDB4, DB6000, F500, F700). Hoy los procesadores Intel de octava, novena y décima generación fallan masivamente porque integran el procesador y el PCH en el mismo die, generando temperaturas excesivas.</p>
+<h2>Arquitectura de la máquina</h2>
+<p>El proyecto se controla con un Arduino Mega —elegido por la cantidad de pines necesarias— y monitorea en forma constante las tres zonas térmicas: tobera superior, zona inferior y precalentadores. El microcontrolador lee los sensores de temperatura y modula un pulso PWM hacia tres relés sólidos, que gobiernan las resistencias calefactoras alimentadas en 220 V (o 110 V: un colaborador de España, Stani, recalculó los consumos y ya levantó máquinas funcionando con esa tensión). Una fuente switching común completa la electrónica.</p>
+<pre class="mermaid">
+flowchart LR
+    S1[Sensor tobera superior] --> M
+    S2[Sensor zona inferior] --> M
+    S3[Sensor precalentadores] --> M
+    M[Arduino Mega<br/>control PWM] --> R1[Relé sólido 1] --> Z1[Resistencia superior]
+    M --> R2[Relé sólido 2] --> Z2[Resistencia inferior]
+    M --> R3[Relé sólido 3] --> Z3[Precalentadores]
+    PC[PC · software de control<br/>perfiles térmicos] <--> M
+
+</pre>
+
+<p>El proyecto se compone de tres partes, todas liberadas: el hardware (la placa, concebida desde un boceto a mano y convertida en PCB por uno de los desarrolladores), el firmware del Arduino y un software de control de escritorio. Quien conozca los proyectos Prusa o Marlin de impresión 3D encontrará un modelo similar: se coloca el Arduino, se carga el firmware y la máquina queda lista.</p>
+<h2>Perfiles térmicos y software de control</h2>
+<p>El software permite seleccionar perfiles que respetan la hoja de datos de cada fabricante: cada segmento define una temperatura máxima y un tiempo. En una etapa típica de precalentamiento, por ejemplo, no se superan los 100 °C durante 35 segundos, y luego se avanza por segmentos con temperaturas crecientes. La temperatura superior y la inferior se controlan por separado: para que el calor llegue desde abajo debe atravesarse el sustrato de la placa, y el perfil compensa esa diferencia para lograr la temperatura exacta en la unión. La tolerancia térmica de algunos chips —los de Intel en particular— es muy estricta.</p>
+<p>El programa es open source, se actualiza cada seis o siete meses y la comunidad aporta funciones: la versión nueva incorpora una cámara web para centrar el chip mediante comparación de imágenes, ya que el centrado tras el retiro se hace a mano y no existe forma de ver las esferas una vez colocado el integrado.</p>
+<p>En pruebas, el consumo pico ronda los 2.800 watts: 800 W en la zona superior, 800 W en la inferior, más los precalentadores y la electrónica.</p>
+<h2>Un programador de EEPROM inalámbrico como complemento</h2>
+<p>El mismo equipo presentó un segundo proyecto, terminado apenas la víspera: un programador de EEPROM USB y Wi-Fi, también open source. El dispositivo genera su propia dirección IP, se controla desde el navegador y funciona sin conexión a una computadora: con el firmware de cada BIOS copiado en una tarjeta SD, permite cargar, borrar y verificar chips desde el menú del aparato. Otra función destacada es la depuración por puerto serie (UART): permite ver el log de cualquier dispositivo basado en microcontrolador —televisores, notebooks, tablets, ESP, Arduino— directamente en el programador o en la web, sin necesitar una PC. Muchas fallas actuales se deben a la EEPROM, y esta herramienta cubre lectura, escritura, reprogramación y verificación de integridad.</p>
+<h2>Costos, comunidad y estado del proyecto</h2>
+<p>La comparación de costos es contundente: una máquina comercial de tres zonas (calor superior, inferior y precalentadores) cuesta alrededor de 9.500 dólares en Argentina, mientras que armar esta versión completa demandó aproximadamente 1.100 dólares. Por ahora no se comercializa —la volatilidad cambiaria encareció la producción—, pero todo se distribuye como software libre: hay grupos de Telegram con diagramas adicionales, CAD de medidas exactas hechos por colaboradores y proveedores de la Ciudad de Buenos Aires que cortan las varillas del chasis a medida según la lista de materiales. Tras cuatro años de desarrollo, la máquina se demuestra en vivo, incluyendo la extracción de un chip.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Soldadura BGA (ball grid array)</strong>: encapsulado de superficie basado en esferas de soldadura; usada desde el 486 hasta teléfonos actuales.</li>
+<li><strong>Reballing</strong>: proceso de reemplazo o resoldado de las esferas de un integrado BGA.</li>
+<li><strong>Perfil de temperatura</strong>: curva de temperatura/tiempo que especifica el fabricante del chip, respetada por segmentos (precalentamiento, rampas, pico).</li>
+<li><strong>Precalentadores</strong>: zonas de calor inferior que mantienen la placa homogénea para evitar deformaciones.</li>
+<li><strong>Die e interposer</strong>: el cristal de silicio del chip montado sobre un sustrato con capacitores de filtrado cercanos.</li>
+<li><strong>Arduino Mega</strong>: microcontrolador que lee sensores y genera PWM para los relés sólidos.</li>
+<li><strong>Relés sólidos (SSR)</strong>: conmutan las resistencias calefactoras de las tres zonas en 220/110 V.</li>
+<li><strong>Software de control con perfiles</strong>: aplicación open source de control de temperaturas por zona, con centrado asistido por cámara web.</li>
+<li><strong>Programador de EEPROM Wi-Fi</strong>: herramienta complementaria con tarjeta SD, interfaz web y depuración por UART.</li>
+<li><strong>Depuración por puerto serie (UART)</strong>: lectura del log de dispositivos basados en microcontrolador sin PC.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El BGA domina la electrónica moderna por costo, tamaño y disipación, pero vuelve prácticamente imposible reparar sin una estación con control térmico por zonas: una sola esfera defectuosa inutiliza un equipo.</li>
+<li>Una máquina de reballing open hardware basada en Arduino Mega, relés sólidos y perfiles por segmentos reproduce las funciones de una comercial de 9.500 dólares por unos 1.100 dólares de materiales.</li>
+<li>La fidelidad al perfil térmico del fabricante es la diferencia entre recuperar un chip y arruinarlo: las esferas internas se funden y se pegan sin control, y el die es un cristal frágil.</li>
+<li>Liberar hardware, firmware y software más una comunidad activa (CADs, proveedores, grupos de Telegram) convierte una herramienta de laboratorio en infraestructura reproducible para técnicos independientes.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/LwLx1H2FKQI">«Máquina de reballing Open source , Open hardware argentino -Matias Leon / Fabian Dorrego»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

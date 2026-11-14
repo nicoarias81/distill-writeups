@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credenciales del navegador: mover el candado no cambia la frontera — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Credenciales del navegador: mover el candado no cambia la frontera</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/LgtxPHYsD8U">«DEF CON 33 - Your Credentials Are Still Mine: Extracting Credentials from Latest Browsers - Li He (MoonDoc), Slim Wang»</a> · ver el <a class="nz-link" href="https://youtu.be/LgtxPHYsD8U">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> LgtxPHYsD8U · <strong>URL:</strong> https://youtu.be/LgtxPHYsD8U · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Your Credentials Are Still Mine: Extracting Credentials from Latest Browsers - Li He (MoonDoc), Slim Wang</li>
+</ul>
+<h2>Resumen</h2>
+<p>El navegador dejó de ser una herramienta: es el sistema operativo donde transcurre la jornada — documentos, código, reuniones, servidores. Cada sesión viva, cada credencial y cada token de acceso vive en él. Por eso la pregunta de si el navegador protege bien sus secretos es en realidad la pregunta de si la vida digital completa está protegida.</p>
+<p>Este trabajo parte del proyecto open source <strong>HackBrowserData</strong> (seis años de desarrollo, Chrome/Firefox/Safari y la mayoría de derivados de Chromium, sobre Windows/Linux/macOS: una cuenta de usuario cualquiera basta para obtener contraseñas y cookies en texto plano) y analiza las dos grandes actualizaciones de 2024-2025: <strong>App-Bound Encryption</strong> (Chrome 127) y el salto de TripleDES a AES en Firefox 144. La conclusión: son avances reales en la frontera de descifrado, pero la frontera de confianza — quién ya corre como tu usuario — no se movió ni un milímetro.</p>
+<h2>Dos fronteras, un solo trabajo bien hecho</h2>
+<ul>
+<li><strong>Frontera de descifrado</strong>: qué tan difícil es pasar de blob cifrado a texto plano (algoritmos, derivación de claves). AES, App-Bound, el AES de Firefox la endurecen. Es trabajo real y cuenta.</li>
+<li><strong>Frontera de confianza</strong>: quién ya está autorizado por el sistema operativo a ejecutar código en tu contexto. Antes de App-Bound el atacante corría como tu usuario; después, también.</li>
+</ul>
+<p>El cifrado protege contra atacantes <strong>fuera</strong> de la frontera de confianza. Los escenarios post-compromiso — los que operan en red team — ponen al atacante <strong>dentro</strong>. Todo lo que sigue vive en ese hueco.</p>
+<h2>Cómo almacenan las credenciales</h2>
+<p>En disco todo son formatos públicos y documentados (SQLite y JSON), sin nada oculto, con claves y datos cifrados bajo el mismo perfil de usuario:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th></th>
+<th>Chrome</th>
+<th>Firefox</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Clave maestra</td>
+<td>22 bytes aleatorios, cifrada con DPAPI en <code>local state</code></td>
+<td>En SQLite <code>key4.db</code></td>
+</tr>
+<tr>
+<td>Cifrado de contraseñas</td>
+<td>AES con la clave maestra, en <code>login data</code></td>
+<td>NSS (TripleDES → AES en v144), en <code>logins.json</code></td>
+</tr>
+<tr>
+<td>Cookies</td>
+<td>Cifradas</td>
+<td><strong>Sin cifrar</strong>: texto plano legible por cualquier proceso</td>
+</tr>
+<tr>
+<td>Ligadura de la clave</td>
+<td>A la sesión del usuario (DPAPI)</td>
+<td>A un archivo</td>
+</tr>
+<tr>
+<td>Biblioteca criptográfica</td>
+<td>DPAPI (Windows)</td>
+<td>NSS de Mozilla</td>
+</tr>
+</tbody>
+</table></div>
+<p>El ataque de primera etapa es idéntico en ambos: localizar los archivos (rutas conocidas), extraer clave maestra cifrada + contraseñas cifradas, y <strong>desbloquear</strong> la clave maestra llamando a la función propia del navegador — <code>DPAPI Unprotect</code> en Chrome, <code>PK11 SDP decrypt</code> en Firefox. Exactamente lo que el navegador hace al leer una contraseña; la única diferencia es quién lo invoca. Sin admin, sin exploit, sin escalada: solo APIs. Y la implicación es general: <strong>cualquier proceso que corra como tu usuario puede hacer esto</strong> — un script, un EXE, cualquiera. El EDR puede detectar algunos patrones, pero eso es una capa de detección encima; el cifrado en sí no detiene a nadie.</p>
+<h2>App-Bound Encryption: qué hace y por qué no basta</h2>
+<p>Chrome 127 introdujo App-Bound: el descifrado ya no es una llamada DPAPI local, sino una <strong>COM al servicio IElevator</strong>, que corre con privilegios de sistema. IElevator valida la llamada (verificación <strong>basada en ruta</strong>: ¿el proceso llamante está en el directorio de instalación de Chrome?), desenvuelve dos capas de DPAPI y devuelve la clave app-bound de 32 bytes en claro.</p>
+<p>La validación solo mira la ruta de donde corre el proceso. Un atacante que ya corre como usuario actual <strong>se inyecta en el proceso legítimo del navegador</strong>: el check de ruta pasa (el llamante <em>es</em> Chrome) y IElevator entrega la clave. App-Bound mueve el candado para el atacante que ya está dentro de la casa.</p>
+<h2>Robar archivos bloqueados: handle borrow</h2>
+<p>Cuando Chrome corre, mantiene un <strong>bloqueo exclusivo</strong> sobre la base de datos de cookies; copiar el archivo directo falla ("el proceso no puede acceder al archivo porque está en uso"). En un engagement real cerrar el navegador no es opción.</p>
+<p>Dos enfoques conocidos quedan cortos porque ambos exigen admin:</p>
+<ul>
+<li><strong>VSS</strong> (Volume Shadow Copy): snapshot del volumen, lectura desde el snapshot. Requiere privilegios de administrador.</li>
+<li><strong>NTFS raw copy</strong>: leer sectores crudos del disco saltándose el filesystem. También requiere admin.</li>
+</ul>
+<p><strong>Handle borrow</strong> toma el tercer camino: robar el file handle directamente del proceso <strong>network service</strong> de Chrome (el subprocess que sostiene el lock sobre la base de cookies), <strong>duplicarlo</strong> en el proceso propio y leer a través de él. Sin snapshot, sin acceso a disco crudo, sin admin: usuario estándar puro. La moraleja: un file lock es un mecanismo de concurrencia, no una frontera de seguridad. Funciona en Chrome, Edge, Brave — cualquier Chromium con ABE habilitado, automatizado, sin exploit de kernel.</p>
+<h2>Firefox 144: cipher nuevo, superficie igual</h2>
+<p>El salto de TripleDES-CBC a AES-256-CBC es real (TripleDES es un cifrado débil por estándares modernos, y llevaba desde 2004 protegiendo las contraseñas de Firefox). Pero el resto de la cadena no cambió:</p>
+<ul>
+<li>Derivación de clave: sigue <strong>NSS PK11 SDR</strong>.</li>
+<li>Almacenamiento: siguen <code>key4.db</code> y <code>logins.json</code>.</li>
+<li>Binding al OS: <strong>ninguno</strong> (Chrome al menos intenta ligar vía IElevator).</li>
+<li>Única capa de protección: acceso a archivos. Si puedes leer <code>key4.db</code> y <code>logins.json</code>, tienes todo.</li>
+</ul>
+<p>La ruta de descifrado es la misma que antes: leer key4.db → <code>PK11 SDR decrypt</code> para desenvolver la clave maestra → descifrar logins.json. Solo cambió el cipher del final de la cadena. Cifrado fuerte, misma superficie de ataque. En configuración por defecto (sin master password), usuario estándar, automatizado.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Proceso como usuario estandar] --> B[Leer archivos de perfil<br/>local state / key4.db / logins.json]
+    B --> C{Desbloquear clave maestra}
+    C -->|Chrome| D[Inyeccion en proceso Chrome<br/>IElevator: check de ruta OK]
+    C -->|Firefox| E[NSS PK11 SDR decrypt<br/>sin binding al OS]
+    D --> F[Clave app-bound en claro]
+    E --> G[Clave maestra en claro]
+    F --> H[Descifrar credenciales AES]
+    G --> H
+    H --> I[Handle borrow para cookies<br/>duplicar handle del network service]
+
+</pre>
+
+<h2>Qué sí encamina a la frontera correcta</h2>
+<p>La pregunta útil no es "el cifrado es más fuerte" sino <strong>qué encogerá la frontera de confianza</strong>. El intento más concreto hoy: <strong>DBSC</strong> (Device Bound Session Credentials) de Google — sustituye cookies de sesión de larga vida por cookies <strong>de vida corta</strong> (minutos) cuya renovación exige demostrar posesión de una clave privada respaldada en el <strong>TPM</strong>. El atacante que robe una cookie tiene una ventana de minutos, no de días. No es solución completa, pero mueve la frontera correcta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>HackBrowserData</strong>: proyecto open source de extracción de credenciales; demo en vivo contra navegadores fully-patched.</li>
+<li><strong>DPAPI / IElevator (App-Bound Encryption)</strong>: ligadura de clave maestra a sesión y a ruta de instalación, saltada por inyección en proceso legítimo.</li>
+<li><strong>NSS / PK11 SDR</strong>: biblioteca criptográfica de Mozilla y su función de desenvelopment, invocable por cualquier proceso del usuario.</li>
+<li><strong>Handle borrow</strong>: duplicación del file handle del network service para leer bases de datos bloqueadas sin admin (frente a VSS y raw copy, que lo exigen).</li>
+<li><strong>TripleDES → AES-256-CBC (Firefox 144)</strong>: mejora de cipher sin cambio de superficie de ataque.</li>
+<li><strong>DBSC (Device Bound Session Credentials)</strong>: cookies de vida corta con renovación ligada al TPM.</li>
+<li><strong>SQLite + JSON en disco</strong>: formatos públicos donde viven claves y datos; nada oculto, todo documentado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Veinte años de actualizaciones de cifrado en Chrome y Firefox no impidieron una sola vez la extracción desde el propio contexto del usuario: el cifrado protege de fuera, el atacante post-compromiso ya está dentro.</li>
+<li>App-Bound y el AES de Firefox endurecen la frontera de descifrado; la de confianza queda intacta. Mover el candado no es cambiar la puerta.</li>
+<li>Los mecanismos de bloqueo de archivos son concurrencia, no seguridad: el handle borrow los rodea con usuario estándar donde VSS y raw copy exigen admin.</li>
+<li>La dirección correcta existe (DBSC, sesiones ligadas a dispositivo) y apunta a encoger la frontera de confianza — el problema difícil que de verdad hace falta resolver.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/LgtxPHYsD8U">«DEF CON 33 - Your Credentials Are Still Mine: Extracting Credentials from Latest Browsers - Li He (MoonDoc), Slim Wang»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

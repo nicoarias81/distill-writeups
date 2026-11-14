@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seguridad automotriz 2024: diagnosticada por dentro, discutida por fuera — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Seguridad automotriz 2024: diagnosticada por dentro, discutida por fuera</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/MDndWJxfP-U">«DEF CON 33 - The Hack, the Crash, and Two Smoking Barrels - Crow Tom»</a> · ver el <a class="nz-link" href="https://youtu.be/MDndWJxfP-U">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> MDndWJxfP-U · <strong>URL:</strong> https://youtu.be/MDndWJxfP-U · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - The Hack, the Crash, and Two Smoking Barrels - Crow Tom</li>
+</ul>
+<h2>Resumen</h2>
+<p>Dos años, casi 200 proyectos de pentesting e investigación automotriz, 25 hallazgos de seguridad (safety) relacionados —solo 2 aceptados por los fabricantes—. El diagnóstico del sector: arquitecturas de ECUs sobre CAN sin cifrar ni autenticar, protocolos de diagnóstico UDS con secuencias seed-key rompibles, equipos de telemática con JTAG accesible por tiempo de arranque, y un proceso de divulgación roto donde las acusaciones políticas sustituyen a la corrección. Frente a ello, la contraportada de esperanza: un ESP32 de $10 con RNG de hardware hace lo que SoCs automotrices de cientos de miles de dólares no.</p>
+<h2>El estado de la industria: computadoras sobre ruedas</h2>
+<p>Los vehículos ya no son mecánica con algo de electrónica: son computadoras sobre ruedas con más funcionalidad que una sala de estar, servicios conectados que el usuario pide y que el fabricante implementa de forma insegura —ejemplos diarios, algunos semanales en prensa—. La arquitectura típica sigue siendo un enjambre de ECUs (electronic control units) segmentadas en buses aislados por funcionalidad y criticidad, con interfaces expuestas internamente como necesidad de las nuevas tecnologías: el ECU de carga a bordo expone la comunicación con el cargador; la head unit, expuesta a internet vía unidad de telemática para SOS y OTA.</p>
+<p>El protocolo dominante sigue siendo CAN, con más de 40 años: sin cifrado estándar, sin autenticación de mensajes —interceptación, inyección y replicación de mensajes son la norma salvo protecciones adicionales, más infrecuentes de lo esperable—. En regulación, UN-R155 (UNECE) obliga ya a fabricantes que homologan en países miembros; EE.UU. carece de regulación vinculante equivalente. El punto crítico del panorama regulatorio: es un comienzo, con todos los defectos de una regulación.</p>
+<h2>El problema de la divulgación: 25 hallazgos, 2 aceptados</h2>
+<p>Los programas de divulgación (VDP) no son la norma en la industria. Los pocos OEMs que incentivan a investigadores —Tesla, BMW como excepciones, no como representantes del sector— pagan solo hallazgos críticos de seguridad, sin lugar para hallazgos críticos de seguridad física (safety). El dato duro: 25 hallazgos safety-related en dos años, solo 2 aceptados —no por fuera de alcance sino por la imposibilidad misma de canalizarlos—.</p>
+<p>El caso narrado en detalle: en un rental en Arizona (probado de noche, no de día por el calor), un simple <strong>ECU reset</strong> vía puerto OBD accesible al usuario reinició un ECU y activó el sensor de detección de punto ciego. La escalada lógica: sin precondiciones (sin restricción por velocidad), el sensor puede activarse en marcha, con implicaciones serias para el ADAS —interrupción de dirección en cambio de carril, frenado por falso positivo—. Al no existir VDP, el reporte se canalizó vía un contacto que finalmente respondió: los hallazgos afectaban múltiples modelos y años del OEM. La respuesta: <strong>el costo de corregir excede las expectativas para ese modelo</strong>; la futura arquitectura eléctrica/electrónica de 2025-2026 lo mitigará —o sea, la arquitectura actualmente en venta sigue vulnerable y sin divulgación pública—.</p>
+<p>El drama posterior: al proponer divulgación responsable vía ASRG (Automotive Security Research Group, CNA oficial) —reportado a un email genérico de la web, sin contactar a nadie en concreto—, el OEM cortó toda comunicación y terceros ajenos acusaron al investigador de colaborar con naciones hostiles. El trasfondo: el gestor del caso en el VDP público tenía la ciudadanía de una "nación hostil" —sin residir en ella, con residencia en el país del propio OEM, y habiéndose hecho cargo precisamente por su afiliación al OEM—. La decisión de publicar en DEF CON llegó tras esta cadena; el OEM respondió ese mismo día.</p>
+<h2>UDS y security access: el seed-key rompible</h2>
+<p>El Unified Diagnostics Protocol (UDS) vive en la capa de aplicación de las ECUs y ofrece servicios de diagnóstico: lectura/erase de fallos, reprogramación, testing. El servicio 11 (ECU reset), con sub-servicios de reset duro o suave, equivale en el caso duro a un power cycle completo —que en muchos casos también reinicia el reloj de sistema—.</p>
+<p>El mecanismo de acceso, <em>security access</em>, es un challenge-response: el cliente pide una seed aleatoria; el ECU la genera y calcula la key con un algoritmo y clave secretos; el cliente debe reproducir esa key. Sin cifrado (en el 99% de los casos sin autenticación de mensajes), la interceptación de un par seed-key válida es factible, pero la aleatoriedad de la seed debía impedir el replay de una sola pareja. La realidad encontrada:</p>
+<ul>
+<li><strong>Reloj de sistema como fuente de débil aleatoriedad:</strong> tras un ECU reset (que resetea el reloj), un delay fijo entre reset y petición de seed produce <strong>la misma seed con 100% de precisión</strong> —32 bytes de seed que aparentan seguridad—. Un solo par seed-key capturado (visita al service, OTA) basta para acceso elevado permanente.</li>
+<li><strong>Restricción por software, no por hardware:</strong> el ECU de telemática (que debe estar siempre disponible para llamadas SOS) restringe power cycles por software, no por hardware. Un relé que corta la alimentación externa al ECU anula esa mitigación: <strong>compromiso completo de la unidad</strong>, replicado como PoC en la herramienta del autor (fork de Caribou, "Caribou Next").</li>
+<li><strong>Battery isolators:</strong> la misma técnica escala a vehículos completos: los aisladores de batería —de serie en EVs, recientemente identificados también en vehículos de pasajeros— permiten controlar el ciclo de energía externamente y ejecutar los ataques combinados en un vehículo real.</li>
+</ul>
+<h2>Hardware de ECU telemática: dos SoCs y un JTAG abierto por segundos</h2>
+<p>La unidad telemática estudiada (ECU no relacionada con proyectos comerciales) es un ejemplo de arquitectura de seguridad funcional: dos SoCs —secure y application controller— que ejecutan cada instrucción en ambos y comparan; si difieren, fallback. Es la arquitectura esperable en componentes cuya falla causa daño, lesión o muerte.</p>
+<p>Los descubrimientos en la placa:</p>
+<ul>
+<li><strong>Dos headers JTAG visibles</strong> (aportados por el fabricante, marcados en la placa). Ambos bloqueados... al conectar en caliente. Conectando el debugger <strong>en los primeros segundos tras el boot</strong>, un huevo de pascua: <strong>debug habilitado en el secure controller</strong>, control de ejecución y dump de memoria completos.</li>
+<li><strong>Modem Qualcomm con download mode:</strong> pins que en corto habilitan Qualcomm download mode; conectando un USB a los pines identificados, dump del firmware por segunda vía.</li>
+<li><strong>El enigma del reloj:</strong> el firmware automotriz referencia constantemente el reloj del sistema —la pista que explica la seed repetible del caso anterior—. Y la observación fina: al capturar seeds más rápido, el byte medio de la seed incrementa en 1. La "seguridad por oscuridad" era la mitigación que impedía ver lo evidente: el ECU restringe power cycles por software, no por hardware.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[UDS security access
+seed + key] --> B[ECU reset service 11
+hard reset = power cycle]
+    B --> C[Reloj de sistema reseteado]
+    C --> D[Seed repetible
+100% con delay fijo]
+    D --> E[Replay de par capturado
+acceso elevado]
+    B --> F[Restricción de power cycle
+solo por software]
+    F --> G[Relé externo / battery isolator]
+    G --> H[Compromiso completo]
+
+</pre>
+
+<h2>Casos de seguridad física (safety) donde el bug es el vehículo</h2>
+<ul>
+<li><strong>Contactores de batería de EV:</strong> al inyectar mensajes no autenticados en el bus, la batería emitía un sonido; la conversación con ingeniería lo identificó como los contactores operando. El desgaste del contacto aumenta la resistencia → calentamiento localizado prolongado → <strong>riesgo de incendio</strong>. No se puede demostrar quemando un paquete de baterías durante días; el tema terminó ahí, con el vehículo fuera y los ingenieros a salvo.</li>
+<li><strong>Vehículos de hidrógeno:</strong> pequeñas fugas en el tanque afectan la rotación específica de la válvula y pueden asfixiar un garaje entero en minutos. Sin demostración práctica posible; la conclusión es física, no exploit.</li>
+</ul>
+<p>La lección transversal: los desarrolladores de componentes prueban contra simulación del vehículo, no contra el vehículo real; un bug de impacto mínimo en seguridad lógica puede tener consecuencia de seguridad física devastadora fuera del alcance del testing funcional.</p>
+<h2>La cultura del problema y el ESP32 de $10</h2>
+<p>Las excusas recurrentes de ingeniería y dirección: requisitos mal definidos, deadlines estrictos, ciclos de vida largos de producto. El diagnóstico del autor: es un problema cultural —de empresa y de país—. La pregunta incómoda: ¿quién es responsable de la persona que muera si el próximo hallazgo no se corrige?</p>
+<p>El contraste que mejor resume el estado del arte: un pequeño fabricante acudió a evaluación y no se encontró ni un punto de entrada al ECU custom —no por blindaje automotriz de cientos de miles de dólares sino porque el diseño usaba un <strong>ESP32 de $10</strong>, con RNG de hardware por combinación de ruido térmico del ADC y desajuste de relojes asíncronos. No es invulnerable, pero el criterio de mitigación real no es la sofisticación del exploit sino <strong>el presupuesto que hace falta para romperlo</strong>. Sistemas no críticos de seguridad como PlayStation implementan mitigaciones de última generación; el coche —"computadora sobre ruedas"— no mitiga ni lo básico.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>UDS (Unified Diagnostics Service):</strong> servicios 11 (ECU reset) y 27 (security access), seed-key, sub-funciones de reset duro/suave.</li>
+<li><strong>Seed predictability por system clock reset:</strong> ECU reset + delay fijo = seed idéntica con 100% de repetición.</li>
+<li><strong>Relay power-cycle attack:</strong> corte externo de alimentación al ECU (rele, battery isolator de EV) para saltar restricciones software de power cycle; PoC publicado en "Caribou Next" (fork de Caribou).</li>
+<li><strong>JTAG early-boot access:</strong> conexión del debugger en los primeros segundos del boot habilita debug en el secure controller.</li>
+<li><strong>Qualcomm download mode:</strong> pines del modem SoC en corto + USB para dump de firmware.</li>
+<li><strong>CAN sin cifrar ni autenticar:</strong> interceptación, inyección, replay; contexto UN-R155 como único marco regulatorio vinculante (UNECE).</li>
+<li><strong>ESP32 con hardware RNG:</strong> contrapunto de buen diseño a SoCs automotrices sin aleatoriedad real.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El sector sigue construyendo sobre CAN de 40 años sin cifrado ni autenticación de mensajes, y sobre UDS con secuencias seed-key rompibles por reset del reloj de sistema.</li>
+<li>Las restricciones de seguridad sobre ECUs (limitar power cycles) se implementan por software y se evaden por hardware: un relé externo o un battery isolator de serie las anula.</li>
+<li>La cadena de divulgación está rota: sin VDP, con hallazgos safety-related sin canal de reporte, con acusaciones políticas a terceros inocentes y con la decisión corporativa de "no corregir porque el modelo ya se vendió".</li>
+<li>La seguridad no es sofisticación sino presupuesto del atacante: un SoC de $10 con RNG de hardware mitiga más que arquitecturas automotrices de cientos de miles de dólares sin él.</li>
+<li>El cambio real depende de los propios investigadores: cultura, PoCs, papers, charlas — "hagamos el mundo más seguro, un PoC a la vez".</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/MDndWJxfP-U">«DEF CON 33 - The Hack, the Crash, and Two Smoking Barrels - Crow Tom»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

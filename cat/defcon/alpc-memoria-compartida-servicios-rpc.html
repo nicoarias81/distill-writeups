@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Memoria compartida ALPC: del parche de Windows a SYSTEM — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Memoria compartida ALPC: del parche de Windows a SYSTEM</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Eyl_0YxfnpQ">«DEF CON 32 - Using ALPC security features to compromise RPC services - WanJunJie Zhang, Yisheng He»</a> · ver el <a class="nz-link" href="https://youtu.be/Eyl_0YxfnpQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Eyl_0YxfnpQ · <strong>URL:</strong> https://youtu.be/Eyl_0YxfnpQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Using ALPC security features to compromise RPC services - WanJunJie Zhang, Yisheng He</li>
+</ul>
+<h2>Resumen</h2>
+<p>ALPC (Advanced Local Procedure Call) es el mecanismo ligero de comunicación entre procesos de Windows, base de la mayoría de los servicios RPC del sistema y superficie de ataque enorme. Para pasar mensajes de forma eficiente, ALPC y RPC comparten memoria: el cliente escribe en una sección compartida y el servidor la lee directamente. En 2017 se demostró que esa memoria era un vector de double-fetch — el cliente podía cambiar el contenido mientras el servidor lo procesaba — y Microsoft respondió con un mecanismo de "vistas seguras" en el kernel.</p>
+<p>Este artículo disecciona ese mecanismo y el defecto que lo rodea: el tamaño de asignación de las regiones de la sección no se valida, lo que permite provocar un wrap del offset y crear dos vistas que apuntan a la misma página física. El kernel solo protege la primera; la segunda queda escribible y el double-fetch vuelve. A partir de esa primitiva se recorren las vías de explotación — corrupción de memoria en servicios RPC, bypass de UAC y una cadena completa contra el servicio DCOMLaunch que termina en shell SYSTEM desde un usuario estándar, saltándose DEP, CFG y XFG.</p>
+<h2>Arquitectura: ALPC, RPC y la sección compartida</h2>
+<p>La mayoría de servicios RPC de Windows se apoyan en ALPC o en named pipes y comparten el mismo modelo de seguridad; un fallo en ALPC se propaga a los servicios RPC que lo usan. Para evitar la sobrecarga de copiar datos, el kernel usa <strong>secciones</strong> (section objects) como mecanismo eficiente de paso de mensajes. Dentro de una sección, cada <strong>región</strong> representa un rango de memoria compartida abierto en el contexto de un puerto dado: el servidor tiene acceso de lectura y el cliente solo de escritura.</p>
+<h3>El catálogo histórico de fallos</h3>
+<p>Tres familias de vulnerabilidades marcan la historia de esta superficie:</p>
+<ul>
+<li><strong>Bugs lógicos de suplantación</strong>: cuando un servicio opera sobre archivos en nombre del llamante, no manejar bien symlinks y enlaces permite escribir, borrar o crear archivos sin los permisos correspondientes (CVE-2020-0911, con el device map del usuario y el directorio del instalador como ejemplo). Las técnicas de explotación — NTFS junctions, hardlinks, object symlinks, oplocks — están ampliamente documentadas.</li>
+<li><strong>Corrupción de memoria en el kernel ALPC</strong>: race windows entre creación de vista y de puerto que permiten destruir el objeto de puerto y provocar dereferences de punteros colgantes. Explotarlas exige ganar la carrera, lo que las hace poco prácticas.</li>
+<li><strong>El double-fetch de 2017</strong>: el kernel no protegía la protección de la sección compartida al pasar mensajes. Con <code>VirtualProtect</code> el cliente cambiaba la memoria de solo-lectura a escritura y modificaba parámetros mientras el servidor los usaba — visible con un servidor que imprime un string dos veces con un sleep entre medias.</li>
+</ul>
+<h3>Cómo funciona el parche de Microsoft</h3>
+<p>Tras el parche, el kernel crea vistas "seguras" que impiden cambiar atributos de memoria desde user space, y tanto el kernel como rpcrt4.dll activan un modo seguro: antes de deserializar, el servidor comprueba la región usada para el mensaje. Las reglas: la región no puede estar vinculada a más de dos view objects, y el kernel fuerza los atributos de la memoria a solo-lectura. Si algo falla, la región se marca como insegura y rpcrt4.dll copia la memoria compartida a un buffer de heap antes de procesarla — el double-fetch desaparece.</p>
+<p>El detalle de implementación en el kernel: los VAD (virtual address descriptors) marcan qué rangos son "secure views"; al llamar <code>VirtualProtectEx</code>, funciones de protección de WSLE y manipulación del PTE (los bits de escritura se limpian, y los bits reservados 60-62 de Intel se usan con un propósito propio de Microsoft) dejan la página en no-acceso/lectura para el cliente. <code>MiCheckSecureVAD</code> y la comparación con la máscara de protección deseada rechazan el cambio.</p>
+<h2>La vulnerabilidad: regiones superpuestas</h2>
+<p>El offset de inicio de cada región se calcula automáticamente a partir de la región anterior; el tamaño de asignación, en cambio, no se valida. Si se solicita un tamaño extremadamente grande, el offset final hace wrap — por granularidad de vista — hasta <strong>cero</strong>, y la nueva región se superpone con la primera: dos vistas mapean la misma página física.</p>
+<p>El kernel solo asegura la primera vista (la que se usa para enviar el mensaje ALPC). La segunda queda fuera de toda protección y es escribible. Escribiendo por la segunda vista se modifica el contenido que el servidor está leyendo por la primera: el double-fetch vuelve, y <code>MiSecureView</code> no protege contra esto. Verificado en Windows 11 contra un servicio RPC custom: la misma dirección física aparece en ambas vistas, la primera marcada de solo lectura y la segunda escribible.</p>
+<pre class="mermaid">
+flowchart TB
+    A[Sección compartida ALPC] --> B[Región 1: vista asegurada por el kernel, read-only]
+    A --> C[Región 2: tamaño no validado, offset con wrap a 0]
+    B --> D[Misma página física]
+    C --> D
+    D --> E[Escritura por vista 2 = double-fetch sobre el mensaje del servidor]
+
+</pre>
+
+<h2>Vías de explotación</h2>
+<h3>Corrupción de memoria en servicios RPC</h3>
+<p>Con el double-fetch hay tres patrones de buffer overflow, condicionados a que el servicio use la memoria compartida sin copiarla a otra dirección:</p>
+<ol>
+<li><strong>Filling del argument gap</strong>: un servicio con múltiples output streams llena la memoria compartida; tras terminar la función de servidor y volver a rpcrt4.dll, el tamaño del stream en memoria ya no coincide con el máximo permitido y se provoca el crash.</li>
+<li><strong>Tamaño de string vía puntero</strong>: cambiar el tamaño cuando el servidor deserializa provoca out-of-bounds read al copiar a heap — solo negación de servicio.</li>
+<li><strong>Spoolss</strong>: al abrir una impresora, el nombre se accede dos veces (wcslen); cambiando el offset del stream entre ambas lecturas se obtiene un out-of-bounds write de bytes nulos — explotable pero exige ganar la carrera y construir objetivos fiables.</li>
+</ol>
+<h3>Bypass de UAC</h3>
+<p>El servicio de información de aplicaciones (AppInfo) lee la línea de comandos directamente de la memoria compartida sin copiarla — candidato ideal. Las defensas del servicio: una whitelist de programas y argumentos que no disparan la ventana de confirmación, y una verificación de la sección de imagen del proceso lanzado contra el fichero (evita ejecutar un binario distinto al validado). Pero los argumentos no se revalidan: combinando un fichero <code>.msc</code> malicioso que autoejecuta un script con <code>services.msc</code> (en la whitelist) se obtiene una consola de alta integridad sin confirmación. No es una violación del modelo de Microsoft — UAC no es un boundary de seguridad — pero es una escalada práctica de medium a high integrity.</p>
+<h3>De double-fetch a SYSTEM: la cadena contra DCOMLaunch</h3>
+<p>La pieza central es un servicio de DCOMLaunch alcanzable por un usuario normal, con una función de configuración de "games" cuyos tres parámetros son estructuras simples (sin punteros) — usa memoria compartida directamente. El GUID de juego se lee del registro, y la clave correspondiente es controlable por el usuario actual: cada usuario tiene su propia configuración en su hive.</p>
+<p>La función de servidor comete dos errores fatales:</p>
+<ul>
+<li><strong>Fuga de memoria</strong>: escribe el puntero de la memoria compartida del servidor de vuelta en la memoria compartida. La dirección no cambia entre peticiones, así que con una llamada al servidor y un hilo leyendo en bucle se recupera la dirección — base para construir objetos y vtables falsas dentro de la memoria compartida.</li>
+<li><strong>Stack array overflow</strong>: usa un índice leído de la memoria compartida para escribir un puntero fuera de los límites de un array en el stack — fuga de información y overflow con primitiva de escritura en una sola función.</li>
+</ul>
+<p>La estrategia de explotación, paso a paso:</p>
+<ol>
+<li>Llamar a la función del servidor y leer en bucle la memoria compartida hasta recuperar el puntero de la vista del servidor.</li>
+<li>Construir en la memoria compartida un objeto falso y su vtable con la información filtrada.</li>
+<li>Cambiar el índice para sobrescribir el <strong>RPC message pointer</strong> en el stack del servidor (el objeto vive en el stack del thread, fácil de alcanzar con el overflow).</li>
+<li>Al volver al motor RPC, el objeto falso dirige el flujo: se construye un binding handle falso en memoria compartida y se llega a la llamada virtual.</li>
+<li><strong>Saltar XFG</strong>: la primera entrada de la vtable choca con la ruta del DLL que se quiere cargar (ambas ocupan el mismo espacio), pero hay una función invocable en el offset 0x70 de la vtable — nunca llamada, sin verificación en la práctica — que permite el <strong>register pivoting</strong>: intercambia RCX para que apunte a la ruta del DLL malicioso.</li>
+<li>La callback de combase.dll (pasable por XFG) invoca <code>LoadLibraryExW</code> con la ruta en el segundo parámetro.</li>
+</ol>
+<pre class="mermaid">
+sequenceDiagram
+    participant C as Cliente (usuario normal)
+    participant S as Servicio DCOMLaunch
+    C->>S: Llamada RPC con structs simples (memoria compartida)
+    S->>C: Fuga: escribe puntero de su vista en memoria compartida
+    C->>C: Construye objeto falso + vtable en memoria compartida
+    C->>S: Overflow de índice: sobrescribe RPC message pointer (stack)
+    S->>S: Binding handle falso → llamada virtual → XFG saltado vía offset 0x70
+    S->>S: Register pivoting (combase) → LoadLibraryExW(dll maliciosa)
+    Note over S: Shell SYSTEM
+
+</pre>
+
+<p>El resultado demostrado: un usuario del grupo Users, integridad media, sin privilegios de administrador, termina con <code>whoami</code> respondiendo SYSTEM con todos los privilegios.</p>
+<h2>Lecciones de bug hunting</h2>
+<ul>
+<li><strong>No confiar ciegamente en los parches</strong>: el fix de 2017 dejó un defecto adyacente — el tamaño de asignación sin validar — que reactiva la vulnerabilidad original. El análisis de parches sigue siendo una de las vías más productivas para encontrar bugs.</li>
+<li><strong>No pasar por alto los side effects</strong>: el wrap de offsets es un efecto secundario del cálculo automático de regiones, no un camino obvio de auditoría.</li>
+<li><strong>La explotación sigue teniendo barreras altas</strong>: aunque el double-fetch se reproduce en cualquier servicio RPC, encontrar un servicio explotable — que use memoria compartida sin copiarla, con parámetros adecuados y operaciones sensibles — exige auditoría paciente; en servicios del sistema de Microsoft casi no existen candidatos, y los de terceros son terreno abierto.</li>
+<li>Queda investigación pendiente: automatizar la extracción de información de interfaces RPC para encontrar servicios y argumentos explotables, y examinar las funcionalidades especiales restantes de ALPC/RPC.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ALPC/RPC sobre secciones compartidas</strong>: paso de mensajes eficiente en Windows; el cliente escribe, el servidor lee.</li>
+<li><strong>Secure views / MiSecureView</strong>: mecanismo post-parche del kernel que marca VADs como seguros, fuerza PTEs a solo-lectura y bloquea <code>VirtualProtectEx</code>.</li>
+<li><strong>Regiones con offset wrap</strong>: tamaño de asignación sin validar que produce dos vistas sobre la misma página física.</li>
+<li><strong>Double-fetch</strong>: modificación del contenido compartido entre lectura y uso por el servidor.</li>
+<li><strong>NTFS junctions / hardlinks / object symlinks / oplocks</strong>: técnicas clásicas contra bugs de suplantación en servicios con operaciones de ficheros.</li>
+<li><strong>UAC bypass vía AppInfo</strong>: whitelist de programas/argumentos + <code>.msc</code> malicioso (<code>services.msc</code>).</li>
+<li><strong>Register pivoting</strong>: intercambio de RCX vía callback de combase.dll para redirigir a <code>LoadLibraryExW</code>.</li>
+<li><strong>XFG bypass</strong>: entrada de vtable no invocada en offset 0x70 sin verificación efectiva.</li>
+<li><strong>WinDbg</strong>: depuración en kernel y user mode para verificar PTEs, WSLEs y el estado del servidor durante la explotación.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El mecanismo de seguridad de memoria compartida de ALPC, diseñado para eliminar el double-fetch, se evade con un defecto de validación de tamaños: dos vistas sobre la misma página física bastan para dejarlo sin efecto.</li>
+<li>La cadena completa — fuga del puntero de vista, objeto falso en memoria compartida, overflow de stack, pivoting de registro y salto de XFG — demuestra que una primitiva de double-fetch "lenta" escala hasta SYSTEM en servicios del sistema.</li>
+<li>La seguridad de ALPC condiciona la de los servicios RPC: Microsoft ha trabajado de forma sostenida en endurecerla, pero los requisitos para explotar los fallos restantes son estrictamente limitados, no inexistentes.</li>
+<li>Para el bug hunter: analizar parches críticamente, desconfiar de que un fix cierre todo, y perseguir los side effects que nadie audita.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Eyl_0YxfnpQ">«DEF CON 32 - Using ALPC security features to compromise RPC services - WanJunJie Zhang, Yisheng He»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

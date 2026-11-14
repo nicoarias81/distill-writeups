@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Offensive security testing en el segmento terrestre espacial — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Offensive security testing en el segmento terrestre espacial</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/YtMutNk8RpY">«DEF CON 32 - Offensive Security Testing  Safeguarding the Final Frontier - Andrzej Olchawa»</a> · ver el <a class="nz-link" href="https://youtu.be/YtMutNk8RpY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> YtMutNk8RpY · <strong>URL:</strong> https://youtu.be/YtMutNk8RpY · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Offensive Security Testing  Safeguarding the Final Frontier - Andrzej Olchawa</li>
+</ul>
+<h2>Resumen</h2>
+<p>El software que controla misiones espaciales lleva décadas desarrollándose sin contrapartida ofensiva: cada organización construye su propio sistema de control de misión —"el espacio es difícil", dicen— y casi nadie lo prueba como lo haría un adversario. Este walkthrough presenta el segmento terrestre (ground segment) de una misión espacial, se concentra en el mission control system como eslabón más expuesto, y demuestra cadenas de explotación reales contra software open source de control de misiones: NASA OpenMCT, NASA AIT Core y SCOS 2000 de la Agencia Espacial Europea. Todas las vulnerabilidades fueron reportadas a los vendors, corregidas y tienen CVE asignado.</p>
+<h2>Por qué el mission control system es el blanco</h2>
+<p>El segmento terrestre son muchos componentes interconectados —estación terrena, sistemas de procesamiento, planificación— que se pasan entradas y salidas entre sí, pero la mayoría no requiere interacción humana. La excepción es el mission control system: la interfaz principal entre la estación terrena y los demás componentes, y la interfaz primaria entre los controladores de la nave y la nave misma. Y como el eslabón débil de cualquier sistema informático es el humano, esa condición lo vuelve el sistema más vulnerable de todo el segmento.</p>
+<p>El cambio reciente agrava el cuadro: durante décadas las misiones se operaban desde salas de control dedicadas, accesibles solo a los controladores. Con la pandemia, las organizaciones abrieron las puertas y permitieron operar remotamente. Eso creó una superficie de ataque nueva sobre software típicamente desactualizado, vulnerable a los mismos fallos cotidianos de cualquier software de escritorio. La respuesta de la comunidad espacial —estrategias que incluyen seguridad, políticas, requisitos de seguridad— sigue dejando afuera un elemento específico: el offensive security testing.</p>
+<h2>Vulnerabilidades encontradas</h2>
+<ul>
+<li><strong>NASA OpenMCT</strong>: prototype pollution, XSS y CSRF.</li>
+<li><strong>NCS/IMCS (mission control system establecido)</strong>: directory traversal, borrado arbitrario de archivos, session hijacking y varias vulnerabilidades XSS.</li>
+<li><strong>NASA AIT Core</strong> (framework para construir software de segmento terrestre): SQL injection, varias ejecuciones locales de código y ausencia total de cifrado en las comunicaciones.</li>
+<li><strong>SCOS 2000 (ESA)</strong>: sin análisis extenso, solo static code analysis con Flawfinder: casi 2500 vulnerabilidades de buffer overflow, de las que es razonable suponer que al menos una es explotable.</li>
+</ul>
+<p>Cada vulnerabilidad aislada tiene impacto modesto; el riesgo real aparece al encadenarlas.</p>
+<h2>Cadena 1: XSS + session hijacking + directory traversal</h2>
+<p>Escenario sobre el mission control system: Bob envía telecomandos y recibe telemetría de la nave; Alice trabaja con él; la organización tiene un sitio web público; el atacante opera un servidor C2.</p>
+<pre class="mermaid">
+flowchart TD
+    R[Recon: la web pública delata a Alice] --> P1[Phishing a Alice: beacon C2 en su workstation]
+    P1 --> P2[Los atacantes descubren a Bob en sus mails]
+    P2 --> P3[Phishing interno suplantando a Alice: payload XSS a Bob]
+    P3 --> X[Bob confía y ejecuta: se dispara el XSS]
+    X --> H[Session hijacking + directory traversal]
+    H --> F[Lectura de archivos arbitrarios del servidor del mission control system]
+    F -->|Bob con Internet| D1[Exfiltración directa al servidor C2]
+    F -->|Bob tras firewall/VPN| D2[La workstation de Alice actúa como proxy]
+
+</pre>
+
+<p>El exploit desarrollado genera el payload —bautizado xVJS— y levanta un servidor HTTP del atacante. Bob recibe el archivo creyendo que es una pantalla de telemetría que Alice compartió con él, lo carga en el sistema y lo abre. Bajo el capó, el XSS disparado combina el session hijacking con el directory traversal para recuperar el archivo y mandar su contenido al servidor HTTP del atacante. En la demo, el proof of concept muestra la lectura del archivo de contraseñas del sistema. Encadenar las tres vulnerabilidades es, en sí, sencillo.</p>
+<h2>Cadena 2: man-in-the-middle contra AIT Core</h2>
+<p>Con una ejecución remota de código y la comunicación sin cifrado, el ataque es un man-in-the-middle que inyecta un payload en el stream de telemetría. La demo: a la izquierda, el telemetry client (lo que correría la estación de control) y el telemetry simulator, ambos provistos por AIT Core; a la derecha, el exploit y un listener de netcat esperando la shell. Se arranca el cliente, luego el simulador que genera paquetes de telemetría como si vinieran de la nave, y se corre el exploit. El primer frame que viaja del simulador a la estación es capturado por el MITM, se inyecta el payload, este se ejecuta en el telemetry client y entrega una reverse shell al netcat del atacante. Es decir: telemetría falsificada que ejecuta código en la consola de la misión.</p>
+<h2>Lecciones</h2>
+<ul>
+<li><strong>El análisis estático encuentra la fruta baja, pero no alcanza</strong>: el análisis dinámico y la fase de explotación son indispensables para medir el riesgo real de lo encontrado.</li>
+<li><strong>Las cadenas son el peligro</strong>: vulnerabilidades de impacto individual moderado se combinan en divulgación de información sensible o ejecución remota de código en el sistema de control.</li>
+<li><strong>El testing ofensivo falta en los marcos espaciales</strong>: hay que contratar el servicio —o hacerlo internamente— e incorporarlo a los frameworks de seguridad antes de que los adversarios lo hagan primero.</li>
+<li><strong>Todo el material está publicado</strong>: los papers y las vulnerabilidades con CVE asignado están disponibles, y las slides se comparten tras la exposición.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El segmento terrestre heredó supuestos de aislamiento físico que la operación remota rompió: el mission control system quedó expuesto a phishing, XSS y robo de sesión como cualquier web app.</li>
+<li>El software de control de misión desarrollado a medida no es más seguro por ser propio: OpenMCT, AIT Core y SCOS 2000 acumulan fallos clásicos que un adversario paciente encadena sin necesidad de acceso a la nave.</li>
+<li>La defensa empieza por suponer ataque: testing ofensivo sistemático —estático y dinámico, con explotación incluida— antes del lanzamiento, no después del incidente.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/YtMutNk8RpY">«DEF CON 32 - Offensive Security Testing  Safeguarding the Final Frontier - Andrzej Olchawa»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

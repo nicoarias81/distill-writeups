@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Inyección de procesos en Windows sin shellcode: ROP como método general — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Inyección de procesos en Windows sin shellcode: ROP como método general</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/1Hx-PzyGtX0">«DEF CON 32 - Process Injection using ROP - Dr. Bramwell Brizendine &amp; Shiva Shashank Kusuma»</a> · ver el <a class="nz-link" href="https://youtu.be/1Hx-PzyGtX0">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 1Hx-PzyGtX0 · <strong>URL:</strong> https://youtu.be/1Hx-PzyGtX0 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Process Injection using ROP - Dr. Bramwell Brizendine &amp; Shiva Shashank Kusuma</li>
+</ul>
+<h2>Resumen</h2>
+<p>La idea central es invocar directamente la funcionalidad de un shellcode mediante gadgets de ROP, en lugar de usar el shellcode para bypasear DEP. En el ecosistema Windows esto se ha visto muy pocas veces —y cuando se vio, casi siempre encadenando dos o tres APIs—. El trabajo presentado encadena decenas de APIs (LoadLibrary, GetProcAddress, CreateToolhelp32Snapshot, VirtualAlloc, OpenProcess, OpenProcessToken, AdjustTokenPrivileges, CreateFileA, NtCreateSection, NtMapViewOfSection, VirtualProtectEx, WriteProcessMemory, CreateRemoteThread) mediante más de 150 patrones únicos, cuando herramientas históricas como MONA aportaban un par de patrones (VirtualAlloc, VirtualProtect) no más.</p>
+<p>El experimento se realizó sobre un binario contrived, intencionalmente vulnerable y lleno de gadgets convenientes, porque el objetivo no es explotar un binario concreto sino descubrir todo lo posible y que el trabajo aplique potencialmente a cualquier binario. El alcance es ROP desde el punto de vista de "comprometiste un binario", no la integración con malware o software de red team a medida.</p>
+<h2>El método: patrones, no cadenas a medida</h2>
+<p>Dos técnicas sostienen todo el enfoque:</p>
+<ul>
+<li><strong>Pushad</strong>: se pueblan registros con valores predefinidos y pushad los carga en el stack en un orden fijo. Cubre hasta cuatro parámetros (cinco usando ESP, aunque es difícil).</li>
+<li><strong>Mov dereference ("sniper")</strong>: escribe valores con precisión en slots del stack, incrementando o decrementando al slot siguiente.</li>
+</ul>
+<p>La clave es encontrar patrones: configuraciones de registros en cierto orden que permiten invocar una API de forma genérica, aplicables a muchas técnicas de inyección y no a una sola. Además, el output de una llamada alimenta a la siguiente, como en una cadena de ROP: el runtime address que OpenProcess devuelve en EAX se usa como parámetro del patrón siguiente. Los patrones son múltiples por API (nueve para LoadLibrary, once para GetProcAddress, once para CreateToolhelp32Snapshot) para tener alternativas cuando un binario no ofrece el gadget exacto: sin patrón alternativo, la cadena queda incompleta y no hay nada que hacer.</p>
+<p>Otras piezas genéricas:</p>
+<ul>
+<li><strong>Estructuras como parámetros</strong>: construir la estructura byte a byte con mov dereferences incrementando por slots; con estructuras anidadas (AdjustTokenPrivileges requiere varias) hay que hacerlo exactamente bien o no funciona.</li>
+<li><strong>Guardar y recuperar valores</strong>: obtener un handle o dirección cuesta muchos gadgets; se guarda en un punto de referencia común en memoria (por ejemplo, ESP desplazado 500 bytes) y se recupera luego, recalculando el offset de referencia entre gadgets. Sin esta técnica la cadena sería aún más larga.</li>
+<li><strong>Combinación novedosa</strong>: mezclar pushad y mov dereference en un mismo patrón (pushad para los primeros parámetros, el resto por dereference).</li>
+<li><strong>Datos en el payload</strong>: si los strings pueden ir directamente en el payload, mejor; si el EDR lo impide, ofuscarlos y desofuscarlos con ROP.</li>
+</ul>
+<h2>La cadena: 29 gadgets y un problema difícil</h2>
+<p>La técnica demostrada (variante ROP de un trabajo presentado en Hack In The Box Amsterdam 2023, allí con syscalls) crea una URL... en el proceso externo víctima, escribe shellcode y lo lanza. La cadena completa usa 29 gadgets, cifra excepcional en Windows; mantener los valores de un API call al siguiente es el grueso del trabajo.</p>
+<p>El flujo: LoadLibrary (pushad + patrón) devuelve la base de ntdll; GetProcAddress la convierte en la dirección runtime de CreateToolhelp32Snapshot; VirtualAlloc reserva memoria para construir la estructura PROCESSENTRY32; Process32First arranca la enumeración y Process32Next itera (sus patrones son intercambiables). Tras localizar el PID objetivo, OpenProcess lo convierte en handle al proceso (combinando pushad y mov dereference con el PID); OpenProcessToken abre el token del proceso propio y AdjustTokenPrivileges habilita los privilegios SeDebug y SeAudit mediante las estructuras anidadas construidas byte a byte.</p>
+<p>Luego viene el mapeo: CreateFileA abre un handle a urlmon.dll con GENERIC_READ (para evitar ciertas detecciones), NtCreateSection crea una sección con PAGE_READONLY y SEC_IMAGE, NtMapViewOfSection mapea la vista en el espacio de direcciones de la víctima (todo por mov dereference, por los nulos y permisos limitados, y capturando la base address del DLL en el proceso remoto), VirtualProtectEx cambia el mapeo a RWX usando handle y base address, WriteProcessMemory inyecta el shellcode (por pushad + dereference, con puntero al shellcode y tamaño), y CreateRemoteThread lanza la ejecución.</p>
+<h2>La solución novedosa: comparación de strings con ROP</h2>
+<p>El obstáculo serio es la comparación de strings: identificar un proceso concreto por nombre es indispensable para obtener su PID, pero los gadgets de comparación no abundan y sin eso la cadena no avanza. La solución es construir una función propia en memoria —un "enumerate process function" escrito en assembly crudo—: se compila aparte, se escriben sus bytes en memoria escribible reservada con VirtualAlloc (byte a byte con mov dereferences), se asegura que sea ejecutable, se le pasan los valores necesarios (handle del snapshot, el string objetivo —"VU Player" en la demo—, la dirección de Process32Next) y se lanza con un push ret. La función cicla Process32Next cientos de veces hasta encontrar el string exacto, corta el loop, y desde la base de la estructura el offset 8 contiene el PID, que se captura con mov dereferences, pops e incrementos, y se guarda en memoria para usarlo después.</p>
+<p>El objetivo es doble: aportar una metodología general de inyección de procesos vía ROP (no enumerar todas las técnicas) y un concepto novedoso —la función de enumeración construida puramente con ROP— extensible a otras técnicas.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ROP / JOP sin shellcode</strong>: invocar APIs de Windows directamente con gadgets en lugar de bypasear DEP con shellcode.</li>
+<li><strong>Pushad y mov dereference (sniper)</strong>: técnicas base para poblar el stack con parámetros en patrones reproducibles.</li>
+<li><strong>ROP Rocket</strong>: herramienta de los autores, con la colección de más de 150 patrones de APIs.</li>
+<li><strong>SHAREM / Shellcode WASP</strong>: proyectos previos de análisis de shellcode y syscalls Windows en shellcode.</li>
+<li><strong>Proceso de inyección completo</strong>: LoadLibrary → GetProcAddress → CreateToolhelp32Snapshot → VirtualAlloc → Process32First/Next → OpenProcess → OpenProcessToken → AdjustTokenPrivileges → CreateFileA → NtCreateSection (SEC_IMAGE, PAGE_READONLY) → NtMapViewOfSection → VirtualProtectEx (RWX) → WriteProcessMemory → CreateRemoteThread.</li>
+<li><strong>Función de enumeración custom</strong>: assembly crudo compilado y escrito en memoria vía ROP para resolver la comparación de strings.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La inyección de procesos con ROP en Windows es viable de extremo a extremo sin shellcode previo: la cadena de 29 gadgets completa el ciclo completo desde enumeración de procesos hasta CreateRemoteThread.</li>
+<li>Los patrones (más de 150) convierten la técnica de un exploit a medida en una metodología general: múltiples patrones por API dan flexibilidad cuando un binario no ofrece el gadget ideal.</li>
+<li>Las técnicas de soporte —guardar/recuperar valores, construir estructuras byte a byte, combinar pushad y mov dereference— son lo que hace mantenible una cadena tan larga.</li>
+<li>La función de enumeración de procesos escrita en memoria es la contribución más novedosa y extensible: resuelve en ROP un problema (comparación de strings) que no tiene gadgets naturales.</li>
+<li>El trabajo es aplicable potencialmente a cualquier binario vulnerable, aunque fue desarrollado sobre uno contrived lleno de gadgets convenientes, y no integra consideraciones de EDR más allá de mencionarlas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/1Hx-PzyGtX0">«DEF CON 32 - Process Injection using ROP - Dr. Bramwell Brizendine &amp; Shiva Shashank Kusuma»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

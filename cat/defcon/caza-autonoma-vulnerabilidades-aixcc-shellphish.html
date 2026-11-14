@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cazar vulnerabilidades con agentes LLM: cómo ShellPhish automatizó el bug hunting en la AIxCC — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cazar vulnerabilidades con agentes LLM: cómo ShellPhish automatizó el bug hunting en la AIxCC</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/PiJwIUGJGmw">«DEFCON 33 Video Team - AIxCC  with ShellPhish»</a> · ver el <a class="nz-link" href="https://youtu.be/PiJwIUGJGmw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> PiJwIUGJGmw · <strong>URL:</strong> https://youtu.be/PiJwIUGJGmw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEFCON 33 Video Team - AIxCC  with ShellPhish</li>
+</ul>
+<h2>Resumen</h2>
+<p>La AIxCC (AI Cyber Challenge) de DARPA les pidió a los equipos algo que hasta hace poco sonaba a ciencia ficción: un sistema autónomo, impulsado por IA, que encuentre bugs en software real, los parchee automáticamente y entregue los resultados por puntos. ShellPhish llegó al top 10 de la final, y su historia en primera persona es una clase magistral sobre diseño de sistemas de seguridad con LLM: arquitectura de cinco etapas, un motor de fuzzing donde el LLM escribe las gramáticas y las muta para alcanzar funciones profundas, y una lección que se repite dos veces —lo que parecía difícil fue fácil (hacer que un LLM crashee el programa), y lo que parecía fácil fue difícil (escribir parches que no se puedan bypassear).</p>
+<p>El detalle que da contexto al tono del equipo: arrancaron siendo escépticos totales. "Analistas binarios tradicionales" que, en los tiempos de GPT-3.5, pensaron que la IA no podía hacer eso y que ganarían con análisis puro que ya sabían que funcionaba. Dos años después, el relato es otro: los modelos mejoraron, las técnicas agénticas maduraron, y el sistema terminó apoyándose en LLM para etapas donde nada más funcionaba.</p>
+<h2>Qué es la AIxCC y de dónde viene</h2>
+<p>El formato es directo: DARPA entrega un repositorio con un set de cambios (o el proyecto completo) y el sistema debe encontrar bugs, entenderlos y parchear el código fuente —no binarios. La entrada del sistema es un curl con un cuerpo JSON: link al repo, lenguaje, ubicación del Dockerfile y de los fuzzers soportados. Nada más. El CRS (Cyber Reasoning System) debe razonar por su cuenta sobre cómo ejercitar un código base que nunca vio, corriendo sin humanos en el loop.</p>
+<p>Hay linaje: los predecesores del equipo compitieron en la Cyber Grand Challenge anterior, que era análisis puramente binario y donde los "parches" terminaban siendo mitigaciones —mezclar el stack frame, agregar canarios— que no removían el bug, solo lo hacían más difícil de explotar. AIxCC exigió un salto cualitativo: parches sobre el código fuente, validados contra suites de tests funcionales que el sistema nunca ve pero debe hacer pasar, además de demostrar que ningún crash sobrevive.</p>
+<h2>Arquitectura: cinco etapas y orquestación hacker</h2>
+<pre class="mermaid">
+flowchart TD
+    A[Entrada: repo OSS-Fuzz<br/>via curl + JSON] --> B[Analisis estatico<br/>CodeQL + Semgrep + diffs]
+    B --> C[Ranking CodeSwipe<br/>diffguy + modelo custom]
+    C --> D[Analisis dinamico<br/>LLM genera gramaticas y fuzzers]
+    D --> E[Root causing<br/>LLM + debugger / call traces estadisticas]
+    E --> F[Patching<br/>fuzz del parche + agente que lo bypassea]
+
+</pre>
+
+<p>Sobre el framework de orquestación, la respuesta del equipo es una joya del género: en lugar de algo estable y testeado como Apache Airflow, escribieron desde cero un framework enteramente basado en archivos YAML que templatizan comandos bash dentro del proceso root de contenedores Docker. "Hackery in the purest sense" —es una competencia de hackers—. El resultado terminó siendo portable de formas que un framework corporativo no lo es: el CRS completo corre en una workstation o escala a cientos de máquinas en Azure.</p>
+<p>El análisis estático usa CodeQL —la única herramienta genuinamente comercial del stack— junto con Semgrep. Sobre cientos de miles o millones de líneas de código, el problema es reducir el espacio a lo que un LLM puede ingestar: los outputs de las herramientas alimentan un componente de ranking llamado CodeSwipe, que agrega scores de varias fuentes. Dos de esas fuentes usan LLM: diffguy, que analiza el diff, encuentra qué funciones son alcanzables y consulta por cada una si hay un bug; y un modelo custom entrenado por un integrante del equipo que rankea funciones por probabilidad de vulnerabilidad. Todo culmina en un ranking numérico puramente heurístico —"cuatro veces este score más dos veces este"— que decide qué funciones va a perseguir la etapa dinámica.</p>
+<h2>El truco estrella: LLMs que escriben y mutan fuzzers</h2>
+<p>La etapa de análisis dinámico es la más innovadora. En vez de fuzzing ciego o concolic clásico, el LLM genera gramáticas de input que describen la estructura del formato que el programa procesa, y escribe fuzzers que la usan. Dos mecanismos lo potencian:</p>
+<ul>
+<li><strong>Splicing de corpus conocidos</strong>: el LLM es muy bueno reconociendo patrones —"esto claramente es un parser de PDF"—. Cuando la gramática generada tiene una sección con forma de PDF, el sistema splictea corpus reales de PDFs y gramáticas manuscritas en ese punto, para que el fuzzer no gaste presupuesto descubriendo el formato estándar y se concentre en lo específico de la aplicación.</li>
+<li><strong>Cobertura como feedback</strong>: cada ronda de fuzzing genera reportes de cobertura que vuelven al LLM: "llegaste hasta acá, esto es lo que tenés alrededor, ¿podés ir más lejos?". Además, el LLM elige sus propias funciones objetivo —agrega goals a una lista y las va tachando con un check verde cuando las alcanza.</li>
+</ul>
+<p>El detalle contra-intuitivo: el LLM era <em>demasiado</em> bueno generando inputs estructurados —producía código que un programador normal escribiría, sin probar los valores extremos—. Hubo que agregar una capa extra sobre la gramática que estirara los rangos hacia el dominio hacker. Y la lección de costo: escribir seeds que alcancen funciones profundas, el tipo de trabajo que rompe a los fuzzers, le sale al LLM "por 50 centavos". El equipo recalca que eso cambia la investigación dirigida: si se puede decir "creo que hay un bug acá, andá a buscarlo", toda la investigación sobre qué aspecto tiene un bug y cómo identificar código sospechoso pasa a ser accionable.</p>
+<h2>Root causing y patching: lo que nadie te cuenta</h2>
+<p>Encontrar el crash es la mitad del trabajo. Para vulns donde el crash aparece lejos de la causa raíz —use-after-free, heap buffer overflows, race conditions—, el sistema corre dos enfoques de triage en paralelo: uno engancha el LLM a un debugger con restricciones estrictas (sin límites, el agente empieza a examinar cada puntero y cada valor del stack hasta colapsar); el otro es estadístico, comparando call traces de inputs que crashean contra los que no, para ver qué componentes se encienden. Cada enfoque produce su propio reporte y su ranking de dónde debería ir el parche.</p>
+<p>Y el patching, que todos —incluido el propio equipo— creían la parte fácil, resultó lo más duro. Un parche que arregla el input que crashea es sencillo; uno que arregla <em>todos</em> los inputs es otra cosa. La defensa del sistema: fuzzear los propios parches y soltar sobre ellos un agente LLM cazador de vulnerabilidades con la instrucción explícita de bypassearlos. En rondas de exhibición de DARPA, el equipo bypasseó parches escritos por los propios organizadores —duplicar el tamaño de un buffer no es un fix—. Por eso solo se envían parches que arreglen el cluster completo de crashes agrupados, o, agotado el tiempo, el parche imperfecto que al menos cubre más casos. Los tests funcionales que validan cada parche los aporta el organizador y corren antes de cada submission.</p>
+<h2>Presupuesto de tokens y evolución de los modelos</h2>
+<p>La AIxCC impone un límite de gasto en LLM —100 dólares por desafío en semifinales, 900 en la final— que obliga a diseñar para la eficiencia. Un agente que quemé el presupuesto explorando a ciegas pierde contra uno que sepa cuándo delegar a análisis estático barato. Esta restricción es una rareza refrescante: la mayoría de las demos de agentes asumen cómputo ilimitado.</p>
+<p>El stack de modelos evolucionó con el desafío: GPT-3.5 en los primeros experimentos —cuando ni siquiera existía el concepto de tool calls y los prototipos ejecutaban Python arbitrario sobre el sistema, con el correspondiente pánico—, el salto a Claude 3.5 Sonnet cuando apareció el primer modelo con capacidades agénticas reales (usar el debugger que le daban, escribir scripts que generaran inputs: en vez de hacer que el fuzzer rompa un checksum, <code>import zlib; zlib.compress</code> y listo), y Claude 4 para la final. Sobre esa base, un integrante construyó agent lib, una capa propia sobre LangChain con wrappers para tool calling, agentes con historial que se auto-prunean y otras técnicas comunes abstraídas, para poder enfocarse en prompting y componentes.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El bug hunting autónomo ya es real a nivel de competencia: el CRS de ShellPhish encontró bugs —incluidos 0-days, según mencionan de pasada— en proyectos OSS-Fuzz y los parcheó sin humanos en el loop.</li>
+<li>El cuello de botella no es el LLM sino la plomería: rankings de hallazgos, feedback de cobertura, presupuestos de tokens, clustering de crashes y verificación adversarial de los propios parches.</li>
+<li>La prueba de fuego del parche es el adversario: fuzzear el parche y hacer que otro agente LLM intente bypassearlo atrapó fixes triviales que a simple vista parecían correctos.</li>
+<li>Todo el código se libera por requisito de DARPA: el stack de ShellPhish es un punto de partida práctico para construir CRS propios en lugar de empezar de cero.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/PiJwIUGJGmw">«DEFCON 33 Video Team - AIxCC  with ShellPhish»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

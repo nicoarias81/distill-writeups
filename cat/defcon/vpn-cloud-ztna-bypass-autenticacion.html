@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zero Trust Total Bust: todas las VPN de acceso confiable cero, rotas de la misma manera — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Zero Trust Total Bust: todas las VPN de acceso confiable cero, rotas de la misma manera</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/RNXCnJvE1Zg">«DEF CON 33 - Breaking into thousands of cloud-based VPNs - Dave, Rich»</a> · ver el <a class="nz-link" href="https://youtu.be/RNXCnJvE1Zg">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> RNXCnJvE1Zg · <strong>URL:</strong> https://youtu.be/RNXCnJvE1Zg · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Breaking into thousands of cloud-based VPNs - Dave, Rich</li>
+</ul>
+<h2>Resumen</h2>
+<p>El acceso de red confiable cero (ZTNA) se vende como el reemplazo definitivo de la VPN heredada: ningún usuario, dispositivo o pedido es confiable por defecto, todo se evalúa continuamente contra políticas de acceso. La realidad observada en campo es distinta: muchas organizaciones reemplazaron su VPN por un producto ZTNA y lo usaron exactamente igual que una VPN — sin controles granulares, solo intermediando conexiones hacia la red interna. Peor: condicionaron el acceso con exclusiones de MFA desde los rangos de IP públicas del proveedor para reducir fricción de autenticación, con lo cual basta originar tráfico desde esas IP para saltarse la MFA.</p>
+<p>La investigación audita varias plataformas ZTNA principales —Check Point Harmony, Zscaler, Netskope— desde una perspectiva sin autenticación, con shell en el endpoint y con herramientas propias, y encuentra las mismas clases de bug de siempre vestidas de arquitectura nueva. La conclusión central: no hay judías mágicas del confiable cero; el lema "never trust, always verify" deviene, en la práctica, "always trust, never verify".</p>
+<pre class="mermaid">
+graph LR
+    A[Cliente ZTNA] -->|email pre-auth| B[Config de tenant filtrada]
+    B --> C[Bypass de autenticación SAML]
+    C --> D[JWT de dispositivo]
+    D --> E[Registro como cualquier usuario]
+    E --> F[Acceso a red interna]
+
+</pre>
+
+<h2>Check Point Harmony: la clave privada en los logs</h2>
+<p>En Harmony, la función de subida de logs al soporte de Check Point descifra un recurso del binario con una clave AES e IV incrustados — y el resultado es una clave privada OpenSSH válida. Los archivos de log además se cifran antes de subirse con una clave predecible y fuerza-bruteable, y esos logs contienen JWTs con vida de 30 días. Impacto: cualquier cliente que hubiera subido logs podía ser comprometido usando esos JWT directamente contra el servicio ZTNA. Al reportarlo, Check Point retiró el acceso de lectura al SFTP casi de inmediato; más bugs del producto seguían en divulgación al momento de la publicación.</p>
+<h2>Zscaler: firma SAML que nadie valida</h2>
+<p>El flujo de arranque del cliente Zscaler filtra la configuración pre-autenticación del tenant: ajustes de autenticación, características habilitadas, y hasta la URL del archivo PAC — material clásico de reconocimiento para encontrar dominios que esquiven la inspección y sirvan de canal de C2.</p>
+<p>El hallazgo grave está en el flujo SAML: el servicio proveedor de Zscaler recibía la aserción SAML y <strong>solo verificaba que tuviera una firma, sin validarla contra la clave pública del IdP</strong>. Cualquier firma servía — o ninguna. Eso da bypass de autenticación para todo tenant configurado con SAML. La historia del parche ilustra el estado del ecosistema: Zscaler lo arregló en cuatro horas; el parche fue revertido por introducir un problema más grave; el proof-of-concept volvió a funcionar; y recién después quedó resuelto con el CVE-2025-54982.</p>
+<p>Complementariamente, el modo de autenticación por token de dispositivo (no habilitado por defecto) solo valida que el token sea del tenant, sin asociarlo a un usuario. El token viaja en los argumentos MSI de instalación y termina en el registro de Windows en texto claro: extraerlo permite registrarse como cualquier usuario y esquivar políticas de ruteo cambiando simplemente el nombre de usuario en el registro.</p>
+<h2>Netskope: la clave de organización que no es secreta</h2>
+<p>En Netskope la estructura se repite con nombres propios: una clave de organización (org key), inmutable y filtrada pre-autenticación en las peticiones SAML del portal, y una clave de usuario, también inmutable e irrevocable. El bypass ya conocido (CVE-2024-7401) consiste en saltarse todo el flujo SAML: con el org key filtrado y un email válido se obtiene la clave de usuario, y con ambas se pide un certificado que establece el túnel de acceso privado — equivalente funcional a una VPN hacia la red objetivo.</p>
+<p>La "solución" oficial, la inscripción segura (secure enrollment), firma un JWT con HS256 usando un token desplegado por MDM, e incluye el org key como claim. Pero el org key también va en la URL, y <strong>el servidor usa el de la URL</strong>: un JWT válido de cualquier tenant Netskope, con el org key de la URL alterada, inscribe al atacante en el tenant objetivo. Los investigadores incluso encontraron tokens de inscripción filtrados en línea — no hace falta ser cliente del producto para explotarlo. El fix (mayo 2025, versión 1.26) valida que el org key de la URL coincida con el del JWT; no tiene CVE asignado pese a que Netskope es una CNA. Y el token de inscripción, en disco, se cifra con DPAPI usando LocalMachine y una cadena de entropía incrustada en el binario: cualquier usuario de bajo privilegio de la máquina puede descifrarlo.</p>
+<h2>Con shell en el endpoint: escalar, robar, falsificar</h2>
+<p>Todos los productos comparten arquitectura: una bandeja de sistema de bajo privilegio y un servicio o broker de alto privilegio que se comunican por IPC (socket TCP, named pipe, RPC). En todos, la validación del proceso llamador era vulnerable: los chequeos por firma o ruta se esquivan inyectando en un proceso legítimo, y en todos había un método IPC explotable para ejecutar código como SYSTEM — en Netskope, enrolando el cliente estilo NetCha VPN contra un servidor malicioso que entrega un MSI que corre como SYSTEM; en Zscaler, inyectando un DLL y disparando un método RPC vulnerable.</p>
+<p>Con SYSTEM se roba la configuración (XOR con clave fija en Zscaler, DPAPI en ambos) y se importan los chequeos de postura en la herramienta propia de los investigadores, "Red Scaler": un DLL inyectable que engancha las APIs de Windows con MinHook para falsificar los chequeos — inclusive CPUID, que al ser una instrucción y no una llamada requiere page guard hooks con manejador de excepciones propio para intercambiar los registros justo después de ejecutarse. Los chequeos de postura, además, llegan por HTTP desde el servidor y se evalúan localmente: en Netskope bastaba cambiar <code>status=false</code> por <code>status=true</code> en un proxy intermediario; en general, bastan hooks de API. Los chequeos criptográficos o validados del lado del servidor existen en algunos proveedores pero <strong>no vienen habilitados por defecto</strong> — y algunos ni los soportan.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participante A as Atacante
+    participante E as Endpoint víctima
+    participante S as Servicio ZTNA
+    A->>E: Shell + inyección de proceso
+    E->>S: IPC validado a medias (firma/ruta esquivadas)
+    A->>E: Código como SYSTEM
+    A->>E: Robo de config + hardware ID
+    A->>S: Registro falsificado con postura suplantada
+    S-->>A: Túnel a la red interna
+
+</pre>
+
+<h2>La capa de privacidad y las mitigaciones</h2>
+<p>Para inspeccionar tráfico, estos productos instan una CA raíz con vigencias larguísimas (hasta 2065). El motor confiable cero es una caja negra: el tráfico entra descifrado, se procesa y sale, confiando en que el ruteo sea correcto. La compromisión de un proveedor ZTNA permitiría procesamiento adicional del tráfico descifrado sin que nadie lo notara.</p>
+<p>Mitigaciones concretas para clientes:</p>
+<ul>
+<li><strong>Habilitar secure enrollment ahora</strong> si se es cliente de Netskope, y mantener clientes actualizados aunque no haya CVE publicado.</li>
+<li>Activar chequeos criptográficos o validados server-side donde existan (Zscaler desde la versión 4.4; no hay equivalente en Netskope).</li>
+<li>Exigir re-autenticación frecuente para limitar el impacto del robo de configuración, y deshabilitar acceso local a funciones de depuración y logging verboso para achicar la superficie de escalada.</li>
+<li>Revisar y acotar las exclusiones de steering (MFA por rangos de IP, dominios de bypass) y auditarlas periódicamente.</li>
+<li>Ingerir los logs del proveedor en el SIEM: dispositivos recién registrados, cambios bruscos de resultado de postura, sistemas operativos inesperados para cada usuario.</li>
+<li>Detección en endpoint con EDR: lectura de claves de registro sensibles, inyección de procesos, procesos hijos inesperados del cliente ZTNA. Para robo de config por DPAPI: el evento 16385 del log de depuración de DPAPI (correlacionando descripción de datos y PID llamador, según el blog de Google) y SACLs que generen el evento 4663 al exportar tokens del registro.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El ZTNA reencarnó las clases de bug clásicas de las VPN y los proxies: firma SAML no validada, secretos incrustados en binarios, tokens en el registro, IPC sin validar, chequeos de postura client-side.</li>
+<li>La superficie cambia de forma pero no de fondo: el punto único de falla se muda a la nube del proveedor, y la confianza en el "motor confiable cero" es total e imverificable para el cliente.</li>
+<li>Las configuraciones incorrectas del lado del cliente (exclusiones de MFA, steering laxo, secure enrollment deshabilitado un año después del CVE) convierten parches existentes en vulnerabilidades vivas.</li>
+<li>Ninguno de los productos evaluados cumplió el principio que vende; el patchwork de fixes llegó a distintas velocidades, y algunos arreglos server-side ni siquiera reciben CVE que les dé visibilidad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/RNXCnJvE1Zg">«DEF CON 33 - Breaking into thousands of cloud-based VPNs - Dave, Rich»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

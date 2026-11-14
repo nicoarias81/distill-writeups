@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forensic Analyst AI: agentes jerárquicos que reconstruyen incidentes — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Forensic Analyst AI: agentes jerárquicos que reconstruyen incidentes</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Yo380Lfk_3A">«DEF CON SG1 - CSIT Village -  Liu Wen Kai, Martin Koh - Your Next Forensic Analyst is AI Agents»</a> · ver el <a class="nz-link" href="https://youtu.be/Yo380Lfk_3A">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Yo380Lfk_3A · <strong>URL:</strong> https://youtu.be/Yo380Lfk_3A · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON SG1 - CSIT Village -  Liu Wen Kai, Martin Koh - Your Next Forensic Analyst is AI Agents</li>
+</ul>
+<h2>Resumen</h2>
+<p>Dos ingenieros de IA del Digital Intelligence Service, desarrollando en el Cyber Defense Test and Experimentation Center (CITEC) del comando de ciberdefensa, presentan un pipeline multiagente que ejecuta análisis forense digital end-to-end de forma autónoma: identification y analysis de artefactos, las dos etapas más intensivas en mano de obra y expertise. El único input humano es el contexto inicial —a veces nada más que un lapso de tiempo aproximado del incidente—. A partir de ahí, los agentes localizan evidencia en la imagen de disco, correlacionan hallazgos y producen un informe de incidente verificado. El resultado probado: informes técnicos completos en menos de tres horas, con un F1 de 75% para el informe final, en casos reales de un ejercicio nacional de ciberdefensa.</p>
+<h2>Arquitectura: jerarquía anclada al framework MITRE</h2>
+<p>El flujo es un stack jerárquico donde cada agente tiene un rol específico. La delegación sigue el framework MITRE ATT&amp;CK: las tácticas son los pasos generales que da un atacante para comprometer el sistema y las técnicas, las formas concretas de lograr cada paso. La mayoría de los agentes queda etiquetada a una táctica o técnica, lo que permite reconstruir la narrativa del ataque de punta a punta.</p>
+<pre class="mermaid">
+flowchart TD
+    H[Analista humano: contexto inicial, ej. ventana temporal] --> S[Single Host Analyst: orquestador del host]
+    S --> T1[TA de táctica: Initial Access]
+    S --> T2[TA de táctica: Execution]
+    S --> T3[TA de táctica: Persistence / Impact]
+    T1 --> E1[Expert de técnica: Phishing]
+    T2 --> E2[Expert de técnica: SRUM, Shimcache...]
+    E1 --> SU1[Bulk Summarizer: filtrado masivo]
+    SU1 --> SU2[Precise Summarizer: filtrado fila a fila]
+    S -.->|según necesidad| SP1[File Analysis Specialist]
+    SP1 -.-> SP2[Malware Analysis Specialist]
+    S --> R[Report Generator: informe preliminar]
+    R --> J[Judge Agent: verifica contra los expertos de base]
+    J -->|feedback y re-investigación| S
+    J --> R2[Informe final verificado]
+
+</pre>
+
+<p>El orquestador de host decide qué tácticas investigar primero según el contexto recibido, y taska a cada analista de táctica como sub-orquestador; este elige qué técnicas explorar y taska a los agentes expertos; los expertos, a su vez, dirigen a múltiples summarizers. La clave de la jerarquía es la especificidad creciente del contexto a medida que se baja el stack: el analista de host recibe solo una ventana temporal; el de táctica agrega "investigar initial access"; el de técnica agrega "investigar phishing"; y el de técnica especifica exactamente dónde mirar —por ejemplo, los logs de Outlook—. De las miles de ubicaciones posibles, la búsqueda queda apuntada a las de alta probabilidad de evidencia valiosa.</p>
+<h2>Sumarización en dos pasos y agentes especialistas</h2>
+<p>Los summarizer agents resuelven el problema del volumen con un filtrado de lo general a lo específico:</p>
+<ol>
+<li><strong>Bulk Summarizer</strong>: aplica condiciones de filtro para acotar los datos crudos (artefactos creados después de cierta fecha, solo cierta extensión, etc.), y tiene herramientas para evaluar el resultado —mirar las primeras filas, algunos valores de columna— y decidir si refina el filtro o pasa la mano al segundo agente.</li>
+<li><strong>Precise Summarizer</strong>: filtrado en profundidad, razonando fila por fila para extraer lo relevante; en el ejemplo, de los resultados de los logs del módulo de PowerShell, solo una fila importa.</li>
+</ol>
+<p>Este método broad-to-specific eleva la relevancia de la información y reduce lo que circula entre agentes, amortiguando el riesgo de desbordamiento de contexto por el volumen de datos.</p>
+<p>Fuera del stack jerárquico hay especialistas con herramientas propias:</p>
+<ul>
+<li><strong>File Analysis Specialist</strong>: localiza archivos en disco a partir de consultas difusas (por path, carved o entrada MFT), determina el tipo y decide autónomamente si hacer análisis de entropía, extraer contenidos o derivar a análisis de malware.</li>
+<li><strong>Malware Analysis Specialist</strong>: análisis estático y dinámico con una suite externa de análisis de malware; en una demo usó CAPE (AQube) para evaluar un payload dropeado, por tasking autónomo del orquestador.</li>
+</ul>
+<h2>Anti-alucinación: base de conocimiento y juez</h2>
+<p>Dos debilidades del multiagente aparecieron en la práctica: sobrecarga de información que produce alucinaciones, y fragmentación del conocimiento —cada agente terminaba con una comprensión distinta del incidente—. Las soluciones:</p>
+<ul>
+<li><strong>Knowledge database como única fuente de verdad</strong>: todos los agentes escriben y leen de la misma base, con cada dato etiquetado por el agente que lo aportó, eliminando ambigüedad sobre el origen y permitiendo devolver tanta data como haga falta.</li>
+<li><strong>Agent-as-a-Judge</strong>: el report generator produce un informe preliminar con toda la base disponible; el judge agent verifica cada punto pidiendo directamente a los agentes expertos del nivel más bajo que accedan a los datos crudos y confirmen la exactitud —salteándose todas las capas intermedias para minimizar las manos por las que pasa la información—. Criterio explícito: rechazar toda afirmación con evidencia insuficiente, y sugerir verificación adicional para los puntos ya respaldados. Los errores vuelven al stack como feedback, se re-investigan y el ciclo se repite hasta un informe final confiable.</li>
+</ul>
+<h2>Demo y resultados</h2>
+<p>La demo muestra tres paneles: a la izquierda, el call sheet de agentes (quién llama a quién); a la derecha, el diagrama de la investigación con los agentes activos resaltados y flechas que distinguen tasking descendente de reporte ascendente; al centro, los pensamientos, prompts, acciones y tool calls en vivo. El banner distingue los momentos de ejecución de los de inspección de prompts.</p>
+<p>La investigación tipo: el single host analyst taska a Initial Access, que busca mails de phishing en Outlook; el filtrado en dos pasos encuentra un mail con dominio typosquatting, confirmado como sospechoso por los niveles intermedios; el orquestador sigue con Execution, cuyo prompt —que incluye los expertos disponibles, los outputs esperados (nombre del ejecutable, número de ejecuciones) y los pasos a seguir— incorpora información única por corrida: los archivos específicos a investigar, dictados por lo encontrado antes. Esto personaliza la investigación y mejora la correlación. El proceso repite para Persistence e Impact, y puede derivar al especialista de malware. Para un host, el informe final tomó ligeramente menos de tres horas desde un solo prompt.</p>
+<p>Hallazgos del caso mostrado: acceso inicial por spear phishing desde un dominio typosquatting con adjunto malicioso (remitente, adjunto y naturaleza de ingeniería social identificados); ejecución vía un dropper llamado update.cpl que introduce un ejecutable C2; persistencia por ejecución horaria del C2; impacto de más de 6.000 archivos renombrados con extensión .ransom.</p>
+<h2>Métricas y elección de modelo</h2>
+<ul>
+<li><strong>Fiabilidad</strong>: se midió con matriz de confusión y F1 (media armónica de precisión y recall sobre archivos maliciosos), con 20 corridas por agente individual y 10 corridas completas para el single host analyst. Los agentes individuales rondan F1 &gt; 90%. La excepción: el analista de la táctica Execution cayó a ~65%, atribuido a un caso con poca evidencia forense disponible, donde hasta un analista humano habría dudado. Lo notable: el informe completo del host sube a 75%, aun agregando una capa más de posible alucinación. El crédito es del judge agent, que eliminó o re-verificó los puntos sin evidencia suficiente.</li>
+<li><strong>Modelo</strong>: cinco modelos evaluados sobre cinco preguntas del Cyber Defenders Corporate Secrets Lab (ejercicio forense sobre imagen de disco Windows). Kimi K2 y GPT-4o empataron arriba; un set más amplio definió a Kimi K2, usado en todos los agentes. No se entrena ningún modelo: todo es inference-time work mediante prompts. El pipeline se probó on-premise y off-premise con resultados equivalentes.</li>
+<li><strong>Debilidades honestas</strong>: el informe es exhaustivo y extremadamente técnico, pero aporta muy poco contexto del incidente más allá del executive summary; alguien sin formación forense difícilmente lo entiende, y se necesita un profesional que extraiga la información y la enmarque para las partes interesadas.</li>
+<li><strong>Roadmap</strong>: pasar de single-host a multi-host para investigaciones enterprise, e incorporar imágenes de red y memory captures.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La jerarquía multiagente convierte contexto difuso en búsqueda quirúrgica: cada nivel baja el stack afina el contexto hasta apuntar a ubicaciones concretas entre miles posibles.</li>
+<li>La fiabilidad no viene del modelo sino del andamiaje: base de conocimiento compartida contra la fragmentación, y un juez que verifica contra los datos crudos en la base del stack, que además subió el F1 del informe final por encima del de su agente fuente.</li>
+<li>El forense asistido por IA es realista hoy: de días a horas, con informes verificables, en escenarios de ejercicio nacional —aunque el informe resultante todavía exige un experto humano para interpretarlo y presentarlo—.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Yo380Lfk_3A">«DEF CON SG1 - CSIT Village -  Liu Wen Kai, Martin Koh - Your Next Forensic Analyst is AI Agents»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

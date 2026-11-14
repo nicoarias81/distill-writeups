@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hacking banca corporativa: un bug bounty que terminó en control total del admin — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hacking banca corporativa: un bug bounty que terminó en control total del admin</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/0FfTWEP79k4">«DEF CON 32 - Hacking Corporate Banking for Fun and Profit - niks, Charles Waterhouse»</a> · ver el <a class="nz-link" href="https://youtu.be/0FfTWEP79k4">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 0FfTWEP79k4 · <strong>URL:</strong> https://youtu.be/0FfTWEP79k4 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Hacking Corporate Banking for Fun and Profit - niks, Charles Waterhouse</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las aplicaciones de banca corporativa — la parte donde las empresas hacen transferencias, gestionan límites y administran usuarios — suelen parecer fortalezas aburridas: una SPA con servlets, roles rígidos y procesos de doble autorización. Este caso demuestra lo contrario: a partir de un programa privado de bug bounty sobre la banca corporativa de un banco grande, dos investigadores (niks, bug bounty hunter a tiempo completo para Synack y fundador de BSides Ahmedabad, y Charlie Waterhouse, analista de seguridad con más de 2.400 engagements sobre OWASP) lograron escalar desde el rol más bajo hasta el panel de administración, manipular límites de retiro de todos los clientes, desvincular cuentas corporativas enteras, robar cookies de los relationship managers con XSS almacenado y volcar las bases de datos completas con SQLi ciega booleana.</p>
+<p>El hilo de todo: un par de parámetros — event IDs y widget IDs — que funcionan como llaves universales de la aplicación, más un identificador global de cliente (GCIF) y un diseño que solo ocultaba módulos en la interfaz sin autorizar nada del lado del servidor.</p>
+<h2>La aplicación: roles, grupos y el GCIF</h2>
+<p>El objetivo era una aplicación de banca corporativa de terceros — usada, según su documentación, por el 60% de los bancos — con un modelo de roles clásico de fabricante-verificador-autorizador:</p>
+<ul>
+<li><strong>Maker (maker)</strong>: inicia transacciones y administra el módulo de administración de la aplicación.</li>
+<li><strong>Checker (verificador)</strong>: se asegura de que todo esté en su lugar antes del paso final.</li>
+<li><strong>Authorizer (autorizador)</strong>: da la aprobación final a cualquier solicitud.</li>
+</ul>
+<p>Los clientes corporativos se organizan en grupos gestionados por sucursales separadas y no vinculadas entre sí, reconocidas por el <strong>GCIF</strong> (Global Customer Information File): el identificador universal de un cliente a través de todas las divisiones del mismo banco — hipoteca, auto, tarjetas de crédito. Existe incluso una patente de Google para vincular cuentas bancarias a través del GCIF, lo que lo convierte en el pivote ideal: tocar el GCIF de un cliente es tocar todas sus relaciones con el banco.</p>
+<p>La aplicación funciona con servlets y carga, en cada página, un nuevo archivo JavaScript con los event IDs de las funcionalidades siguientes. Cualquier funcionalidad se sirve cambiando el event ID en el parámetro; si el rol tiene acceso, se carga. Con un script de grep sobre los JS, niks enumeró todos los event IDs visibles y descubrió <strong>más de 500 módulos</strong> corriendo en la aplicación.</p>
+<h2>Escalada de rol: ocultar no es autorizar</h2>
+<p>Primera anomalía: el rol maker tenía un botón de administración que redirigía al panel admin, aunque con pocos módulos cargados. La comprobación del lado del servidor era defectuosa: verificaba si el rol tenía "permisos duales" disponibles y, en ese caso, asignaba el panel. Cargando la URL del panel desde la sesión del rol <strong>authorizer</strong>, la sesión de admin se generaba igual — solo que los módulos aparecían ocultos.</p>
+<p>Ahí entraron los event IDs: reemplazándolos uno a uno en el parámetro (y usando también las frame URLs, que apuntan a los mismos event IDs), desde la sesión de authorizer se cargaba cada módulo del panel de administración. El "user list report", por ejemplo, mostraba la plantilla al cargar el event ID y volcaba <strong>la lista completa de usuarios</strong> al pulsar Submit. Todo el panel era accesible desde roles que no debían tocarlo: la aplicación escondía los módulos en la UI, pero jamás autorizaba al usuario por función.</p>
+<h2>Manipular límites y desvincular clientes</h2>
+<p>Con las llaves universales en mano, el panorama de impacto se abrió en dos frentes:</p>
+<ul>
+<li><strong>Límites de retiro globales</strong>: la página <code>limit_setup_main_page.gsp</code> (hallada con GS Link Finder) permitía configurar los límites diarios de retiro de cada cliente — o de todos a la vez. Cualquier modificación genera una solicitud pendiente que el flujo normal exige autorizar; pero la página de autorización es otra URL con el mismo patrón: se cambia el valor del event ID a la variante "auth", aparece el cambio recién hecho y basta pulsar Authorize para aplicarlo a toda la clientela. Como era un entorno de cliente real, la solicitud se auto-rechazó con el botón Unauthorize — sin poder descartar que detrás hubiera un proxy mostrando un ambiente de staging.</li>
+<li><strong>Onboarding y desvinculación de clientes</strong>: un event ID interesante en los JS, la página de vista de configuración de cliente, cargaba los datos del cliente desde el servlet. Con el botón Action (o cambiando el event ID) se podía editar el nombre de grupo o <strong>eliminar el corporate ID de un cliente</strong>: al hacerlo, todas sus cuentas quedaban desvinculadas y el propio cliente perdía el acceso a la información de su cuenta. El cambio también requería autorización — y la página de autorización era alcanzable igual que antes, cambiando el event ID a la variante auth.</li>
+</ul>
+<h2>XSS almacenado contra los relationship managers</h2>
+<p>La página de configuración de cliente resultó vulnerable además a XSS: inyectando el payload en el nombre del relationship manager, cada vez que alguien del banco visualizara ese nombre se ejecutaba el script y las cookies caían directamente. Los relationship managers son los custodios de los clientes de alto valor del banco: con sus credenciales, el atacante hereda su vista completa. Para el CEO que solo ve un alert() de JavaScript, la traducción al castellano es: control administrativo casi total desde cualquier rol, base de datos completa volcada (con fila y columna de muestra como prueba) y credenciales de los gestores de todos los clientes importantes.</p>
+<h2>SQLi ciega en ambos servlets</h2>
+<p>La aplicación tiene dos lados: el front office con el widget servlet y el back office con otro servlet. Fuzzing de SQL injection sobre los controladores de widgets encontró un parámetro llamado <code>dir</code> que devolvía un 500 Internal Server Error ante una comilla simple — la señal clásica de cambio de respuesta. Probaron condiciones booleanas y ciegas: funcionaba <strong>boolean-based blind</strong> sobre una base de datos Oracle, y SQL map volcó todas las bases de datos del sistema.</p>
+<p>La segunda inyección vino por el otro camino: escalado al panel admin desde un rol authorizer, el parámetro <code>customer_name</code> de la página de vista de configuración de cliente también era boolean-based blind. SQL map, misma suerte: otro volcado completo. "Fun and profit", en efecto: toda la diversión y todas las ganancias.</p>
+<h2>La respuesta del cliente: dos años de parches cosméticos</h2>
+<p>Las SLA del programa prometían arreglos en 15 días para lo crítico, 30 para lo alto y 90 para lo medio. El banco tardó <strong>un año</strong> y, según ellos, "arregló todo": lo que hizo fue eliminar el módulo de administración corporativa de la aplicación. Otro año después llegó el segundo parche: pusieron <strong>Cloudflare</strong> delante de la aplicación. Ni la escalada de roles ni la inyección SQL se corrigieron de raíz; se retiró la superficie visible y se añadió un WAF.</p>
+<p>La lección de triage que cierra el caso: el impacto es lo que abre ojos. Un XSS con alert() genera un "¿y qué?"; una demostración con acceso admin total, base de datos volcada y cookies de los relationship managers en pantalla genera atención inmediata.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Event IDs / widget IDs</strong>: parámetros de la aplicación de terceros que controlan qué funcionalidad se sirve; enumerables con grep sobre los JavaScript cargados por página.</li>
+<li><strong>GCIF (Global Customer Information File)</strong>: identificador universal del cliente entre divisiones del mismo banco; eliminarlo de un cliente desvincula todas sus cuentas.</li>
+<li><strong>Maker / checker / authorizer</strong>: modelo de roles de la banca corporativa; la escalada explotó que los módulos se ocultaban en la UI sin autorización del lado del servidor.</li>
+<li><strong>grep script + GS Link Finder</strong>: enumeración de event IDs y descubrimiento de páginas internas como <code>limit_setup_main_page.gsp</code>.</li>
+<li><strong>Autorización vía cambio de event ID</strong>: el flujo "modificar → autorizar" era cruzable saltando directamente a la variante auth de la URL.</li>
+<li><strong>XSS almacenado</strong>: payload en el nombre del relationship manager; roba cookies del personal del banco.</li>
+<li><strong>SQLi boolean-based blind (Oracle)</strong>: parámetros <code>dir</code> (widget servlet) y <code>customer_name</code> (back office); volcado completo con <strong>sqlmap</strong>.</li>
+<li><strong>Cloudflare / WAF</strong>: "remediación" tardía que oculta la superficie sin corregir las vulnerabilidades raíz.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Ocultar no es autorizar</strong>: cualquier UI que "no muestre" módulos a roles sin permiso pero no valide del lado del servidor es un panel de admin disfrazado; el parámetro de navegación (event ID) es la llave.</li>
+<li><strong>Los flujos de doble autorización solo valen lo que valga su endpoint de autorización</strong>: si la página auth es alcanzable manipulando el mismo parámetro, todo el modelo maker-checker se cae.</li>
+<li><strong>El identificador global de cliente es un punto único de daño</strong>: tocar el GCIF de una empresa afecta simultáneamente sus hipotecas, tarjetas y cuentas — impacto directo sobre clientes reales.</li>
+<li><strong>La remediación cosmética es la norma en banca</strong>: SLA incumplidas, un módulo eliminado y un WAF Cloudflare en lugar de arreglar la escalada y las inyecciones; el bug bounty solo funciona si el cliente actúa de verdad.</li>
+<li><strong>Impacto sobre impacto</strong>: en bounty, traducir XSS → cookies de gestores → clientes de alto valor y SQLi → volcado total es lo que convierte un informe ignorado en atención inmediata.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/0FfTWEP79k4">«DEF CON 32 - Hacking Corporate Banking for Fun and Profit - niks, Charles Waterhouse»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

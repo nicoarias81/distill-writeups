@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Practical AWS Antiforensics: borrar rastros en la nube sin ser detectado — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Practical AWS Antiforensics: borrar rastros en la nube sin ser detectado</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/1dc8MebFkuQ">«Practical AWS Antiforensics - Santiago Abastante - Ekoparty 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/1dc8MebFkuQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 1dc8MebFkuQ · <strong>URL:</strong> https://youtu.be/1dc8MebFkuQ · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Practical AWS Antiforensics - Santiago Abastante - Ekoparty 2025</li>
+</ul>
+<h2>Resumen</h2>
+<p>Santiago Abastante, incident responder enfocado en AWS, presenta una investigación ofensiva con un objetivo explícito: entender cómo un atacante puede operar en la nube sin que el equipo de defensa se dé cuenta, para usar ese conocimiento y mejorar las defensas. La pieza central es una demo en vivo donde desactiva la visibilidad de un SIEM real —Datadog— explotando los retrasos de generación de logs de AWS, mientras GuardDuty envía sus alertas a un canal de Discord.</p>
+<p>El análisis recorre el modelo de responsabilidad compartida, la segmentación regional y global de los servicios, el papel de los degradados de servicio, el versionado de buckets, las capas de detección en AWS y, como cierre, un set de recomendaciones concretas: estrategia multicuenta, SIEM descentralizado, monitoreo de logs y, como frase final, "no confiemos en nuestro 100 para proteger a nuestro 100".</p>
+<h2>Qué es una técnica antiforense y por qué la nube es distinta</h2>
+<p>Una técnica antiforense es trabajar sobre el sistema de detección y respuesta para que el equipo de defensa no se dé cuenta de que el atacante está en un sistema. El ejemplo clásico en Windows es desactivar los logs del sistema; en AWS el atacante trabaja sobre múltiples sets de logs: algunos están habilitados por defecto, otros hay que habilitarlos manualmente, y otros ni siquiera se sabe que existen —y ahí es donde empiezan los problemas.</p>
+<p>El contexto también importa: muchos de los ataques recientes son sin archivos, muy hands-on, en especial en la nube, porque hacer más manos en los entornos de nube requiere mucho know-how. Hay menos atacantes que dominan AWS o Kubernetes porque la nube está mejor construida en general, pero eso también agrega problemáticas a la hora de defenderse. Y aunque el research es sobre AWS, las técnicas aplican igual a GCP, Huawei Cloud o Azure: no es que AWS sea más fácil, es simplemente el entorno que el investigador conoce.</p>
+<h2>Responsabilidad compartida y segmentación: la base de todo</h2>
+<p>Dos slides introductorias que valen oro para entender el ataque:</p>
+<ul>
+<li><strong>Modelo de responsabilidad compartida</strong>: cuanto más cerca de infraestructura como servicio corre un servicio, más responsabilidad de seguridad tiene el cliente. Con un servidor EC2 hay acceso al sistema operativo y se puede instalar un EDR; con una función Lambda, que corre como plataforma como servicio, no hay acceso al sistema operativo y no hay EDR posible. Si un atacante gana persistencia en un entorno PaaS, la capacidad de detección del defensor se reduce drásticamente. Y la responsabilidad no se delega: si cae una región de AWS —como pasó el lunes anterior al evento—, quien responde frente al cliente es uno. Lo mismo aplica a cualquier servicio de terceros, no solo a los grandes clouds.</li>
+<li><strong>Segmentación regional y global</strong>: no todos los recursos son regionales o globales. Si GuardDuty está habilitado solo en Virginia y el atacante gana persistencia en Brasil, no lo va a monitorear. Los endpoints globales como S3 loguean la API en la región donde se haga el llamado —por defecto Virginia, o Tokio si se pasa un flag—. Si solo se monitorea Virginia y el atacante enumera Tokio, nadie se entera, y el output es exactamente el mismo. Peor aún: servicios como IAM loguean siempre en Virginia, así que si toda la infraestructura está en Brasil, se pierden los eventos del servicio más crucial de AWS. Hay que pensar en tres dimensiones, porque los componentes se relacionan entre sí.</li>
+</ul>
+<p>En la nube hay además dos "amigos" del atacante que se detallan a continuación: los retrasos en la generación de logs y la degradación de servicios.</p>
+<h2>El amigo número uno: los delays en la generación de logs</h2>
+<p>AWS genera delays al escribir los logs en el bucket —por ejemplo, cada 5 minutos, con hasta 10 minutos de retraso—. El atacante puede aprovechar esa ventana para hacer lo que necesita y luego modificar la configuración antes de que los logs lleguen a destino.</p>
+<p>La demo lo muestra en vivo: los logs van a un bucket y Datadog los lee desde ahí. El atacante ejecuta la acción maliciosa, y antes de que los logs correspondientes lleguen al bucket, cambia la bucket policy para que Datadog ya no pueda leer los objetos. Resultado: los logs se escriben, pero el SIEM nunca los ve. Y como el atacante tiene permisos sobre la configuración, la ventana de delay se convierte en una ventana de impunidad.</p>
+<h2>El amigo número dos: la degradación de servicios</h2>
+<p>El otro aliado del atacante es la falla o degradación de servicios de AWS. En un incidente, cuando un servicio de AWS se degrada, se rompe en cascada la cadena completa de seguridad: se rompen las reglas del SIEM, se rompe el EDR, se rompe la visibilidad, se pierden alertas.</p>
+<p>El escenario es real y reciente: la caída de región del lunes anterior. En ese contexto, hacer acciones antiforense es "un gol de media cancha": la puerta está abierta, y el atacante que sabe que el servicio está degradado puede operar sabiendo que la detección está coja. De ahí la conclusión del investigador: la estrategia de detección no puede depender de un solo componente ni de que todo el mundo funcione perfecto todo el tiempo.</p>
+<h2>Versionado de buckets y DeleteMarkers: la manipulación silenciosa</h2>
+<p>El tercer ingrediente es el versionado de buckets de S3, que se puede activar desde la consola y crea una versión nueva de cada objeto con cada cambio. El atacante puede eliminar logs, desactivar CloudTrail o cambiar configuraciones y los rastros quedan como DeleteMarkers. La manipulación es silenciosa: en la interfaz no se ve nada raro, no hay advertencias al listar el bucket; solo mirando las versiones con el flag correspondiente se ven las eliminaciones.</p>
+<p>El detalle fino: en la demo no se borra el log de forma definitiva. Se deja el DeleteMarker para no generar una alerta de eliminación permanente de logs, y en su lugar se rompe la pipeline de ingesta —por ejemplo, rompiendo la Lambda que transforma los logs antes de mandarlos al SIEM— cambiando un pequeño número en el ARN. Es un cambio mínimo, difícil de notar, y deja de llegar todo. Como comentó en las preguntas: cuanto más usado es el componente, más fácil es de atacar, y la Lambda de transformación de logs es un objetivo elegante porque muchos sistemas de monitoreo no la cubren.</p>
+<h2>Capas de detección y el desafío de detectar al detectador</h2>
+<p>AWS ofrece varias capas que el atacante debe evadir:</p>
+<ul>
+<li><strong>CloudTrail</strong>: registra las llamadas API. El atacante con suficientes permisos puede desactivarlo, detener la duplicación a otro bucket, filtrar el endpoint o —la opción más fina— crear un trail nuevo con un S3 que no exista, que queda en estado de falla sin alertar a nadie.</li>
+<li><strong>EventBridge</strong>: permite reaccionar ante eventos. Si el atacante sabe cómo funciona el motor de reglas, puede desactivarlas, alterarlas o crear una regla con un patrón que no matchee nada pero diga "todo funciona".</li>
+<li><strong>GuardDuty</strong>: el servicio de threat detection que se habilita con un botón. Puede deshabilitarse directamente, o suspenderse de forma más sutil. En la demo, el canal de Discord de alertas queda en silencio mientras el atacante hace de las suyas.</li>
+</ul>
+<p>Y está la reflexión incómoda de cierre: las estrategias de detección en AWS son complejas y caóticas. Cuando generamos complejidad y caos, generamos misconfigurations. Estas no son vulnerabilidades del proveedor: son errores de configuración que dependen de nosotros.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Datadog como SIEM</strong>: ingesta de logs desde bucket de S3; la visibilidad se corta cambiando la bucket policy antes de que los logs lleguen.</li>
+<li><strong>GuardDuty</strong>: threat detection and response que se habilita con un botón; puede deshabilitarse o suspenderse con permisos suficientes.</li>
+<li><strong>CloudTrail</strong>: desactivación, filtros de endpoint, o trails nuevos apuntando a buckets inexistentes que fallan silenciosamente.</li>
+<li><strong>EventBridge</strong>: manipulación de reglas y creación de reglas señuelo.</li>
+<li><strong>Delays de generación de logs (5-10 minutos)</strong>: ventana para actuar y modificar configuración antes de que el log llegue a destino.</li>
+<li><strong>Versionado de S3 y DeleteMarkers</strong>: eliminar logs sin disparar alertas de borrado permanente.</li>
+<li><strong>Manipulación de la Lambda de transformación de logs</strong> cambiando el ARN: romper la ingesta con un cambio mínimo.</li>
+<li><strong>Degradación de servicios de AWS</strong> como ventana de oportunidad antiforense.</li>
+<li><strong>SCP, estrategia multicuenta, Control Tower y organizaciones</strong>: la defensa preventiva recomendada en las preguntas.</li>
+<li><strong>GitOps e infraestructura como código</strong> (Terraform/CloudFormation) para detección de drift; CloudFormation drift detection como referencia de estado original.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las técnicas antiforense en la nube existen y están poco documentadas; entenderlas es la mejor forma de cerrar las puertas.</li>
+<li>Los delays de generación de logs y las degradaciones de servicio son las dos mayores ventanas de oportunidad del atacante: ambas son propiedades del entorno, no vulnerabilidades.</li>
+<li>La manipulación elegante no borra logs: deja DeleteMarkers y rompe la pipeline de ingesta (bucket policies, Lambdas de transformación) con cambios mínimos.</li>
+<li>Las defensas recomendadas: estrategia multicuenta que mande los logs a una cuenta de auditoría, SIEM descentralizado, SCP para proteger buckets y servicios sensibles (incluidos logs de auditoría PCI), monitoreo de los propios logs y reglas de EventBridge que alerten cuando alguien las manipule.</li>
+<li>Pensar en 3D: cubrir todas las regiones, entender qué servicios loguean globalmente y dónde, y no depender de un solo componente de detección.</li>
+<li>La responsabilidad no se delega: aunque la falla sea del proveedor, el incidente se responde contra el cliente. Y las misconfigurations —no vulnerabilidades— son el eslabón que depende de nosotros.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/1dc8MebFkuQ">«Practical AWS Antiforensics - Santiago Abastante - Ekoparty 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

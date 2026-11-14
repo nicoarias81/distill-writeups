@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cada usuario es su propio modelo: detección de Account Takeover e insider threats en Mercado Libre — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Cada usuario es su propio modelo: detección de Account Takeover e insider threats en Mercado Libre</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/PBR1EMXdjzI">«Account Take Over and Insider Threat Detection through User Anomalies based on Behaviour Analysis»</a> · ver el <a class="nz-link" href="https://youtu.be/PBR1EMXdjzI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> PBR1EMXdjzI · <strong>URL:</strong> https://youtu.be/PBR1EMXdjzI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Account Take Over and Insider Threat Detection through User Anomalies based on Behaviour Analysis</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los números del problema dan el contexto: el 22% de los breaches empiezan con robo de credenciales, el stock de credenciales robadas crece 160% anual, detectar un compromiso lleva 241 días en promedio y el costo promedio de un breach ronda los 4,4 millones de dólares. Con la IA generativa, los ataques de credential stuffing y phishing se escalan y se personalizan con un costo marginal casi nulo. Este trabajo cuenta cómo el equipo de detección de amenazas internas de Mercado Libre construyó un sistema propio de detección de Account Takeover e insider threat para 70.000+ empleados, cientos de sistemas y decenas de miles de identidades de aplicación — y por qué los productos del mercado no alcanzaban.</p>
+<h2>Ana la desarrolladora: el principio de diseño</h2>
+<p>El punto de partida es una idea: el comportamiento habitual de una persona es su huella digital. Ana es una desarrolladora de Colombia: su patrón de login, su ubicación, sus horarios, los repositorios que consulta. Cuando un atacante roba las credenciales de Ana y entra a repositorios internos de GitHub, se comporta como atacante, no como Ana: ubicación distinta, horario distinto, acceso a repos que nunca tocó, volumen inusual. La hipótesis de diseño es que la detección más efectiva no es una regla global sino un modelo por usuario: cada persona es su propio modelo de comportamiento normal.</p>
+<h2>Por qué no alcanzaba con SIEMs y productos de mercado</h2>
+<p>Los requisitos del sistema se definieron con esa restricción: integrar nuevos sistemas de forma plug-in (con cientos de fuentes heterogéneas), detección dinámica por identidad (cada usuario y cada identidad de aplicación con su propio modelo), optimización de eventos para contener costo (procesar solo lo que aporta señal), alta efectividad (falsos positivos bajos, porque la fatiga de alertas mata la operación), baja latencia (detección cercana al tiempo real) y un flujo de respuesta dedicado. Las herramientas de mercado cumplían parcialmente: los SIEMs son genéricos, costosos por evento, y sus modelos no se especializan por identidad.</p>
+<h2>Arquitectura: cuatro módulos</h2>
+<pre class="mermaid">
+flowchart LR
+    A[Auth0 / GitHub / AWS] --> B[Events Collector API]
+    B --> Q[(Message Queue + Data Warehouse)]
+    Q --> C[Events Mapper<br/>normalización + enriquecimiento]
+    C --> D[Detector Orchestrator]
+    D --> E[Detección de anomalías<br/>ML / estadística / reglas]
+    D --> F[Reglas críticas<br/>SIEM]
+    E --> G[Contextualización y<br/>dimensionalización]
+    F --> G
+    G --> H[Consolidations API<br/>score por ventana temporal]
+    H --> I[Módulo de respuesta<br/>acciones graduales]
+
+</pre>
+
+<p>El primer módulo recolecta eventos: logs de Auth0 y de AWS por streaming (ambas plataformas lo ofrecen de forma nativa), la API de auditoría de GitHub por polling. Todo llega a una cola de mensajes y un Data Warehouse. El segundo módulo, el Events Mapper, normaliza esquemas heterogéneos: el campo "usuario" se llama distinto en cada sistema (user-name en Auth0, @usuario en GitHub, el ID dentro de user-info en AWS), y el mapper agrega el enriquecimiento común.</p>
+<p>La detección tiene dos caminos. Los eventos que matchean reglas críticas (borrar la organización de GitHub, crear una API key, escalar privilegios, descarga masiva) pasan directo al SIEM. El resto pasa por detectores de anomalía que conocen el comportamiento normal del usuario por atributo y detectan lo que se desvía: detección de geolocalización (frecuencia de países con modelo de ML), detección de frecuencia de eventos (estadística: acción nueva o volumen excesivo respecto a la media del usuario), y detectores por reglas para usuarios sin historial (fingerprint de dispositivo conocido o no).</p>
+<p>El orchestrator enruta eventos a los detectores correspondientes, salta atributos ruidosos (IPs privadas no aportan señal) y reduce el costo procesando solo lo necesario. La agrupación de detectores correlacionados baja los falsos positivos: si dos detectores independientes disparan sobre el mismo evento, la confianza sube. El modelo es por usuario, no por equipo: la generalización produce falsos positivos, y el reentrenamiento se hace tanto por tiempo como por calidad (tasa de falsos positivos medida en producción).</p>
+<p>El cuarto módulo contextualiza y dimensionaliza cada anomalía. Los contextualizadores combinan heurística y estadística, y evalúan condiciones pasadas, presentes y futuras: un contextualizador de condición futura valida que el usuario siga activo en la compañía (tiene fecha de egreso registrada; una cuenta de alguien que ya no está tiene mayor probabilidad de actividad maliciosa), la criticidad del tipo de evento, la eficiencia histórica del detector (si esos dos detectores dispararon juntos antes, ¿fue verdadero positivo?). La Consolidations API construye un score consolidado en la ventana temporal, y el módulo de respuesta ejecuta acciones graduales según el score, eligiendo la de menor fricción suficiente.</p>
+<h2>El caso Ana, resuelto</h2>
+<p>El caso de apertura cierra el círculo: las anomalías de login de la cuenta comprometida se agrupan; el evento de GitHub (acceso con frecuencia inusual y fingerprint de dispositivo nuevo) suma detección de frecuencia + dispositivo; el detector de eficiencia eleva el peso por la correlación; la criticidad del sistema (repositorios internos) sube el score; y la respuesta automática deshabilita la cuenta. El atacante llegó a loguearse una sola vez. La alerta llegó con el contexto completo, sin fatiga del analista.</p>
+<h2>Detalles de implementación y resultados</h2>
+<ul>
+<li>Integración con el sistema de recursos humanos: Mercado Libre permite trabajar fuera del país de origen, y los movimientos de país ya previstos se cruzan con los eventos para no generar falsos positivos.</li>
+<li>Contextualizador de usuarios sin MFA activo: se deriva de los ejercicios internos de phishing (quién cayó y qué reportó).</li>
+<li>Tiempo de desarrollo: entre un año y medio y dos años; casi un año en producción con iteración de modelos.</li>
+<li>La detección por identidad de aplicación (API keys, PATs, service accounts) es la siguiente frontera: los atacantes no siempre se presentan como personas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El comportamiento habitual de cada usuario es su mejor modelo de detección: la alerta relevante no es "algo anómalo pasó en la empresa" sino "algo anómalo pasó con Ana".</li>
+<li>Los productos de mercado no escalan a 70.000 empleados y cientos de fuentes heterogéneas: la arquitectura propia con collector, mapper, detectores especializados y respuesta gradual es lo que hace viable la operación.</li>
+<li>La reducción de falsos positivos se construye en capas: filtrado de ruido, agrupación de detectores correlacionados, contextualización con datos de RRHH y medición de eficiencia por detector.</li>
+<li>La respuesta automática graduada (de baja a alta fricción según el score) convierte la detección en prevención real: el atacante que roba credenciales puede loguearse una vez, no cien.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/PBR1EMXdjzI">«Account Take Over and Insider Threat Detection through User Anomalies based on Behaviour Analysis»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

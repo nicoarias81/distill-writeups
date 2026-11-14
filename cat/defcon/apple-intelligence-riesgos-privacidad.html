@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apple Intelligence bajo el microscopio: qué sale del dispositivo cuando preguntás el clima — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Apple Intelligence bajo el microscopio: qué sale del dispositivo cuando preguntás el clima</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/BNmJ3qBP9GE">«DEF CON 33 - AppleStorm - Unmasking the Privacy Risks of Apple Intelligence - Yoav Magid»</a> · ver el <a class="nz-link" href="https://youtu.be/BNmJ3qBP9GE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> BNmJ3qBP9GE · <strong>URL:</strong> https://youtu.be/BNmJ3qBP9GE · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - AppleStorm - Unmasking the Privacy Risks of Apple Intelligence - Yoav Magid</li>
+</ul>
+<h2>Resumen</h2>
+<p>Apple Intelligence, el ecosistema de IA de Apple lanzado en septiembre, promete productividad mejorada "manteniendo los datos seguros": modelos que corren en el dispositivo, y para las tareas pesadas una nube sellada — Private Cloud Compute — sin acceso para empleados y sin retención de datos. La promesa se sostiene sobre una decisión arquitectónica: un modelo on-device decide qué tareas se resuelven localmente y qué datos se envían a la nube.</p>
+<p>La investigación aquí nació de un accidente: tras trabajar en Notion, una consulta a Siri devolvió en la respuesta el título de un documento clasificado de la organización. La pregunta era doble: ¿qué pasó en el dispositivo y qué se compartió con los servidores de Apple? La respuesta, tras meses de ingeniería inversa de la pila de comunicación propia de Apple, es que la brecha entre el marketing y el tráfico real es ancha: consultar el clima envía la ubicación, un inventario de apps del dispositivo (incluidas las de máquinas virtuales), la lista de apps activas, los metadatos de lo que suena en el equipo — y enviar un mensaje de WhatsApp por Siri transmite el contenido, el nombre y el número del contacto, aunque el modelo funcione íntegramente en el dispositivo y sin necesidad de ninguna comunicación.</p>
+<h2>La infraestructura: más que Private Cloud Compute</h2>
+<p>El ecosistema tiene tres piezas de infraestructura, no una:</p>
+<ol>
+<li><strong>Private Cloud Compute (PCC)</strong>: la nube sellada para los modelos grandes.</li>
+<li><strong>Infraestructura de Siri</strong>: dos servidores — <code>guzzoni.apple.com</code> (el servidor de dictado; Guzzoni era el nombre en código del proyecto Siri) y los <strong>search services</strong> para búsquedas online y dentro del ecosistema Apple.</li>
+<li><strong>Servidores de extensiones</strong>: el canal de integraciones de terceros (en la práctica, ChatGPT).</li>
+</ol>
+<p>La primera pista de que algo no cuadra: el servidor de dictado sigue existiendo cuando el dictado corre en el dispositivo desde hace años, sin comunicación de red.</p>
+<h2>Romper la pila de comunicación de Apple</h2>
+<p>El tráfico de Siri no se puede mirar con las herramientas de siempre. Dos obstáculos se apilan:</p>
+<ul>
+<li><strong>Certificate pinning</strong> sobre un fork de BoringSSL: ningún proxy puede hacer MITM sin romperlo. El pinning no se rompe desde la red, así que la vía fue un script de Frida en el propio dispositivo — lo que a su vez exigió deshabilitar <strong>SIP</strong> (System Integrity Protection) en macOS, siguiendo la propia documentación de Apple. El bypass se logró hookeando una función llamada <code>setVerifyMode</code> del fork de BoringSSL, además del punto clásico <code>setCustomVerify</code>.</li>
+<li><strong>Un stack HTTP propio</strong>: al interceptar, apareció un método <code>ACE</code> inexistente, <code>content-length</code> que no coincidía con el cuerpo real, y proxies como mitmproxy, Burp y Fiddler crasheaban al procesar los paquetes. La solución fue extender el código de mitmproxy (open source): añadir un caso que, ante el content-length particular de Siri, lea hasta el fin del stream.</li>
+</ul>
+<p>Encima del transporte vino el decapado de capas: firmas débiles sobre el tráfico, compresión Zlib, formatos propietarios de Apple (plist, keep-alive basado en un contador) y un protocolo binario propio. El resultado de todo el trabajo es una herramienta publicada en GitHub — extensión de mitmproxy que parsea el tráfico y rompe el pinning en macOS Sequoia.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Tráfico de Siri] --> B{Destino}
+    B -- search services --> C[HTTPS + protobuf<br/>decodificable]
+    B -- servidor de dictado --> D[Certificate pinning<br/>fork de BoringSSL]
+    D -- Frida: setCustomVerify + setVerifyMode --> E[Stack HTTP propio: metodo ACE]
+    E -- parche en mitmproxy --> F[Zlib + formatos Apple + binario]
+    F --> G[Contenido legible<br/>herramienta en GitHub]
+
+</pre>
+
+<h2>Lo que Siri envía: el caso del clima</h2>
+<p>Con todo el tráfico decodificado y las opciones de "aprender de mi experiencia" deshabilitadas (el baseline del experimento: nada debería salir si no es estrictamente necesario), la pregunta "¿qué tiempo hace hoy en Las Vegas?" reveló la cadena:</p>
+<ul>
+<li>La ubicación exacta viaja con la consulta. La opción se puede desactivar (dividida en dos settings distintos, poco descubribles) y desaparece del tráfico al hacerlo.</li>
+<li>Un <strong>topic modeling on-device</strong> clasifica la consulta ("clima") y lanza una búsqueda de apps relacionadas en todo el dispositivo: apareció en el tráfico el nombre de una app de clima instalada... dentro de una máquina virtual Windows de Parallels. Preguntar por mails buscaría todos los clientes de correo; por multimedia, todos los reproductores; por código, las IDEs.</li>
+<li>Un segundo request al servidor de dictado envía <strong>la lista de apps activas</strong> del momento (Slack, Finder, Notion).</li>
+<li>Los metadatos de la cola <strong>Now Playing</strong>: estaba sonando una canción de Taylor Swift en una pestaña de YouTube, y el nombre fue al servidor de Apple. En iOS y macOS, todo lo que reproduce el equipo entra a esa cola, y Siri la adjunta a cada consulta — incluidos nombres de grabaciones privadas y sus creadores.</li>
+</ul>
+<p>Ese último punto resuelve el accidente original: el video embebido en el documento de Notion estaba en pausa pero seguía en la cola Now Playing con el título del documento, y salió hacia los servidores de Apple junto con la respuesta de Siri.</p>
+<h2>Mensajería: envío innecesario de contenido</h2>
+<p>Dictar un mensaje de WhatsApp mediante Siri requiere el modelo de lenguaje en el dispositivo — el destinatario lo recibe incluso con todo el tráfico a Apple bloqueado. Aun así, el request al servidor de dictado incluye el <strong>contenido del mensaje, el nombre y el número del contacto</strong>. La comparativa con otras integraciones acota el problema: redactar un mail y consultar el calendario no generan tráfico con contenido; el caso es exclusivo de los servicios de mensajería vía SiriKit — y se reproduce también con iMessage, lo que descarta que sea un problema de WhatsApp.</p>
+<h2>Extensiones: ChatGPT proxado por Apple</h2>
+<p>Al interactuar con ChatGPT desde cualquier superficie de Apple Intelligence (Siri, writing tools, image tools), la comunicación <strong>no va directa al servidor de OpenAI</strong>: pasa por los servidores de extensiones de Apple — no por Private Cloud Compute, como cabría esperar del marketing — y de ahí a OpenAI, incluidas las credenciales de cuentas personales u organizacionales. Además se emite un segundo request a los search services, sin explicación conocida ni control del usuario sobre quién accede.</p>
+<h2>La respuesta de la disclosure</h2>
+<p>El reporte a Apple (febrero) recorrió un péndulo: primero "vamos a arreglarlo", luego — semanas antes de la publicación — "no vamos a arreglarlo: eso es Siri, no Apple Intelligence" (dos productos con términos de uso y políticas de privacidad distintos, que se activan según la redacción de la misma pregunta), luego la derivación a Notion (que respondió en tres horas que no era su problema) y a WhatsApp. La prueba de concepto con una app propia construida en Xcode con SiriKit exactamente como recomienda la documentación reprodujo el envío al servidor de dictado, forzando a Apple a reconocer el problema como propio: el caso de mensajería pasó a ingeniería con promesa de arreglo en una próxima versión, y sobre ChatGPT se comprometieron a aclarar la documentación.</p>
+<p>El detalle incómodo de fondo: la misma intención del usuario ("¿qué clima hay hoy?" frente a "¿qué vibes de clima debo preparar hoy?") dispara productos diferentes, con dos políticas de privacidad diferentes, sin forma de que un usuario promedio distinga cuál está usando.</p>
+<h2>Mitigaciones</h2>
+<ul>
+<li><strong>Bloquear el servidor de dictado</strong> (<code>guzzoni.apple.com</code>): no forma parte del funcionamiento esencial de Siri ni de Apple Intelligence; con el bloqueo, todo sigue operativo.</li>
+<li><strong>Revisar los settings hoy, no el lunes</strong>: el opt-in para "aprender de la experiencia" es por defecto, app por app.</li>
+<li><strong>Gobernanza de red</strong>: herramientas que monitoreen qué sale del dispositivo — el hallazgo original fue, literalmente, un documento confidencial saliendo del equipo.</li>
+<li><strong>Leer (o hacer resumir) las políticas de privacidad</strong> antes de aceptarlas: qué se comparte y qué se permite aprender.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La brecha entre las afirmaciones de privacidad y el tráfico real es medible y ancha: consultas triviales arrastran ubicación, inventario de apps (incluidas VMs), apps activas y metadatos de reproducción; la mensajería vía SiriKit envía contenido de mensajes y datos de contacto sin necesidad funcional.</li>
+<li>Apple construyó una pila de comunicación deliberadamente opaca — pinning sobre un fork modificado, stack HTTP propio, capas de encoding — que impide a investigadores y enterprises verificar qué se transmite; la herramienta resultante (extensión de mitmproxy + bypass de pinning para macOS Sequoia) está publicada para cerrar esa brecha.</li>
+<li>La frontera Siri / Apple Intelligence es borrosa para el usuario y conveniente para el fabricante: dos productos, dos políticas, misma interfaz, separados por la redacción de la pregunta.</li>
+<li>El patrón no es exclusivo de Apple: en todo asistente de IA — navegador, escritorio u OS — conviene asumir que los datos enviados superan lo estrictamente necesario, y verificarlo con monitoreo de red en vez de confiar en el marketing.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/BNmJ3qBP9GE">«DEF CON 33 - AppleStorm - Unmasking the Privacy Risks of Apple Intelligence - Yoav Magid»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

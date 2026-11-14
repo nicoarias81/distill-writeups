@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scraping no autorizado en Meta: el mapa de vectores y cómo reportarlo al bug bounty — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Scraping no autorizado en Meta: el mapa de vectores y cómo reportarlo al bug bounty</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/pNDKDBL4GlI">«Malia (Meta) – Meta Bug Bounty / Unauthorized Scraping – Webinar 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/pNDKDBL4GlI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> pNDKDBL4GlI · <strong>URL:</strong> https://youtu.be/pNDKDBL4GlI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Malia (Meta) – Meta Bug Bounty / Unauthorized Scraping – Webinar 2025</li>
+</ul>
+<h2>Resumen</h2>
+<p>Malia, ingeniera de seguridad del equipo anti-scraping de Meta (basada en Menlo Park), presentó en un webinar junto a la comunidad de Ekoparty el estado actual del scraping no autorizado y el Scraping Vector Discovery Program: el circuito por el que un investigador externo puede reportar vectores que extraen datos de usuarios a escala y verlos llegar hasta una mitigación concreta.</p>
+<p>La definición que ordena todo: scraping no autorizado es la extracción sistémica de datos a escala mediante la explotación de la funcionalidad del producto, a menudo violando los términos de servicio — no alguien copiando manualmente un par de páginas, sino sistemas automatizados diseñados para recoger grandes volúmenes. El panorama cambió dramáticamente en pocos años: lo que era un problema de rate limits y captchas básicos hoy es un negocio global y sofisticado, con granjas de dispositivos de cientos de teléfonos, y un desplazamiento visible hacia IA, aprendizaje automático y automatización de dispositivos que atraviesan defensas basadas en la web. Caso reciente citado: un investigador externo encontró un vector sutil que los equipos internos habían pasado por alto — el valor de las perspectivas frescas que justifican el programa.</p>
+<h2>Por qué los datos valen: usos y riesgo de larga cola</h2>
+<p>Los datos extraídos sin autorización alimentan varios mercados ilícitos, con impactos en personas reales:</p>
+<ul>
+<li><strong>Generación de leads</strong> de ventas y marketing: sigue siendo el uso más prevalente, con contactos agresivos que violan las expectativas de privacidad.</li>
+<li><strong>Spam e ingeniería social</strong> sofisticada; la agregación (combinar datos scrapados con bases comerciales) habilita ataques de suplantación altamente dirigidos, más difíciles de detectar y más dañinos.</li>
+<li><strong>Repropósito diferido</strong>: los datos reaparecen meses o años después, incluso bundlados con nueva información en foros subterráneos. Este riesgo de larga cola es la razón para tratar los vectores de manera proactiva: las consecuencias de un solo incidente suenan mucho tiempo.</li>
+</ul>
+<p>Además del daño individual, el scraping erosiona la confianza en las plataformas y su situación regulatoria cuando los datos aparecen donde no deberían estar.</p>
+<h2>El programa: de la captura a la mitigación</h2>
+<p>El Scraping Vector Discovery Program tiene una misión explícita: facilitar el descubrimiento, la comprensión, la mitigación y el monitoreo de vectores de scraping no autorizado en toda la familia de apps de Meta, influyendo en estándares, mejores prácticas y regulación futura. Captura vectores de fuentes internas — penetration testing, scanning de exposición, análisis estático de código, ataques activos — y externas: el bug bounty y los reportes de la comunidad.</p>
+<p>El circuito de un reporte validado es concreto, no un agujero negro:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Reporte vía<br/>bugbounty.meta.com] --> B[Triage: ingenieros de seguridad<br/>reproducen y confirman]
+    B --> C[Priorización: datos accesibles,<br/>evidencia de abuso, descubribilidad]
+    C --> D[Mitigación: rate limits,<br/>bounds de parámetros, defensas]
+    D --> E[Feedback loop: los hallazgos<br/>actualizan modelos de detección]
+
+</pre>
+
+<p>La reproducción profunda recrea el ataque bajo condiciones realistas; la priorización usa un framework de riesgo e impacto de negocio (qué datos son accesibles, si hay evidencia de abuso, qué tan descubrible es la vulnerabilidad). Las mitigaciones típicas: ajustar rate limits por encima del uso legítimo esperado, acotar parámetros sin límites que devuelven más datos de los previstos por llamada de API, y desplegar defensas específicas que se monitorean e iteran. Un caso reciente — una desconfiguración sutil de API reportada con documentación detallada — se reprodujo y arregló rápido, evitando una exposición de gran escala. Los hallazgos también alimentan el loop de feedback que actualiza los modelos de detección y los ejercicios futuros.</p>
+<h2>Dónde aporta un investigador: los cuatro pilares</h2>
+<p>El consejo central: pensar como adversario, con la ética y responsabilidad de un defensor.</p>
+<ol>
+<li><strong>Escalabilidad</strong>: no basta extraer un registro; la pregunta es si la técnica se automatiza y paraleliza para volúmenes masivos. Los reportes más impactantes demuestran el potencial a escala con un proof of concept pequeño y controlado.</li>
+<li><strong>Evasión</strong>: superar rate limits, captchas y demás controles — y documentar exactamente cómo (¿imitaste comportamiento legítimo de usuario?, ¿automatización creativa?). Interesa no solo qué funcionó, sino por qué.</li>
+<li><strong>Enfoques novedosos</strong>: encadenar funcionalidades o abusar de flujos de producto de formas no anticipadas; los reportes más valiosos vienen de ojos frescos.</li>
+<li><strong>Sensibilidad de datos</strong>: no todos los datos valen igual; la expectativa de privacidad, el daño potencial y las implicaciones regulatorias guían la priorización. Acceder a nombres de perfiles públicos es muy distinto de acceder a detalles personales.</li>
+</ol>
+<h2>LATAM: ventaja estructural, no anécdota</h2>
+<p>América Latina es la región de crecimiento más rápido del mundo en incidentes de ciberseguridad — señal, en realidad, de una comunidad de investigación madura que identifica y reporta. Tres ventajas concretas: la digitalización post-pandémica rápida creó escenarios de amenaza que los investigadores locales entienden mejor que nadie y que luego se globalizan; el lenguaje y la diversidad cultural permiten detectar operaciones de scraping localizadas que otros pasan por alto; y la cobertura horaria a lo largo de las Américas da reportes en tiempo real. La colaboración con Ekoparty y eventos regionales apunta a una pipeline sostenible de investigadores a tres años y más.</p>
+<h2>Anatomía de un reporte accionable</h2>
+<p>La sección más práctica: qué convierte un reporte en bueno e impactante.</p>
+<ul>
+<li><strong>Título descriptivo y resumen conciso</strong>: vulnerabilidad o endpoint exacto, explicación técnica con parámetros y comportamientos observables.</li>
+<li><strong>Impacto detallado</strong>: escala, riesgo, impacto de negocio, severidad para stakeholders; cuantificación donde sea posible (solicitudes hechas, período, datos extraíbles).</li>
+<li><strong>TTPs completos</strong>: tácticas, técnicas y procedimientos; qué controles anti-scraping existentes (rate limits, captchas, bans, chequeos de permisos) se burlaron y su efectividad observada, incluidos modos de falla ausentes o desconfigurados.</li>
+<li><strong>Pasos de reproducción secuenciales</strong>: herramientas, scripts, flujos de autenticación, construcción de requests, respuestas esperadas. El estándar: alguien debería poder reproducir el hallazgo dentro de un año basándose solo en la documentación — "una buena reproducción resiste el paso del tiempo".</li>
+<li><strong>Evidencia</strong>: screenshots, logs, datos de muestra correctamente anonimizados, videos; teóricos más métricas concretas (timestamps, request rates, herramientas, cuentas de prueba, IPs, user agents, headers).</li>
+<li><strong>Recomendaciones de remediación</strong>: acotar parámetros, endurecer rate limits, agregar chequeos de autenticación — el investigador entiende la vulnerabilidad mejor que nadie.</li>
+</ul>
+<p>Dos reglas inquebrantables de privacidad: los datos recogidos en pruebas son estrictamente efímeros — retenidos solo lo necesario para calcular métricas, nunca en sistemas de propósito general ni nubes de terceros, borrados de forma segura y sin repropósito — y el objetivo es validar la exposición, no acumular información de usuarios.</p>
+<p>En cuanto al canal: todo reporte entra por <strong>bugbounty.meta.com</strong>, el intake único; el equipo de bug bounty triaje y reproduce, y solo entonces refiere al equipo de scraping vector discovery. El scope principal son las aplicaciones de primera parte de la familia Meta; la lista completa y los límites están en el sitio. El programa bug bounty de Meta cumplió 15 años el 15 de marzo de 2025: millones de dólares en recompensas y una comunidad que abarca decenas de países.</p>
+<h2>Preguntas y respuestas destacadas</h2>
+<ul>
+<li><strong>¿Cuántos registros se necesitan para reportar?</strong> Subjetivo: depende del endpoint y del volumen devuelto; no hace falta extraer grandes volúmenes — el impacto se evalúa desde la documentación y resultados de muestra.</li>
+<li><strong>¿Hay headers HTTP para evitar la detección?</strong> No se comparte esa información y no existe un header mágico: la actividad se detecta y se bloquea. Sí se sugiere agregar un identificador a los requests para aislarlos durante la reproducción del reporte.</li>
+<li><strong>¿Y si me bloquean la cuenta personal?</strong> No usar el perfil personal para testear; existen vías de apelación, pero el riesgo es evitable.</li>
+<li><strong>¿Un SOC puede detectar esto con SIEM/XDR?</strong> Meta corre pipelines de análisis de tráfico que identifican y bloquean scraping activo — que te bloqueen durante una simulación es, de hecho, buena señal de que las defensas funcionan.</li>
+<li><strong>¿Por dónde empezar?</strong> Leer las guías del bug bounty en bugbounty.meta.com y los write-ups públicos; entender la funcionalidad intentada de los productos y dónde puede abusarse a escala.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El scraping no autorizado es un negocio global que ya no se parece al de hace unos años: automatización masiva, IA y evasión de defensas web; su daño se extiende años después de la extracción inicial.</li>
+<li>El ciclo que funciona es colaborativo: reportes externos detallados → triage → reproducción profunda → priorización por riesgo → mitigación → modelos de detección actualizados.</li>
+<li>Un buen reporte se distingue por cuatro pilares (escalabilidad, evasión, novedad, sensibilidad de datos) y por reproducibilidad que resista el paso del tiempo.</li>
+<li>La privacidad del usuario es innegociable en las pruebas: datos efímeros, métricas sí, acumulación no.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/pNDKDBL4GlI">«Malia (Meta) – Meta Bug Bounty / Unauthorized Scraping – Webinar 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V2G redefinido: el coche eléctrico como mando de consola — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">V2G redefinido: el coche eléctrico como mando de consola</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Dh220NQIkaQ">«DEF CON 33 - Redefining V2G: How to Use Your Vehicle as a Game Controller - Tim Spuhler, Janek Vahldiek»</a> · ver el <a class="nz-link" href="https://youtu.be/Dh220NQIkaQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Dh220NQIkaQ · <strong>URL:</strong> https://youtu.be/Dh220NQIkaQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Redefining V2G: How to Use Your Vehicle as a Game Controller - Tim Spuhler, Janek Vahldiek</li>
+</ul>
+<h2>Resumen</h2>
+<p>V2G no significa vehicle-to-grid: significa vehicle-to-game. Un grupo de investigación en seguridad automotriz de la Universidad de Ciencias Aplicadas de Darmstadt convirtió un Volkswagen ID.3 en un mando de Xbox funcional —volante, freno, intermitentes y luces largas leen SuperTuxKart y Need for Speed Most Wanted en tiempo real— y de paso construyó el material didáctico más motivador posible para introducir estudiantes en hacking automotriz: ingeniería inversa de buses CAN, UDS, sockets Linux y una Raspberry Pi Zero que se cuelga del OBD2. El proyecto es open source y la inversión inicial ronda los 50 dólares.</p>
+<h2>Superficie de ataque de un vehículo moderno</h2>
+<p>La superficie de ataque automotriz se divide en tres capas:</p>
+<ul>
+<li><strong>Largo alcance</strong>: comunicación celular coche–backend del OEM (incluidas actualizaciones OTA) y V2X (coche-coche para posición y velocidad, coche-señal para límites de velocidad por tramo).</li>
+<li><strong>Corto alcance</strong>: Bluetooth y Wi-Fi del infotainment, conexión smartphone–coche (Apple CarPlay para música).</li>
+<li><strong>Físico</strong>: los buses internos del coche, el vector más específico del dominio y el que importa para V2G.</li>
+</ul>
+<p>Los coches de investigación: un Volkswagen ID.3 y un Tesla Model 3, instrumentados con cajas Vector para capturar los buses y con sensores LAM de corriente por inducción pinzados sobre los cables de alta tensión. La idea de la vista holística: correlacionar mediciones físicas con los mensajes del bus para entender qué hace el coche realmente.</p>
+<h2>Topología de red y el papel del gateway</h2>
+<p>La arquitectura interna se reduce a un ECU gateway central y varios dominios separados por criticidad: el dominio de tracción agrupa ECU de motor y frenos (seguridad crítica); dominios de confort y luces quedan aislados con menor criticidad. El gateway aísla el interior del coche del puerto OBD2 de diagnóstico: sin ese filtrado, cualquiera con el conector del garaje leería todo el vehículo. La separación exacta varía por fabricante y modelo —esta es la del grupo Volkswagen—.</p>
+<h2>CAN: el lenguaje del chasis</h2>
+<p>CAN (desarrollado por Bosch en 1986) es un par trenzado de doble cable en topología de bus: todos los ECUs comparten el mismo medio y ven la misma información en cada time frame. Es multi-master —cualquier ECU transmite a demanda, sin árbitro central—.</p>
+<p>Datos clave para operarlo:</p>
+<ul>
+<li><strong>El CAN ID no es origen ni destino</strong>: funciona como un tópico de pub/sub que indica cómo interpretar los bits del payload, y a la vez codifica la prioridad (ID menor = prioridad mayor).</li>
+<li><strong>Payload de 8 bytes con señes arbitrarias</strong>: cada señal ocupa de 1 bit a los 8 bytes, definida a gusto del fabricante. Por eso casi siempre hace falta ingeniería inversa.</li>
+<li><strong>Bitrate típico</strong>: 500 kbps en automoción (medible con osciloscopio); CAN-FD añade una segunda tasa de datos.</li>
+<li><strong>Volumen</strong>: unos 3.000 mensajes por segundo en un solo bus de un Tesla. Filtrar a mano es inviable.</li>
+</ul>
+<h2>Acceso al bus físico</h2>
+<p>Tres vías de acceso, de más a menos intrusiva:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Acceso al bus CAN] --> B["Cableado directo<br/>mediante diagrama de taller<br/>+ breakout box / Vector"]
+    A --> C["Lectores sin contacto<br/>'CAN crocodile'<br/>por inducción, sin cortar cables"]
+    A --> D["Puerto OBD2<br/>vía UDS, sin desmontar nada"]
+    B --> E[CAN hat en Raspberry Pi<br/>o adaptador USB-PCAN]
+    C --> E
+    D --> E
+    E --> F[SocketCAN en Linux<br/>candump / python-can / SavvyCAN]
+
+</pre>
+
+<ul>
+<li><strong>Cableado</strong>: con un diagrama de circuito (los talleres los compran a VW online) se localiza un punto expuesto del bus de interés. En el Tesla Model 3, la consola central esconde uno de tres buses con adaptadores disponibles en eBay.</li>
+<li><strong>CAN crocodile</strong>: lector sin contacto por inducción, pinzado sobre los cables CAN high/low. No destruye nada.</li>
+<li><strong>OBD2 + UDS</strong>: la vía de los talleres, y la preferida para V2G.</li>
+</ul>
+<h2>UDS: preguntar en vez de escuchar</h2>
+<p>Unified Diagnostic Services es un protocolo petición-respuesta sobre CAN (también sobre IP): el tester pregunta al ECU correspondiente — "dame el ángulo del volante" — y recibe el valor. Entre CAN y UDS se interpone ISO-TP, que encadena múltiples tramas CAN de 8 bytes en un mensaje UDS más largo. Dos diferencias importantes respecto a CAN crudo: el ID aquí sí funciona como dirección de destino, y cada dato lleva un data identifier que permite varias interpretaciones del mismo CAN ID. Ojo: los datos pueden repartirse en múltiples tramas.</p>
+<h2>El hardware de V2G</h2>
+<p>El dongle es una pila de tres placas:</p>
+<ol>
+<li><strong>Raspberry Pi Zero</strong> sin modificar.</li>
+<li><strong>CAN hat</strong> que convierte las señales físicas en mensajes legibles por software.</li>
+<li><strong>PCB propia para OBD2</strong> que usa solo 4 pines del conector: 12 V, GND, CAN high y CAN low. Lo interesante es la conversión DC-DC de 12 V a 5 V (circuito tomado directamente del datasheet del IC) que alimenta la Pi desde el coche, sin batería externa.</li>
+</ol>
+<p>La Pi se conecta por Bluetooth al portátil y <strong>emula un mando de Xbox 360</strong> — el juego ve un gamepad normal, no sabe que su fuente es un coche eléctrico de 30.000 euros.</p>
+<h2>El software</h2>
+<p>Arquitectura por módulos, con script de instalación para Raspberry Pi (modo Bluetooth, emulación HID vía el proyecto hidapi) y script de ejecución multiplataforma en portátil (Windows incluido) con la librería vgamepad.</p>
+<ul>
+<li><strong>car_detector</strong>: ante varios vehículos, detecta el coche por una lista de CAN IDs y carga su configuración.</li>
+<li><strong>car_connector</strong>: el corazón — traduce señes CAN a triggers del gamepad emulado.</li>
+<li><strong>vehicle_configuration</strong>: por vehículo, define modo de operación (interno directo para coches sin gateway entre OBD2 y bus, o UDS con mensajes de polling periódico), intervalos de actualización (mayores para volante y freno, menores para botones, por el límite de respuesta del ECU), y dos ajustes cruciales de conducción: <strong>limitación del rango de dirección</strong> (dar dos vueltas completas de volante para el giro máximo es demasiado lento en un juego) y <strong>zona muerta de dirección</strong> (sin ella, 0,01 grados de desviación mandan el coche hacia la izquierda en los menús; poner el volante exactamente a cero grados es casi imposible).</li>
+</ul>
+<h2>El mapeo de juego</h2>
+<p>La traducción volante → gamepad es directa. Las decisiones creativas: intermitente izquierdo = lanzar objeto (el muffin explosivo de SuperTuxKart), luz larga flash = nitro. Conducción real, adelantamientos, carreras ganadas — todo con los controles del coche.</p>
+<h2>Cómo soportar tu propio coche</h2>
+<ul>
+<li><strong>Presupuesto</strong>: menos de 50 dólares (Raspberry Pi, CAN hat, cable OBD2 abierto si no se quiere soldar el PCB). El modo diagnóstico puede requerir un tester: los baratos existen; los de nivel taller, caros.</li>
+<li><strong>Ingeniería inversa de señes</strong>: tablet con herramienta de diagnóstico leyendo el ángulo del volante en vivo + laptop con CANalyzer o Caring Caribou para comparar mensajes mientras se gira el volante de tope a izquierda y derecha, capturando mínimos y máximos. Con 3.000 mensajes/segundo, el proceso lleva tiempo pero es mecánico.</li>
+<li><strong>DBC files</strong>: a veces la comunidad ya publicó la base de datos CAN del coche; si existe, se usa directamente.</li>
+<li><strong>Configuración</strong>: se declara CAN ID, posición y longitud de la señal, y mín/máx mapeados al rango -1,0..1,0 del gamepad.</li>
+<li><strong>Seguridad primero</strong>: bloquear la posibilidad de arrancar y meterse en Drive jugando (en garaje, con la cabeza en el juego, es real). En eléctricos el motor está apagado por defecto, lo que ayuda; en combustión, cuidado extra. Y no drenar la batería de 12 V jugando toda la noche sin cargador conectado.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Vector boxes + sensores LAM</strong>: captura de buses y correlación física/mensajes en el coche de investigación.</li>
+<li><strong>Roll jam / SDR</strong>: ataque clásico al key fob de código rodante (jam-record-replay) citado como vector físico.</li>
+<li><strong>Desoldado de eMMC</strong>: acceso al firmware del head unit y del key fob con acceso físico.</li>
+<li><strong>SocketCAN + candump + python-can + SavvyCAN</strong>: cadena Linux para escuchar, filtrar y analizar CAN.</li>
+<li><strong>UDS sobre ISO-TP</strong>: diagnóstico petición-respuesta para extraer señes concretas sin tocar el cableado.</li>
+<li><strong>PCAN-Pro USB / CAN hat para Raspberry Pi + PCB OBD2 con DC-DC 12→5 V</strong>: hardware del dongle V2G.</li>
+<li><strong>hidapi (emulación HID Bluetooth) + vgamepad (gamepad virtual multiplataforma)</strong>: capa de emulación Xbox 360.</li>
+<li><strong>CANalyzer / Caring Caribou / DBC files</strong>: ingeniería inversa de señes y fuentes públicas de mapeos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>V2G demuestra que un mando de juego perfectamente funcional se construye solo con lo que el coche ya publica en sus buses: volante, freno, palancas y luces son señes CAN legibles.</li>
+<li>El puerto OBD2 + UDS es la puerta de entrada más limpia para observar el coche sin desmontar nada; el gateway del fabricante es lo que separa esa puerta del interior sensible.</li>
+<li>La ingeniería inversa de señes CAN es tediosa pero mecánica: comparar tráfico mientras se actúa un actuador concreto delata la señal en la mayoría de los casos.</li>
+<li>Como herramienta docente, el proyecto convierte seguridad automotriz — materia teórica por excelencia — en una demo que cualquier estudiante entiende en segundos.</li>
+<li>El repositorio es público y acepta contribuciones; la pregunta que queda abierta es para qué lo usará cada quien.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Dh220NQIkaQ">«DEF CON 33 - Redefining V2G: How to Use Your Vehicle as a Game Controller - Tim Spuhler, Janek Vahldiek»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacidad diferencial: el hueco entre la matemática y la práctica — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Privacidad diferencial: el hueco entre la matemática y la práctica</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 3kA6oLhPbbs · <strong>URL:</strong> https://youtu.be/3kA6oLhPbbs · <strong>Conferencia:</strong> DEF CON 33 (Creator Stage) · <strong>Título original:</strong> Differential Privacy Beyond the Algorithm - Rachel Cummings</li>
+</ul>
+<h2>Resumen</h2>
+<p>Rachel Cummings, profesora de Columbia, dedicó su charla a lo que la privacidad diferencial (DP) no cubre. La disciplina ha concentrado décadas de rigor en algoritmos, garantías, teoremas y papers, pero ha descuidado lo que ocurre alrededor: política y regulación, decisiones organizacionales, comunicación con stakeholders y legislación. No existe una guía paso a paso para una organización que ve una charla de DP y quiere aplicar esas herramientas a sus datos. Cummings estructura la brecha en cuatro problemas abiertos: elegir epsilon, comunicar las garantías, cuantificar el trade-off privacidad-precisión y alinear DP con las leyes.</p>
+<h2>Qué es la privacidad diferencial en un minuto</h2>
+<ul>
+<li>Modelo mental: hay una base de datos valiosa, un analista que envía consultas y recibe respuestas, y quieres una barrera de privacidad en algún punto del proceso (entre base y analista, o entre analista y publicaciones).</li>
+<li>La promesa informal es <strong>libertad de daño</strong>: nada malo te va a pasar por compartir tus datos con el proceso de análisis. Permite aprender que fumar causa cáncer sin exponer tu historial médico concreto.</li>
+<li>Definición formal: un algoritmo M es ε-diferencialmente privado si para todo par de bases vecinas D y D′ (idénticas salvo por los datos de una persona) y para todo conjunto de salidas S, la probabilidad de que M produzca algo en S es aproximadamente la misma con D que con D′.</li>
+<li>Interpretación práctica: si un adversario observa una salida, no puede distinguir, más allá del factor ε, si la respuesta se debe a los datos de Alice o de Javier.</li>
+<li>La clave operativa: la DP se implementa añadiendo <strong>ruido calibrado</strong> al proceso — cuánto, de qué tipo y en qué punto del pipeline es todo un campo de estudio.</li>
+<li>Epsilon aparece en el exponente: una forma de "cuantificar fuga de información" que es unitaria, sin contexto, y matemáticamente densa — nada intuitivo para explicar a la gente.</li>
+</ul>
+<h2>Problema 1: ¿qué valor de epsilon?</h2>
+<ul>
+<li>La pregunta que Cummings recibe constantemente: "¿cuál es el epsilon correcto?" La respuesta honesta es que <strong>no hay respuesta única</strong>: el rango válido va de 0 a infinito, y el valor depende del caso de uso, la organización y las necesidades (gobierno federal vs. startup vs. big tech; publicidad vs. salud).</li>
+<li>Es el "wild west": cada organización elige lo que le funciona, en reuniones a puerta cerrada, y casi nunca publica lo que elige.</li>
+<li>Propuesta en marcha: un <strong>registro de epsilons</strong> para aumentar transparencia — que las organizaciones compartan no solo el número sino el contexto y justificación.</li>
+<li>Su investigación sobre comunicación muestra que las <strong>explicaciones matemáticas con visualizaciones</strong> de las consecuencias de cada elección aumentan tanto la comprensión objetiva como la sensación de autoeficacia ("tengo suficiente información para decidir") en quien comparte datos.</li>
+</ul>
+<h2>Problema 2: comunicar las garantías a cada stakeholder</h2>
+<p>La DP no le habla solo a quien comparte datos. Cummings mapea los actores y sus necesidades distintas:</p>
+<ul>
+<li><strong>Sujetos de datos</strong>: deciden si compartir es buena idea; necesitan entender qué promete la DP.</li>
+<li><strong>Ingenieros</strong>: implementan código, gestionan tracking de parámetros y las implicaciones "downstream" de la privacidad.</li>
+<li><strong>Curadores de datos</strong>: deciden cuándo, bajo qué condiciones y con qué acuerdos compartir bases con analistas.</li>
+<li><strong>Analistas</strong>: no les importa la privacidad, quieren su pipeline intacto. Si el pipeline DP es completamente distinto o "no puedes usar Python", se enfadarán — la herramienta debe integrarse sin ser disruptiva.</li>
+<li><strong>Oficiales de privacidad</strong>: compliance y requisitos regulatorios.</li>
+<li><strong>Ejecutivos</strong>: ¿vale la pena? ¿cuánto cuestan los privacy engineers? "si me hablas de pérdida de precisión, no la quiero".</li>
+<li><strong>Abogados</strong>: ¿es el uso de esta tecnología conforme a las leyes de privacidad?</li>
+<li><strong>Policymakers</strong>: redactan las leyes futuras.</li>
+</ul>
+<p>Cada perfil tiene distinto nivel técnico, distinta decisión que tomar y distinta capacidad de atención: la comunicación debe tailorizarse a cada uno, no existir una única explicación de epsilon "para todos".</p>
+<h2>Problema 3: cuantificar el trade-off privacidad-precisión</h2>
+<ul>
+<li>La versión académica del trade-off es un dial: "más privacidad = menos precisión, elige tu punto". Cummings propone una foto más realista: una <strong>frontera de Pareto</strong> definida por la tecnología actual (abajo a la izquierda, malo en ambos, siempre es factible; el trabajo algorítmico empuja la curva hacia fuera).</li>
+<li><strong>El eje de privacidad es difícil de medir</strong>: epsilon no es lo que piensa un ejecutivo; piensa en riesgos y ataques. Pero la evaluación de riesgo estándar bajo DP no encaja:</li>
+<li>El modelo de adversario es el <strong>peor caso</strong> (conocimiento completo de la base), no el adversario realista que enfrenta tu empresa.</li>
+<li>Las garantías son <strong>relativas</strong>: no dice "1% máximo de riesgo", dice "1% máximo de aumento multiplicativo respecto al riesgo sin los datos de esa persona".</li>
+<li>La DP protege a <strong>individuos</strong>; las inferencias a nivel de población no son violación por definición — pero quizá tu base de clientes revela tu estrategia de marketing, que es información poblacional que sí quieres proteger.</li>
+<li><strong>El eje de precisión también</strong>: las organizaciones son excelentes midiendo revenue, engagement o cuota de mercado, pero la DP habla de cotas aditivas y probabilísticas sobre estadísticos concretos. ¿Cómo mapeas "el intervalo de confianza del 95% se duplicó de ancho" a revenue?</li>
+<li>Retos de investigación: taxonomías de ataques realistas y cómo encajan (o no) con las garantías de DP; y <strong>vender mejor</strong> la DP a los ejecutivos — no "vas a perder precisión", sino "vas a ganar confianza de clientes, más opt-in, mejores datos y mejor PR".</li>
+</ul>
+<h2>Problema 4: leyes y el hueco con la regulación</h2>
+<ul>
+<li>Existe una <strong>brecha enorme</strong> entre las garantías matemáticas y el marco legal: la pregunta "¿cuándo es la privacidad diferencial compliant con tal o cual ley?" sigue sin respuesta satisfactoria, y es terreno fértil para trabajo interdisciplinar (Cummings lo desarrolló en su charla sorpresa posterior en el Crypto &amp; Privacy Village).</li>
+</ul>
+<h2>Mensajes finales</h2>
+<ul>
+<li>La DP está en todas partes — prácticamente cada gran tecnológica y un uso creciente en gobiernos — pero el ecosistema carece de best practices documentadas.</li>
+<li>El trabajo pendiente no es algorítmico sino <strong>social y organizacional</strong>: guías de adopción, marcos de riesgo realistas, comunicación por perfil y puentes con la ley.</li>
+<li>Toda su investigación parte de un principio de diseño: la privacidad promete a las personas libertad de daño; cualquier herramienta que no pueda explicar esa promesa en términos que el stakeholder entienda no está terminada.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

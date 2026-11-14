@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MicroPython frozen modules: extraer bytecode de un firmware como si nada — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">MicroPython frozen modules: extraer bytecode de un firmware como si nada</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/QXa29AJqdRc">«DEF CON 33 - Reverse Engineering MicroPython Frozen Modules - Wesley McGrew»</a> · ver el <a class="nz-link" href="https://youtu.be/QXa29AJqdRc">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> QXa29AJqdRc · <strong>URL:</strong> https://youtu.be/QXa29AJqdRc · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Reverse Engineering MicroPython Frozen Modules - Wesley McGrew</li>
+</ul>
+<h2>Resumen</h2>
+<p>Recorrido completo por el mecanismo de frozen modules de MicroPython —implementación desde cero de Python 3 para microcontroladores, no un port de CPython— y por el proceso de reconstrucción del bytecode que queda cocinado dentro del firmware en tiempo de compilación. El motivo práctico: muchas badges y dispositivos embebidos usan este mecanismo, y los CTFs sobre badges suelen esconder secretos, claves y código dentro de módulos congelados precisamente porque no existen herramientas públicas para desensamblarlos.</p>
+<p>La tesis de cierre es directa: el congelado existe para eficiencia —ahorra memoria y tiempo de carga—, pero se abusa de él como ofuscación. Y no funciona como protección: con un build de referencia, paciencia y el mpy tool, el módulo se reconstruye bit a bit.</p>
+<h2>Tres formas de código, una sin herramientas</h2>
+<p>Un dispositivo MicroPython puede llevar su código de tres maneras: texto plano en un pequeño file system emulado en flash, módulos de bytecode precompilado (.mpy) en ese file system, o módulos congelados compilados dentro del firmware. Para los dos primeros hay herramientas; para el tercero, nada: el proceso de congelado convierte el .mpy en un set de estructuras de C que se enlazan estáticamente, y el compilador las distribuye por la memoria en lugares no obvios. De ahí el atractivo para esconder cosas —y los foros están llenos de gente preguntando cómo guardar contraseñas y claves lejos de los usuarios de sus dispositivos—.</p>
+<h2>Empezar fácil y quitarse lo fácil</h2>
+<p>La demo arranca en la plataforma más cómoda, Raspberry Pi Pico, donde picotool info lista los frozen modules del firmware conectado. Esa lista viaja en el campo de "binary information" del Pico y MicroPython la codifica ahí expresamente —pero es prescindible: puede eliminarse comentando la generación en la herramienta de congelado, y otros microcontroladores ni siquiera la tienen. El primer paso del ataque es, entonces, imaginarse el escenario donde el fabricante ya la quitó. Alternativa si hay acceso al REPL serial: <code>help('modules')</code>. Pero no siempre hay REPL, así que el método robusto no depende de ninguna de las dos cosas.</p>
+<h2>La piedra Rosetta: construir un firmware de referencia</h2>
+<p>La técnica ancla del reversing: compilar un build de MicroPython con símbolos de debug que incluya un frozen module propio (no el del objetivo) y compararlo lado a lado en Ghidra con el binario stripped del dispositivo —extraído por flash dump, actualización over-the-air o lo que toque. Los símbolos del build de referencia —mp_frozen_names (la lista de módulos), mp_frozen_mpy_content (el contenido)— sirven de mapa para localizar las estructuras equivalentes en el binario sin símbolos:</p>
+<ul>
+<li>Ojo directo: buscar strings con <code>.py</code> y comparar la lista de constantes contra los módulos estándar; el excedente son los módulos del fabricante.</li>
+<li>Vía robusta: la función <code>mp_find_frozen_module</code> referencia ambas estructuras; un cross-reference en Ghidra desde las cadenas conduce a ella, y dentro de la función aparecen las referencias al contenido congelado.</li>
+</ul>
+<h2>Interning de strings: los QSTR y sus pools</h2>
+<p>MicroPython evita duplicar constantes de cadena en memoria con internado: los "QSTR" (unique strings) se referencian como índices dentro de una lista enlazada de pools. Un pool guarda puntero al anterior, el largo acumulado previo (que fija por dónde empiezan los índices del pool), arrays de hashes de un byte, arrays de longitudes y los datos de todas las cadenas concatenados sin separadores —los largos son los que delimitan cada string—. Hay un pool estático, idéntico en todos los builds, generado por el script de build, y el pool congelado viene después, con los strings de los módulos congelados.</p>
+<p>Consecuencia práctica para reconstruir el .mpy: un índice por debajo del límite del pool congelado (en el ejemplo, 962) apunta a un string ya presente en el binario base y se referencia por número; un índice por encima exige re-encodear la cadena dentro del .mpy reconstruido.</p>
+<h2>Reconstruir el .mpy: header, strings, objetos y bytecode</h2>
+<p>El header del archivo reconstruido se copia de cualquier .mpy de la misma versión —basta con que pase las validaciones—. Encima, el tipo VUINT (entero sin signo de longitud variable: 7 bits por byte, bit alto como bandera de continuación) aparece en todas las estructuras. Luego:</p>
+<ul>
+<li><strong>Tabla de strings</strong>: cada entrada declara si es un índice existente o un string nuevo seguido de sus datos; solo los strings que no están en el pool base se escriben.</li>
+<li><strong>Tabla de objetos</strong>: la parte más compleja a medida que el módulo usa más objetos de Python; en la práctica se copian casi byte a byte desde la memoria al binario reconstruido y, una vez cargado, se inspeccionan cómodamente desde el REPL del Unix port.</li>
+<li><strong>Bytecode</strong>: <code>read_raw_code</code> de mpy_tool.py revela el formato. Cada bloque lleva VUINTs para el tipo (bytecode o código nativo de máquina), el largo y si tiene hijos; el parsing es recursivo por hijos hasta agotar el árbol de funciones. Si una función está compilada a nativo, Ghidra la desensambla y decompila directamente —el camino fácil—; si es bytecode de MicroPython (no compatible con el de CPython), no hay decoder y toca reensamblar el .mpy para que mpy tool lo disassembles.</li>
+</ul>
+<p>Un detalle que complica la automatización: el largo del bytecode no está referenciado en ningún lado; la ejecución simplemente se mantiene dentro de sus límites mientras no retorne. Sin parsear el bytecode no hay forma limpia de conocer el largo —punto que, anota el investigador, quizás es explotable por sí mismo—.</p>
+<p>El resultado de la demo: el .mpy reconstruido es bit por bit idéntico al original.</p>
+<h2>Análisis una vez extraído</h2>
+<p>Con el módulo reconstruido, el Unix port de MicroPython —la versión de escritorio del intérprete— lo importa y permite inspeccionar objetos, listar funciones, ejecutarlas y trazar la ejecución (si se compila con sys.settrace, aunque el trace es burdo: indica qué función corre, no granularidad de bytecode). Si el código extraído toca hardware —GPIO, pines— hay que implementar stubs para que corra en el Unix port. Para leer bytecode a mano quedan dos referencias: la clase de opcodes de mpy tool y el intérprete de la VM en el código fuente de MicroPython, con tutoriales de bytecode de CPython como base conceptual.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los frozen modules son la herramienta correcta para el último tramo de despliegue —ahorran memoria y tiempo de carga— y la incorrecta para esconder secretos: solo están tan protegidos como el acceso al firmware (flash dump, REPL, actualizaciones OTA).</li>
+<li>Para el reverser acostumbrado a C compilado, el bytecode de MicroPython es en la práctica una ofuscación más efectiva que un firmware en C: molesto de leer, pero factible con la metodología del build de referencia.</li>
+<li>La automatización completa de la extracción es posible pero complicada por los largos no declarados de los bloques de código; a mano, con Ghidra y mpy tool, el proceso es determinístico.</li>
+<li>El formato de bytecode no es compatible con CPython: ni las herramientas de disassembly de Python de escritorio ni los debuggers aplican; mpy tool es el único disassembler del ecosistema y solo consume archivos .mpy.</li>
+<li>Invitación explícita de cierre: no usar esto para arruinar CTFs ajenos — y sí para aprender a navegar estructuras en Ghidra, del mismo modo que lo enseña el libro de referencia sobre la herramienta.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/QXa29AJqdRc">«DEF CON 33 - Reverse Engineering MicroPython Frozen Modules - Wesley McGrew»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

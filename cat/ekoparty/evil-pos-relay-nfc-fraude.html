@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Evil-POS: un relay NFC escondido dentro de una terminal de pago — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Evil-POS: un relay NFC escondido dentro de una terminal de pago</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/0m55XdRiofI">«Evil-POS - Conectando los Puntos - Pablo Grandoli»</a> · ver el <a class="nz-link" href="https://youtu.be/0m55XdRiofI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 0m55XdRiofI · <strong>URL:</strong> https://youtu.be/0m55XdRiofI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Evil-POS - Conectando los Puntos - Pablo Grandoli</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los pagos sin contacto funcionan tan bien que casi nadie se pregunta qué pasa entre la tarjeta y la terminal. Este análisis desarma esa confianza en dos pasos: primero, un relay NFC construido con hardware barato y accesible que extiende el alcance de lectura de una terminal a cualquier distancia con conectividad; segundo, la toma de control de una terminal de pago real (un PAX A910 liberado) para convertir al propio POS en el extremo malicioso del relay. El resultado, bautizado Evil-POS, es un dispositivo que cumple en apariencia con la normativa argentina de pagos —el cliente ve la terminal, ve el ticket— mientras deriva la transacción hacia donde el atacante quiera, incluso a través de un servidor en el otro hemisferio.</p>
+<p>El problema que aborda es concreto: la normativa que obliga a cobrar con el POS delante del cliente cerró el fraude clásico de "me llevo tu tarjeta veinte minutos", pero no elimina la superficie de ataque NFC. Si el cobro presencial se hace con una terminal maliciosa, la protección se convierte en teatro de seguridad. La contribución es doble: una prueba de concepto de relay que funciona por encima del límite teórico de latencia del protocolo, y la demostración de que un POS de producción, con acceso a sus periféricos de pago, es plataforma suficiente para montar el ataque completo.</p>
+<h2>Cómo habla una tarjeta: NFC y EMV en tres minutos</h2>
+<p>NFC es un protocolo sin contacto que opera a 13,56 MHz, con alcance efectivo de 4 a 10 centímetros —justamente el tiempo en que el lector puede alimentar a la tarjeta con la energía para responder—. Trabaja sobre los estándares ISO 14443 (en particular la variante A) y ofrece modos de lectura, escritura y emulación. La conversación entre lector y tarjeta son tramas APDU: comandos como Select, Generate Application Cryptogram (a través de las opciones de procesamiento), Read Record y Generate AC constituyen la columna vertebral del flujo EMV contactless.</p>
+<p>Una transacción tiene tres jugadores: el POS, la tarjeta y el issuer (el banco emisor), que es quien aprueba en línea la operación. El flujo arranca con el anti-collision, que elige qué tarjeta responder cuando hay varias cerca del lector; sigue con el Select, donde el POS pregunta qué tarjeta es; continúa negociando capacidades (contactless online, offline) y termina cuando el lector genera un criptograma que el issuer valida. Ese criptograma es de un solo uso: no puede repetirse en el tiempo. Datos intermedios relevantes: el UID que la tarjeta entrega apenas se apoya (de 4 o 7 bytes, definido por cada marca), el BIN, el PAN y el Service Code, que gobierna cómo se mueve la transacción.</p>
+<h2>Historia 1: el relay con mole, ghost y una Raspberry Pi</h2>
+<p>Un relay NFC extiende el alcance de lectura metiendo dos dispositivos entre la tarjeta y el terminal:</p>
+<ol>
+<li><strong>Mole</strong>: del lado de la tarjeta, la lee y reenvía todo.</li>
+<li><strong>Ghost</strong>: del lado del POS, se hace pasar por la tarjeta.</li>
+<li>Si ambos son transparentes y suficientemente rápidos, el POS no distingue la tarjeta real de la emulada, y la transacción se aprueba.</li>
+</ol>
+<p>Existen precedentes públicos, como una prueba de concepto con dos Proxmark 3 y un proxy intermedio, con el problema conocido de la latencia. Para esta implementación se eligió el PN532 —barato, fácil de conseguir y con capacidad de emulación— conectado a una Raspberry Pi, la plataforma más chica capaz de levantar Linux, con la librería libnfc lista para usar: el conjunto queda operativo en unos diez minutos. En la comparación de hardware, el Proxmark 3 (con antenas de alta y baja frecuencia y firmware muy potente para dumpear tarjetas) y el Flipper Zero son alternativas capaces; los lectores HID cubren muchas tarjetas pero sus drivers cerrados limitan el juego.</p>
+<p>La demo fue un éxito: la tarjeta se apoya en el mole, el ghost se acerca al POS, y en el momento del pitido la terminal ya muestra la pantalla de tarjeta de crédito y cuotas —la transacción está aprobada—. La tarjeta usada estaba vencida, así que el pago no se materializó, pero el ataque en sí quedó demostrado.</p>
+<h3>Las dos trampas del PN532</h3>
+<p>La implementación dejó dos hallazgos que valen más que la demo:</p>
+<ul>
+<li><strong>Emulación restringida por UID</strong>: el PN532 tiene capacidad de emulación, pero está enmascarada dentro del microcontrolador y solo permite emular UIDs que empiecen con <code>08</code>. Apenas un 20% de las tarjetas probadas cumplía esa condición; el resto fallaba al iniciar el modo emulación. La solución, "atada con alambre" pero efectiva, fue forzar el primer byte a <code>08</code> y conservar el resto del UID real: el anti-collision pasa y la transacción sigue, aunque el UID no coincida exactamente con la tarjeta.</li>
+<li><strong>El límite de latencia no se aplica</strong>: el protocolo EMV establece que una transacción contactless debería cortarse si supera los 500 ms. Las pruebas superaron los 600 ms y la transacción igual pasó. Ese margen es justo el que hace viable cualquier relay.</li>
+</ul>
+<p>El resultado, eso sí, sigue siendo inportable: una Raspberry Pi con un módulo PN532 y un step-down para batería no pasa desapercibida en la calle.</p>
+<h2>Historia 2: liberar un PAX A910 y llegar a los periféricos</h2>
+<p>El segundo ingrediente partió de pura curiosidad: el PAX A910 es un POS Android (Android 6) con procedimientos de desbloqueo documentados en internet, y el trabajo de la persona conocida como Niki fue clave para lograr liberarlo. Con un Android genérico instalado, el aparato sirve para imprimir fotos o jugar a Doom —pero el Android "limpio" no accede a los periféricos del POS, que son la parte valiosa: lector de chip, banda magnética, impresora y lector NFC.</p>
+<p>El cambio de juego fue un error de alguien en internet: un zip publicado por accidente con la documentación de la API de Neptune —la capa que gestiona los periféricos del hardware PAX—, una APK de muestra y las librerías para desarrollar sobre Android. Con eso, el POS liberado dejó de ser un juguete y se convirtió en una plataforma de pago completamente programable desde código propio.</p>
+<h2>Evil-POS: el relay que cumple la normativa</h2>
+<p>Aquí se conectan las dos historias con un contexto regulatorio: hace aproximadamente un año y medio, Argentina sancionó una normativa que exige que el pago se realice delante del cliente, para mitigar el fraude de la tarjeta que se retira de la vista del titular. La pregunta obvia: ¿un POS malicioso puede cumplir esa norma y aun así estafar? La respuesta es sí.</p>
+<p>El relay se transfirió al interior del POS liberado. La secuencia de uso es indistinguible de un cobro normal:</p>
+<ol>
+<li>El atacante hace un long-press sobre "cobrar" y activa el modo Evil-POS, que queda escuchando conexiones del ghost.</li>
+<li>Mole y ghost se conectan (por Wi-Fi, o por Internet hacia un VPS).</li>
+<li>El cliente ve la terminal, apoya la tarjeta, recibe su ticket (imprimible para parecerse al de un POS genuino) y se va.</li>
+<li>La transacción no la procesó el comercio: la derivó el atacante.</li>
+</ol>
+<p>En la primera demo, el POS muestra "cobrar 1 peso" y termina cobrando 100: la pantalla del cliente deja de ser confiable porque la propia terminal miente. En la versión extendida, el proxy intermedio —el mismo patrón mole/ghost transparente— corre en un VPS en Inglaterra: el mole está conectado a la Wi-Fi de una vecina, el POS a la del atacante, y la transacción viaja al hemisferio norte y vuelve dentro de la ventana de tiempo que el protocolo permite (y que en la práctica no se valida). La distancia deja de ser un límite: el pago puede derivarse a cualquier lugar del mundo con conectividad.</p>
+<p>El escenario de abuso real es el mozo —o cualquier manipulador de pagos— que trae su propio POS: muestra un cobro de 100 pesos, el cliente apoya la tarjeta, recibe su ticket, y la plata termina en la cuenta del estafador. No hace falta ni inventar el vector: hay casos públicos de este año de una persona que reemplazó el POS de un bar por uno propio, de modo que cada pago del local le acreditaba a ella; ambos terminaron detenidos, pero la ventana de fraude funcionó.</p>
+<pre class="mermaid">
+sequenceDiagram
+    participant T as Tarjeta
+    participant M as Mole (PN532 + RPi)
+    participant P as Proxy (VPS)
+    participant G as Ghost (Evil-POS)
+    participant POS as Cliente/víctima
+    T->>M: Apoya la tarjeta (anti-collision, Select, APDUs)
+    M->>P: Reenvía tramas (Wi-Fi/Internet)
+    P->>G: Reenvía tramas
+    G->>POS: Se hace pasar por la tarjeta
+    POS->>G: Generate AC (criptograma)
+    G->>P->>M->>T: Criptograma hacia la tarjeta real
+    T-->>POS: Aprobación (cribtograma de un solo uso)
+    Note over POS: Ticket impreso · importe en pantalla manipulado
+
+</pre>
+
+<h2>Mitigaciones y límites del ataque</h2>
+<p>Las defensas son más escasas de lo que la normativa sugiere:</p>
+<ul>
+<li><strong>Validar la latencia de verdad</strong>: el límite de 500 ms existe en el protocolo pero no se aplica. Un corte estricto del tiempo de transacción rompería relays de larga distancia y encarecería los locales.</li>
+<li><strong>Pago con QR</strong>: cambia la superficie de ataque, aunque probablemente abra agujeros nuevos.</li>
+<li><strong>El PIN no salva</strong>: en mercados donde el POS pide PIN, la pregunta natural es si mitiga el relay. La respuesta es no del todo: el ingreso del PIN también puede retransmitirse por el mismo canal, siempre que el prompt se replique fielmente en el POS genuino del otro extremo.</li>
+<li><strong>Pagos desde el celular</strong>: con Apple Pay o Google Pay el flujo es equivalente; queda abierta la pregunta de si el importe viaja en la transacción y podría mostrarse de forma confiable en pantalla, algo que el protocolo actual no garantiza de manera visible para el usuario.</li>
+</ul>
+<p>El trabajo se apoya explícitamente en dos precedentes: la labor de desbloqueo de POS de Niki y la obra pionera de Salvador Mendoza en ataques NFC sobre pagos, con demostraciones públicas de hace una década. La apuesta acá fue replicar esas bases, unirlas a la normativa vigente y avanzar un paso más: el relay ya no vive en hardware expuesto sobre la mesa, sino dentro de una terminal de pago certificada que el cliente sostiene en la mano.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>NFC / ISO 14443-A</strong>: protocolo sin contacto a 13,56 MHz, alcance de 4 a 10 cm, modos de lectura, escritura y emulación.</li>
+<li><strong>APDU</strong>: tramas de comando/respuesta del flujo contactless (Select, Read Record, Generate AC, entre otras).</li>
+<li><strong>UID, ATQA, SAK</strong>: primeros datos que entrega una tarjeta al acercarla a un lector; UID de 4 o 7 bytes según la marca.</li>
+<li><strong>BIN, PAN, Service Code</strong>: identificadores de la tarjeta y de cómo debe cursarse la transacción.</li>
+<li><strong>Anti-collision</strong>: mecanismo que selecciona qué tarjeta atiende el lector cuando hay varias en el campo.</li>
+<li><strong>Criptograma (Generate AC)</strong>: token de un solo uso que valida el issuer en línea.</li>
+<li><strong>Relay attack (mole/ghost)</strong>: par de dispositivos que extienden el alcance de lectura entre tarjeta y POS de forma transparente.</li>
+<li><strong>PN532</strong>: chip NFC con capacidad de emulación (restringida a UIDs que empiezan con <code>08</code>); usado como mole.</li>
+<li><strong>Raspberry Pi + libnfc</strong>: plataforma compacta y económica para levantar el extremo NFC del relay en minutos.</li>
+<li><strong>Proxmark 3 / Flipper Zero</strong>: herramientas alternativas de lectura y emulación RFID/NFC.</li>
+<li><strong>PAX A910</strong>: terminal de pago Android liberada; base hardware del Evil-POS.</li>
+<li><strong>Neptune API</strong>: capa de PAX que expone los periféricos del POS (chip, banda magnética, impresora, NFC); su documentación se filtró accidentalmente en internet.</li>
+<li><strong>Normativa de pago presencial (Argentina, ~2024)</strong>: obliga a cobrar con el POS delante del cliente; el Evil-POS cumple formalmente esa regla.</li>
+<li><strong>Enforce de latencia (500 ms)</strong>: mitigación propuesta; hoy el límite del protocolo no se aplica en la práctica.</li>
+<li><strong>Trabajo de Salvador Mendoza</strong>: precedente académico y práctico de los ataques NFC sobre pagos.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El relay NFC dejó de ser teórico: con un PN532 y una Raspberry Pi se replica con hardware al alcance de cualquiera, y el límite de latencia de 500 ms que debería frenarlo no se aplica en la práctica.</li>
+<li>Liberar un POS comercial y acceder a su API de periféricos convierte una terminal certificada en plataforma de ataque; el filtrado accidental de la documentación de Neptune fue el catalizador.</li>
+<li>La Evil-POS demuestra que la normativa de "cobro delante del cliente" se cumple en la letra y se viola en el fondo: ver el POS no garantiza nada si la terminal miente sobre el importe.</li>
+<li>Las mitigaciones reales son técnicas, no procedimentales: validar la latencia de la transacción es la medida más directa, aunque el PIN y los pagos móviles tampoco cierran el vector por sí solos.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/0m55XdRiofI">«Evil-POS - Conectando los Puntos - Pablo Grandoli»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

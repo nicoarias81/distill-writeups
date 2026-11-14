@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draytek: dos nuevas RCE completan la cadena hasta la persistencia — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Draytek: dos nuevas RCE completan la cadena hasta la persistencia</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/D0kz2sj1e7s">«The Missing Link: Draytek&#x27;s New RCEs Complete the Chain - Gaston AznarezOctavio Gianatiempo»</a> · ver el <a class="nz-link" href="https://youtu.be/D0kz2sj1e7s">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> D0kz2sj1e7s · <strong>URL:</strong> https://youtu.be/D0kz2sj1e7s · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> The Missing Link: Draytek's New RCEs Complete the Chain - Gaston AznarezOctavio Gianatiempo</li>
+</ul>
+<h2>Resumen</h2>
+<p>Draytek fabrica routers Small Business para pymes que corren DryOS, un RTOS compilado para MIPS de 32 bits (algunos modelos en ARM/Linux), con una interfaz de administración bastante custom. La línea enterprise sí permite emular el firmware en QEMU, lo que habilita análisis dinámico sin hardware. Son equipos populares: más de 600.000 routers Draytek expuestos en internet, sin contar los que están detrás de otro NAT.</p>
+<p>Un año antes, el mismo equipo había publicado una serie de debilidades del dispositivo: el proceso de actualización no valida certificados, la comparación de contraseñas no es de tiempo constante, las credenciales se guardan en claro y cifradas solo con una clave embebida en el binario (recuperable de la tabla de strings), los códigos de 2FA son predecibles, hay vulnerabilidades de null dereference que cuelgan el router (nuevo DoS para la botnet Mirai), y los endpoints del DLM permiten subir módulos —que son, en la práctica, módulos del kernel.</p>
+<h2>Persistencia a nivel kernel</h2>
+<p>La parte más interesante del trabajo previo es la persistencia. DryOS es monolítico, sin mecanismo de módulos, pero tiene regiones de flash: una contiene un initramfs con el sistema de archivos, y en las regiones restantes se pueden alojar binarios relocatables con símbolos exportados. Colocando ahí un módulo —por ejemplo, un SSH daemon parcheado con una backdoor— se logra persistencia que sobrevive a reseteos y hasta a actualizaciones de firmware. La estructura XTA cifra esos binarios, y el algoritmo de compresión es una versión modificada de LZ4 que hay que reescribir para poder construir módulos propios. Ese trabajo derivó en DrayTek Arsenal, una tool open source para manipular firmware.</p>
+<h2>La RCE conocida: GetCGI</h2>
+<p>Forescout publicó una vulnerabilidad pre-autenticación en el binario CGI: la función GetCGI recibe los parámetros del request POST y los guarda en un array de punteros alojado en el stack, pero el código de parseo no valida la cantidad de parámetros. Con suficientes parámetros se sobrescribe el return address del stack frame de GetCGI, que a su vez es llamado por el dispatcher de todas las CGIs —control total. El equipo replicó la vulnerabilidad y en ese proceso detectó algo clave para lo que vino después: el mismo patrón, sin chequeo de cantidad, aparece inline dentro de la función que parsea TR-069.</p>
+<h2>La cadena nueva: de un overflow a slab a shellcode</h2>
+<p>TR-069 es un protocolo de WAN Management (el binario tr069 en el puerto 7547). Entre sus mensajes está STUN, y el parser de ese mensaje procesa el header y los atributos TLV usando un slab allocator propio de DryOS, con la particularidad de que los slabs son de tamaño fijo según la clase. Ahí aparece la vulnerabilidad nueva: un integer overflow. Si el content-length del mensaje es 0x7FFFFFFF, el cálculo (content-length + 1 + offset) da la vuelta y produce un número negativo en complemento a dos: INT_MIN. Al pasar ese valor a malloc, el cast a unsigned lo convierte en el tamaño máximo, y DryOS maneja asignaciones gigantes de forma especial: las sirve desde un slab común, y el tamaño efectivo queda en unos 24 bytes.</p>
+<p>El atacante controla content-length, así que controla cuántos bytes escriben después: escribiendo más de esos 24 bytes se produce un heap overflow en el slab allocator, cuyo header guarda un puntero al siguiente bloque libre. Corrompiendo ese puntero se fuerza una asignación en una dirección arbitraria (write-what-where), y el objetivo elegido es la tabla de exception handlers: se sobrescribe una entrada para que, ante un acceso ilegal a memoria, la ejecución salte a código del atacante.</p>
+<p>Dos piezas cierran la explotación. Primero, los datos del POST llegan a una posición de memoria predecible, de modo que el handler apunta directo al buffer del request, que contiene la shellcode. Segundo, para que el acceso ilegal ocurra de forma determinista se fuerza un null dereference —de ahí que los DoS anteriores se integren en la cadena: el crash ya no es el fin sino el disparador. Una vez con shellcode se setea la contraseña de admin, se reinicia el router y, con sesión de admin, se sube el módulo malicioso a flash que deja el SSH con backdoor.</p>
+<pre class="mermaid">
+flowchart TD
+    A[TR-069 STUN: content-length 0x7FFFFFFF] --> B[Integer overflow: INT_MIN]
+    B --> C[Slab de 24 bytes / heap overflow]
+    C --> D[Corrupción del next-free pointer]
+    D --> E[Asignación arbitraria: excepción handler]
+    E --> F[Null deref provocado]
+    F --> G[Shellcode desde el buffer del POST]
+    G --> H[Seteo de contraseña de admin]
+    H --> I[Upload de módulo kernel: persistencia]
+
+</pre>
+
+<h2>El incidente de marzo</h2>
+<p>En marzo hubo un incidente masivo de routers Draytek en Reino Unido que se reiniciaban solos, sin explicación. La hipótesis más plausible: intentos de explotación con offsets incorrectos, que en vez de tomar control provocaban el crash. Se desplegaron honeypots con el firmware emulado y tráfico real capturado, sin encontrar rastros concluyentes.</p>
+<h2>Lecciones</h2>
+<p>La primera es que los bugs se agrupan: dos años de análisis revelaron dos vulnerabilidades de RCE del mismo patrón en el mismo binario, y el enfoque sink-to-source (partir del flujo de red hacia el código vulnerable) resultó más efectivo que explorar superficie completa, donde el volumen de resultados hace que casi nada reciba atención de patching. Draytek fue patcheando a lo largo de meses, no semanas, y la mayoría de esos bugs siguen sin arreglarse en routers expuestos. El análisis cierra con un anuncio de próximos trabajos: el mismo enfoque aplicado al CAN bus y al mundo automotriz.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>DryOS</strong>: RTOS monolítico de Draytek sobre MIPS 32 bits, con slab allocator propio y región de flash para módulos.</li>
+<li><strong>Emulación con QEMU</strong>: análisis dinámico del firmware sin hardware físico (línea enterprise).</li>
+<li><strong>Módulos kernel / persistencia</strong>: binarios relocatables con símbolos exportados, cifrado XTA y compresión LZ4 modificada.</li>
+<li><strong>DrayTek Arsenal</strong>: tool open source para manipular firmware Draytek.</li>
+<li><strong>GetCGI stack overflow</strong>: array de punteros sin validación de cantidad en el binario CGI (hallazgo de Forescout).</li>
+<li><strong>Integer overflow en TR-069/STUN</strong>: content-length 0x7FFFFFFF provoca malloc gigante servido desde slab común.</li>
+<li><strong>Corrupción de next-free pointer</strong>: write-what-where para sobrescribir la tabla de exception handlers.</li>
+<li><strong>Null dereference como trigger</strong>: el crash deliberado salta al handler corrompido y ejecuta shellcode.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las vulnerabilidades previas (DoS, endpoints de DLM sin control) no eran hallazgos aislados: ensambladas, forman una cadena completa de RCE pre-autenticación con persistencia a nivel kernel.</li>
+<li>Un integer overflow en el manejo del tamaño de slab convierte un parser de mensajes en punto de entrada pre-autenticación; el crash del sistema puede ser parte del exploit, no su fin.</li>
+<li>La persistencia por módulos en flash sobrevive a updates y reseteos, lo que eleva el impacto real de cualquier RCE en este firmware.</li>
+<li>Bugs del mismo patrón tienden a repetirse en el mismo binario: acotar el análisis por flujo de datos hacia sinks concretos rinde más que barrer toda la superficie.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/D0kz2sj1e7s">«The Missing Link: Draytek&#x27;s New RCEs Complete the Chain - Gaston AznarezOctavio Gianatiempo»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

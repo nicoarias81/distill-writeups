@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unsaflok: una tarjeta caducada basta para abrir todas las puertas de un hotel — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Unsaflok: una tarjeta caducada basta para abrir todas las puertas de un hotel</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/4cx0RUV7i0s">«DEF CON 32 - Unsaflok: Hacking millions of hotel locks - Lennert Wouters, Ian Carroll»</a> · ver el <a class="nz-link" href="https://youtu.be/4cx0RUV7i0s">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 4cx0RUV7i0s · <strong>URL:</strong> https://youtu.be/4cx0RUV7i0s · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Unsaflok: Hacking millions of hotel locks - Lennert Wouters, Ian Carroll</li>
+</ul>
+<h2>Resumen</h2>
+<p>Unsaflok es la vulnerabilidad encontrada en 2022 en los candados de hotel Dormakaba SAFLOK: con leer una sola tarjeta —caducada, olvidada o comprada en eBay— un atacante puede fabricar un par de tarjetas que abren todas las puertas del hotel, incluidas las que tienen el pestillo puesto. El sistema afectaba a 3 millones de puertas en 13.000 hoteles de 131 países.</p>
+<p>El fallo combina cuatro eslabones débiles: una tabla de sustitución fija para cifrar los datos de la tarjeta, idéntica en todas las instalaciones SAFLOK del mundo; llaves MIFARE derivadas del UID de la propia tarjeta; un campo de "secuencia y combinación" que puede reescribirse con una tarjeta de resecuenciado; y llaves de nivel emergencia que abren todas las puertas y anulan el pestillo. Tras un proceso de disclosure de casi dos años —13 reuniones con Dormakaba incluidas—, el sistema migró a un modo mejorado con AES y tarjetas MIFARE Ultralight C. Los autores compartieron los detalles técnicos gradualmente y demostraron el ataque en vivo con un Proxmark 3 y un Flipper Zero.</p>
+<h2>Contexto: candados offline y una genealogía de fallos</h2>
+<p>SAFLOK nació en 1988 como candado de banda magnética (Computerized Security Systems, luego Kaba, luego Dormakaba tras la fusión de 2015). Su arquitectura es deliberadamente offline: el servidor de recepción graba en la tarjeta qué puertas debe abrir, pero el candado decide por sí mismo, sin contactar ningún servidor. La única conexión física es un puerto Mini-USB en la base, accesible desde el pasillo, para el programador de mano HH6; en hoteles grandes de Las Vegas hay una capa semi-online con coordinadores ZigBee que reportan logs de auditoría, pero la decisión de abrir sigue siendo local.</p>
+<p>El precedentes importan: en 2012, la investigadora que atacó los candados Onity publicó todos los detalles de inmediato, y la consecuencia fue una ola de robos en hoteles usando dispositivos caseros. En 2018, F-Secure demostró que con una sola tarjeta del sistema Vingcard (Assa Abloy) se fabricaba una llave maestra, pero trabajó con el fabricante y retuvo los detalles. Unsaflok optó por la vía intermedia: disclosure responsable largo y publicación posterior de parte de la técnica.</p>
+<h2>El laboratorio casero: software, encoder y base de datos</h2>
+<p>Sin hotel propio, los investigadores armaron uno. Los componentes: el software System 6000 (encontrable en internet), un encoder RFID de recepción (600 dólares en eBay en 2022; ahora 45, porque todos los hoteles están vendiendo los viejos al reemplazarlos) y tarjetas MIFARE Classic 1K, baratas y ubicuas.</p>
+<p>Dos hallazgos de configuración resultaron decisivos. Primero, la base de datos del sistema es un archivo Firebird con usuario y contraseña por defecto, donde quedan registradas todas las tarjetas creadas: crear una tarjeta y mirar la base de datos revela todos los campos codificados. Segundo, el sistema alguna vez soportó encoders RFID comerciales: poniendo a cero el flag <code>hide_legacy_encoders</code> en la base de datos, un encoder barato de mercado funciona sin problemas.</p>
+<p>El HH6, además, resultó una herramienta de diagnóstico invaluable: puede interrogar cualquier candado y volcar su historial completo de entradas y salidas —incluido cuándo entró el servicio de limpieza— en cualquier hotel del que se conozca el property ID. Y ante una tarjeta rechazada, dice exactamente por qué, lo que aceleró el desarrollo del ataque.</p>
+<h2>Ingeniería inversa: KDF, cifrado y formato de tarjeta</h2>
+<p>El software System 6000 mezcla ejecutables Delphi (dolorosos) con binarios .NET (triviales de decompilar). Tres objetivos guiaron el análisis:</p>
+<ol>
+<li><strong>Derivación de llaves MIFARE.</strong> Las tarjetas Classic 1K tienen 16 sectores de 4 bloques; el sector 0 contiene los datos relevantes del sistema y su llave deriva del UID de la tarjeta —un diseño débil por sí mismo. La KDF vive en una función <code>KabaGetSecuredKeys</code> de la DLL del encoder; hoy está implementada en Proxmark 3 y Flipper Zero. No es estrictamente necesaria: los ataques criptográficos clásicos contra MIFARE Classic (<code>hf mf autopwn</code>) recuperan las llaves igual.</li>
+<li><strong>Cifrado de los datos.</strong> Los 16 bytes del bloque 1 están "cifrados" con una tabla de sustitución encontrada en las funciones <code>EncryptCard</code>/<code>DecryptCard</code> de la DLL. El golpe crítico: <strong>la tabla es la misma para todos los hoteles SAFLOK del mundo</strong>. Cualquier instalación tiene las llaves para descifrar y cifrar las tarjetas de todas las demás.</li>
+<li><strong>Formato de datos.</strong> Reutilizando una función que ensambla tarjetas de emergencia y comparando contra tarjetas reales del laboratorio, reconstruyeron campo por campo: fecha de creación, nivel de tarjeta (huésped, ama de llaves, emergencia, llaves de programación primaria/secundaria), override de pestillo, lock ID (numérico, adyacente entre habitaciones vecinas), property ID (12 bits, el número "secreto" que identifica al hotel) y el temido campo de secuencia y combinación.</li>
+</ol>
+<p>El campo de secuencia es el mecanismo anti-clonación: cada check-in genera un número de secuencia que invalida los anteriores, impidiendo dos llaves válidas para la misma habitación. El candado también detecta fuerza bruta: cuatro mil intentos manuales con el Proxmark agotaron al investigador y apagaron el candado.</p>
+<h2>El ataque: dos tarjetas, todas las puertas</h2>
+<p>La clave está en que los candados offline a veces se desincronizan de recepción y necesitan resecuenciarse. Una tarjeta de resecuenciado simplemente le dice al candado: "tu nueva secuencia es X y tu nueva combinación es Y" — exactamente los dos únicos campos que un atacante no puede adivinar. El ataque completo:</p>
+<ol>
+<li>Obtener cualquier tarjeta del hotel (la propia, una caducada, una del piso, una de eBay) para leer el <strong>property ID</strong>.</li>
+<li>Forjar una tarjeta de <strong>resecuenciado a nivel emergencia</strong> (el nivel emergencia abre todas las puertas, así que no hay que adivinar el lock ID).</li>
+<li>Forjar una tarjeta de <strong>apertura a nivel emergencia</strong> con la misma secuencia y combinación.</li>
+<li>Tocar el candado con la primera, luego con la segunda: la puerta abre, incluso con el pestillo puesto —el pestillo es solo un bit de software que la tarjeta de emergencia anula.</li>
+</ol>
+<p>El par de tarjetas se fabrica una vez por propiedad y reabre cada puerta del hotel indefinidamente. La implementación es el módulo Python <code>pysaflok</code> (KDF, descifrado, serialización, reescritura) con wrappers sobre Proxmark 3, más un plugin para Flipper Zero que lee la tarjeta caducada, deriva el property ID y genera automáticamente ambas tarjetas atacantes. Los autores no publicaron el plugin, pero el video del ataque —filmado en instalaciones de Dormakaba— está en unsaflok.com.</p>
+<h2>Disclosure: por qué dos años</h2>
+<p>Encontrado en agosto de 2022 (la pieza del resecuenciado llegó un mes después), reportado al CISO de Dormakaba por LinkedIn ante la ausencia de canal —que respondió rápido y creó un VDP—, el proceso incluyó al menos 13 reuniones y un NDA que los investigadores rechazaron firmar. La mitigación empezó en noviembre de 2023; en marzo de 2024, disclosure limitado cuando 3.036 candados estaban actualizados; para DEF CON 2024, "la mayoría" y casi todas las propiedades de Las Vegas en proceso o mitigadas, con un pico de 500 propiedades arregladas por semana.</p>
+<p>La lentitud tiene causas estructurales que el análisis detalla con honestidad poco común: las integraciones (kioscos de check-in, ascensores, pagos, toallas) deben actualizarse en bloque con sus fabricantes; la mayoría de los candados se actualiza a mano, sosteniendo el programador frente a la puerta dos minutos —3 millones de puertas × 2 minutos—; y hay que convencer a dueños de propiedades, para lo cual sirvió el disclosure limitado.</p>
+<p>La solución, "Enhanced Security Mode" sobre el software Ambiance: nueva KDF, cifrado AES de los datos de tarjeta en lugar de la tabla de sustitución, tarjetas MIFARE Ultralight C (cuyas llaves impiden escribir aunque se conozca el contenido) y encoders nuevos con secure element. System 6000, deprecado, recibió un parche inferior con cifrado por propiedad. El cambio a Ultralight C fue posible porque el precio de estas tarjetas bajó lo suficiente: en un hotel de 5.000 habitaciones, ~1,3 millones de tarjetas al año de las que solo el 25 % se devuelve, el costo de duplicar el precio por tarjeta era de unos 100.000 dólares anuales — por eso MIFARE Classic sobrevivió tanto.</p>
+<h2>Cómo saber si tu hotel es vulnerable</h2>
+<p>Tres chequeos acumulativos: mirar el encoder en recepción (el modelo viejo y grueso implica sistema vulnerable; el nuevo puede estar mitigado); reconocer el candado SAFLOK (negro, con la "S" estilizada); y leer la propia tarjeta con Flipper Zero (firmware Iceman) o la app NFC Taginfo de Android: MIFARE Classic implica sistema vulnerable. Como mitigaciones físicas para viajeros: correas de velcro para inmovilizar el pestillo y cuñas bajo la puerta.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Un solo eslabón roto compartido globalmente —la tabla de sustitución universal— convierte un fallo local de diseño en una llave maestra mundial: un secreto que no es secreto por estar hardcodeado en millones de instalaciones no es un secreto.</li>
+<li>La criptografía débil en capas (UID-derivado, sustitución, sin MAC) se acumula; ninguna capa individual fue "la" vulnerabilidad, pero juntas hacen trivial la falsificación.</li>
+<li>La oficina de recepción es parte de la superficie de ataque: software con credenciales por defecto, bases de datos legibles y encoders comerciables convierten un sistema industrial en un laboratorio casero.</li>
+<li>La disclosure responsable de infraestructura global es lenta por razones legítimas —integraciones, actualización manual, persuasión de propietarios— y el disclosure parcial escalonado (marzo 2024) fue herramienta para acelerar el despliegue, no sustituto.</li>
+<li>El hardware barato (Proxmark 3, Flipper Zero) y el software decompilable (.NET) redujeron el costo de entrada: dos investigadores sin experiencia previa en cerraduras reventaron el estándar dominante del sector hotelero.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>MIFARE Classic 1K</strong>: tarjetas con 16 sectores y llaves A/B por sector; criptografía rota de larga data, atacables con <code>autopwn</code>.</li>
+<li><strong>KDF de SAFLOK</strong> (<code>KabaGetSecuredKeys</code>): derivación de llaves del UID de la tarjeta, hoy implementada en Proxmark 3 y Flipper Zero.</li>
+<li><strong>Tabla de sustitución universal</strong>: el "cifrado" de los datos de tarjeta, idéntico en todas las instalaciones SAFLOK, recuperado de las DLL del System 6000.</li>
+<li><strong>Tarjeta de resecuenciado</strong>: primitiva de sincronización de candados offline reutilizada como vector de ataque para inyectar secuencia y combinación.</li>
+<li><strong>Property ID de 12 bits</strong>: único dato necesario por hotel, extraíble de cualquier tarjeta física obtenida.</li>
+<li><strong>Proxmark 3 / Flipper Zero (Iceman)</strong>: lectura, derivación, falsificación y emulación de tarjetas NFC.</li>
+<li><strong>Firebird DB del System 6000</strong>: credenciales por defecto + registro de todas las tarjetas creadas = oráculo de formato y datos.</li>
+<li><strong>HH6</strong>: programador de mano que vuelca auditorías y explica rechazos de tarjetas; aceleró el desarrollo del exploit.</li>
+<li><strong>pysaflok</strong>: módulo Python con KDF, cifrado/descifrado, serialización y escritura de tarjetas.</li>
+<li><strong>Nível emergencia + deadbolt override</strong>: tarjeta que abre todas las puertas y anula el pestillo por software.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/4cx0RUV7i0s">«DEF CON 32 - Unsaflok: Hacking millions of hotel locks - Lennert Wouters, Ian Carroll»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

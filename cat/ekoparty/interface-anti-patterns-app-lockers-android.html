@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interface Anti Patterns: explotando la navegación insegura en app lockers de Android — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Interface Anti Patterns: explotando la navegación insegura en app lockers de Android</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lq0xclTS07w">«Interface Anti Patterns: Exploiting Insecure Navigation in 3rd Party Android App Lockers I Warren»</a> · ver el <a class="nz-link" href="https://youtu.be/lq0xclTS07w">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> lq0xclTS07w · <strong>URL:</strong> https://youtu.be/lq0xclTS07w · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Interface Anti Patterns: Exploiting Insecure Navigation in 3rd Party Android App Lockers I Warren</li>
+</ul>
+<h2>Resumen</h2>
+<p>Investigación de Edward Warren (Actuarial Security Labs) sobre los app lockers de terceros: aplicaciones de la Play Store que agregan un candado granular sobre apps individuales — para privacidad o control parental. El hallazgo: el modelo de monetización por publicidad introduce una ventana de escape de ~500 milisegundos que permite acceder a la aplicación protegida sin conocer el PIN. La investigación cubre una docena de apps analizadas de cerca (de cientos disponibles en la tienda), con millones de descargas acumuladas, y la misma vulnerabilidad repetida en casi todas; varios CVEs emitidos y más pendientes.</p>
+<h2>Modelo de seguridad de Android, versión exprés</h2>
+<p>Cada app Android corre aislada en su sandbox: dos islas rodeadas de arena que solo se comunican a través de <strong>Binder</strong>, el mecanismo de comunicación entre procesos. Los componentes relevantes:</p>
+<ul>
+<li><strong>Activities</strong>: las pantallas de la app, sus elementos de UI.</li>
+<li><strong>Services</strong>: programas en background sin UI (sincronización de datos, por ejemplo).</li>
+<li><strong>Broadcast receivers</strong>: también sin UI, esperan eventos del dispositivo (batería baja, salida de la red Wi-Fi).</li>
+<li><strong>Content providers</strong>: el canal pensado para compartir datos entre aplicaciones de forma segura.</li>
+</ul>
+<p>Un <strong>intent</strong> encapsula la intención de comunicación entre apps: acción, datos (URI) y extras. Un intent explícito resuelve a una app concreta (abrir google.com en Chrome); uno implícito solo pide "un navegador cualquiera". El punto de apoyo del ataque: por cómo está montado el modelo de publicidad de estos lockers, un atacante logra <strong>control indirecto sobre ese payload de URI</strong>.</p>
+<p>Y las <strong>web views</strong>: navegadores embebidos y recortados dentro de una app, sin las mitigaciones de memoria de un navegador completo. En todas las apps analizadas, la pantalla de bloqueo consistía en una web view con un patrón de egreso: clic en el anuncio navega temporalmente fuera de la UI — y es en esa separación temporal donde vive el exploit.</p>
+<h2>Trabajo previo: Jose Rodriguez</h2>
+<p>Referencia directa a la investigación de Jose Rodriguez (en español, ~18 minutos) sobre pantallas de bloqueo nativas: sin código ni herramientas externas, ciertos elementos visibles en la lock screen — pausar un audio, interactuar con mapas — permitían llegar a zonas que el candado debía proteger. No era sobre app lockers de terceros, pero la técnica — navegar por caminos inseguros desde la pantalla bloqueada — es la misma idea.</p>
+<h2>El modelo de amenaza y el flujo de navegación</h2>
+<p>El escenario es trivial a propósito: un usuario local con acceso a un dispositivo desbloqueado, una app objetivo configurada en un app locker, y el overlay publicitario que el locker muestra al bloquear. El flujo:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Usuario toca app protegida] --> B[Overlay de bloqueo]
+    B --> C[Anuncio embebido]
+    C --> D[Egreso: clic navega fuera de la UI]
+    D --> E[Ventana de 500 ms]
+    E --> F[UI no se reengancha<br/>app accesible]
+
+</pre>
+
+<h2>La falla: show/hide y la ventana de medio segundo</h2>
+<p>El código de los lockers sigue el mismo patrón (a veces duplicado, a veces variado): funciones <code>show</code> y <code>hide</code> que montan y desmontan los elementos de bloqueo sobre la app. Entre ambas hay un retardo de ~500 ms — probablemente para que la transición no sea entrecortada. Durante esa ventana, alternando la app entre primer plano y segundo plano, la UI de bloqueo no se reengancha y la app queda accesible.</p>
+<p>Demo 1: Chrome bloqueado. Resulta ser la peor app a proteger — la proliferación de anuncios en su web view ofrece un patrón de egreso constante, y basta interactuar en la ventana de medio segundo.</p>
+<h2>La "máquina tragamonedas": girar hasta ganar</h2>
+<p>Al abrir una app protegida, el anuncio que aparece es distinto cada vez — y eso abre dos vectores:</p>
+<ol>
+<li><strong>La ventana de 500 ms</strong> tras el clic que navega temporalmente fuera de la UI (para anuncios que abren una página web).</li>
+<li><strong>Deep links</strong>: muchos anuncios abren directamente la app que publicitan vía deep link del SDK. Si Instagram está protegida, basta refrescar anuncios hasta que alguno abra Instagram — funciona al menos para las ~10 apps más populares, con anuncios disponibles para todas.</li>
+</ol>
+<p>Y si no hay anuncio disponible, spamear clics sobre la publicidad y navegar desde ahí derrotó casi todos los lockers probados. Demo 2 con Reddit y un PIN: sin el anuncio, las pantallas son fijas y es difícil moverse; con uno solo, la cadena se rompe.</p>
+<h2>Por qué la categoría entera está comprometida</h2>
+<p>El caso ilustra que hay ~300 millones de descargas en apps trivialmente bypaseables — y de hecho hay al menos un centenar de lockers en la tienda, casi todos vulnerables al mismo problema; el investigador confesó cansarse de reportarlos. Detrás hay un incentivo perverso: el modelo de negocio requiere mostrar publicidad justo en el momento en que la app promete proteger el acceso. Mientras la monetización esté en el lock screen, la categoría es estructuralmente débil: cualquier app de la Play Store que ofrezca esta garantía será inefectiva.</p>
+<pre class="mermaid">
+flowchart TD
+    A[App locker de terceros] --> B[Monetizacion: publicidad en el lock screen]
+    B --> C[Web view con egreso publicitario]
+    C --> D[Ventana de navegacion temporal]
+    D --> E[Bypass del PIN]
+    B --> F[Anuncios con deep links]
+    F --> E
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>La mitad de segundo entre <code>show</code> y <code>hide</code> es suficiente para desmontar el candado de una docena de apps analizadas y, por extensión, de casi todas las que comparten el patrón.</li>
+<li>La publicidad embebida no es un detalle cosmético: es el mecanismo de egreso que habilita tanto el bypass temporizado como el "refrescar hasta que el anuncio abra la app que quiero".</li>
+<li>La lección de diseño: un mecanismo de seguridad no puede convivir con un modelo de monetización que introduce rutas de navegación fuera de la superficie protegida — el anti patrón de interfaz está en la base del producto, no en una implementación puntual.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lq0xclTS07w">«Interface Anti Patterns: Exploiting Insecure Navigation in 3rd Party Android App Lockers I Warren»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

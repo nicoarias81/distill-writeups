@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IA ofensiva con guardarrailes: entrenar al modelo sin filtrar la casa — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">IA ofensiva con guardarrailes: entrenar al modelo sin filtrar la casa</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/XiD3Wq6b2OI">«Nahuel Giliberto y Sergio Hrabinski I Lado B Ekoparty 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/XiD3Wq6b2OI">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> XiD3Wq6b2OI · <strong>URL:</strong> https://youtu.be/XiD3Wq6b2OI · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Nahuel Giliberto y Sergio Hrabinski I Lado B Ekoparty 2025</li>
+</ul>
+<h2>Resumen</h2>
+<p>La inteligencia artificial ya está en el día a día de los equipos de seguridad, pero su adopción acelerada suele ir por delante de sus controles. En la experimentación empresarial con modelos se dejan de lado los guardarrailes: dónde se almacenan los datos que alimentan el procesamiento, quién puede acceder, qué consultas se consideran indebidas. Y todo lo que un equipo ofensivo genera — escenarios de ataque, hallazgos, mapas de la propia infraestructura — es información crítica y confidencial.</p>
+<p>La propuesta es doble. Por un lado, una arquitectura de trabajo que use IA para acortar el ciclo clásico Red Team → Blue Team: ejecutar escenarios de ataque, medir si se detectan, generar nuevas reglas y monitoreo, y realimentar el modelo con el resultado para que proponga ataques nuevos ajustados a la infraestructura real. Por otro, un principio de higiene: entrenar el modelo propio en un entorno seguro, con datos desensibilizados (sin información crítica de clientes), para que cuando llegue el ataque — que va a llegar, porque todas las empresas lo reciben — el equipo esté preparado y una eventual filtración quede confinada al punto de acceso más bajo, sin escalamiento hacia los datos críticos.</p>
+<h2>El ciclo continuo: atacar, detectar, realimentar</h2>
+<p>El flujo propuesto convierte la relación entre ofensiva y defensiva en un loop cerrado:</p>
+<ol>
+<li>El equipo ofensivo ejecuta escenarios de ataque contra la infraestructura.</li>
+<li>Se mide si el Blue Team detecta o no cada escenario.</li>
+<li>A partir de los resultados se generan nuevas reglas y formas de monitorear.</li>
+<li>Esos resultados realimentan al modelo, que genera nuevos tipos de ataque ajustados a la infraestructura propia.</li>
+</ol>
+<p>El objetivo del ciclo es puramente operativo: los ciclos clásicos son lentos — el Red Team ejecuta, el Blue Team analiza, se proponen recaudos — y cada vuelta completa deja a los atacantes reales con ventaja. Acortar el ciclo significa darle al Blue Team insumos accionables sin análisis profundos de semanas: saber más rápido qué mejorar. El Purple Team — la fusión de las partes ofensiva y defensiva — es el marco natural para este acompañamiento, con la IA como motor de aceleración y no como reemplazo del criterio.</p>
+<h2>Entrenar en entorno seguro, con datos desensibilizados</h2>
+<p>El punto más delicado del flujo es qué se le enseña al modelo. La práctica recomendada: entrenar el modelo propio en un entorno controlado — por ejemplo, con modelos open source corriendo en infraestructura propia — donde se carga la información del negocio pero desensibilizada: nada de datos críticos de clientes, nada que comprometa a terceros si escapa.</p>
+<p>El aviso de fondo es sobre el uso consciente. La IA está tan al alcance que subir cualquier información es un reflejo automático, y en ese flujo nadie discrimina cuándo un dato es sensible y puede ser corrosivo para la organización. La pregunta operativo es simple y se responde con gobierno: ¿dónde se almacenan estos datos, cómo se acceden, qué protecciones impiden consultas indebidas? "Estoy en un entorno seguro" no equivale a "estoy al 100% seguro": también existen los ataques internos, y la conciencia de cómo se usa la IA dentro de la empresa es parte de la superficie de defensa.</p>
+<h2>El mismo acelerador en manos del atacante</h2>
+<p>La IA no discrimina entre defensores y atacantes, y en el lado ofensivo malicioso su impacto ya es visible en dos bandas:</p>
+<ul>
+<li><strong>Democratización</strong>: personas sin habilidades técnicas profundas hoy generan malware o pretextos de phishing cada vez más creíbles. El filtro informal de los años anteriores — mails mal escritos, con errores de idioma o formato — desapareció: detectar un phishing por su redacción ya no funciona.</li>
+<li><strong>Potenciación de atacantes avanzados</strong>: generación masiva de ataques personalizados, y aceleración del escaneo y procesamiento de redes y sitios para encontrar vulnerabilidades explotables con mucha más agilidad. Más productividad para el atacante, lamentablemente, también.</li>
+</ul>
+<p>Ese es el argumento que justifica acortar el propio ciclo: si el atacante itera cada vez más rápido, el defensor que sigue trabajando en ciclos lentos pierde por velocidad antes que por técnica.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ciclo Red Team / Blue Team realimentado con IA</strong>: escenarios de ataque → medición de detección → nuevas reglas de monitoreo → nuevos escenarios generados por el modelo.</li>
+<li><strong>Purple Team</strong>: integración de las capacidades ofensivas y defensivas como marco del ciclo.</li>
+<li><strong>Guardarrailes (guardrails)</strong>: controles sobre dónde se almacenan los datos, cómo se accede y qué consultas están prohibidas.</li>
+<li><strong>Modelos open source self-hosted</strong>: vía para entrenar con información propia sin exponerla a terceros.</li>
+<li><strong>Desensibilización de datos</strong>: carga de información de negocio sin datos críticos de clientes.</li>
+<li><strong>Phishing asistido por IA</strong>: pretextos creíbles generados masivamente y personalizados.</li>
+<li><strong>Escaneo acelerado con IA</strong>: procesamiento automatizado de redes y superficies expuestas para detectar vulnerabilidades.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>La adopción de IA en seguridad suele correr por delante de sus controles</strong>: definir guardarrailes (almacenamiento, acceso, consultas permitidas) es prerrequisito, no posterior.</li>
+<li><strong>Todo lo que alimenta al modelo es información crítica</strong>: escenarios de ataque y hallazgos deben tratarse con la misma confidencialidad que los activos que describen.</li>
+<li><strong>El valor de la IA ofensiva está en la velocidad del ciclo</strong>, no en la técnica: acortar la vuelta entre ataque, detección y remediación es lo que le quita ventaja al atacante.</li>
+<li><strong>El filtro humano de los años anteriores ya no existe</strong>: la credibilidad de los pretextos generados exige detección basada en comportamiento e indicadores, no en la redacción.</li>
+<li><strong>Entrenar al modelo es entrenar al propio riesgo</strong>: quien carga información sin criterio de sensibilidad le entrega al peor enemigo posible — un modelo entrenado por vos mismo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/XiD3Wq6b2OI">«Nahuel Giliberto y Sergio Hrabinski I Lado B Ekoparty 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

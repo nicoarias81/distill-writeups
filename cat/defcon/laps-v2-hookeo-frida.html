@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hookeando LAPS desde el cliente: capturar, desincronizar y forzar rotaciones — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Hookeando LAPS desde el cliente: capturar, desincronizar y forzar rotaciones</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/stGRkxldg-U">«DEF CON 33 - OverLAPS: Overriding LAPS Logic  - Antoine Goichot»</a> · ver el <a class="nz-link" href="https://youtu.be/stGRkxldg-U">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> stGRkxldg-U · <strong>URL:</strong> https://youtu.be/stGRkxldg-U · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - OverLAPS: Overriding LAPS Logic  - Antoine Goichot</li>
+</ul>
+<h2>Resumen</h2>
+<p>LAPS (Local Administrator Password Solution) es el producto de Microsoft para gestionar la contraseña del administrador local: una contraseña única y aleatoria que rota periódicamente. La investigación "OverLAPS" demuestra que toda la atención pública se ha centrado en el lado servidor (abusar de cuentas autorizadas para leer la contraseña), mientras el lado cliente permanece casi inexplorado —y es igual de explotable—. Con acceso de administrador temporal en un equipo gestionado, es posible capturar la contraseña en texto claro cada vez que rota, desincronizarla del directorio y forstrar rotaciones a demanda.</p>
+<p>El trabajo se centra en LAPS v2 (Windows LAPS, integrado en Windows desde hace dos años, con soporte de Active Directory y Entra ID, contraseñas cifradas y protección contra manipulación). Las pruebas se hicieron en Windows 11 con el mecanismo RunAsPPL deshabilitado —burlar PPL es otro problema distinto— y asumiendo acceso local de administrador, el escenario típico tras comprometer un equipo.</p>
+<h2>Cómo funciona la rotación</h2>
+<p>Ambas versiones siguen el mismo ciclo de alto nivel: si la contraseña debe cambiar, primero se genera una nueva en el sistema local, luego se envía al directorio (Entra ID o Active Directory según configuración), después se fija localmente y, en Entra ID, se actualiza una entrada del registro local con los tiempos de expiración. En Active Directory, "resetear" la contraseña de LAPS equivale a poner su expiración en el momento actual y esperar el siguiente ciclo.</p>
+<p>En el cliente, LAPS v2 ya no es una extensión de GPO sino tres DLLs principales, con <code>LAPS.dll</code> concentrando la lógica central. Microsoft publica los PDB correspondientes, lo que facilita el análisis: los nombres de funciones internas están ahí. La configuración de Active Directory y la de Entra ID comparten las funciones de generación y cambio de contraseña, con ramas específicas para cada backend.</p>
+<pre class="mermaid">
+flowchart LR
+    R[Rotación de contraseña] --> H1["Hook: envío al directorio<br/>(captura en claro)"]
+    R --> H2["Hook: chequeo de expiración<br/>(forzar reset a demanda)"]
+    H1 --> E1[Contraseña filtrada]
+    H2 --> E2[Rotación en cada<br/>refresh de GPO]
+
+</pre>
+
+<h2>Objetivo 1: capturar la contraseña en claro</h2>
+<p>La función no documentada expuesta por una DLL de servidor para cambiar la contraseña de la cuenta gestionada recibe, entre sus parámetros, punteros a estructuras de cadena Unicode: con el offset adecuado se obtiene la cadena real. Hookeándola con Frida y adjuntándose a LSASS, cada rotación (forzada venciendo la expiración y lanzando un <code>gpupdate</code>) revela la nueva contraseña, verificable inmediatamente iniciando sesión como administrador. Funciona idéntico en configuraciones de Active Directory y de Entra ID.</p>
+<p>Alternativa sin funciones no documentadas: hookear la función interna <code>ResetLocalAdminAccountPassword</code> de <code>LAPS.dll</code> basta con conocer su offset e identificar el parámetro que contiene la contraseña. El mismo enfoque se replicó con éxito en al menos seis funciones distintas del modo Active Directory, y probablemente haya más.</p>
+<h2>Objetivo 2: desincronizar local y directorio</h2>
+<p>Dos vías: modificar la contraseña local dejando en el directorio la aleatoria original, o al revés, alterar la que se envía al directorio sin tocar la local. Usadas en solitario, permiten sobre todo denegación de servicio: el administrador lee en el directorio una contraseña que ya no coincide con la real del equipo. En una demo, la contraseña que ve el controlador de dominio es distinta de la que abre sesión en el cliente —LAPS queda inservible para los administradores legítimos—.</p>
+<h2>Objetivo 3: rotación a demanda</h2>
+<p>Hookeando el chequeo de expiración (una función para Active Directory y su equivalente para Entra ID) y modificando un parámetro de salida a 1, la contraseña se considera vencida aunque no lo esté: cada refresh de GPO dispara una rotación nueva, siempre sincronizada con el directorio.</p>
+<p>Para Entra ID hay una vía sin hooks: el registro local guarda <code>AzurePasswordExpiryTime</code> y <code>LastPasswordUpdate</code> como Windows filetime. Editar la clave de expiración (copiando, por ejemplo, el valor de la otra clave) y forzar un ciclo con el cmdlet de PowerShell hace que la cuenta se actualice "porque la contraseña expiró". Fijar la expiración en el futuro, en cambio, rompe LAPS: el directorio cree que la contraseña venció, el cliente cree que no, y el sistema entra en un estado inconsistente.</p>
+<h2>Sin Frida: Detours</h2>
+<p>Frida no está instalado en la víctima, pero la biblioteca <strong>Detours</strong> de Microsoft (open source) permite colocar una función propia entre la llamada original y su destino. Hookeando con Detours tanto la función no documentada de envío como la interna <code>ResetLocalAdminAccountPassword</code>, un <code>gpupdate</code> basta para que un TXT en segundo plano contenga la contraseña en claro.</p>
+<h2>Alcance real y defensas</h2>
+<p>La manipulación "accidental o descuidada" (un <code>net user</code> sobre la cuenta) sí la bloquea LAPS v2; la manipulación intencional y bien hecha, no. Para un escenario real falta lo duro: burlar RunAsPPL, evadir el EDR y tocar LSASS sin ser detectado —el objetivo del trabajo es sentar las bases.</p>
+<ul>
+<li><strong>Para red teams</strong>: ser creativos; hay más funciones hookeables y otras vías (recuperar la contraseña por red, escenarios híbridos). La lógica interna puede cambiar con cada Patch Tuesday, así que conviene verificar las versiones nuevas (los scripts publicados automatizan la búsqueda de offsets).</li>
+<li><strong>Para blue teams</strong>: vigilar resets de LAPS inesperados (deberían ajustarse al período de rotación configurado), reducir los vectores de escalada de privilegios —todo asume un equipo ya comprometido— y asegurar que los controles técnicos (Credential Guard/PPL, EDR) funcionan de verdad.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>LAPS v1 / Windows LAPS (v2)</strong>: gestión de contraseñas de administrador local; v1 con contraseñas en claro en AD, v2 cifrada y con soporte Entra ID.</li>
+<li><strong>Frida</strong>: instrumentación dinámica para hookear funciones exportadas e internas de <code>LAPS.dll</code> en el proceso LSASS.</li>
+<li><strong>Microsoft Detours</strong>: alternativa open source de hooking, sin depender de Frida en el objetivo.</li>
+<li><strong>PDB de Microsoft</strong>: símbolos que revelan nombres de funciones internas de LAPS.dll.</li>
+<li><strong>Windows filetime / <code>AzurePasswordExpiryTime</code></strong>: claves del registro que controlan la expiración en modo Entra ID.</li>
+<li><strong>RunAsPPL</strong>: protección de procesos (LSASS) que en producción habría que burlar.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El lado cliente de LAPS v2 es una superficie de ataque desatendida: con admin local y sin romper la criptografía, la contraseña en claro es capturable en cada rotación.</li>
+<li>Capturar, desincronizar y forzar rotaciones son tres primitivas combinables: la primera roba credenciales, las otras dos habilitan denegación de servicio contra el mecanismo de recuperación de acceso.</li>
+<li>La "protección contra manipulación" de Windows LAPS solo cubre el tampering accidental; el intencional con hooking sigue funcionando.</li>
+<li>Los símbolos PDB que Microsoft distribuye aceleran muchísimo el análisis de las DLL del cliente.</li>
+<li>La detección defensiva pasa por correlacionar resets de LAPS con la política de rotación y blindar la escalada previa: sin admin local, todo esto no arranca.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/stGRkxldg-U">«DEF CON 33 - OverLAPS: Overriding LAPS Logic  - Antoine Goichot»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

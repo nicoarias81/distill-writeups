@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-200 Module 1 — Getting Started: Information Gathering (passive & active enumeration) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../oscp.html">OSCP (PEN-200)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSCP (PEN-200)</p>
+<h1 class="nz-h2">PEN-200 Module 1 — Getting Started: Information Gathering (passive & active enumeration)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Establish the enumeration mindset that the rest of PEN-200 builds on: information gathering is <strong>cyclic</strong>, not linear — every finding (a hostname, a mail server, a NetBIOS name) seeds the next round of queries against the new subset of hosts, and each round is recorded in notes. The module walks the full ladder against the Megacorp One (<code>megacorp1.com</code>) lab target:</p>
+<ol>
+<li><strong>Passive reconnaissance</strong> — whois, Google hacking, Netcraft, open-source code (GitHub), Shodan, Security Headers / Qualys SSL Labs. Third parties do the scanning; we never touch the target.</li>
+<li><strong>Active enumeration</strong> — DNS (host/dnsrecon/dnsenum, nslookup from Windows), port scanning with Nmap (traffic budgeting, SYN/connect/UDP scans, sweeps, OS/service detection, NSE), and service-specific enumeration: SMB (139/445), SMTP (25, VRFY/EXPN), SNMP (161/UDP, MIB trees).</li>
+</ol>
+<p>Structure follows the course order: videos IG_02_01–IG_02_06 are passive, IG_03_01–IG_03_06 are active (DNS → Nmap → SMB → SMTP → SNMP).</p>
+<h2>Target surface</h2>
+<ul>
+<li>Primary domain: <code>megacorp1.com</code> (Megacorp One). Passive sources surface their registrar data, name servers, technologies, public repos, and internet-facing devices.</li>
+<li>Secondary domain used in the Windows-side DNS examples: <code>megacorp2.com</code> (e.g. <code>mail.megacorp2.com</code>, <code>info.megacorp2.com</code>).</li>
+<li>Lab Windows hosts referenced: a Windows 11 client (<code>client01</code>-style VM) used as the "no-tools, no-internet" vantage point, and domain controller <code>DC01</code> for SMB/SNMP enumeration.</li>
+<li>Transcript note: the ASR output contains <strong>no lab IP addresses (192.168.x) and no credentials</strong> — the videos narrate over screen captures. Everything below is command-shape and methodology; lab-specific values were not recoverable from audio.</li>
+</ul>
+<h2>Techniques</h2>
+<h3>1. Whois (passive) — IG_02_01</h3>
+<p>Whois is a TCP service, tool, and database type exposing domain registration data (name servers, registrar). Registrars charge for private registration, so much of it is public. Forward search, forcing a specific whois server:</p>
+<pre><code class="language-bash">whois -h &lt;whois-server-ip&gt; megacorp1.com
+</code></pre>
+<p>Value in the output: the <strong>registrant</strong> — the lab's domain was registered by Alan Grofield, who per the Megacorp One contact page is the IT and Security Director (useful for social engineering later) — plus the <strong>name servers</strong>, which feed the DNS enumeration phase. With an IP in hand, a reverse whois lookup reveals who hosts that IP.</p>
+<h3>2. Google hacking (passive) — IG_02_02</h3>
+<p>Popularized by Johnny Long (2001): clever search-operator combinations to uncover exposed files, vulnerabilities, and misconfigurations. The process is iterative — broad search, then narrow with operators. Operators demonstrated:</p>
+<pre><code>site:megacorp1.com                      # rough map of the org's web presence
+site:megacorp1.com filetype:txt         # txt files on the domain → exposed robots.txt
+site:megacorp1.com -filetype:html       # exclude HTML → directory indices, non-HTML pages
+intitle:&quot;index of&quot; &quot;parent directory&quot;   # directory listings without index pages
+</code></pre>
+<p>The <code>robots.txt</code> hit is the canonical example: it instructs crawlers what to allow/disallow, and here it disclosed a PHP page otherwise hidden from search. Most operators work across multiple engines; the Google Hacking Database (GHDB) is the operator playbook.</p>
+<h3>3. Netcraft (passive) — IG_02_03</h3>
+<p>Netcraft's web portal performs information-gathering functions: which technologies run on a given site, and which other hosts share the same IP netblock. Using its DNS search for <code>megacorp1.com</code>, each server has a <strong>site report</strong> (registration info, then <em>site technology</em> entries and history). The subdomain + technology list produced here is the direct input for the active enumeration and exploitation phases. Passive because we never interact with the target directly.</p>
+<h3>4. Open-source code (passive) — IG_02_04</h3>
+<p>Public repos reveal languages, frameworks — and occasionally committed credentials. GitHub search supports many of the Google operators from technique 2; an account is needed to search across all public repos (per-user/org search works without). Example query: <code>filename:users</code> against Megacorp One's repos → one hit, <code>xampp.users</code>. XAMPP is a web application development environment, and the file contained a username plus a password hash — directly useful in the active attack phase.</p>
+<h3>5. Shodan (passive) — IG_02_05</h3>
+<p>Google indexes web content; <strong>Shodan indexes internet-connected devices</strong> (servers, routers, IoT) by interacting with them and recording banners. Searching <code>hostname:megacorp1.com</code> lists IPs, services, and banner data passively. Workflow shown:</p>
+<ul>
+<li>Filter by port (e.g. click 22/SSH under Top Ports) → exact OpenSSH <strong>version per server</strong>.</li>
+<li>Click an IP → host summary: ports, services, technologies, and <strong>published CVEs</strong> for what's running.</li>
+</ul>
+<p>This snapshot decides where active testing starts.</p>
+<h3>6. Security headers &amp; SSL/TLS posture (passive-adjacent) — IG_02_06</h3>
+<p>Specialty scanning sites blur the passive/active line, but a third party initiates the scan, which is what matters for our footprint:</p>
+<ul>
+<li><strong>securityheaders.com</strong> — grades HTTP response headers. Missing defensive headers are not vulnerabilities per se, but they fingerprint developers/admins unfamiliar with hardening.</li>
+<li><strong>Qualys SSL Labs SSL Server Test</strong> — grades TLS configuration against current best practice and identifies known vulns (POODLE, Heartbleed). The lab target scored better here, but still negotiated <strong>TLS 1.0/1.1</strong> with insecure cipher suites → the org is not applying current TLS hardening.</li>
+</ul>
+<p>Either way the payoff is the same: an inference about the organization's security culture before touching it.</p>
+<h3>7. DNS enumeration (active) — IG_03_01</h3>
+<p>DNS is the first active stop — a distributed, hierarchical database that is lucrative because of how much it holds. Linux <code>host</code>:</p>
+<pre><code class="language-bash">host megacorp1.com                       # default A record
+host -t mx megacorp1.com                 # 4 mail servers, lowest priority number tried first
+host -t txt megacorp1.com                # 2 TXT entries
+host www.megacorp1.com                   # valid hostname → resolves
+host idontexist.megacorp1.com            # invalid hostname → different output
+</code></pre>
+<p>The valid/invalid output difference is the primitive for brute-forcing. Bash one-liner forward brute force with a wordlist of common hostnames:</p>
+<pre><code class="language-bash">for name in $(cat names.txt); do host &quot;${name}.megacorp1.com&quot;; done | grep -v &quot;not found&quot;
+</code></pre>
+<p>Simplified list → found <code>www</code>, <code>mail</code>, <code>router</code>; missed <code>ftp</code>, <code>owa</code>, <code>proxy</code>. With the exception of <code>www</code>, hits were scattered IPs in a nearby range — so switch to <strong>reverse lookups</strong> across that range (works when the admin configured PTR records):</p>
+<pre><code class="language-bash">for ip in $(seq 200 254); do host &lt;base-ip-prefix&gt;.$ip; done | grep -v &quot;not found&quot;
+</code></pre>
+<p>(Audio does not state the subnet verbatim; the shape is: loop a numeric range, filter out the NXDOMAIN string.) Scans like this are cyclical — extend from every new result (mail2, router, …).</p>
+<p>Automation on Kali:</p>
+<pre><code class="language-bash">dnsrecon -d megacorp1.com -t std                  # standard scan of main record types
+dnsrecon -d megacorp1.com -D names.txt -t brt     # brute force with a subdomain wordlist
+dnsenum megacorp1.com                             # second tool, domain-only invocation
+</code></pre>
+<p><code>dnsenum</code> discovered several previously unknown hosts → everything learned must be re-run (passive + active) against the new subset.</p>
+<p>Windows equivalent — <code>nslookup</code>:</p>
+<pre><code class="language-powershell">nslookup mail.megacorp2.com                        # A record via the default DNS server
+nslookup -type=TXT info.megacorp2.com &lt;dns-server&gt; # TXT records for a specific host
+</code></pre>
+<p>Equally versatile to <code>host</code>, and scriptable via PowerShell/batch.</p>
+<h3>8. Port scanning with Nmap (active) — IG_03_03</h3>
+<p>Traffic budgeting first — measure what a scan costs before running it blind. Insert counting rules on the scanner, zero counters, scan, then read:</p>
+<pre><code class="language-bash">sudo iptables -I INPUT 1 -s &lt;kali-ip&gt; -d &lt;target-ip&gt; -j ACCEPT
+sudo iptables -I OUTPUT 1 -s &lt;kali-ip&gt; -d &lt;target-ip&gt; -j ACCEPT
+sudo iptables -Z                              # zero packet/byte counters
+nmap &lt;target-ip&gt;                              # default: 1000 most popular TCP ports
+sudo iptables -vnL                            # read counters
+</code></pre>
+<p>Results from the lab: default 1000-port scan ≈ <strong>63 KB</strong> of traffic; explicit all-ports scan (<code>-p-</code>) ≈ <strong>4 MB</strong> and found ports the default scan missed. Extrapolation: a full scan of a class C network ≈ <strong>1 GB+</strong> to the wire. Ideal is a full TCP+UDP scan of every host; reality is balancing traffic constraints (slow uplink, restrictions) against coverage — especially on larger networks.</p>
+<p>Scan types:</p>
+<ul>
+<li><strong>SYN scan</strong> (default, "stealth"): send SYNs, never finish the handshake — target returns SYN/ACK for open ports and Nmap doesn't send the final ACK. Because no connection is ever established, nothing reaches the application layer → no app logs; also faster (fewer packets).</li>
+<li><strong>TCP connect scan</strong> (<code>-sT</code>): full three-way handshake via the Berkeley sockets API; default when raw sockets are unavailable (no root), needed for some proxy setups, and much slower. It is what surfaced the Windows-only services on the lab DC — already enough to infer the host's OS and role (domain controller).</li>
+<li><strong>UDP scan</strong> (<code>-sU</code>, sudo): for most ports, empty packet + ICMP port-unreachable method; for well-known ports (e.g. SNMP on 161) sends a protocol-specific payload to get an app-layer answer. Combining <code>-sU</code> with a TCP SYN scan disclosed additional UDP services.</li>
+</ul>
+<p>Network sweeping — broad first, specific later:</p>
+<pre><code class="language-bash">nmap -sn &lt;cidr&gt;                       # host discovery: ICMP echo + SYN to 443 + ACK to 80 + ICMP timestamp
+nmap -sn &lt;cidr&gt; -oG sweep.gnmap       # greppable output for live-host extraction
+nmap -sT --top-ports 20 -A &lt;targets&gt;  # short-list sweep; -A = OS/version detection, scripts, traceroute
+</code></pre>
+<p><code>--top-ports</code> ranks come from the <code>nmap-services</code> file (service, port/protocol, open-frequency from internet-wide research scans). Follow up with exhaustive scans only on service-rich hosts.</p>
+<p>Fingerprinting:</p>
+<ul>
+<li><strong>OS detection</strong> (<code>-O</code>): matches TCP/IP-stack implementation quirks against a fingerprint list; only printed when highly confident, so add <code>--osscan-guess</code> to force best-effort output (lab result: Windows).</li>
+<li><strong>Version/banner detection</strong> (<code>-sV</code>) and enumeration scripts (<code>-sC</code>/<code>-A</code>) — mindful that banners inflate traffic and slow the scan.</li>
+</ul>
+<p>NSE: user-created scripts automating DNS enumeration, brute force, vuln identification, etc. Example <code>http-headers</code> (connects to the HTTP service and dumps supported headers). Inspect any script with <code>--script-help &lt;name&gt;</code> (description + URL with args/usage; also readable in the script file itself when offline).</p>
+<p>Windows, no tools, no internet — living off the land with PowerShell:</p>
+<pre><code class="language-powershell">Test-NetConnection &lt;dc-ip&gt; -Port 445        # TcpTestSucceeded : True → SMB open
+
+# first 1024 ports in one line
+1..1024 | % { if (Test-NetConnection &lt;dc-ip&gt; -Port $_ -WarningAction SilentlyContinue).TcpTestSucceeded { Write-Host &quot;open: $_&quot; } }
+</code></pre>
+<p>(ASR garbles the exact one-liner; the shape is a <code>foreach</code> over ports 1–1024 running <code>Test-NetConnection -Port</code> and logging successes.) This is a starting point — extendable toward full Nmap parity.</p>
+<h3>9. SMB enumeration (active) — IG_03_04</h3>
+<p>SMB's long vulnerability history (null sessions on Win2000/XP onward) makes it a standing target. Distinction the course draws: <strong>NetBIOS (TCP 139 + UDP ports) ≠ SMB (TCP 445)</strong> — NetBIOS is an independent session-layer protocol; modern SMB works without it, but NetBIOS-over-TCP persists for backward compatibility and the two are usually enabled together, so they are enumerated together.</p>
+<pre><code class="language-bash">nmap -p 139,445 &lt;targets&gt; -oN smb-scan.txt     # hosts with both ports open
+nbtscan -r &lt;target-ip&gt;                          # NetBIOS names via UDP/137
+nmap --script smb-os-discovery -p445 &lt;dc-ip&gt;    # OS, domain, AD details
+</code></pre>
+<p><code>nbtscan</code> (<code>-r</code> forces originating UDP port 137) returned two NetBIOS names for two hosts — names are typically <strong>descriptive of host role</strong>, feeding the next enumeration cycle. The <code>smb-os-discovery</code> NSE script reported the lab client as Windows 10 when it actually runs Windows 11 (accuracy caveat vs <code>-O</code>), but NSE-based SMB enumeration adds what plain fingerprinting can't: <strong>domain and Active Directory details</strong>, with low traffic that blends into normal enterprise noise.</p>
+<p>Windows side — <code>net view</code>:</p>
+<pre><code class="language-cmd">net view \\DC01        # shares on the host
+net view \\DC01 /all   # include administrative (trailing-$) shares
+</code></pre>
+<p>Lists domains, resources, and computers; <code>/all</code> exposes the hidden admin shares.</p>
+<h3>10. SMTP enumeration (active) — IG_03_05</h3>
+<p>Vulnerable/open mail servers leak user existence. Two abuse-prone commands: <strong>VRFY</strong> (verify an email address exists) and <strong>EXPN</strong> (expand a mailing list membership). Success and error responses differ, so the server confirms valid usernames — automate with a Python socket script:</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+# smtp_vrfy.py — usage: python3 smtp_vrfy.py &lt;username&gt; &lt;target-ip&gt;
+import socket, sys
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.connect((sys.argv[2], 25))
+print(s.recv(1024).decode())
+s.sendall(f&quot;VRFY {sys.argv[1]}\r\n&quot;.encode())
+print(s.recv(1024).decode())
+s.close()
+</code></pre>
+<p>(ASR describes the script's behavior — open TCP socket, connect, issue VRFY, take username as arg 1 and IP as arg 2 — rather than dictating it line by line; the listing above is the standard reconstruction.) Feed it a username wordlist to enumerate valid mail users.</p>
+<p>Windows fallback: <code>Test-NetConnection</code> proves the port is open but can't speak SMTP; install the Microsoft Telnet client (requires <strong>administrative privileges</strong> — an obstacle when running as low-priv) and interact with the server directly, same as from Kali. Another instance of enumerating from a compromised Windows host when Kali isn't available.</p>
+<h3>11. SNMP enumeration (active) — IG_03_06</h3>
+<p>Why SNMP is a favorite: UDP-based (stateless → IP spoofing/replay), versions 1/2/2c have <strong>no encryption</strong> (credentials interceptable on the local network), weak authentication, and <strong>default <code>public</code>/<code>private</code> community strings</strong> — on the protocol whose job is managing the network.</p>
+<p>The <strong>MIB</strong> is a tree: branches = organizations/functions, leaves = variable values queryable by an external user. Microsoft Windows exposes SNMP parameters well beyond network management (users, processes, software, listening ports — see below).</p>
+<p>Discovery and brute force:</p>
+<pre><code class="language-bash">nmap -sU -p161 --open &lt;targets&gt;                  # find open SNMP
+# onesixtyone: build community-strings.txt + hosts.txt, then:
+onesixtyone -c community-strings.txt -i hosts.txt
+</code></pre>
+<p>(ASR renders the tool name only as "a tool such as 161" — this is <code>onesixtyone</code>, which brute-forces community strings against an IP list.) Querying with <code>snmpwalk</code> once a read-only community string is known:</p>
+<pre><code class="language-bash">snmpwalk -c public -v2c &lt;target-ip&gt;              # walk the entire MIB tree
+snmpwalk -c public -v2c &lt;target-ip&gt; &lt;OID&gt;        # walk a specific branch
+</code></pre>
+<p>The full-tree walk uses <code>-c</code> (community), <code>-v</code> (version), and an option raising the timeout to 10 s. One immediate use of the output: <strong>email addresses</strong> → social-engineering targets. Note the video says the community string on the lab machine is the default <code>public</code> — that is a configuration fact, not a credential value, so it is quoted as-is.</p>
+<p>Against the Windows target <code>DC01</code>, the course walks four specific subtrees (the video names their function, not the OIDs; the OIDs below are the standard Windows MIB values for those functions — treat the mapping, not the audio, as the source):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Data</th>
+<th>Standard Windows MIB OID</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Local user account names</td>
+<td><code>1.3.6.1.4.1.77.1.2.25</code></td>
+</tr>
+<tr>
+<td>Running processes</td>
+<td><code>1.3.6.1.2.1.25.4.2.1.2</code></td>
+</tr>
+<tr>
+<td>Installed software</td>
+<td><code>1.3.6.1.2.1.25.6.3.1.2</code></td>
+</tr>
+<tr>
+<td>TCP listening ports</td>
+<td><code>1.3.6.1.2.1.6.13.1.3</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Payoff of each: usernames feed password guessing; the process list reveals vulnerable applications and which <strong>antivirus</strong> is running; installed software cross-checked against processes pins exact versions; listening-port output discloses <strong>locally-bound-only services</strong> never visible to network scans.</p>
+<h2>Detection &amp; defense</h2>
+<p>This block is offensive methodology, but each technique carries its own defensive optics:</p>
+<ul>
+<li><strong>Whois/GHDB/Netcraft/GitHub/Shodan</strong> are passive — nothing to alert on at the target. Defense is shrinkage, not detection: private registration, minimal <code>robots.txt</code> disclosures, no secrets in public repos (secret scanning, pre-commit hooks), and knowing Shodan already indexed your banner inventory (banners leak versions).</li>
+<li><strong>Third-party scanners</strong> (securityheaders.com, SSL Labs) prove headers/TLS posture is public knowledge. Fix what they grade: send the standard defensive headers; disable TLS 1.0/1.1 and legacy cipher suites.</li>
+<li><strong>DNS brute force and PTR sweeps</strong> generate a burst of NXDOMAIN queries from one source — visible to DNS server logging / passive DNS monitoring; per-zone zone transfers (AXFR) should be restricted (the course's tools would have used one if offered).</li>
+<li><strong>Nmap</strong>: SYN scans never complete a handshake, so application logs stay clean — detection belongs on the wire (IDS signatures for SYN-scan patterns) and in firewall counters, exactly the <code>iptables -vnL</code> instrumentation the course uses to self-measure. Hosts that answered the <code>-sn</code> sweep (ICMP echo, SYN→443, ACK→80, ICMP timestamp) each independently reveal the probing. sweeping with <code>--top-ports</code>+<code>-A</code> is loud: version probes and script execution hit every open port.</li>
+<li><strong>SMB</strong>: NetBIOS name lookups (UDP 137) and <code>smb-os-discovery</code> are low-traffic and blend into enterprise noise — the course explicitly notes they "will likely go unnoticed." Restrict NetBIOS where possible; SMB enumeration via null sessions should be blocked by not permitting anonymous SMB access; admin shares (<code>/all</code>) should not be listable by ordinary users.</li>
+<li><strong>SMTP</strong>: VRFY/EXPN user enumeration is defeated by disabling VRFY/EXPN on internet-facing mail servers — the entire technique only works when the server voluntarily answers.</li>
+<li><strong>SNMP</strong> is the block's worst offender: use SNMPv3 (authentication + encryption), replace <code>public</code>/<code>private</code> community strings, and ACL SNMP to management hosts. Everything enumerated here — users, processes, installed software, local-only listening ports — was served to an unauthenticated reader.</li>
+<li><strong>Windows LOOLB enumeration</strong> (<code>Test-NetConnection</code> loops) appears as legitimate native PowerShell; blocking it means watching connection patterns (fast sequential connects across ports), not executables.</li>
+<li>Cross-cutting, in the course's own terms: enumeration is cyclic, so defenders should assume <strong>every previously-enumerated artifact (hostname, username, software version, email address) will be re-attacked</strong> against new hosts — inventory hygiene (what does DNS, Shodan, and the MIB say about us?) is the defensive counterpart of the loop.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

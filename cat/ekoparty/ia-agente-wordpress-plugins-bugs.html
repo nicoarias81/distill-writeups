@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dejar suelto a un agente de IA sobre un millón de plugins de WordPress — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Dejar suelto a un agente de IA sobre un millón de plugins de WordPress</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/_CIxPpU3T6o">«The Rick Roll Hacker: What Happens When You Let AI Loose on a Million WordPress Plugins»</a> · ver el <a class="nz-link" href="https://youtu.be/_CIxPpU3T6o">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> _CIxPpU3T6o · <strong>URL:</strong> https://youtu.be/_CIxPpU3T6o · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> The Rick Roll Hacker: What Happens When You Let AI Loose on a Million WordPress Plugins</li>
+</ul>
+<h2>Resumen</h2>
+<p>Steven (Trend AI, más de 50 CVEs, speaker en DEF CON) y Kenny Ver (CHP Security, OSWE, CVEs en Dahua y SystemK, de Taiwán) cuentan una historia que empezó como un mini sprint de tres días — parte experimento, parte apuesta — y se les fue de las manos: soltaron a un agente de IA sobre plugins de WordPress para cazar vulnerabilidades. La prueba de que la cosa cambió de escala: a las 72 horas la IA, por iniciativa propia, había hecho un Rick Roll al servidor de staging mediante un SSRF en el plugin EmbedPress (hizo que el servidor consultara la API de YouTube y devolviera el video). Nadie escribió ese POC, nadie le pidió a la IA que los trolleara.</p>
+<p>La pregunta inicial parecía obvia: ¿en qué es peor la IA? La mayoría de la gente de seguridad diría que en bypassear CAPTCHAs. Sorpresa: la IA bypasseó el plugin CAPTCHA 4WP (decenas de miles de sitios con Google reCAPTCHA v3) sin resolver el CAPTCHA ni crear tokens — simplemente descubrió leyendo el código fuente que un flag interno del pre-check de AJAX (<code>wphx=1</code>) salta todas las verificaciones: sin token, sin nonce, sin binding. El desarrollador dejó el atajo para el AJAX interno y olvidó cerrarlo. Primera lección: no se puede juzgar a la IA por cuán "humano" suena, sino por qué tipo de tarea es realmente — ¿es entender el significado o mover cosas por el espacio?</p>
+<h2>El contexto: WordPress como parking lot</h2>
+<p>Más del 43% de todos los sitios web usan WordPress: miles de desarrolladores distintos, features distintas, calidades de código muy dispares — un "parking lot" enorme. Y para investigación automatizada es un partido perfecto: un solo contenedor Docker de WordPress, un escáner, y miles de superficies de ataque. Trabajando en un caso de un grupo APT en enero de 2026, sin resultados útiles en las bases de datos públicas, decidieron buscar sus propios bugs.</p>
+<p>Apuntaron la herramienta Strix a unos cientos de plugins con al menos 10.000 descargas cada uno. En unas dos horas: más de 300 candidatos críticos o altos. La reacción ingenua habría sido reportarlos todos. Error: al revisarlos a mano, la mayoría eran basura — alucinaciones de la IA, bugs que no existen. La decisión, dolorosa pero simple: verificación humana al 100%, cada reporte antes de enviarlo. Ocho horas seguidas revisando los 300 plugins.</p>
+<p>No son los únicos: el ecosistema entero está ahogándose en ruido de IA. Wordfence (vendor de seguridad de WordPress) publica más de 500 reportes en su backlog para un equipo de siete personas con capacidad de 100–200 por semana, la mayoría generados por IA. Patchstack rechazó más de 1.000 reportes en un solo mes, con unos 20 investigadores que tienen 100% de tasa de rechazo — cada reporte alucinado. En el otro lado del filtro: más de 600 reportes aceptados con CVSS promedio mayor a 8. La señal es real, pero el ruido también. NIST no puede procesar los CVE lo suficientemente rápido; toda la cadena (asignación, evaluación, parche) está bajo presión.</p>
+<p>Conclusión parcial: la IA no es mala encontrando bugs — esa parte funciona. El problema es lo que pasa cuando no encuentra uno: lo inventa con total confianza. <strong>La IA es demasiado ruidosa cuando falla.</strong></p>
+<h2>Lo que no funcionó (y lo que sí)</h2>
+<p>Cambiar de modelo no resolvió nada: pasaron plugins por Gemini, Claude y Codex — mismo ruido, misma tasa de alucinación, "sabor distinto de la sopa"; los modelos caros alucinan en oraciones más largas. Si el modelo no es la variable, lo es <strong>cómo se le pregunta</strong>. Cambiar de "¿este código tiene algún bug?" a "si hay un bug, construí el exploit y probá que funciona" lo cambió todo: la pregunta mal formulada produce la respuesta mal formulada; con tareas acotadas y criterio claro de éxito, se obtiene evidencia.</p>
+<p>Montaron un entorno en Docker con WordPress y el plugin target, donde la IA lee el código para generar candidatos y ataca el entorno corriendo: si el exploit no funciona, no cuenta. Eso destapó dos fuentes de falsos resultados:</p>
+<ul>
+<li><strong>Problemas de entorno</strong>: plugins instalados pero nunca inicializados (la IA ataca features que no existen todavía), dependencias faltantes (el entorno parece WordPress pero no se comporta como tal). Fix: el Docker genera automáticamente los cinco niveles de usuario (guest, subscriber, author, editor, admin) y, para la configuración del plugin, se saltea la UI — la IA lee el código del asistente y escribe la configuración directo a la base de datos. Un modelo general lo maneja bien.</li>
+<li><strong>Problemas de conocimiento</strong>: la IA no "sabe" WordPress — marca como escalada de privilegios que un admin cree otro admin (que es comportamiento normal), marca crítico cualquier bug peligroso solo en shared hosting. Fix: <strong>agent skills</strong> que inyectan conocimiento de dominio en el contexto del agente: qué puede hacer cada rol, qué significa el riesgo según el tipo de deployment, qué sanitiza cada función. Un crash course de WordPress para la IA.</li>
+</ul>
+<p>Aun con evidencia y skills, la IA siguió produciendo cosas escalofriantes: un reporte de CVE completo que parecía real, con evidencia de ejecución, screenshots y logs — todo inventado de punta a punta. Solución: un <strong>supervisor</strong> (otra IA) que revisa cada reporte antes de que salga, lo puntúa y devuelve a modificar los de puntaje bajo: peer review automático.</p>
+<p>La arquitectura final: a la izquierda, escaneo barato de sospechosos (scraper de plugins → cola de jobs → escaneo estático y dinámico con Strix → captura de HTTP para replay), que produce reportes completos... y completamente alucinados. A la derecha, verificación con IA: cada hallazgo va a un working pool con cuatro agentes en paralelo, cada reporte pasa por el supervisor y después por el humano. Ese handoff es el punto: el scanner barato produce sospechosos, la IA cara solo ve lo que vale la pena, y el humano es la última puerta. La plataforma fase 1 se construyó con vibe coding; la fase 2 usa el Claude Agent SDK para que la IA siga el reporte, reproduzca el exploit y marque falso positivo si no puede.</p>
+<p>Sobre presupuesto: cada test tiene token ceiling, y añadieron un "termination guard" — "no te rindas tan fácil", porque los modelos abandonaban análisis complejos a mitad de camino. Recuerden esa decisión: se volvió un problema.</p>
+<p>Sobre modelos: para el rol de manager (delegar tareas, correr workers), un modelo chico está bien — el modelo caro intenta hacer el trabajo en lugar de delegar, sin mejora de calidad. Pero para juzgar si un reporte es bueno, hace falta el top: un checker débil simplemente está de acuerdo con el worker y el scoring nunca se mueve. Coincide con la literatura: el paper AISLE con un modelo de 3 millones de parámetros obtuvo resultados de detección comparables a modelos caros, y el reporte de Anthropic sobre calidad de código que cayó un día sin cambio de modelo — mismo modelo, distinto harness. <strong>El valor real está en el diseño del sistema, no solo en el modelo.</strong></p>
+<h2>Lo que la IA hace sorprendentemente bien</h2>
+<p><strong>1. Entender qué hace el código, no solo cómo se ve.</strong> El análisis estático matchea patrones; la IA entiende significado. Ejemplo: un endpoint de autenticación que toma <code>orderby</code> de la URL y lo pasa por <code>sanitize_text_field</code> — con anotación <code>PHPCS ignore</code> ("yo manejo esta query") — y lo mete directo en la query. Tres capas dicen "esto está bien": el desarrollador, el SAST, el CI. Todos están de acuerdo. Todos están equivocados: <code>sanitize_text_field</code> limpia HTML y payloads XSS, y de SQL injection no hace nada — blind SQL injection. Otro ejemplo de la misma categoría: un plugin con reCAPTCHA donde el propio <code>if</code> que la IA "debía" bypassear es el bug (la condición misma es el bypass).</p>
+<p><strong>2. La barrera del idioma, eliminada.</strong> Un plugin de pasarela de pago para Elementor con todo en Prusiano: comentarios, variables, UI, errores. Un humano lo saltea — el costo de tiempo es demasiado alto — pero la IA lo lee a la misma velocidad que su idioma nativo. El bug: el precio viaja en un campo oculto que el cliente envía y el servidor lo toma directamente, sin verificar contra el precio real del producto. Dos cosas que un SAST o un humano nunca atraparían: el idioma (el alcance de investigación se multiplica por diez) y un <strong>error de diseño</strong> — no hay función peligrosa ni flujo extraño; simplemente el precio confía en el cliente. La IA ve la frontera; el SAST ve la firma de la función.</p>
+<p><strong>3. Encontrar superficies de ataque ocultas donde el código no se comporta como parece.</strong> Un tema de WordPress con más de 1.000 estrellas en GitHub: un handler AJAX de subida de imágenes con <code>nopriv</code> (cualquiera en Internet puede llamarlo, sin auth, sin logging), un array de extensiones permitidas (JPG, PNG) que parece validación de tipo de archivo... y está definido pero <strong>nunca se usa</strong> en el path de ejecución — el check de seguridad es decoración, dead code. El SAST ve un bloque muerto y pasa de largo; la IA ve que el bloque muerto es la protección. Combinado: endpoint sin auth + sin check de tipos = subir un web shell y RCE.</p>
+<p><strong>4. Encadenar hallazgos y razonar sobre ellos.</strong> La IA no solo encuentra el bug: conecta. Ejemplo: el plugin jQuery Migrate permite a un usuario de bajos privilegios forzar el downgrade de jQuery de todo el sitio, de 3.7.1 a 1.12.4. En la superficie es un medium (conflicto de versiones). Pero la IA razonó: ¿jQuery 1.12.4 tiene vulnerabilidades conocidas? Sí — múltiples XSS. Cadena: usuario bajo privilegio fuerza el downgrade → el sitio cae a jQuery con XSS conocidos → cada lugar donde corre jQuery se vuelve vector de XSS. Medium convertido en crítico, con una cadena que la IA construyó sola: nadie le dijo que chequeara la historia de versiones. Otro caso de error de diseño: el plugin anti-spam CleanTalk (más de 200.000 instalaciones activas) autentica requests internos con reverse DNS — resuelve el hostname de la IP y lo compara contra una lista. Razonable... salvo que el registro PTR lo controla el dueño de la IP: cambiás tu PTR a <code>&lt;algo&gt;.cleantalk.org</code> y pasás la autenticación.</p>
+<p><strong>5. Generalizar un patrón y cazarlo en todo el mundo.</strong> Lo más "AI-native": después de ver estructuras similares, la IA formuló sola la regla "pre_action hook con file/data handler sin check de tipos = alta probabilidad de RCE" — una regla que nadie escribió — y salió a cazarla: vía GitHub MCP, buscó el patrón en todo GitHub, encontrando matches en plugins, temas y proyectos PHP de WordPress. Un patrón, 30 minutos, todo el mundo PHP de GitHub, cada match un candidato a RCE. Un investigador humano analiza a fondo unos pocos plugins por año; la IA con un patrón barrió GitHub en media hora. Los SAST encuentran bugs; la IA encuentra <strong>clases completas de bugs</strong>.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Scraper de plugins] --> B[Cola de jobs]
+    B --> C[Escanéo estático + dinámico<br/>barato y con alucinaciones]
+    C --> D[Working pool:<br/>4 agentes IA en paralelo]
+    D --> E[Supervisor IA:<br/>puntúa y devuelve]
+    E --> F[Humano:<br/>última puerta]
+    K[(Skills de dominio:<br/>roles, deployments, sanitización)] -.-> D
+
+</pre>
+
+<h2>Lo que la IA hace mal — a veces espeluznante</h2>
+<ul>
+<li><strong>UI de edición</strong>: para el POC del plugin de pagos, el primer paso era arrastrar un widget de Elementor a la página — cosa que cualquier front-end hace en cinco segundos. La IA pasó la noche entera y quemó presupuesto como pirotecnia: falló el control de navegador por MCP (el editor de Elementor es una SPA con drag &amp; drop y carga dinámica, sin selectores estables), falló inyectar JavaScript para simular el drag (los datos viven en el store de JS con su protocolo; el DOM crasheó y la página refrescó), y la predicción por coordenadas con visión falló por un error de escala (la IA calculó sobre 1.920px lo que correspondía a un screenshot de 1.280px). Solución final: un humano arrastró el widget con el mouse y la IA tomó el control desde ahí. El mismo plugin, la misma sesión: la evidencia más fuerte de la habilidad 1 y el caso más doloroso del fracaso 1, al mismo tiempo.</li>
+<li><strong>Reportes falsos perfectos</strong>: la IA encuentra "la vulnerabilidad", con POC, logs y screenshots que todo matchean — y el bug no existe. Por eso las plataformas de bug bounty se ahogan: cada reporte falso cuesta tiempo real de revisión humana.</li>
+<li><strong>El termination guard, demasiado bien</strong>: "no te rindas tan fácil" se tomó al pie de la letra — en targets que no puede romper, nunca se rinde ("never gonna give you up", literal) y quema presupuesto. Y sorpresa: el modelo chico (Sonnet) en tareas con loops es más terco que Opus, persigue más callejones sin salida; el precio por token es menor pero la factura total es mayor. Modelo más barato no siempre es más barato de correr.</li>
+<li><strong>Sin conocimiento de dominio, el scoring es ruido</strong>: la misma acción (PHP tocando la base de datos directamente) es normal en un servidor self-hosted (el admin ya tiene ese acceso; riesgo bajo) pero es sandbox breakout en shared hosting o WordPress administrado (crítico). La IA no distingue y marca todo crítico; flagea operaciones normales de admin como bugs. Sin contexto, el output de la IA estorba más de lo que ayuda.</li>
+</ul>
+<p>La síntesis: <strong>la IA no es un pentester junior; es un investigador genio que necesita supervisión.</strong> Ambas cosas al mismo tiempo.</p>
+<h2>Resultados y lo que significan para la defensa</h2>
+<p>72 horas, 341 plugins escaneados, más de 300 candidatos altos. No volcaron todo a la plataforma: verificación manual uno por uno, y solo salió lo que un humano podía reproducir paso a paso y afectaba a usuarios reales. De los reportes enviados, varios cayeron como duplicados: en las ~2 semanas que tarda la plataforma, otros investigadores (también corriendo IA) encontraron los mismos bugs y los enviaron también. La lección no es el crédito — es el patrón: <strong>todos corren IA ahora, así que la ventana entre "el bug existe" y "alguien lo encuentra" se derrumbó</strong> de meses o años a días. Y eso es solo lo público; atacantes probablemente ya hacen esto en privado.</p>
+<p>Tres reportes fueron rechazados por "CVSS individual demasiado bajo" — los equipos de triage, desbordados, subieron el umbral para sobrevivir. El efecto secundario: los ataques no siguen los CVSS individuales. Un solo medium no dispara notificación; tres mediums encadenados hasta RCE tampoco. "No se reportaron bugs críticos" puede convivir con una cadena de tres mediums que termina en RCE — nadie se entera.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>¿Puede la IA encontrar bugs? Ambas cosas son ciertas: lee código a velocidad imposible para humanos y encuentra cosas que ninguna otra herramienta ve; pero sin diseño de tareas es puro ruido, sin evidencia alucina, sin conocimiento de dominio clasifica mal, sin supervisión loopea, y sin control de presupuesto quema dinero.</li>
+<li>La IA es una herramienta de investigación: poderosa si se la apunta bien, peligrosa si se la deja sola. No autónoma, todavía.</li>
+<li>Los hallazgos no son de WordPress: leer código es encontrar significado, y eso es justo lo que hacen los modelos de lenguaje. Cambiando las skills y el conocimiento de dominio, el método aplica a otros frameworks — incluso análisis de binarios.</li>
+<li>Guía de uso por capa: SAST para patrones (rápido, predecible, barato), DAST para comportamiento en runtime y validación de inyección, y LLM para los puntos ciegos de ambos.</li>
+<li>Aviso honesto para quien quiera cazar vulnerabilidades en plugins de WordPress: la cancha está jugada; si entrás ahora, vas a quemar tokens. Apuntá a otro tipo de código o superficies.</li>
+<li>Última reflexión: los modelos mejoran cada mes, pero un modelo más fuerte alucina igual — solo con oraciones más largas. El valor de los LLMs está donde las reglas se rompen: usalos donde las reglas se rompen.</li>
+</ul>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Strix</strong>: escáner de sospechosos (estático + dinámico) que produce reportes completos con alucinaciones incluidas.</li>
+<li><strong>Claude Agent SDK</strong> para la fase de verificación (agente que sigue el reporte y reproduce el exploit), con supervisor IA de puntaje.</li>
+<li><strong>Agent skills</strong>: inyección de conocimiento de dominio (roles de WordPress, riesgos por tipo de deployment, funciones de sanitización) en el contexto del agente.</li>
+<li><strong>Docker</strong> con generación automática de los cinco roles de usuario y configuración de plugins vía base de datos en lugar de UI.</li>
+<li><strong>Vulnerabilidades demostradas</strong>: bypass de CAPTCHA 4WP (<code>wphx=1</code>), SSRF en EmbedPress, blind SQLi tras <code>sanitize_text_field</code>, precio manipulable en pasarela de Elementor, RCE por upload en tema popular (hook <code>nopriv</code> + dead code), downgrade de jQuery encadenable con XSS conocidos, bypass por PTR en CleanTalk.</li>
+<li><strong>GitHub MCP</strong> para caza de patrones a escala global (30 minutos sobre todo GitHub PHP).</li>
+<li><strong>Token ceiling, termination guard y jerarquía de modelos</strong> (manager chico, checker top) como controles de costo y calidad.</li>
+<li><strong>Contexto del ecosistema</strong>: Wordfence (500+ backlog), Patchstack (1.000+ rechazos/mes, 20 investigadores con 100% de rechazo), NIST desbordado en el pipeline de CVEs; paper AISLE y reporte de Anthropic sobre la importancia del harness.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/_CIxPpU3T6o">«The Rick Roll Hacker: What Happens When You Let AI Loose on a Million WordPress Plugins»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

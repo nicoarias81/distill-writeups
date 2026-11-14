@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Una falla de API dio control administrativo de más de mil concesionarios en EE. UU. — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Una falla de API dio control administrativo de más de mil concesionarios en EE. UU.</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/qNuS0rvqc8c">«DEF CON 33 - How API flaws led to admin access to 1k+ USA dealers &amp; control of yr car - Eaton Zveare»</a> · ver el <a class="nz-link" href="https://youtu.be/qNuS0rvqc8c">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> qNuS0rvqc8c · <strong>URL:</strong> https://youtu.be/qNuS0rvqc8c · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - How API flaws led to admin access to 1k+ USA dealers &amp; control of yr car - Eaton Zveare</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los sistemas de gestión de concesionarios de los fabricantes de automóviles son mucho más poderosos de lo que la mayoría imagina. Una investigación sobre el sistema de concesionarios propietario de un fabricante —no identificado, pero colaborativo en la divulgación— encontró una cadena de fallas de API que permitía crear una cuenta de administrador nacional: acceso tipo root a más de mil concesionarios en Estados Unidos, prácticamente todos los que usan el sistema.</p>
+<p>Con ese nivel de acceso era posible hacer cosas tan concretas como reasignar el control remoto de un vehículo ajeno a una cuenta propia —arrancar el motor, abrir puertas, seguir su ubicación en tiempo real—, consultar el nombre, dirección y teléfono de cualquier dueño a partir del VIN, ver números de Seguro Social de empleados, hojas de balance de todos los concesionarios del país y cientos de miles de registros de clientes potenciales. La raíz del problema fue una sola verificación omitida: el token de invitación del formulario de registro no se validaba del lado del servidor. El fabricante corrigió la falla en pocos días tras el reporte a través de su programa de divulgación de vulnerabilidades.</p>
+<h2>El punto de partida: JavaScript de una app Angular vieja</h2>
+<p>La metodología partió de una observación simple: los fabricantes son empresas viejas con muchísimos dominios web —Toyota, por ejemplo, tiene unos 3.000 subdominios—, y tanta superficie de ataque promete. El objetivo preferido son las aplicaciones Angular y React, porque todo el JavaScript que baja al navegador suele esconder claves de API, endpoints y funcionalidad administrativa.</p>
+<p>El sistema de concesionarios en la mira es la piedra angular de la operación diaria: pedidos y seguimiento de vehículos, ventas, reportes y finanzas. Está protegido con autenticación de dos factores y no tiene registro público: cuando un concesionario contrata a alguien, le envía un enlace de invitación a su correo corporativo, el sitio valida el token de invitación y recién entonces muestra el formulario de registro. Al menos, eso hace visible el formulario; el formulario real estaba oculto en el HTML de la página de error, recuperable con trucos de CSS.</p>
+<h2>De un registro sin token a una cuenta nacional admin</h2>
+<p>La cadena de explotación fue la siguiente:</p>
+<pre class="mermaid">
+flowchart TD
+    A[Formulario de registro oculto en el HTML] --> B[POST con token de invitación vacío: aceptado]
+    B --> C[Cuenta sin permisos + botón de actualización de perfil da sesión limitada]
+    C --> D[Sesión descarga los bundles JS del front-end admin]
+    D --> E[Parches al JS: se comenta el cartel de error y se anula el redirect de acceso denegado]
+    E --> F[El servidor lista usuarios internos aunque no debería]
+    F --> G[Botón Create User: checkboxes nacional/regional/ventas/finanzas]
+    G --> H[Admin nacional creado: 1.700 concesionarios a elegir]
+
+</pre>
+
+<p>El primer paso ya fue una sorpresa: enviar el formulario de registro con el token de invitación en blanco funcionó, y llegaron las credenciales por correo. Pero la cuenta era inútil: sin permisos, a la espera de que un administrador del concesionario la verificara. El salvavidas fue un botón de actualización de perfil, pensado para corregir errores antes de la verificación, que establece una sesión limitada mediante la cookie JSessionID. Con esa sesión, el navegador finalmente descarga los archivos JavaScript del front-end, incluida la funcionalidad administrativa.</p>
+<p>Ahí comenzó la manipulación del front-end. Un cartel de "login dealer is invalid" que cerraba la sesión al cerrarlo se eliminó comentándolo; el redirect a la página de "access denied" se reemplazó por una cadena vacía. Con la página administrativa cargada, el servidor devolvió —por un bug del lado del servidor— una lista de usuarios internos del sistema de administración. Y en esa página había un botón de creación de usuarios con todos los permisos imaginables: nacional, regional, ventas, finanzas, "una lista de permisos larga como recibo de CVS". El envío pasó sin obstáculo: llegó al correo una cuenta de administrador con nombre, ID de usuario y contraseña propios. Al iniciar sesión, el sistema ofreció elegir entre 1.700 concesionarios (algunos de prueba; unos pocos cientos reales).</p>
+<h2>Toma de control silenciosa de vehículos</h2>
+<p>La prueba de concepto más llamativa fue el secuestro remoto de un auto, con permiso de su dueño. El sistema de enrollment que empareja al comprador con la app móvil permite arranque remoto del motor, aperturas y rastreo de ubicación en tiempo real. El flujo de reasignación desde el panel admin pedía: buscar al cliente por nombre, añadir el vehículo por VIN, y —supuestamente— que el vendedor verificara que la persona es dueña del auto, está presente y es quien dice ser. Esa verificación era una promesa: al pulsar continuar no se pedía nada más. Tras cargar odómetro y "hábitos de manejo", la asignación de propiedad se completó y el vehículo apareció controlable desde la app del atacante.</p>
+<p>Hay un matiz que agrava el escenario: si el dueño sí registró el auto, recibirá un correo de desactivación —ruidoso, pero detectable—. Si nunca se registró, no hay correo que enviar, porque el sistema no conoce su dirección: el atacante simplemente se convierte en el "primer dueño" registrado. La conectividad 4G del vehículo habla con el servidor de todos modos, registre o no el dueño, y según la documentación afecta a los modelos del año 2012 en adelante. Retirar la unidad 4G es la única defensa concreta que menciona el análisis; desde el head unit ni siquiera se puede desactivar el módulo.</p>
+<p>Con acceso nacional, el impersonation interno cerró el círculo: era posible hacerse pasar por empleados de alto nivel en el back-end, eludiendo el 2FA sin que se enteraran, para llegar a los sistemas que la cuenta nacional no alcanzaba.</p>
+<h2>Panorama de datos expuestos</h2>
+<p>La cuenta de administrador nacional y la suplantación abrían un catálogo de sistemas internos:</p>
+<ul>
+<li><strong>Búsqueda de clientes por nombre y VIN:</strong> nombre, dirección, teléfono y otros datos del propietario, sin que este se entere (el único rastro es una foto del parabrisas).</li>
+<li><strong>Plataforma de préstamos (loaner) de un tercero contratado:</strong> número de licencia de conducir, pólizas de seguro, fecha de nacimiento, teléfono y correo de quienes llevan el auto a servicio —un gran repositorio de PII—. Una función opcional de "connected car" permite además rastrear en tiempo real los autos de préstamo y vigilar geocercas.</li>
+<li><strong>Datos de empleados:</strong> números de Seguro Social visibles; ver el número completo queda en el audit log, del cual se obtuvieron los últimos cuatro dígitos leyendo las respuestas de la API (el log no se podía borrar).</li>
+<li><strong>Inventario y pedidos:</strong> ordenar autos en nombre de concesionarios y cancelar entregas y envíos en tránsito vía el sistema de tracking de fletes —acciones con potencial de caos logístico a escala nacional—.</li>
+<li><strong>Portales financieros:</strong> contratos de financiación en PDF cargados de PII, balances regionales de todos los concesionarios, KPIs y rankings nacionales de rendimiento; además portales de análisis y ventas web de tipo J.D. Power.</li>
+<li><strong>Leads y encuestas:</strong> cientos de miles de registros de contactos captados por teléfono y correo, y todas las encuestas de satisfacción históricas (unas 200.000 de ventas y 450.000 de servicio).</li>
+<li><strong>Mapa demográfico de clientes potenciales:</strong> más de 9 millones de personas en EE. UU. como puntos de datos para ventas.</li>
+<li><strong>Correo y plataforma de mensajería del concesionario:</strong> ingredientes para un phishing convincente con las cuentas bancarias del concesionario —no probado, pero con toda pinta de viable—.</li>
+</ul>
+<h2>Divulgación y lecciones</h2>
+<p>La cadena completa se descubrió en alrededor de una semana a partir del 26 de enero, con la toma del vehículo como uno de los últimos hallazgos por su obscureza. El reporte por el VDP del fabricante terminó en un parche en pocos días y en meses de colaboración posterior con recomendaciones de endurecimiento. El mérito es notable: pocas empresas responden así.</p>
+<p>La lección central es de arquitectura: una única verificación faltante —validar el token de invitación del registro— fue la puerta de entrada a una red nacional de concesionarios, y el arreglo probablemente cabe en una línea de código. Encadenada con otras debilidades clásicas (funcionalidad admin escondida en bundles de JavaScript accesibles con sesión mínima, controles de permisos solo del lado del cliente, verificaciones de propiedad que son una promesa en la UI), convirtió una cuenta sin permisos en control total. Y un concesionario comprometido —por ejemplo, mediante un keylogger a un empleado— habría alcanzado el mismo nivel de acceso: era una bomba de tiempo esperando a cualquiera. Para el dueño de un auto, casi no había defensa posible; el consejo práctico, si el riesgo preocupa, es no depender del registro de la app y saber que el módulo 4G del vehículo habla con el servidor igual.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/qNuS0rvqc8c">«DEF CON 33 - How API flaws led to admin access to 1k+ USA dealers &amp; control of yr car - Eaton Zveare»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

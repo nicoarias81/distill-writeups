@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sigue siendo DNS: casos extremos, túneles y explotación — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Sigue siendo DNS: casos extremos, túneles y explotación</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Wz748WRdjos">«DCSG1-  Its Still DNS - David Leadbeater»</a> · ver el <a class="nz-link" href="https://youtu.be/Wz748WRdjos">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Wz748WRdjos · <strong>URL:</strong> https://youtu.be/Wz748WRdjos · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DCSG1-  Its Still DNS - David Leadbeater</li>
+</ul>
+<h2>Resumen</h2>
+<p>El nombre del problema es un chiste clásico de las comunidades de operaciones, pero David Leadbeater lo toma en serio: DNS sigue siendo un protocolo con casos extremos sorprendentes y útiles tanto para depurar como para atacar. El recorrido va de qué caracteres son válidos en una consulta, a cómo eso derrota el mecanismo de confianza de SSH, inyecta texto en la terminal, se cuela por los comodines en navegadores y termina en un chat cifrado que funciona dentro de un navegador sobre DNS sobre HTTPS.</p>
+<h2>Qué es realmente válido en DNS</h2>
+<p>Casi cualquier cosa. Con <code>dig</code> (mejor que nslookup o host para ver todos los campos de la consulta), se puede preguntar por un nombre con espacios — codificados como escape decimal 32, no octal, detalle que confunde a todos — con comillas UTF-8, con asteriscos, con caracteres de control e incluso con un punto escapado dentro de una etiqueta. El error más común al leer la salida de <code>dig</code>: buscar el error donde no está. Hay que mirar la línea de estado — <code>status: NOERROR</code> — porque "no error" es la respuesta de error implícita cuando algo falla silenciosamente.</p>
+<h2>La vulnerabilidad de SSH: CVE del carácter coma</h2>
+<p>La cadena: en una máquina con musl libc (Alpine) o macOS, el filtrado de caracteres de nombre de host es más laxo que en otros sistemas. <code>ssh github.com,</code> con una coma final es un nombre válido para DNS; el server responde, el usuario acepta la clave en el prompt usual de <em>trust on first use</em>, y known_hosts registra <code>github.com,</code> con la clave del atacante. Como la coma es el separador de hostnames en known_hosts, después <code>ssh github.com</code> — el legítimo — encuentra una coincidencia en el archivo y el MITM queda tapado por el mecanismo de confianza de SSH, no por DNS.</p>
+<p>La explotación práctica es vía <code>git clone</code> de un repositorio malicioso: el <code>.gitmodules</code> de un submódulo puede contener la cadena con escape que hace que el usuario vea <code>github.com</code> cuando en realidad se conecta a otra cosa. El usuario escribe "yes" sin ver qué tipea (el prompt no muestra el input) y clona el repositorio del atacante con su MITM activo. De ahí se puede escalar: varios submódulos, distintos comportamientos según cuándo se escribieron las claves.</p>
+<p>El fix llegó en <strong>OpenSSH 10.0</strong>, que simplemente rechaza conexiones a hostnames con comas. La lección de fondo: los RFC de DNS definen qué es válido, pero cada libc y cada OS filtran (o no) de forma distinta — el mismo <code>ping foo,bar</code> falla en Windows y funciona en macOS, y de paso Windows imprime el CNAME devuelto sin escaparlo, lo que permite inyectar códigos ANSI a la terminal (rojo, newline, borrado de línea) desde una respuesta DNS. <code>ping</code> de Windows, <code>traceroute</code> de Windows y <code>nslookup</code> de BusyBox quedan afectados; Microsoft y BusyBox, reportados hace años, no mostraron interés en arreglarlo. Combinado con las vulnerabilidades de emuladores de terminal (el eje de una charla anterior del autor en DEF CON 31, más un bug reciente en iTerm2 hallado con IA), la inyección puede llegar a ejecución de código.</p>
+<h2>Comodines, IDN y comportamiento de clientes</h2>
+<p>Los comodines DNS no los maneja el cliente: los expande el servidor, y esa expansión tiene comportamiento variable según el proveedor — Cloudflare no resuelve nombres con caracteres de control, Amazon Route 53 u otros sí. Un mismo test da resultados distintos según el servidor autoritativo, lo que complica tanto el debugging como los ataques.</p>
+<p>En el navegador, la divergencia es entre Safari y Chrome: Safari muestra emojis y otros caracteres Unicode en la barra de direcciones tal cual, Chrome muestra la forma punycode. Safari además tiene protecciones — un emoji de candado en el hostname fuerza la representación punycode — pero la ventana para confundir usuarios existe, y alcanza con un registro comodín en un subdominio propio.</p>
+<h2>Límites y túneles sobre DNS</h2>
+<ul>
+<li><strong>Nombre consultado</strong>: máximo 255 caracteres.</li>
+<li><strong>TXT records</strong>: el límite de 255 bytes es por cada <em>string</em>; se pueden concatenar, así que en la práctica no hay límite útil más allá del tamaño del mensaje.</li>
+<li><strong>UDP</strong>: respuestas de ~1 KB; el fallback a TCP permite paquetes casi de 65 KB.</li>
+</ul>
+<p>El túnel sobre DNS tiene más de veinte años: Iodine con su negociación adaptativa de qué caracteres permite cada servidor, DNScat2 (relevante para respuesta a incidentes: es lo que un atacante puede tunelar por tu servidor DNS interno), el "Wikipedia over DNS" del propio autor en 2008, y las ideas de Dan Kaminsky con voice over DNS y las señales estándar de E/S encapsuladas en consultas.</p>
+<h2>El cierre: DNS sobre HTTPS desde el navegador, con certificados de IP</h2>
+<p>La novedad es combinar tres piezas:</p>
+<ol>
+<li><strong>DoH con CORS</strong>: Google (y otros) sirven DNS sobre HTTPS con cabeceras CORS, así que JavaScript en cualquier página puede consultar <code>dns.google</code> y parsear la respuesta JSON.</li>
+<li><strong>TXT records largos vía TCP fallback</strong>: caben casi 65 KB por consulta — suficiente para entregar un payload real (malware ya hizo esto con un .exe chico en un TXT, pero sin DoH).</li>
+<li><strong>Certificados para direcciones IP</strong>: Let's Encrypt ya emite certificados de validez corta para IPs (Google lleva años con el 8.8.8.8). El resultado: el tráfico va por HTTPS a una IP literal, sin query DNS en el cable — invisible para quien monitorea DNS salvo que inspeccione SNI.</li>
+</ol>
+<p>La demo que junta todo es <strong>DNS Chat</strong>, abierto: un cliente de chat donde cada mensaje es una consulta DNS con la clave del canal cifrada en el nombre consultado. Funciona desde el navegador (consola abierta, mensajes numerados que filtran metadatos mínimos), desde IRC vía un proxy que el autor escribió, y — detalle clave — <strong>desde una URL <code>file://</code></strong>, porque CORS no aplica. Un archivo HTML guardado en cualquier lado chatea por DoH contra una IP con certificado sin que en la red haya ninguna consulta DNS. El cliente aún no es adaptativo (probar varios endpoints DoH, recurrir a DNS directo), pero la arquitectura permite que un atacante haga exactamente eso.</p>
+<pre class="mermaid">
+flowchart LR
+    U[JS en file:// o https://] -->|"fetch DoH + CORS"| G[dns.google / IP + cert Let's Encrypt]
+    G -->|TXT records concatenados| U
+    U --> C[Canal cifrado: nombre consultado = clave]
+    C -->|sin query DNS en el cable| M[Invisible al monitoreo DNS]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>dig</strong> — lectura de status/NOERROR, escapes decimales, debug de respuestas truncadas.</li>
+<li><strong>known_hosts + trust on first use</strong> — vector de envenenamiento con hostname coma (OpenSSH &lt; 10.0).</li>
+<li><strong>musl libc / macOS</strong> — sistemas con filtrado laxo de caracteres en hostnames; Windows y BusyBox con output sin escapar.</li>
+<li><strong>Códigos ANSI en respuestas DNS</strong> — inyección de color/newline/clear en ping, traceroute y nslookup.</li>
+<li><strong>Wildcard DNS</strong> — expansión del lado del servidor, divergencia Cloudflare vs. Route 53.</li>
+<li><strong>IDN / punycode</strong> — diferencia de rendering Safari vs. Chrome, emoji en la barra de direcciones.</li>
+<li><strong>TXT concatenados + TCP fallback</strong> — payloads de ~65 KB por consulta.</li>
+<li><strong>DoH + CORS + certificados IP (Let's Encrypt)</strong> — túnel completo desde el navegador sin visibilidad DNS.</li>
+<li><strong>Iodine, DNScat2</strong> — herramientas clásicas de tunneling sobre DNS, relevantes para detección y respuesta.</li>
+<li><strong>DNS Chat</strong> — demo open source del autor: chat cifrado sobre DoH desde file://, IRC y web.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los casos extremos de DNS no son curiosidades: un carácter válido pero inesperado (la coma) bastó para derrotar el trust on first use de SSH en sistemas con filtrado laxo.</li>
+<li>Los clientes que imprimen respuestas DNS sin escapar convierten cualquier respuesta en un vector de inyección de terminal, y los mantenedores no siempre van a arreglarlo.</li>
+<li>DoH + certificados de IP + TXT largos cierran el círculo: DNS se convierte en un canal de datos completo, cifrado y usable desde un archivo HTML local, invisible para el monitoreo tradicional de DNS.</li>
+<li>Para defensores: vale la pena bloquear o alertar sobre protocolos de tunneling conocidos (DNScat2, Iodine), considerar interceptar por SNI cuando no hay query DNS en el cable, y tratar las respuestas DNS como datos no confiables que un cliente puede terminar imprimiendo.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Wz748WRdjos">«DCSG1-  Its Still DNS - David Leadbeater»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

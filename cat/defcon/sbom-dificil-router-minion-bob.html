@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SBOM al estilo difícil: radiografía del router Bob — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">SBOM al estilo difícil: radiografía del router Bob</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/Cxrwpij2MSQ">«DEF CON 32 - SBOMs the Hard Way - Hacking Bob the Minion - Larry Pesce»</a> · ver el <a class="nz-link" href="https://youtu.be/Cxrwpij2MSQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> Cxrwpij2MSQ · <strong>URL:</strong> https://youtu.be/Cxrwpij2MSQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - SBOMs the Hard Way - Hacking Bob the Minion - Larry Pesce</li>
+</ul>
+<h2>Resumen</h2>
+<p>Un SBOM (Software Bill of Materials) es el inventario de componentes de software de un producto: propio y de terceros, con versiones. Sobre esa lista se hace enriquecimiento —cruzar contra bases de vulnerabilidades— para mitigar riesgos. La tesis aquí es doble: los SBOM dejarán de ser opcionales por regulación, y funcionan igual de bien como herramienta ofensiva. Conocer los componentes de un dispositivo revela vulnerabilidades conocidas que ni el fabricante parece haber revisado.</p>
+<p>La demostración práctica tomó el camino más difícil posible: un router doméstico con forma del minion Bob, sin firmware descargable, sin actualizaciones y sin foros de soporte útiles. Si no hay forma de obtener el firmware, no hay SBOM, no hay enriquecimiento y no hay análisis — salvo que se le haga una "cirugía cerebral" al dispositivo.</p>
+<h2>El marco regulatorio que obliga a los SBOM</h2>
+<p>Tres piezas empujan la adopción, con distinta dureza:</p>
+<ul>
+<li><strong>Executive Order 14028 (EE. UU.)</strong>: afecta productos que entran al gobierno y al consumo; los equipos conectados vendrán con SBOM asociado como parte de su certificación.</li>
+<li><strong>FDA 524B</strong>: todo dispositivo médico sometido a la FDA para uso en humanos debe incluir un SBOM en su expediente, junto con un plan para asegurar los dispositivos en el tiempo y gestionar vulnerabilidades.</li>
+<li><strong>FCC Cyber Trust Mark</strong>: programa voluntario; el fabricante somete el dispositivo, obtiene un sello en la caja y un código QR que enlaza a una puntuación de seguridad. El consumidor compara en la tienda: un router con 3 de seguridad frente a otro con 9.</li>
+<li><strong>EU Cyber Resiliency Act (CRA)</strong>: la más severa. Prohíbe vender en la UE productos conectados con vulnerabilidades conocidas y exige proceso de gestión y parcheo, con SBOM incluido. No es voluntario: es requisito para vender en Europa. Como los mismos fabricantes venden en EE. UU. y Europa, el efecto se globaliza: el planeta entero se beneficia de la regulación europea.</li>
+</ul>
+<p>Más allá del cumplimiento, el consejo operativo es usar los SBOM tanto como consumidor como fabricante: incorporarlos al proceso de seguridad y al pentesting, porque la lista de componentes abre oportunidades de mejora y detección de vulnerabilidades conocidas.</p>
+<h2>Un router con forma de minion</h2>
+<p>El objetivo: el DavoLink AX1800, router Wi-Fi doméstico con licencia de Universal para fabricarse con la carcasa de Bob el minion. Por ~70 USD en Amazon ofrece Wi-Fi 6, soporte mesh y WPA3 — estándares recientes con hardware más holgado que el típico equipo de consumo de 4-16 MB de flash: 128 MB de flash y 256 MB de RAM según la caja. Sin soporte OpenWrt; firmware propietario del fabricante. Existe una variante "Kevin" con Wi-Fi 6E por el doble de precio.</p>
+<h2>Sin firmware no hay SBOM: la vía difícil</h2>
+<p>La búsqueda de firmware fracasó por completo. La interfaz web tiene un botón "check for updates" que no devuelve nada: solo existe la versión de fábrica, y no hay forma de capturar la descarga porque no hay descarga. El sitio del fabricante no ofrece firmware; los foros de soporte —uno en coreano con tres posts, otro en inglés sin enlaces ni siquiera peticiones de usuarios que "brickearon" el equipo— no aportan nada. Consecuencia inquietante: si el router se estropea, no hay manera de reinstalarle firmware.</p>
+<p>Resta la extracción por hardware. En la placa se identificó el procesador RTL8198D y un chip de flash WinBond W25N01GV: NAND SPI de 3V y 1 gigabit, de los cuales el dispositivo dice usar solo 128 megabit — espacio sobrante sin explicación aparente, salvo el precio del BOM. Los intentos progresaron de lo limpio a lo improvisado: soldar cables directamente al chip (falló, y además brickeó ese chip), hasta la solución real — desoldar el chip de la placa, montarlo en un adaptador de 3 USD con cables DuPont y leerlo con los GPIO de una Raspberry Pi.</p>
+<h2>Tesoro en el dump</h2>
+<p>El dump de la flash reveló exactamente lo que justifica el método: credenciales incrustadas (usuario y contraseña ambos "bob"), material de claves (key material), strings en coreano, una aplicación web casera con un servidor web propio y posible command injection vía la función de password reset, scripts que contactan a IPs en China, y abundante superficie de RCE y vulnerabilidades conocidas de los componentes. Todo esto sin tocar JTAG ni SWD, rutas más laboriosas que no hicieron falta.</p>
+<p>El cierre quedó pendiente: restaurar ("brain transplant") el chip brickeado chocó durante semanas con un soporte de NAND deficiente en las herramientas; el trabajo continúa.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Router sin firmware<br/>descargable] --> B[Inventario de chips<br/>datasheets]
+    B --> C[Flash NAND SPI<br/>WinBond W25N01GV]
+    C --> D[Desoldar chip +<br/>adaptador + Raspberry Pi]
+    D --> E[Dump completo]
+    E --> F[SBOM + análisis:<br/>creds, RCE, injection, IPs externas]
+
+</pre>
+
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>SBOM</strong>: inventario de componentes software (propios y de terceros) con versiones; base para enriquecimiento y gestión de vulnerabilidades.</li>
+<li><strong>Enriquecimiento</strong>: cruce del SBOM contra bases de vulnerabilidades para priorizar riesgos.</li>
+<li><strong>EU Cyber Resiliency Act / EO 14028 / FDA 524B / FCC Cyber Trust Mark</strong>: marco regulatorio que obliga a documentar y mantener el software de productos conectados.</li>
+<li><strong>Extracción de firmware por SPI</strong>: lectura del chip NAND flash desoldándolo y usando un adaptador con cables DuPont.</li>
+<li><strong>Raspberry Pi GPIO</strong>: lector de la flash NAND vía bit-banging del bus SPI.</li>
+<li><strong>RTL8198D / WinBond W25N01GV</strong>: procesador y chip de flash (1 Gbit NAND SPI) identificados en la placa.</li>
+<li><strong>Command injection vía password reset</strong>: hallazgo en el servidor web propietario del router.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La regulación (CRA europea sobre todo) convierte el SBOM en requisito de mercado; los fabricantes que venden en la UE elevarán el estándar global de facto.</li>
+<li>Un fabricante que no publica firmware ni actualizaciones deja a sus clientes sin parches y sin recuperación: un solo firmware de fábrica para toda la vida del producto.</li>
+<li>El método "difícil" —cirugía de flash— sigue siendo la única vía cuando el fabricante oculta el software, y rinde: credenciales embebidas, inyección de comandos y tráfico hacia IPs extranjeras en un router de consumo actual.</li>
+<li>El hardware de consumo ha mejorado (128 MB flash, 256 MB RAM, Wi-Fi 6), pero el espacio sobrante en la flash y el software descuidado muestran que el BOM barato manda sobre la seguridad.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/Cxrwpij2MSQ">«DEF CON 32 - SBOMs the Hard Way - Hacking Bob the Minion - Larry Pesce»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

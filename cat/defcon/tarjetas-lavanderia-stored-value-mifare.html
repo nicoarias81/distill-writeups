@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tarjetas de lavandería: ingeniería inversa del stored value en MIFARE Classic — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Tarjetas de lavandería: ingeniería inversa del stored value en MIFARE Classic</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/BNOmouHeAOw">«DEF CON 33 - RF Village - The dirty laundry of stored value washing cards»</a> · ver el <a class="nz-link" href="https://youtu.be/BNOmouHeAOw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> BNOmouHeAOw · <strong>URL:</strong> https://youtu.be/BNOmouHeAOw · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - RF Village - The dirty laundry of stored value washing cards</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las tarjetas de lavandería de saldo precargado — las MIFARE Classic que viven en condominios, edificios de alquiler y residencias universitarias — almacenan el dinero directamente en la tarjeta, escritas por un encoder del predio. El white paper "Hung Out to Dry" documenta su ingeniería inversa completa: la estructura de datos que la plataforma Kiasoft escribe en la memoria de la tarjeta, la relación matemática entre sus campos, y por qué el sistema completo — encoders, lavadoras y tarjetas repartidas por todo el continente — no va a arreglarse.</p>
+<p>El alcance ético quedó explícito: investigación educativa, carga legítima de 47 dólares de los cuales se gastaron 15, y omisión deliberada del mecanismo de generación de transaction IDs (innecesario para la lavadora pero necesario para el encoder) como cortesía hacia el proveedor, tras la disclosure correspondiente.</p>
+<h2>La tarjeta y el sistema</h2>
+<p>MIFARE Classic es la tarjeta doméstica de seguridad baja más común: ~1 KB de datos útiles (720 bytes), 16 sectores de 4 bloques con un trailer por sector (dos llaves y bits de acceso), y un bloque 0 inmutable con UID, BCC, SAK, ATQA y datos del fabricante. El sistema afectado principal es <strong>Kiasoft</strong>, que define la estructura de datos que escriben los encoders; también se confirmaron Coin-o-matic y CSC (que ya tenía un parser de comunidad para Flipper Zero). El mismo formato se repite en universidades con lavanderías estudiantiles en todo el mapa.</p>
+<h2>Encontrar el saldo</h2>
+<p>El punto de partida: un saldo conocido de $18.75. Con la intuición de que los sistemas comerciales decimalizan a enteros, la búsqueda fue 1875 centavos → hexadecimal 0x0753 → presente en memoria en <strong>little-endian (5307)</strong>, y no una sola vez: el mismo valor aparece en <strong>cuatro representaciones</strong> — el valor al último top-up (bloque 2, bytes 9-10, inmutable hasta la próxima carga: gastar dinero no lo modifica) y los bloques 4 y 8, que son espejos entre sí. El card number impreso en el reverso se almacena con un truco similar: hexadecimal "decimalizado" que se lee igual que el número impreso.</p>
+<h2>La anatomía de los campos</h2>
+<p>Con los datos reales redactados (llaves incluidas) tras la disclosure, el mapa de campos es:</p>
+<ul>
+<li><strong>Trailer del sector</strong>: llaves del sitio + condiciones de acceso estándar de escritura/transferencia/restore (078069).</li>
+<li><strong>Card number</strong>: el impreso en el reverso, en hexadecimal decimalizado.</li>
+<li><strong>Vault byte (valor al último top-up)</strong>: sube con cada carga; inmune a los gastos.</li>
+<li><strong>Transaction ID</strong> (bloque 2): el encoder verifica coherencia entre saldo y transacción; si no cuadra, rechaza futuras cargas — sin reportar nada a nadie.</li>
+<li><strong>Incremental mirror byte</strong>: sube exactamente uno con cada top-up, simultáneamente en todas sus copias de la tarjeta.</li>
+<li><strong>Terminal byte</strong>: el último byte, cambia en cada lectura; sin propósito propio — es el XOR del bloque 2 (y del bloque 1, que no cambia). La confirmación llegó de Guru Steve, del RFID Hackers Discord, que investigaba lo mismo en paralelo.</li>
+<li><strong>Under-value bytes</strong>: contadores de usos de la lavadora.</li>
+<li><strong>Under-middle byte</strong>: XOR del bloque de valor superior — otro espejo sin función.</li>
+</ul>
+<h2>Los middle bytes: álgebra lineal de sexto grado</h2>
+<p>El obstáculo para escribir saldos arbitrarios eran los <strong>middle bytes</strong>, cuyo propósito era desconocido. La solución fue tratarlos como datos: comparar el primer byte de valor con el primer byte medio antes y después de varios top-ups (3 dólares, 10 dólares) reveló una relación lineal con pendiente -1 e intercepto en 255 — es decir, <strong>0xFF XOR valor</strong>: la negación bit a bit. Con eso, escribir cualquier saldo es calcular cada byte espejo como el complemento del byte de valor.</p>
+<p>El detalle delicioso: la tarjeta está sembrada de <strong>function mirrors</strong> estáticos — pares de bytes que no intervienen en ningún uso de la tarjeta pero muestran la misma relación (07/F8, 0B/F4) — es decir, la tarjeta documentaba su propia criptografía. Haber tomado una foto inicial de esos pares habría ahorrado dos meses de investigación.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Valor en little-endian<br/>0x0753 = 18.75 USD] --> B[Localizar en memoria<br/>4 representaciones]
+    B --> C[Middle bytes desconocidos]
+    C --> D[Relacion valor vs middle<br/>en varios top-ups]
+    D --> E[middle = 0xFF XOR valor<br/>negacion bit a bit]
+    E --> F[Script de top-up perfecto<br/>Proxmark + Python]
+
+</pre>
+
+<h2>Límites: no se puede crear una tarjeta de la nada</h2>
+<p>Dos anclas impiden fabricar tarjetas desde cero: las <strong>site keys</strong> (por ubicación, solo utilizables por las máquinas de ese edificio o piso de residencia — recuperables solo con una tarjeta real y ataques criptográficos estándar de MIFARE Classic) y los <strong>card numbers</strong> (dados de alta en el backend por el encoder al comprar la tarjeta). Observando la enrolación de una tarjeta en blanco: recibe su location ID (Miami) y su número impreso. El requisito mínimo del ataque es una tarjeta legítima de la ubicación objetivo.</p>
+<h2>Demo y variantes</h2>
+<p>El tooling final: un script Python sobre Proxmark que calcula value bytes, middle bytes y todo lo necesario para un top-up perfecto al centavo, más un plugin de Flipper Zero construido sobre el parser CSC de la comunidad. La demo muestra una carga de 20 dólares convertida en un saldo de 85 — imposible de alcanzar con el encoder — y el contador de top-ups en cero. Además del método de ingeniería inversa existe el atajo conocido de <strong>shadow mode</strong> (MIFARE Gen 1): rebobinar la tarjeta al saldo previo — pero el enfoque reconstructivo permite saldos exactos al centavo, no solo revertir. La tarjeta de exhibición quedó fijada permanentemente en $69.69.</p>
+<h2>Por qué esto no se arregla</h2>
+<p>La disclosure se hizo, y la respuesta estructural es la economía del problema: reemplazar encoders, chips y lavadoras en cada unidad de Norteamérica costa demasiado; llevan 20 años de "buena racha" y aceptan el riesgo de la pérdida esperable. La percepción de riesgo es baja (es dinero de lavadora, no un target atractivo para extorsión), el daño reputacional no llega al demographics real (inquilinos de HMOs, edificios y residencias — el público menos expuesto a la noticia), y arreglarlo simplemente no es rentable.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>El stored value en tarjeta — en vez de en el backend — convierte cada tarjeta en una base de datos escribible por el portador, cuya integridad depende de la ofuscación de unos pocos bytes de verificación.</li>
+<li>Los campos de verificación derivados (XOR, negación, espejos) son adivinables por observación de deltas entre top-ups: una relación lineal con pendiente -1 e intercepto 255 resuelve todo el esquema.</li>
+<li>Los mirrors estáticos sin función operativa son un regalo: muestran la transformación aplicada a los bytes de valor sin necesidad de probar contra el encoder.</li>
+<li>Las site keys y el alta en backend limitan el ataque a quien ya tenga una tarjeta legítima de la ubicación — pero esa es exactamente la población que usa el sistema.</li>
+<li>La vulnerabilidad persistirá por decisión económica, no técnica: el costo del reemplazo excede por diseño la pérdida esperable, y la población afectada carece de poder de presión.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/BNOmouHeAOw">«DEF CON 33 - RF Village - The dirty laundry of stored value washing cards»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

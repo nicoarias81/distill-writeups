@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JavaScript Bridge en Android: del enlace malicioso a la toma de cuenta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">JavaScript Bridge en Android: del enlace malicioso a la toma de cuenta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/lp1jOnZpDCo">«DEF CON SG1 - CSIT Village - Kang Hao - Android Security Javascript Bridge Is Falling Down»</a> · ver el <a class="nz-link" href="https://youtu.be/lp1jOnZpDCo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> lp1jOnZpDCo · <strong>URL:</strong> https://youtu.be/lp1jOnZpDCo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON SG1 - CSIT Village - Kang Hao - Android Security Javascript Bridge Is Falling Down</li>
+</ul>
+<h2>Resumen</h2>
+<p>Kang Hao, investigador de seguridad de InnoH Labs enfocado en ofensiva sobre web, IoT y aplicaciones móviles, presenta un caso real —hallado antes de la era de la IA, analizado a mano, con código y capturas fuertemente censurados: la interfaz se llama <code>xbridge</code> y el objetivo, <code>boundapp</code>— de cómo un JavaScript Bridge mal programado en Android permite tomar el control de una cuenta de usuario con un solo enlace.</p>
+<p>El escenario de apertura lo cuenta su blog con historieta: Tux, un pingüino, despierta con una notificación y hace clic en un enlace titulado "Not Scammer". La redirección lanza la aplicación "Instagreen"; el mensaje que ve es solo texto plano. Horas después, la app le avisa que su cuenta fue comprometida: contraseña incorrecta al intentar entrar, y su amiga Lucia ve publicaciones extrañas desde su perfil. Ese es el objetivo del ataque: toma de cuenta mediante un enlace malicioso, abusando de una función JSB vulnerable para ejecutar acciones no autorizadas.</p>
+<h2>Fundamentos: la superficie de ataque de Android</h2>
+<p>Para encuadrar el problema conviene dividir la superficie de ataque de una app Android en tres categorías:</p>
+<ul>
+<li><strong>HTTP API</strong>: el enfoque tradicional del pentest móvil. Se enruta el tráfico de la app a un proxy (Burp) y se analiza el HTTP, buscando sobre todo IDOR y problemas de lógica de negocio.</li>
+<li><strong>Componentes Android</strong>: las piezas tipo LEGO que hacen posible una app. Cuando están exportadas, otra aplicación puede acceder a ellas, lo que abre escenarios como redirección de intents o robo de archivos arbitrarios vía content providers. (Sobre esto, la misma autora tiene publicado cómo usó componentes Android para explotar el navegador de DuckDuckGo.)</li>
+<li><strong>WebView</strong>: técnicamente es un componente Android, pero por su envergadura merece categoría propia, y es el foco del análisis.</li>
+</ul>
+<p>Dentro de WebView, ¿de dónde puede venir el ataque? Tres puntos de entrada:</p>
+<ol>
+<li><strong>Redirección por deep link</strong>: algunos deep links aceptan parámetros de URL, y si se les pasa una página HTTP concreta, esa página se carga en el WebView de la app. Las puertas de entrada suelen ser el navegador, otra app o incluso un código QR.</li>
+<li><strong>Pantallas H5</strong>: pantallas que usan WebView para pintar la interfaz en lugar de componentes nativos, normalmente descargadas de un servidor de confianza. El ataque aquí no es directo: el atacante inyecta un payload XSS en el servidor y envenena el contenido; cuando la app descarga la pantalla H5, carga el payload.</li>
+<li><strong>Navegador in-app</strong>: apps como Facebook abren los enlaces en su propio navegador interno. El punto de entrada típico es el chat de mensajería: un conocido envía un enlace, se hace clic y se lanza el navegador de la app.</li>
+</ol>
+<h2>¿Qué es un JavaScript Bridge?</h2>
+<p>Un JavaScript Bridge (JSB) es el mecanismo que permite al código JavaScript de un WebView interactuar con el código nativo de Android. Desde JavaScript se llama a un objeto expuesto —por ejemplo <code>AndroidBridge.showToast(...)</code>— y Android hace la magia de mapear esa llamada al código nativo registrado con <code>addJavascriptInterface</code>. Toda función JSB lleva, sobre su declaración nativa, la anotación <code>@JavascriptInterface</code>. Con eso ya se es experto, bromea la autora, y pasa a los ejemplos reales.</p>
+<h2>El manual del investigador: estático + dinámico sin IA</h2>
+<p>Se asume que ya se encontró una redirección por deep link que carga <code>evil.com</code> en el WebView de la app. ¿Cómo se analiza? El flujo clásico:</p>
+<ol>
+<li><strong>Extraer la APK</strong> con <code>adb pull</code>.</li>
+<li><strong>Descompilar con JADX</strong> en la PC.</li>
+<li><strong>Búsqueda estática</strong>: buscar <code>addJavascriptInterface</code>. Problema inmediato: aparecen muchísimas interfaces, y muchas no son alcanzables desde el deep link. Hacer tracing manual del código desde la fuente hasta el sink para saber cuál se carga es impracticable —si se usara un asistente de IA quizá no, pero este hallazgo es de la "época antigua"—.</li>
+<li><strong>Análisis dinámico</strong>: una vía es hookear con Frida la carga de la interfaz al hacer clic en el deep link. La preferida de la autora es Chrome DevTools: con Frida se activa el modo debuggable del WebView, se conecta el móvil a la PC, se abre <code>chrome://inspect</code>, se inspecciona el WebView cargado y en la consola se tipea la interfaz. Ahí aparecen las funciones JSB expuestas —en <code>xbridge</code>, dos: <code>showToast</code> e <code>invokeMethod</code>—. Confirmado que la interfaz está viva en ese WebView, se procede.</li>
+</ol>
+<h2>Anatomía de <code>invokeMethod</code></h2>
+<p>La función <code>invokeMethod</code> hace varias cosas: toma la configuración del WebView, ejecuta una verificación "secreta" que volverá a aparecer después, deserializa un string en un objeto de tipo bridge, y lo pasa a <code>processBridgeObject</code>. El objeto bridge tiene cuatro campos: <code>handleName</code>, <code>data</code>, <code>callbackID</code> y <code>sink</code>. Con eso ya se puede esbozar el payload.</p>
+<p><code>processBridgeObject</code> mete el objeto en un mapa y hace un lookup para resolver el módulo bridge correspondiente; módulo y datos se convierten en un <code>bridgeRequest</code> que pasa a <code>onBridgeCall</code>. Resulta que <code>onBridgeCall</code> es una clase abstracta: la implementación real está en las subclases. Buscando <code>extends BridgeModule</code> en JADX aparecen todos los handlers disponibles. Revisándolos uno por uno, uno destaca: un handler cuyo nombre es <code>tool_base64</code>, que recibe un objeto <code>ImageConvertRequest</code> con un solo campo, <code>uri</code>.</p>
+<p>El problema salta a la vista: la URI se extrae como path con <code>getPath()</code>, y ese path —entrada del usuario— se pasa directo a <code>new File(...)</code>. El resto del código convierte el contenido del archivo a Base64 y lo devuelve. Es decir: lectura arbitraria de archivos del almacenamiento interno de la app. Con un URI apuntando al archivo de cookies interno de la app, ahí está el camino a la toma de cuenta.</p>
+<h2>El bolas de la whitelist: el esquema javascript con doble barra</h2>
+<pre class="mermaid">
+flowchart LR
+    A[Víctima hace clic\nen enlace malicioso] --> B[Deep link redirige\nevil.com al WebView]
+    B --> C[JS invoca\nxbridge.invokeMethod]
+    C --> D[Bypass de whitelist\ncon esquema javascript://]
+    D --> E[Handler tool_base64 lee\narchivo de cookies]
+    E --> F[Base64 via callback\nal servidor C2]
+    F --> G[Se decodifica SQLite\ny se extrae la cookie de sesión]
+
+</pre>
+
+<p>El payload se arma sobre una página en <code>evil.com</code> con una función callback que, al completarse la llamada JSB, alerta el texto Base64 devuelto. Pero no funciona: lo frena la verificación "secreta" del inicio. La lógica de esa verificación, con dominios de whitelist como <code>boundapp.com</code> y <code>*.boundapp.com</code>: toma la URL actual del WebView (<code>evil.com</code>), deriva el dominio con <code>getHost()</code>, y compara contra la whitelist —igualdad exacta contra el dominio, y <code>endsWith</code> contra el subdominio—. <code>evil.com</code> no pasa ninguna.</p>
+<p>Primer intento: un subdominio que parezca el legítimo sin serlo, tipo <code>t.boundapp.com.evil.com</code>. Tampoco pasa: no es igual al dominio y no termina en el subdominio de la whitelist. Dos obstáculos, entonces: igualdad exacta del host y sufijo del subdominio.</p>
+<p>La jugada: escribir el payload con el esquema <code>javascript:</code>. En Android 8 o inferior, un payload de este estilo resolvía el host de forma favorable y comprometía a cualquiera con esa versión, pero ya casi nadie está ahí. Y <code>getHost()</code> sobre un esquema <code>javascript:</code> devuelve <code>null</code>, así que en versiones modernas sigue bloqueado. La clave es imitar HTTP agregando una doble barra: <code>javascript://boundapp.com/...</code>. Ahora <code>getHost()</code> devuelve <code>boundapp.com</code>, la comparación exacta pasa y la verificación queda esquivada.</p>
+<p>¿Y funciona el esquema <code>javascript:</code> de verdad? Sí: <code>loadUrl</code> de Android lo soporta nativamente. El matiz es que todo lo que va después de la barra se trata como comentario en JavaScript —el código de la misma línea queda afectado, el de la línea siguiente no—. Así que el payload final se estructura en dos líneas: la primera lleva el host falso que pasa la whitelist, y la segunda —la real— invoca al handler <code>tool_base64</code> pidiendo el archivo de cookies. Decodificado, el exploit lee el archivo de cookies y su callback envía el Base64 al servidor C2 del atacante.</p>
+<p>La verificación, con el payload final: <code>getHost()</code> devuelve <code>boundapp.com</code>, la comparación da verdadero, el código sigue su curso, el callback recibe el Base64 con el archivo de cookies y lo manda al C2. La demostración en video lo muestra en tiempo real: el servidor con el deep link redirige, el usuario acepta, y al instante llega al C2 el texto Base64. Al decodificarlo se ve la cabecera "SQLite format 3": con DB Browser for SQLite se abre la base, se recupera la sesión de <code>boundapp</code> y ahí está la cookie de sesión. Cuenta tomada.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>JavaScript Bridge (JSB)</strong>: mecanismo <code>addJavascriptInterface</code> + anotación <code>@JavascriptInterface</code> que une el JavaScript del WebView con el código nativo.</li>
+<li><strong>Deep link redirection</strong>: carga de URL controlada por el atacante dentro del WebView de la app vía parámetros del deep link.</li>
+<li><strong>adb pull + JADX</strong>: extracción y descompilación estática de la APK.</li>
+<li><strong>Frida</strong>: hook de la carga de interfaces JS y activación del modo debuggable del WebView.</li>
+<li><strong>chrome://inspect</strong>: inspección del WebView en vivo para listar las funciones JSB expuestas por la interfaz.</li>
+<li><strong>Lectura arbitraria de archivos</strong>: handler <code>tool_base64</code> que pasa el path de la URI, controlado por el usuario, directo a <code>new File(...)</code> y devuelve el contenido en Base64.</li>
+<li><strong>Bypass de whitelist con esquema javascript://</strong>: <code>getHost()</code> devuelve <code>null</code> sobre <code>javascript:</code>, pero con doble barra (<code>javascript://dominio.com/</code>) devuelve el dominio falso que pasa la comparación; el comentario de la primera línea oculta el payload real en la segunda.</li>
+<li><strong>DB Browser for SQLite</strong>: decodificación del archivo de cookies exfiltrado y extracción de la cookie de sesión.</li>
+<li><strong>Servidor C2</strong>: receptor del Base64 exfiltrado desde el callback del payload.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El JavaScript Bridge es una herramienta poderosa y muy usada para unir contenido web con funcionalidad nativa, pero introduce una superficie de ataque amplia que sigue pasándose por alto en las evaluaciones de seguridad de Android.</li>
+<li>Una implementación insegura de un solo handler basta para escalar de un enlace malicioso a lectura arbitraria de archivos internos y, de ahí, a la toma de cuenta.</li>
+<li>Las whitelists de dominio construidas con <code>getHost()</code> + comparación de sufijos se bypasean con esquemas no HTTP que imitan su estructura; validar el esquema y el origen real del contenido es tan importante como validar el dominio.</li>
+<li>La metodología —extracción, descompilación, enumeración de handlers JSB y confirmación dinámica con Chrome DevTools— sigue siendo aplicable hoy, con o sin IA.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/lp1jOnZpDCo">«DEF CON SG1 - CSIT Village - Kang Hao - Android Security Javascript Bridge Is Falling Down»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

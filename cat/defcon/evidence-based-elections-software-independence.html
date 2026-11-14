@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elecciones basadas en evidencia e independencia del software — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Elecciones basadas en evidencia e independencia del software</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8rIM5aTApKo">«DEF CON 33 - Voting Village- Evidence Based Elections and Software Independence - Ron Rivest»</a> · ver el <a class="nz-link" href="https://youtu.be/8rIM5aTApKo">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li>
+<p><strong>Video:</strong> 8rIM5aTApKo · <strong>URL:</strong> https://youtu.be/8rIM5aTApKo · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Voting Village- Evidence Based Elections and Software Independence - Ron Rivest
+<em>Criptografía aplicada al voto · Ron Rivest (MIT) · Voting Village</em></p>
+</li>
+<li>
+<p><strong>TL;DR</strong></p>
+</li>
+<li>Dos conceptos ordenan el diseño de un sistema electoral confiable: <strong>elecciones basadas en evidencia</strong> (el resultado debe venir acompañado de evidencia convincente de que el ganador ganó) e <strong>independencia del software</strong> (un error no detectado en el software no debe poder causar un cambio indetectable en el resultado).</li>
+<li>La mejor evidencia es una colección de boletas de papel verificadas por el propio votante, con cadena de custodia verificable; el software solo aporta el conteo inicial y no es la evidencia.</li>
+<li>Las auditorías que limitan el riesgo (RLA) hacen viable esa verificación: muestreo aleatorio de boletas físicas con interpretación manual, que valida el <em>resultado</em> (no el conteo exacto) revisando una fracción pequeña de las boletas.</li>
+<li>El voto por internet y por teléfono queda descartado por ahora: la evidencia sería electrónica, inaccesible, y hasta el grupo de estudio que intentó redactar estándares concluyó que no es posible hacerlo responsablemente.</li>
+</ul>
+<h2>Por qué votar no es como hacer banca</h2>
+<p>Votar es uno de los problemas más difíciles de la informática, y la diferencia clave con la banca en línea es que el voto es <strong>anónimo</strong>: no debe poder demostrarse cómo votó nadie. A eso se suman condiciones duras:</p>
+<ul>
+<li>Nadie es confiable a priori: ni proveedores, ni votantes, ni funcionarios, ni candidatos, ni sus cónyuges, ni otros estados-nación. Es un proceso donde todos observan a todos.</li>
+<li>Ningún software es confiable, y no existe una buena manera de verificar que el software que corre en una máquina es el que se cree que corre. Un comité de regulación (TGDC) dedicó varias reuniones a buscar ese método —memorias de doble puerto, lectura de memoria sin pasar por el software de la propia máquina— y no lo encontró.</li>
+<li>El votante debe autenticarse, el proceso es de un solo paso ("fire and forget"), el votante no aporta el equipo, y hay disputas, votantes con discapacidad, voto por orden de preferencia y variación jurisdiccional.</li>
+<li>Cada voto debe ser secreto incluso contra la voluntad del votante: no hay recibo posible, porque un recibo habilita la compra de votos.</li>
+<li>Cada votante elegible vota a lo sumo una vez, lo que obliga a coordinar los padrones cuando coexisten voto presencial y voto por correo.</li>
+</ul>
+<h2>Evidencia e independencia del software</h2>
+<p>Stark y Wagner lo plantearon en 2012: un sistema electoral no solo debe calcular correctamente quién ganó, sino proveer <strong>evidencia convincente</strong> de que el ganador realmente ganó. La pregunta correcta después de una elección no es "¿el sistema fue probado y certificado?" sino "¿cuál es la evidencia de que este candidato ganó, quién la custodia y cómo se accede a ella?".</p>
+<p>La mejor evidencia posible es la <strong>colección de boletas marcadas a mano y verificadas por el votante que las emitió</strong>: es la única capa donde la verificación es directa y sin mediación electrónica. Los sistemas que interponen un registro electrónico entre el votante y la evidencia —incluidas las máquinas BMD que imprimen un código QR o de barras que luego es lo que se escanea— ofrecen a lo sumo una verificación indirecta, y al escanearse el código en lugar de las marcas se vuelve al problema de fondo de los DRE.</p>
+<p>De ahí la definición operativa: un sistema electoral es <strong>software-independent</strong> si un error no detectado en su software no puede causar un cambio indetectable en el resultado de la elección. Y es <em>strongly</em> software-independent si, además, ese error de resultado es corregible una vez detectado. El corolario es incómodo pero liberador: el software podría incluso haber sido escrito por un adversario o un país extranjero. El caso de Coffee County y la polémica por la filtración del software electoral son ruido: el software <strong>no es la evidencia</strong>, las boletas lo son. El software solo produce el conteo inicial; si es open source, mejor (permite examinarlo), pero el sistema debe funcionar aunque no sea confiable.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Votante marca y verifica<br/>su boleta de papel] --> B[Urnas / cadena de custodia]
+    B --> C[Escáner óptico<br/>conteo inicial reportado]
+    C --> D{Auditoría que limita el riesgo<br/>ANTES de certificar}
+    D -- riesgo > límite, ej. 5% --> E[Ampliar muestra aleatoria<br/>hasta recuento manual completo]
+    D -- riesgo < límite --> F[Certificación del resultado<br/>con evidencia]
+
+</pre>
+
+<h2>Auditorías que limitan el riesgo</h2>
+<p>Una RLA toma una muestra aleatoria de las boletas físicas —la aleatoriedad no es negociable: una semilla fijada de antemano es una vulnerabilidad—, las interpreta a mano y evalúa qué dicen sobre el resultado reportado. La pregunta técnica es: si el ganador reportado estuviera equivocado, ¿cuál es la probabilidad de que esta auditoría lo aceptara si se detuviera ahora? Se muestrea hasta llevar ese riesgo por debajo del límite fijado (5 %, típicamente).</p>
+<p>Tres paradigmas:</p>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Paradigma</th>
+<th>Cómo funciona</th>
+<th>Eficiencia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Comparación de boletas</td>
+<td>Compara cada boleta física con el registro electrónico del escáner</td>
+<td>La más eficiente</td>
+</tr>
+<tr>
+<td>Sondeo de boletas</td>
+<td>Solo muestrea boletas, sin correspondencia con registros electrónicos</td>
+<td>Intermedia</td>
+</tr>
+<tr>
+<td>Comparación de lotes</td>
+<td>Audita lotes completos</td>
+<td>La menos eficiente</td>
+</tr>
+</tbody>
+</table></div>
+<p>La eficiencia es el argumento decisivo: una auditoría por comparación con margen ≥ 3 revisa una fracción mínima de las boletas —hasta 200 veces menos que un recuento manual completo— y escala al recuento completo solo si el margen es estrecho. Como analogía cotidiana: desayunar, usar hilo dental... y auditar las elecciones. Matiz importante: una RLA <strong>no prueba la corrección del conteo</strong>, solo la del <em>resultado</em> de la jurisdicción auditada; auditar un voto popular nacional exigiría auditar conteos a través de los estados. Tampoco cubre la supresión de votantes ni los efectos de la publicidad: verificar que los votos emitidos se contaron bien es distinto de garantizar que todos pudieran votar.</p>
+<p>Para funciones de decisión más complejas —voto por orden de preferencia (IRV) y otros cientos de esquemas— existen métodos de auditoría: los enfoques frecuentistas para IRV y la alternativa bayesiana, más simple conceptualmente aunque todavía investigación.</p>
+<h2>Voto end-to-end verificable, híbrido y por internet</h2>
+<p>Los sistemas <strong>E2E verificables</strong> reemplazan el papel por criptografía: un tablón público recibe los votos cifrados, y la verificación se reparte en tres propiedades —emitido como se quería (el votante confirma su cifrado sin poder descifrar), recogido como se emitió, contado como se recogió, esta última incluso con cifrado homomórfico—. Funciona (la suite ElectionGuard se usó en elecciones de prueba en Wisconsin, California, Idaho, Utah y Maryland), pero es pesada y compleja: Alemania llegó a prohibir la criptografía en sistemas de votación por ser incomprensible para el votante promedio, y ese argumento tiene peso. La vía prometedora es el <strong>hibridado</strong>: boleta de papel más verificabilidad E2E, con auditoría posible por cualquiera de las dos vías —como en la experiencia de Takoma Park, donde la condición fue que quedara el rastro de papel.</p>
+<p>El voto por internet o móvil queda fuera: la evidencia sería electrónica e inaccesible. El informe de la Academia Nacional de Ciencias (2018) lo desaconseja explícitamente, y el grupo de estudio sobre estándares de voto por internet concluyó que el estado actual de la tecnología y del entorno de ciberseguridad no permite redactar estándares responsables para el retorno de boletas por internet.</p>
+<h2>Implicaciones prácticas</h2>
+<ul>
+<li>Al evaluar cualquier sistema electoral, preguntar primero: ¿cuál es la evidencia del resultado, quién la custodia y qué pasa si el software mentía? Todo lo demás es secundario.</li>
+<li>Las BMD con códigos QR reabren el problema de los DRE: si lo que se escanea es el código y no las marcas, la verificación del votante sobre el papel deja de contar.</li>
+<li>Auditar no es un lujo: es la contraparte operativa de "el software no es confiable", y las RLA la hacen asequible (hasta 200 veces más baratas que un recuento total).</li>
+<li>La transparencia del software (open source) vale, pero como mejora del proceso, no como garantía del resultado: no sustituye la evidencia física.</li>
+<li>El voto por internet necesita primero resolver qué evidencia produciría; sin eso, los estándares no pueden existir.</li>
+</ul>
+<h2>Límites y suposiciones</h2>
+<ul>
+<li>El marco asume boletas de papel existentes y cadena de custodia verificable; sin ellas no hay evidencia de qué hablar.</li>
+<li>Las RLA validan el resultado, no el conteo exacto, y presuponen la aleatoriedad real del muestreo.</li>
+<li>Los métodos para esquemas no plurales (IRV, bayesianos) existen pero están menos maduros en la práctica.</li>
+<li>La comparación entre confianza en personas (auditores, funcionarios) y confianza en criptografía sigue abierta: es un debate público que las próximas décadas resolverán, y el autor apuesta por el papel sin descartar que la criptografía termine ganando terreno.</li>
+</ul>
+<h2>Para profundizar</h2>
+<ul>
+<li>Stark &amp; Wagner, "Evidence-Based Elections" (2012): https://www.electionsintegrity.org/</li>
+<li>NASEM, "Securing the Vote: Protecting American Democracy" (2018, PDF gratuito): https://www.nap.edu/</li>
+<li>Verified Voting, panorama de equipos de votación y auditorías: https://verifiedvoting.org/</li>
+<li>ElectionGuard (Microsoft / Josh Benaloh): https://www.electionguard.vote/</li>
+<li>David Jefferson, "Why voting is different than banking" (Verified Voting): https://verifiedvoting.org/</li>
+<li>Rivest, auditorías bayesianas de elecciones (arXiv): https://arxiv.org/</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8rIM5aTApKo">«DEF CON 33 - Voting Village- Evidence Based Elections and Software Independence - Ron Rivest»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

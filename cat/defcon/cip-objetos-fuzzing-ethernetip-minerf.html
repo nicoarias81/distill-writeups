@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CIP: cómo hablarle (y hacerle fuzzing) a los controladores industriales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">CIP: cómo hablarle (y hacerle fuzzing) a los controladores industriales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/S7mPcEPaKHU">«DEF CON 33 - Intro to Common Industrial Protocol Exploitation - Trevor Flynn»</a> · ver el <a class="nz-link" href="https://youtu.be/S7mPcEPaKHU">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> S7mPcEPaKHU · <strong>URL:</strong> https://youtu.be/S7mPcEPaKHU · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Intro to Common Industrial Protocol Exploitation - Trevor Flynn</li>
+</ul>
+<h2>Resumen</h2>
+<p>El Common Industrial Protocol (CIP) es el idioma que hablan los PLC y sus periféricos — variadores de frecuencia, arrancadores de motor, sistemas de monitoreo eléctrico, sensores e instrumentos inteligentes, actuadores de válvulas — y entenderlo de raíz es la puerta de entrada para evaluar seguridad en plantas industriales. Nacido con Allen-Bradley en 1994 (DeviceNet sobre bus CAN, revelado en Chicago), siguió con ControlNet sobre coaxial (1997, capa física 802.3b con señalización Manchester) y llegó a EtherNet/IP en 2000, que no tiene nada que ver con TCP/IP pese al nombre. La particularidad estructural: CIP reinventó para sí mismo lo que Ethernet da por sentado — ruteo, verificaciones de integridad, sesiones — y eso tiene consecuencias de seguridad directas, empezando por el ruteo CIP que conecta redes que parecen aisladas.</p>
+<h2>Objetos, clases, instancias, servicios</h2>
+<p>CIP funciona como un protocolo de llamada a procedimiento remoto sobre objetos C++ en el firmware del dispositivo:</p>
+<ul>
+<li><strong>Class ID</strong>: identificador único de la clase C++.</li>
+<li><strong>Instance ID</strong>: instancia concreta de esa clase.</li>
+<li><strong>Attribute</strong>: variable dentro del objeto.</li>
+<li><strong>Service</strong>: función del objeto invocable por red.</li>
+</ul>
+<p>Todo se direcciona con identificadores enteros, sin nombres ni strings: un pedido CIP dice qué servicio correr, sobre qué clase, contra qué instancia y, a veces, qué atributo modificar. El objeto más básico es la clase de identidad: class 1, instancia 1, con el servicio get all attributes (código 1) — el mensaje "1, 1, 1" que devuelve vendor, tipo de producto, revisión de firmware, estado (¿corriendo? ¿fallado? ¿en configuración?), número de serie y nombre del producto. La especificación core dicta cuáles objetos son obligatorios y cuáles opcionales, pero la mayoría de los fabricantes implementa lo que quiere, no documenta nada, y toca descubrirlo a fuerza de sondeo.</p>
+<h2>Tres formas de comunicación explícita</h2>
+<ul>
+<li><strong>UCMM (unconnected message manager)</strong>: pedido sin sesión CIP, el equivalente a un request/response UDP — sin ruteo CIP ni servicios de red adicionales. Lo más simple.</li>
+<li><strong>Pedidos unconnected</strong>: se arma sesión CIP, se usa el ruteo completo, se procesa un único pedido y la conexión se destruye.</li>
+<li><strong>Sesiones conectadas</strong>: igual que la anterior, pero la conexión persiste con un número de sesión reutilizable. Ese número es independiente de la sesión TCP: la conexión TCP puede caerse cien veces y la sesión CIP sigue viva.</li>
+</ul>
+<h2>Ruteo CIP: saltar redes "air-gapped" con una ruta</h2>
+<p>Un path CIP encadena saltos sobre dispositivos que todos hablan CIP: una IP lleva a la tarjeta Ethernet de un chasis, <code>,1</code> sale por el puerto 1 hacia el backplane del chasis, <code>slot 10</code> entra al slot 10, <code>,2</code> sale por el puerto ControlNet de esa tarjeta hacia un nodo 4 (un HMI), <code>,3</code> sale por el puerto Ethernet redundante del HMI, otra IP lleva al PLC final, <code>,1</code> al backplane y <code>,5</code> al slot 5. Resultado: un pedido originado en una red Ethernet llegó a otra red Ethernet sin conexión Ethernet entre ambas, cruzando ControlNet y tres dispositivos intermedios.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Red Ethernet A<br/>(red de control de proceso)"] -->|"IP → tarjeta Ethernet"| B["Chasis PLC<br/>backplane → slot 10"]
+    B -->|",2 → puerto ControlNet"| C["Red ControlNet<br/>→ nodo 4: HMI"]
+    C -->|",3 → Ethernet redundante"| D["Red Ethernet B<br/>→ PLC, ,1 backplane, ,5 slot 5"]
+
+</pre>
+
+<p>Desde el punto de vista de topología esas dos redes se ven aisladas por aire; el ruteo CIP pasa comandos entre ellas sin que los dispositivos objeten nada. Es una capacidad nativa del protocolo, disponible todo el día, y la implicación para segmentación de redes industriales es directa: confiar en el aislamiento de capa de red no alcanza si los dispositivos intermedios rutean CIP.</p>
+<h2>Fuzzing: descubrir lo que el fabricante no cuenta</h2>
+<p>Con sombrero azul y la advertencia de fondo — estos sistemas protegen personas, medio ambiente e infraestructura física, y nunca se trabaja sobre un sistema en producción — la técnica de reconocimiento por excelencia es el fuzzing de identificadores. Como no existe un "decime qué sabés hacer" (y el fabricante no lo quiere implementar), se envían pedidos sistemáticos con rangos de números:</p>
+<ul>
+<li>Servicio 3 (get attribute list) sobre la instancia 0 — el singleton estático de cada clase — iterando class IDs de 1 a 1000, con atributo 0 (el atributo nulo, que no requiere atributo real).</li>
+<li>La mayoría responde "destination unknown / class unsupported", pero cada desvío del patrón es información: un "service not supported" significa que <strong>hay un objeto ahí</strong>, solo que no implementa ese servicio.</li>
+</ul>
+<p>Con un objeto encontrado, el siguiente paso es recorrer los códigos de servicio para ver cuáles dan error y cuáles funcionan. Ejemplo real del recorrido: la clase 0xAA resultó ser el objeto Ethernet TCP/IP de la especificación — guarda IP, MAC y contadores de diagnóstico de los puertos — y el servicio no soportado llevó a consultar la spec, que revela que ese objeto permite <strong>cambiar la dirección IP, el gateway y la máscara de subred del dispositivo remotamente y sin ningún mecanismo de autenticación</strong>. Un objeto estándar, presente por diseño, que permite reconfigurar la red del dispositivo con una sola petición modificada del script de fuzzing.</p>
+<h2>Minerf: el fallo no recuperable que aparece solo</h2>
+<p>En el mundo Rockwell/Allen-Bradley, un MNRF (major non-recoverable fault) es lo más fácil de provocar en un controlador y lo más peligroso: detiene la ejecución y vuelca toda la configuración de memoria — el PLC queda como una caja muerta sin programa ni configuración, esperando a que un técnico le cargue uno nuevo. El escenario de riesgo: el controlador que regula la presión de un recipiente a 10.000 PSI se detiene, deja de poder cerrar la válvula de alimentación, y el recipiente sobrepresuriza. Los sistemas están diseñados fail-safe — lógica de relés cableada que lleva las válvulas a posición segura, válvulas de alivio de presión — pero la interrupción igual puede tener impacto mayor.</p>
+<p>Desde el ángulo del fuzzing, los MNRF son fáciles de encontrar porque los controladores se auto-verifican continuamente: si la validación de entrada falla y provoca un buffer overflow que manda la ejecución a una rama inesperada, la verificación de integridad detecta la pérdida y el equipo se autoinflige el MNRF. El dato empírico de quien hace esto a diario: en promedio, <strong>tres MNRF por día</strong> de fuzzing.</p>
+<h2>Caja de herramientas</h2>
+<ul>
+<li><strong>Wireshark</strong>: decodifica CIP de forma excelente gracias a su plugin del protocolo — el análisis de tráfico en vivo es la herramienta complementaria natural del fuzzing.</li>
+<li><strong>ICS Village en GitHub (repositorio CTF)</strong>: todos los scripts y demos de esta introducción, incluidas las herramientas de fuzzing para arrancar.</li>
+<li><strong>Molex EtherNet/IP tool</strong>: herramienta gratuita de validación y prueba de dispositivos, muy útil para este tipo de trabajo.</li>
+<li><strong>Pycomm3</strong>: librería de Python para hablar CIP por cuenta propia, mantenida activamente.</li>
+<li><strong>eBay</strong>: el hardware de laboratorio no es barato pero tampoco rompe el presupuesto — un mini cyber range en casa está al alcance.</li>
+<li><strong>SysEvents (ICS Village)</strong>: canal para reportar hallazgos; conectan con el fabricante para que los problemas se corrijan.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>CIP modela el dispositivo como objetos C++ direccionables por números — clase, instancia, atributo, servicio — y el mensaje de identidad (1, 1, 1) es el punto de partida natural para reconocer cualquier equipo.</li>
+<li>El ruteo CIP atraviesa redes que parecen aisladas: dos segmentos Ethernet sin camino de red entre sí quedan conectados si en el medio hay dispositivos CIP, con consecuencias directas para los supuestos de segmentación industrial.</li>
+<li>Los objetos estándar de la especificación incluyen operaciones críticas sin autenticación — como reconfigurar IP, gateway y máscara del dispositivo — y están expuestos en red por diseño.</li>
+<li>El fuzzing de identificadores es el método de descubrimiento: un "service not supported" localiza objetos ocultos, y recorrer luego los códigos de servicio mapea la superficie real de cada uno.</li>
+<li>Los MNRF se encuentran a razón de unos tres por día de fuzzing: cualquier prueba sobre controladores industriales debe hacerse en laboratorio, jamás sobre sistemas en producción.</li>
+<li>Entre Wireshark (con su plugin CIP), las herramientas de ICS Village, Molex y Pycomm3, montar un laboratorio propio de pruebas CIP es un proyecto accesible.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/S7mPcEPaKHU">«DEF CON 33 - Intro to Common Industrial Protocol Exploitation - Trevor Flynn»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

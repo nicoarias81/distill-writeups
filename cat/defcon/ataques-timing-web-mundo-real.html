@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ataques de timing web que sí funcionan en el mundo real — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Ataques de timing web que sí funcionan en el mundo real</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/zOPjz-sPyQM">«DEF CON 32 - Listen to the Whispers: Web Timing Attacks that Actually Work - James Kettle»</a> · ver el <a class="nz-link" href="https://youtu.be/zOPjz-sPyQM">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> zOPjz-sPyQM · <strong>URL:</strong> https://youtu.be/zOPjz-sPyQM · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Listen to the Whispers: Web Timing Attacks that Actually Work - James Kettle</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los ataques de timing web ocupan un lugar paradójico en la seguridad: en teoría permiten responder preguntas casi imposibles —¿contiene la base de datos de este sitio un token de restablecimiento de contraseña con cierto prefijo?— midiendo microdiferencias en los tiempos de respuesta. En la práctica, durante años casi nadie los aplicaba. La brecha entre el ataque que funciona en la cabeza del investigador y el que funciona contra un objetivo real es tan grande que el propio campo se consideraba una trampa para investigadores. La primera tentativa de demostrar el clásico ataque de comparación de strings contra un sistema real fracasó una y otra vez: el writeup original de referencia era puramente teórico, el laboratorio propio no bastó, un lab de terceros solo "funcionaba" porque su función de comparación tenía un <code>sleep</code> artificial, e incluso un benchmark local con decenas de millones de mediciones falló. Esa franja entre lo teórico y lo real —donde se esconde un corte por debajo del cual la diferencia de tiempo es demasiado pequeña para medir— es precisamente donde hay técnicas viables por descubrir. El hallazgo más pequeño que llevó a un resultado real durante esta investigación fue de 200 microsegundos.</p>
+<p>El aporte central es doble. Primero, una base metodológica que hace que los ataques de timing funcionen "en todas partes": contra sitios arbitrarios y sin configuración específica. Segundo, tres familias de técnicas novedosas —descubrimiento de parámetros y headers ocultos, detección de inyecciones ciegas del lado servidor y detección de SSRF acotado—, todas validadas a escala sobre decenas de miles de sitios con programas de bug bounty y acompañadas de tooling abierto (Param Miner y Turbo Intruder, ya integrados en Burp Suite).</p>
+<h2>Señal, ruido y la muerte del jitter de red</h2>
+<p>Todo ataque de timing se reduce al balance entre dos variables: la señal (el retraso que se intenta medir) y el ruido (todo lo demás que afecta el tiempo de respuesta). El ruido se divide en jitter de red y jitter interno del servidor. Durante años, el jitter de red fue la excusa estándar para descartar estos ataques: lo que funciona contra un sistema local "jamás" funcionará de forma remota. Esa objención murió con HTTP/2.</p>
+<p>La técnica de <em>timeless timing attacks</em> aprovecha la concurrencia de HTTP/2 para colocar dos peticiones en el mismo paquete TCP o registro TLS: el servidor las procesa prácticamente al mismo tiempo, con lo cual el efecto del jitter de red desaparece y el ataque remoto se vuelve efectivamente local. Quedaba un detalle, el <em>sticky ordering problem</em>: al viajar por el mismo stream TLS, una petición va antes que la otra, y casi todos los servidores tienen sesgo por procesar primero la primera. La solución original del paper (inflar la primera petición con parámetros extra) no escala a objetivos arbitrarios. La versión universal es el <em>single packet attack</em>: retener un fragmento mínimo de cada petición y colocarlo en un paquete final que dispara el procesamiento. Con solo dos peticiones, ese paquete final es tan pequeño que reduce el tiempo de descifrado TLS y mitiga el sesgo de orden. Y para los servidores que empiezan a procesar apenas llegan los headers —algunos incluso responden antes de que la petición termine de enviarse—, la mejora definitiva es coalescer todos los headers en un solo paquete, usando un frame ping inicial como "paquete sacrificial" que avisa al sistema operativo que hay que empezar a coalescer. Esa versión duplica la efectividad sobre un testbed Nginx y ya está disponible en Burp Suite y en la alternativa open source H2SpaceX.</p>
+<p>Con el ruido de red resuelto, queda el ruido del servidor: carga del propio sistema, de los sistemas con los que interactúa y de máquinas virtuales vecinas en el mismo hardware físico. Hay dos caminos complementarios:</p>
+<ol>
+<li><strong>Amplificar la señal.</strong> En lugar de enviar un header una vez, enviar unos cientos de headers con el mismo prefijo hace la señal cientos de veces más detectable. Llevado al extremo, con entidades XML anidadas o batching de GraphQL, un ataque de timing se convierte en denegación de servicio: un DoS no es más que un timing attack facilísimo.</li>
+<li><strong>Reducir el ruido.</strong> Aprovechar con repetición las funciones de rendimiento del propio sitio (caching) para que el servidor pase menos tiempo procesando, o recortar del request todo lo que provoque procesamiento innecesario.</li>
+</ol>
+<p>El resultado es un método fiable y rápido: bastaron 5 pares de peticiones contra la mayoría de los objetivos (hasta 50 para confirmar hallazgos prometedores). Sobre HTTP/2, el criterio de detección es el <strong>orden de las respuestas</strong>; sobre HTTP/1, los tiempos clásicos. En la misma prueba donde el análisis por tiempos no logró detectar un retraso de 0,05 ms, el single packet attack lo detectó de forma consistente.</p>
+<h2>Descubrir parámetros y headers ocultos por tiempo</h2>
+<p>Las vulnerabilidades suelen esconderse en funcionalidades olvidadas accesibles solo por parámetros ocultos. Las herramientas clásicas de fuerza bruta (como Param Miner) los detectan observando si cambian el contenido de la respuesta; si el parámetro es válido pero no altera el contenido, pasa desapercibido. La primera técnica a escala consistió en añadir el tiempo de respuesta como señal de detección y correrla sobre un pipeline de 20.000 a 30.000 sitios de bug bounty. Funcionó: reveló parámetros y headers imposibles de encontrar de otra forma, incluidos casos extraños como un servidor que tardaba 5 ms más en responder a requests con un header misterioso salvo cuando el valor era JSON válido, o un sitio que resetea la conexión pero tarda más en hacerlo si se envía cierto header.</p>
+<p>Un hallazgo especialmente útil: cuando cambiar el valor del parámetro <code>id</code> produce un enorme salto de tiempo pero cambiar un parámetro aleatorio no, hay un cache miss diferenciado. Eso significa que la cache key incluye solo ciertos parámetros —configuración extremadamente peligrosa, candidata clara a web cache poisoning— y, además, que es muy probable que el sitio soporte un parámetro <code>id</code> en otras páginas: con timing se pueden detectar parámetros de páginas distintas a la atacada.</p>
+<p>La dificultad real no fueron los falsos positivos por ruido, sino lo contrario: el análisis temporal es tan sensible que casi todo produce una diferencia, y es fácil que los supuestos propios lleven a la conclusión equivocada. La demostración en vivo lo ilustra: contra un objetivo real, enviar un parámetro <code>exec</code> añade 5-10 ms de latencia. ¿Soporta el sitio un parámetro ejecutable? ¿RCE inmediato? No: es un WAF que hace análisis extra. Pero seguir preguntando con tiempo rindió frutos: con 10 parámetros <code>exec</code> el retraso se acumula (casi 300 ms); con suficientes, la respuesta tarda ~3 segundos, indicio de que el WAF está saturando su CPU. Y añadiendo dos parámetros <code>exec</code> más, la respuesta vuelve 300 ms más rápido: se cruzó un umbral hacia otro código path con menos análisis. Es decir, usando exclusivamente análisis de tiempo se encontró un bypass completo del WAF (técnica luego implementada en la herramienta NOAFPLZ).</p>
+<p>Para validar el concepto a escala con evidencia no temporal, el foco se puso en headers de suplantación de IP como <code>True-Client-IP</code>. En muchos sitios, enviarlo provocaba un retraso inicial de ~5 ms que desaparecía al reenviarlo: cacheo de DNS. La primera vez, el servidor resolvía el dominio del header consultando al servidor autoritativo; la segunda, la respuesta estaba en caché del sistema operativo. En casi todos esos sistemas, apuntar el header a un dominio propio provocaba un DNS pingback en el servidor DNS del atacante —confirmación out-of-band inequívoca—. En los ~170 sitios sin cacheo DNS visibles, el muestreo manual mostró otro mecanismo igual de real: el servidor enriquecía el historial de logins con la geolocalización física de la IP suplantada, consultando un servicio externo de geo-lookup (un dominio inválido era rechazado por la librería y por eso no generaba retraso). Ese hallazgo pagó bounty y dejó la lección clave: el análisis de tiempo es muy bueno para revelar cambios de control flow, como excepciones.</p>
+<h2>Inyecciones ciegas y el problema de la explotación</h2>
+<p>Detección de excepciones vía timing encaja naturalmente con las pruebas de inyección server-side. Un par clásico de payload SQLi que no altera el contenido de la respuesta sí la delata por el tiempo. Pero ahí apareció el primer freno práctico: ese hallazgo se marcó como duplicado, porque scanners y miles de personas buscan SQLi con <code>sleep()</code>, que encuentra exactamente las mismas vulnerabilidades sin necesidad de análisis avanzado. Conclusión: el timing es mala opción para inyecciones en lenguajes capaces de ejecutar sleep, salvo cuando un WAF bloquea esos payloads.</p>
+<p>Donde brilla es en lenguajes menos potentes que no permiten ejecutar sleep. Un blind server-side JSON injection se detectó gracias a una diferencia de 0,2 ms. La explotación exige entender qué pasa en el servidor: la combinación de una JSON injection client-side visible, la redacción (redaction) del payload reflejado cuando la key es larga, y la desaparición de la diferencia temporal justo cuando ocurre la redacción, permitió inferir que un componente del servidor procesa la misma respuesta que recibe el cliente —probablemente un sistema casi autónomo, tipo plugin de analíticas—. No hubo exploit válido, pero sí comprensión del objetivo.</p>
+<p>La sonda más productiva fue el blind server-side parameter pollution: comparar tiempos de respuesta entre caracteres URI reservados (como <code>#</code>) y no reservados (como <code>!</code>). El patrón se repite: el timing encuentra muchísimos, pero explotarlos exige saber qué esperar. Ayuda lo que se puede llamar <em>bug doppelgangers</em>: variantes no ciegas de la misma vulnerabilidad, que Param Miner encuentra en paralelo usando evidencia no temporal. La síntesis honesta: el timing encuentra mejor precisamente las inyecciones más difíciles de explotar; los exploits válidos de esta investigación vinieron sobre todo de la fase siguiente.</p>
+<h2>SSRF acotado: cazar proxies inversos internos</h2>
+<p>En 2017 quedó explorado un tipo de SSRF pasado por alto: enviar a un sitio una petición con el dominio del atacante en el header <code>Host</code>; si esa petición llegaba al servidor del atacante, había un reverse proxy mal configurado para saquear la red interna (técnica con la que incluso se comprometió accidentalmente a un ISP). Su punto ciego es el <strong>SSRF acotado (scoped SSRF)</strong>: el reverse proxy solo accede a subdominios de la empresa objetivo. La vulnerabilidad es casi tan poderosa como un SSRF normal, pero el DNS pingback no funciona: o el servidor nunca consulta al dominio del atacante, o el pingback no sale de la red interna.</p>
+<p>La pregunta correcta es: ¿el servidor intentó conectarse al hostname especificado? Y el timing responde gracias, otra vez, al cacheo de DNS, igual que en el ataque de suplantación de IP. Cuando el objetivo no cachea las respuestas de DNS fallidas, hay plan B: los labels de DNS tienen longitud máxima, así que un hostname un carácter por encima del límite produce o bien una respuesta más rápida (el cliente DNS rechaza enviar la consulta y se ahorra el round trip) o bien un timeout del resolver que demora muchísimo la respuesta. Combinadas, estas dos técnicas detectan de forma fiable casi todos los SSRF acotados.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Header Host con subdominio objetivo] --> B{¿diferencia de tiempo?}
+    B -->|DNS cacheado| C[Existe conexión: SSRF acotado]
+    B -->|label demasiado largo| D[respuesta rápida o timeout<br>confirma la consulta DNS]
+    C --> E[Enumerar subdominios vía proxy]
+    E --> F[Comparar acceso directo vs vía proxy]
+    F --> G[Acceso a sistemas internos]
+
+</pre>
+
+<p>La automatización del paso siguiente —<code>exploitScopedSSRF</code> en Param Miner— busca todos los subdominios conocidos del objetivo e intenta alcanzarlos de dos maneras: directamente, como un usuario legítimo, y a través del proxy. Las diferencias en las respuestas (por ejemplo, un header ausente) delatan que se tomó una ruta distinta. Aunque se parezca al virtual host brute forcing, las oportunidades son de otra naturaleza.</p>
+<p>Las categorías de explotación encontradas:</p>
+<ol>
+<li><strong>Evadir firewalls.</strong> Un registro DNS apuntaba a una instalación de SonarQube, pero el firewall reseteaba toda conexión TCP entrante; vía el reverse proxy, se rodeó la defensa. Los sistemas sin registro DNS público pero con registro interno son alcance directo: abundan los servidores pre-prod, staging y desarrollo —objetivos blandos— y, lo más interesante, sistemas pre-lanzamiento aún en construcción, como una consola de administración con acceso público de login en un sistema del gobierno de EE. UU. (reportado meses antes del lanzamiento, y parcheado: la consola ya no aparece) y un caso equivalente en Red Bull, remunerado en latas.</li>
+<li><strong>Rodear servidores front-end.</strong> Consolas de administración internas accesibles públicamente pero detrás de front-ends que bloquean ataques o sirven 403 en endpoints valiosos: el proxy desvía la regla de una vez.</li>
+<li><strong>Suplantación de front-end (front-end impersonation).</strong> Los front-ends añaden headers internos a las peticiones antes de reenviarlas al back-end, y los back-ends confían implícitamente en ellos. Spoofear un header por la vía normal es inofensivo porque el front-end lo sobrescribe; pero yendo alrededor del front-end —vía el reverse proxy, acceso directo no intencional al back-end, request smuggling (el exploit contra New Relic que dio admin completo sobre su API interna) o técnicas de enmascaramiento y mutación de headers— se suplanta al front-end y se explota esa relación de confianza. Es una clase de bug entera, poco apreciada como tal; lo único difícil es adivinar los nombres de los headers internos, y el timing ayuda también ahí.</li>
+</ol>
+<h2>Defensa</h2>
+<p>Sobrestimar las capacidades del atacante es la postura segura. En concreto: no usar wildcard routing en los reverse proxies —solo allowlist de destinos confiables—; al programar, asumir que el atacante tiene visibilidad completa del flujo de ejecución (no puede leer variables server-side, pero sí ver qué ramas toma el código y cuántas iteraciones ejecutan los loops). Si alguien reporta una vulnerabilidad con evidencia puramente temporal, pedir proof of concept pero parchear de todos modos: la seguridad no debe depender del ruido, y el ruido server-side varía de hora a hora en un mismo sistema sin más usuarios. Como defensa en profundidad, un micro-throttle en el WAF o el servidor web puede reducir la efectividad del single packet attack.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Los ataques de timing web pueden responder preguntas seriamente difíciles: qué parámetros existen aunque no cambien la respuesta, cómo decide el WAF qué bloquear, si el servidor se conectó a un hostname dado, dónde están los sistemas internos.</li>
+<li>El single packet attack —mejorado con coalescing de headers vía frame ping— convierte el timing remoto en local, universal y viable; basta con 5-50 peticiones por objetivo.</li>
+<li>El timing destaca revelando cambios de control flow (excepciones, caches, decisiones del WAF); su límite es que detecta mejor justo las inyecciones más difíciles de explotar.</li>
+<li>El SSRF acotado, indetectable por DNS pingback durante años, se detecta de forma fiable combinando cacheo de DNS y el límite de longitud de los labels DNS, y abre la puerta a la suplantación de front-end como clase de bug.</li>
+<li>La frontera del campo ya no está en las técnicas de medición sino en formular buenas preguntas que el tiempo pueda responder: amplificación de señal por framework o servidor es territorio abierto y mucho más barato que mejorar el análisis un uno por ciento.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/zOPjz-sPyQM">«DEF CON 32 - Listen to the Whispers: Web Timing Attacks that Actually Work - James Kettle»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

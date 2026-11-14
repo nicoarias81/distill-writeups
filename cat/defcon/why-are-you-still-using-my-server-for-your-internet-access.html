@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Why are you still using my server for your internet access: un año dirigiendo el tráfico del mundo con WPAD — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Why are you still using my server for your internet access: un año dirigiendo el tráfico del mundo con WPAD</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/uwsykPWa5Lc">«DEF CON 32 - Why are you still using my server for your internet access - Thomas Boejstrup Johansen»</a> · ver el <a class="nz-link" href="https://youtu.be/uwsykPWa5Lc">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> uwsykPWa5Lc · <strong>URL:</strong> https://youtu.be/uwsykPWa5Lc · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Why are you still using my server for your internet access - Thomas Boejstrup Johansen</li>
+</ul>
+<h2>Resumen</h2>
+<p>Thomas Boejstrup Johansen, dedicado a respuesta a incidentes y forense, hace trabajo de red team con Responder, que levanta un proxy rogue con la función WPAD. Monitoreando redes vio que los clientes preguntan por WPAD dentro de la empresa… y a veces por WPAD.tld, el dominio de primer nivel. ¿Quién tiene ese dominio? ¿Está libre? ¿Se puede comprar? El trabajo es la respuesta: un año entero operando los dominios WPAD de varios TLD —empezando por .dk—, los 1.500 millones de peticiones que llegaron solas, qué datos entregan los clientes sin saberlo, y por qué, 25 años después de que el protocolo expirara, nada ha cambiado.</p>
+<h2>Cómo funciona WPAD (y por qué el .tld es un problema)</h2>
+<p>El flujo básico es de libro: el cliente pregunta al DNS la IP del servidor web y baja el contenido. Si se mete un proxy en el medio, el proxy hace el trabajo pesado y le devuelve el resultado al cliente. En 1996 Netscape quiso automatizar la configuración de máquinas nuevas en una red y creó WPAD (Web Proxy Auto-Discovery): el cliente antepon WPAD a su nombre y va probando de afuera hacia adentro hasta que alguien responde. Client.a.company.com → wpad.a.company.com → wpad.company.com → … y en algunas implementaciones, hasta wpad.tld, donde descarga el archivo de configuración <strong>desde fuera de la organización</strong>, confiando en un servidor que no es de la empresa. La propia página de Wikipedia lo marca como solución incorrecta.</p>
+<p>El archivo wpad.dat es un JavaScript minúsculo —<code>FindProxyForURL</code>— que el navegador ejecuta en la máquina del cliente: "si la URL es de la empresa, ve directo; si no, usa proxy.company.tld:8080". El lenguaje es tan limitado que tiene un sitio web entero dedicado a documentar qué funciones van y cuáles no. Aun así quedan sorpresas: con algunas funciones "estables" se puede leer user agent, hostname y zona horaria del cliente (la resolución de pantalla y la profundidad de color también funcionaban antes, pero crasheaban el JavaScript en demasiados clientes, así que las descartó). Y si WPAD no está implementado en la empresa y alguien compra el dominio de primer nivel, el cliente baja el script de un servidor externo y le confía todo su tráfico.</p>
+<h2>La historia de 25 años del bug (y de la espera)</h2>
+<p>La secuenci­a conocida: en 1999 el estándar del consorcio expiró, y ese mismo mes Microsoft fue avisado de que comprar el dominio WPAD en cualquier TLD equivale, básicamente, a hacerse con el tráfico de un país entero. En 2007 en Kiwicon hubo una charla sobre el tema (con una referencia de 8 años de aniversario del problema, hoy no pública), Microsoft sacó parches… y el asunto quedó en nada. Mientras tanto, el dominio wpad.dk pasó por manos danesas, belgas, alemanas e israelíes. Desde 2020 el registro danés permite anotarse en lista de espera; en marzo de 2023 llegó el mail: el dominio era suyo. Lo apuntó a un hosting barato solo para mirar los logs. El primer día: más de <strong>80.000 descargas del wpad.dat</strong>, sin hacer absolutamente nada más que comprar el dominio.</p>
+<h2>La infraestructura: un proxy que no funciona (a propósito)</h2>
+<p>El hosting no daba los logs completos, así que montó su propio VPS con servidor DNS (DNSSEC incluido), se volvió autoritativo para los dominios y puso un web server encima para capturar todo como quisiera. El wpad.dat se sirve <strong>dinámicamente</strong>: como el cliente interno no conoce su propia IP pública, el servidor inyecta esa IP en cada script que entrega. Y como todo buen proyecto de investigación, su web tiene página hecha en Notepad avisando que es para investigación.</p>
+<p>El script que recibe cada cliente es una versión simplificada del suyo, pero la idea central es devastating por lo simple: para cada URL que el cliente intenta visitar, se construye un nombre DNS que lleva embebidos la zona horaria, la IP interna y la IP pública —<code>d&lt;i10.0.0.5w85.203.98.1&gt;.p.wpad.dk</code>— y se le dice al cliente que lo pida por el puerto 80, en texto claro. El cliente golpea el servidor con cada petición; el servidor registra todo y responde con un error para absolutamente todo, porque no quiere operar un proxy abierto en internet ni hacer man-in-the-middle: solo mira logs. De cortesía, la página de error incluye un formulario para que los usuarios se quejen… y un checkbox de whitelist que nunca implementó. Disclaimer explícito de la operación: no intercepta tráfico, no ha dicho a ningún cliente que contacte su servidor; solo compró un dominio y los clientes llegaron solos.</p>
+<h2>Un año, varios TLD, 1.500 millones de peticiones</h2>
+<p>Con el .dk desbordado de tráfico, compró más: .id, .site, .build (por diversión), la lista de "press" y "porn" para ver cuál gana (ganó <strong>.press</strong>), y .vegas —los tres TLD más protegidos no se dejan registrar—. El .eu estaba en venta a precio absurdo, pero se pudo <strong>alquilar</strong>: 3,50 euros al mes, sin reglas de uso, y lo devolvió cortésmente al terminar. Balance del año: <strong>1.100 millones de peticiones DNS</strong> (200 GB de logs de texto solo del DNS) y unos <strong>470 GB de logs de Apache con 1.500 millones de requests</strong>. La distribución geográfica dejó perplejidades: muchísimo tráfico desde Rusia y Ucrania hacia el dominio .dk, muy por encima del propio de Alemania, y un .vegas con visitas de medio mundo.</p>
+<p>Otra pega operativa resuelta con una línea: como el proxy no devuelve nada por diseño, Windows marcaba "sin acceso a internet" en la bandeja del sistema. La lista de seis dominios de Microsoft a los que si se responde con la cadena "OK" el cliente vuelve a creer que hay internet quedó hardcodeada en el servidor.</p>
+<h2>Lo que se ve desde el puesto del hombre del medio accidental</h2>
+<ul>
+<li><strong>Métodos</strong>: GET masivos, pero también POST —37 millones de peticiones de clientes enviando datos a servidores (documentos, contenido, lo que sea; él no tiene el cuerpo, solo los logs)— y 1.100 millones de CONNECT.</li>
+<li><strong>Tráfico interno filtrado</strong>: el script le dice al cliente que todo pase por el proxy, incluido el tráfico hacia su propia red: máquinas vecinas (1.5 → 1.1 en la misma subred) preguntándole a un servidor en internet cómo hablar entre ellas. Con nombres internos deliciosos: controladores de impresión, vCenter, dominios que jamás resolverían fuera.</li>
+<li><strong>DoH también pasa por aquí</strong>: el DNS-over-HTTPS que los navegadores adoptaron para blindarse del hombre del medio es, en este escenario, una petición JSON más que el proxy puede responder con lo que se le antoje.</li>
+<li><strong>Extensiones peligrosas</strong>: en la lista de archivos que los clientes intentaban descargar hay credenciales, certificados, ejecutables (actualizaciones de Windows, instaladores de antivirus, el cliente de SCCM… y RealPlayer, que sigue existiendo), bases de datos y scripts —que un atacante podría sustituir para ejecutar código en el cliente—.</li>
+<li><strong>Escaneo malicioso dentro del experimento</strong>: actores trampeaban el setup para enumerar archivos en otros servidores (pfx y compañía), buscando algo que robar.</li>
+<li><strong>Credenciales en claro</strong>: ~200.000 URLs con usuario y contraseña en la propia URL —incluido un usuario que parece enviar SMS a "todos sus amigos" con un servicio web, con muchos mensajes que empiezan por "Dear…"—, pares admin/admin, change me/change me, NTLMv1 (prohibido hace 20 años) y NTLMv2 con usuarios como administrator, root o SA de SQL.</li>
+<li><strong>Quién es el culpable</strong>: la hipótesis inicial era "cosas de Microsoft", pero la realidad son <strong>27.000 user agents distintos</strong> en Linux, Mac, iPhone, Android: clientes VPN, antivirus, y hasta Cobalt Strike. Y un usuario depurando con Wireshark por qué su red no funciona… mientras Wireshark le pedía a este servidor su check de actualizaciones.</li>
+<li><strong>Efecto secundario histórico</strong>: 226 máquinas quedaron protegidas de CrowdStrike al no poder bajar la actualización de fondo de pantalla que precedió al incidente.</li>
+</ul>
+<h2>Detección (o la falta de)</h2>
+<p>En un año, solo dos interacciones con el tráfico:</p>
+<ul>
+<li><strong>Palo Alto</strong>: el único equipo que inspecciona URLs y las categoriza; reintenta la petición con un user agent larguísimo identificándose como dispositivo de monitoreo y hasta sugiere escribirles un mail para whitelistear. Inútil contra un proxy que responde todo: habría que whitelistear cada destino.</li>
+<li><strong>Cisco</strong>: un cliente de endpoint supuestamente diseñado para proteger contra proxies rogue que, al recibir errores de todo, entra en bucle y termina haciendo fuerza bruta contra el servidor hasta que hubo que meter opendns.com en un black hole para que dejara de DDoSearlo.</li>
+</ul>
+<p>Nada más. Ni un post en foros, ni un artículo, ni una mención en un año de vigilancia con alertas de Google sobre los dominios. <strong>Silencio total.</strong></p>
+<h2>Los humanos: whitelists, encuestas y spam</h2>
+<p>Cuarenta usuarios cliqueron el checkbox de whitelist —sin función detrás— e ingresaron nombres de equipo, no DNS. El formulario de feedback trajo quejas de todo tipo ("me sale este error al entrar a mi banco en línea", "clickeé este link del mail…"). Y cuando armó una encuesta de satisfacción sobre un proxy que solo devuelve errores, la mayoría se inclinó por "me encanta el servicio, lo recomendaría a mis amigos" (n=4, sin mails; los 100 dólares del sorteo fueron a la cruz roja danesa). Las 3.000+ ofertas de spam para "optimizar su sitio web" completan el cuadro.</p>
+<h2>Mitigaciones</h2>
+<p>El veredicto del autor: esto es de 1996, no encaja en un modelo de seguridad moderno —descargar un script y ejecutarlo en el cliente para que envíe todo el tráfico a un proxy— y no debería existir. Pero mientras siga existiendo:</p>
+<ol>
+<li>Añadir los dominios WPAD al archivo hosts de cada máquina apuntando a 127.0.0.1, para que jamás salgan a internet.</li>
+<li>Deshabilitar WPAD por sistema operativo (mirar el manual de cada uno: no hay un slide que lo arregle todo).</li>
+<li>Registrar el dominio WPAD en el dominio interno de la empresa, para que las consultas internas no se fuguen.</li>
+<li>Deshabilitar a nivel de máquina, no de navegador: los servicios del sistema (antivirus, etc.) no heredan la configuración del navegador y también hablan con internet. Está el servicio "WinHTTP Web Proxy Auto-Discovery Service" de Windows, presente en todas las máquinas, que casi nadie sabe qué hace —ahora ya se sabe— y que cuesta deshabilitar por sus dependencias.</li>
+<li>Ojo con la caché: el cliente cachea el wpad.dat (él lo configuró con 14 días de validez), así que quien baja el script trabajando desde casa sigue usándolo dentro de la oficina.</li>
+</ol>
+<p>Bonus de última hora: tras publicar el abstract, otro investigador ("Teton") lo contactó habiendo hecho el mismo estudio en otros dominios, con .ad pagado y una charla prometedora en camino. Y dos meses después de arrancar, una gran empresa danesa lo llamó: tenían muchas máquinas atrapadas en el wpad.dat y todo su tráfico yendo a su servidor; lo descubrieron porque uno de los dominios de la lista no estaba del todo anonimizado. La pregunta que queda flotando en el aire: ¿por qué un tipo como él puede simplemente comprar estos dominios? ¿Por qué esto de 25 años no está deshabilitado de una vez?</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>WPAD con fallback al TLD sigue activo en todo el ecosistema en 2026: 1.500 millones de peticiones en un año, de 27.000 user agents en todas las plataformas, sin hacer nada más que registrar dominios.</li>
+<li>El protocolo filtra IP interna, IP pública, zona horaria, URLs navegadas (incluido tráfico interno), credenciales en claro, NTLMv1/v2 y hasta el DoH que se suponía protector.</li>
+<li>Nadie detecta esto: ni EDRs, ni proxies corporativos, ni clientes de endpoint; solo un firewall hizo una introspección intrascendente y otro producto terminó DoSedeando al servidor.</li>
+<li>La mitigación real es deshabilitar WPAD a nivel de sistema y fijar los dominios en DNS interno; confiarse en "parchear el navegador" deja afuera a todos los servicios del sistema.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/uwsykPWa5Lc">«DEF CON 32 - Why are you still using my server for your internet access - Thomas Boejstrup Johansen»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

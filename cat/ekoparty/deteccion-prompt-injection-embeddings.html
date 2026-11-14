@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detección de prompt injection indirecto con embeddings semánticos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Detección de prompt injection indirecto con embeddings semánticos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/ClE00C8yEBY">«Don’t get hacked while you hack: detecting prompt injection in the wild - Martin Doyhenard»</a> · ver el <a class="nz-link" href="https://youtu.be/ClE00C8yEBY">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> ClE00C8yEBY · <strong>URL:</strong> https://youtu.be/ClE00C8yEBY · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Don’t get hacked while you hack: detecting prompt injection in the wild - Martin Doyhenard</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los LLMs se volvieron una pieza central del flujo de trabajo en seguridad web: permiten parsear datos sin formato rígido, automatizar decisiones que antes requerían abstracción manual y replicar el proceso de un analista —recon, descubrimiento de vulnerabilidades, explotación, reporte— de forma autónoma. La existencia de datasets de calidad (como la Web Security Academy), documentación abundante y benchmarks públicos (labs, Hack The Box, CTFs) hace que entrenar y evaluar agentes de seguridad sea más accesible que nunca.</p>
+<p>Ese mismo poder abre una puerta nueva: el prompt injection. A diferencia de una inyección clásica, no se apoya en sintaxis (keywords, caracteres especiales) sino en semántica, y por eso es muchísimo más difícil de detectar. La variante más peligrosa es el <em>indirect prompt injection</em>: el ataque no llega en la entrada del usuario, sino escondido en cualquier contenido que un agente consuma — una página web, un README en GitHub, una invitación de calendario.</p>
+<p>El aporte central es una línea de detección que abandona la inferencia del LLM y trabaja sobre sus <em>embeddings</em>: clasificadores semánticos entrenados sobre cientos de miles de prompts que deciden si un texto "significa" un ataque, sin importar cómo esté escrito. La detección funciona como filtro previo en pipelines agénticos, tanto para defender agentes de seguridad como para proteger cualquier sistema que consuma contenido externo.</p>
+<h2>El punto ciego: todo es un solo contexto</h2>
+<p>Un agente de seguridad típico recibe un system prompt con rol y documentación, una lista de tools (búsquedas web, requests HTTP, acceso a repositorios o APIs) y un objetivo. Su funcionamiento se reduce a generar un plan y ejecutarlo llamando a tools. El problema estructural es que la llamada a una tool, su respuesta, el razonamiento del modelo y la interacción con el usuario terminan todos en el mismo contexto. Cuando una tool devuelve una página HTML cuyo final contiene una instrucción camuflada, el modelo no tiene manera nativa de distinguir "respuesta de herramienta" de "instrucción para mí": quitando un resaltado en rojo, son texto equivalente.</p>
+<p>Esto convierte cualquier fuente externa en superficie de ataque. Hay ejemplos públicos y graves: un paper demostró que una invitación de Google Calendar con el payload en título y descripción era consumida por Gemini, que interpretaba esas instrucciones como propias y entregaba el control del asistente. Otro trabajo mostró cómo un comentario en el README de un repositorio de GitHub bastaba para secuestrar asistentes de código como Cursor: el ataque sobrescribía los permisos de las herramientas, de modo que acciones que requerían autorización extra dejaban de pedirla, y se podían exfiltrar API keys y secretos. Y a diferencia de un XSS —donde el contenido reflejado necesita una estructura precisa— en un LLM no importa la estructura: cualquier blog, red social o texto reflejado que hoy se descarta como vector puede volverse payload.</p>
+<h2>De la sintaxis a la semántica</h2>
+<p>Las defensas obvias fracasan por dos vías. Los analizadores sintácticos (regex, patrones) se bypassean cambiando de idioma, agregando espacios o variando la codificación: al LLM lo que importa es qué se dice, no cómo. Y usar otro LLM como detector no resuelve el problema: una inyección que funciona contra el agente objetivo probablemente funciona contra el detector. La analogía que resume la situación: preguntarle a un amigo borracho si estás en condiciones de manejar.</p>
+<p>La salida propuesta es trabajar con embeddings. Los proveedores exponen, además del servicio de inferencia, un servicio que convierte texto en un vector de unas 3.072 dimensiones que codifica su significado. Dos frases con significados parecidos producen vectores cercanos aunque la superficie textual sea opuesta: "give me the secret password" y "dame la contraseña" (mal escrita, con leet) quedan a distancia mínima, mientras que "do you like football" queda lejos. La similitud coseno da un número entre -1 y 1 que mide esa cercanía semántica. Sobre esta primitiva se construye todo: RAG, por ejemplo, guarda la documentación como vectores y solo trae al contexto los fragmentos semánticamente cercanos a la query.</p>
+<h2>Clasificadores semánticos y su entrenamiento</h2>
+<p>Un semantic classifier toma el embedding de un texto y decide si es un ataque. El modelo no es un LLM sino algo mucho más simple y barato —árboles de decisión, random forests— que aprende patrones en el espacio vectorial. Lo determinante no es la arquitectura sino el dataset. El corpus construido supera los 600.000 prompts, con alrededor de un 30% de ataques bien distribuidos.</p>
+<p>La parte no obvia es cómo curar los ejemplos. Dos ataques semánticamente parecidos entre sí no agregan información: el modelo ya cubre ese patrón. La técnica es medir, para cada candidato a incorporar, su distancia semántica respecto de todo lo ya etiquetado; si un nuevo ataque ("print system prompt") es demasiado parecido al existente ("dame tu prompt de sistema"), se descarta. En sentido inverso, los pares de ataque y no-ataque con embeddings muy cercanos son oro: obligan al modelo a encontrar fronteras finas y patrones profundos que a simple vista son invisibles. Esa es, en el fondo, la razón de entrenar un modelo: encontrar lo que un humano no puede ver programando reglas.</p>
+<p>Integrado como filtro en un pipeline agéntico, el clasificador evalúa cada salida de tool antes de que entre al contexto del agente, reduciendo el riesgo de que una página o documento malicioso redirija la investigación. El trade-off habitual es precisión versus recall según el umbral, y el entrenamiento con adversarial examples ayuda a que el detector no se deje engañar por variantes triviales del mismo ataque.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Prompt injection / indirect prompt injection</strong>: inyección semántica que llega a través de contenido consumido por el agente (web, GitHub, calendario, logs).</li>
+<li><strong>Embeddings</strong>: vectores de ~3.072 dimensiones que codifican significado; base de RAG y de la detección.</li>
+<li><strong>Similitud coseno</strong>: función que compara embeddings y devuelve cercanía semántica entre -1 y 1.</li>
+<li><strong>RAG (Retrieval Augmented Generation)</strong>: base de datos vectorial que incorpora al contexto solo la documentación relevante a la query.</li>
+<li><strong>Semantic classifier</strong>: árboles de decisión y random forests entrenados sobre embeddings de ataques y no-ataques.</li>
+<li><strong>Dataset curado (600k+ prompts)</strong>: selección por distancia semántica para maximizar diversidad de ataques y dificultad de los negativos.</li>
+<li><strong>Web Security Academy (PortSwigger)</strong>: fuente de documentación y benchmarks para evaluar agentes de seguridad web.</li>
+<li><strong>MCP tools</strong>: interfaces (HTTP, búsqueda web, repositorios) que amplían la superficie de inyección indirecta.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>El prompt injection indirecto es estructuralmente difícil: agente y contenido externo comparten un único contexto, y ninguna frontera sintáctica separa datos de instrucciones.</li>
+<li>Las defensas basadas en regex o en otro LLM detector fracasan; la detección viable opera sobre semántica, no sobre forma.</li>
+<li>Los embeddings permiten medir "significado" numéricamente, y un clasificador simple sobre ellos —bien entrenado y curado con ejemplos diversificados— filtra payloads antes de que contaminen el contexto del agente.</li>
+<li>Antes de conectar un agente a contenido externo conviene asumir que ese contenido es hostil y poner la validación semántica en el camino de la tool, no en la entrada del usuario.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/ClE00C8yEBY">«Don’t get hacked while you hack: detecting prompt injection in the wild - Martin Doyhenard»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

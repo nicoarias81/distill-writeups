@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trampas para adversarios: decepción práctica en entornos industriales — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Trampas para adversarios: decepción práctica en entornos industriales</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/_ghyf3J92UQ">«DEF CON 33 - Deception For ICS - Brent Muir-»</a> · ver el <a class="nz-link" href="https://youtu.be/_ghyf3J92UQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> _ghyf3J92UQ · <strong>URL:</strong> https://youtu.be/_ghyf3J92UQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Deception For ICS - Brent Muir-</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los centros de operaciones de seguridad viven ahogados en alertas: casos de uso de cumplimiento y lógica de detección que no guardan relación con la seguridad real, mientras grupos de adversarios sofisticados —en el ejemplo de trabajo, APT44, también conocido como Sandworm— buscan formas nuevas de pasar desapercibidos entre el tráfico legítimo. La propuesta es cambiar el marco: en lugar de responder tras el daño, plantar señuelos de fidelidad tan alta que cualquier interacción sea por definición sospechosa. La decepción bien hecha no genera ruido; lo elimina, porque sus alertas no las dispara un usuario normal.</p>
+<p>El método descrito opera sobre el marco MITRE Engage en sus nueve etapas, con un ciclo iterativo: recolectar inteligencia de los grupos que apuntan contra la organización, diseñar, desplegar, afinar y monitorizar. El propósito declarado es doble: detectar temprano y, si la tolerancia al riesgo lo permite, trasladar al intruso hacia un entorno trampa aislado de producción para observar sus acciones hasta el objetivo final —qué buscaba, qué hacía— y convertir eso en mejores detecciones futuras. Todo puede construirse con las herramientas y controles que la organización ya tiene, más utilidades de código abierto.</p>
+<h2>Las piezas del engaño</h2>
+<p>El catálogo de señuelos es sencillo de enunciar y fácil de desplegar mal. Los señuelos documentales son documentos con credenciales falsas o direcciones IP ficticias; si alguien los abre o intenta usar lo que contienen, se dispara una alerta —con monitoreo de integridad de archivos basta, incluso con scripts de PowerShell de código abierto—. Las cuentas persona son identidades AD ficticias o perfiles sociales falsos; en el plano de reconocimiento, un perfil de LinkedIn señuelo con conexiones suficientes del personal real, cuya interacción (PDFs enviados, correos al alias asociado) constituye por sí misma una detección. El material de bolsillo llena los sistemas trampa con el rastro esperable: historial de navegación, documentos recientes, carpetas de usuario con basura realista; una máquina vacía delata el honeypot de inmediato.</p>
+<p>La técnica de almacenamiento en caché de credenciales es la joya práctica del método: se crea una cuenta AD falsa, se inicia sesión en una imagen SOE nueva para generar todo el perfil de usuario, se rellenan las carpetas con documentos señuelo y se cachean las credenciales en memoria con un comando de Windows o un script abierto, repetido en cada arranque de las imágenes estándar. No afecta a nadie y solo se hace visible cuando alguien vuelca la LSASS con Mimikatz. Lo mismo aplica a archivos de conexión RDP o SSH en Linux, repletos de credenciales trampa listas para activar la alarma en el primer intento de uso. El error a evitar está documentado: una organización plantó credenciales señuelo cuya cuenta ejecutaba actividad programada a las 2 de la mañana en todo el dominio, disparando la misma alerta cada día sin valor alguno.</p>
+<h2>El plan contra APT44</h2>
+<p>APT44 ataca infraestructura crítica —energía, servicios—, lo que lo convierte en el blanco ideal para diseñar la estrategia. Sobre sus TTPs y malware conocidos se ejecutan etapas concretas: detección (mapear IOCs y técnicas contra la lógica actual y cerrar huecos antes de avanzar), prevención (endurecer: puertas de enlace de correo, sandboxing de URLs, listas de aplicaciones permitidas, y el concepto de binarios de alto riesgo —no basta con Living-off-the-Land: PowerShell debería estar restringido a un grupo de seguridad con scripts firmados por la PKI interna—, y acceso privilegiado a los entornos OT, donde toda cuenta que toca el sistema industrial debe tratarse como privilegiada aunque sus permisos sean estándar), e interrupción con los señuelos descritos. La etapa de consolidación construye el honeypot, y la de motivación empuja al intruso a recorrerlo hasta el final. El cierre es analítico: un informe junto al de respuesta a incidentes que diga qué funcionó, qué no se disparó y dónde reubicar los señuelos.</p>
+<h2>El honeypot industrial: reglas y diseño</h2>
+<p>Para el entorno trampa de sistemas de control industrial hay dos reglas fundamentales —la segunda es la misma, por si acaso—: no causar daño, es decir, ninguna conexión con el entorno OT de producción; y ser indistinguible, replicar protocolos, marcas de PLC y pilas de aplicaciones que de verdad usa la organización. A eso se suman sobrecarga mínima tras el despliegue, propósito único de recolectar conocimiento del ad-versario, y mantenerlo ocupado lejos de la producción. Cualquier interacción debe ser sospechosa: nadie toca esas redes.</p>
+<p>La implementación se apoya en la pila de virtualización preferida, contenedores, HoneyD o incluso entornos virtualizados en Python, cubriendo solo los protocolos realmente usados —BACnet no tiene sentido si no existe en la red— además de servicios genéricos como SSH o RDP. La ubicación sigue el modelo Purdue: hosts de salto, VPNs, bases de datos de historial en los niveles superiores; en los niveles de PLC y RTU basta con listeners simples en los puertos que registren quién conecta y qué intenta. La monitorización debe capturar tráfico de red y sesiones interactivas con granularidad de teclado, generando alertas por interacción pero sin saturar durante la observación.</p>
+<p>La regla operativa que ordena todo es la "teoría del 99": el 99 por ciento de los ataques contra entornos industriales comienza en el entorno IT de producción. De ahí la recomendación de construir dos honeypots: uno que cubra el camino de ataque en IT y otro que replique el entorno ICS, para cubrir la trayectoria completa. Los pasos concretos: elegir subredes a emular, decidir la ubicación, construir los señuelos que apunten ahí y, si existe una plataforma de orquestación de seguridad, redirigir a los intrusos directamente a esas subredes.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Marco MITRE Engage</strong>: nueve etapas iterativas (recolectar, analizar, detectar, prevenir, interrumpir, consolidar, motivar, analizar).</li>
+<li><strong>Documentos señuelo con credenciales/IP falsas + monitoreo de integridad de archivos</strong> (incluye scripts PowerShell de código abierto).</li>
+<li><strong>Caché de credenciales trampa en memoria</strong> vía comando de Windows en cada arranque de SOE; visible solo al volcar LSASS (Mimikatz).</li>
+<li><strong>Archivos de conexión RDP/SSH con credenciales señuelo</strong> en Windows y Linux.</li>
+<li><strong>Perfiles de LinkedIn señuelo</strong> como detección de reconocimiento.</li>
+<li><strong>Binarios de alto riesgo y application allowlisting</strong>; PowerShell restringido por grupo de seguridad con scripts firmados por PKI.</li>
+<li><strong>Gestión de acceso privilegiado y modelo Purdue</strong> para el acceso a OT.</li>
+<li><strong>Honeypots ICS</strong>: HoneyD, contenedores, entornos virtualizados en Python; emulación de protocolos (BACnet, Modbus y similares), listeners en puertos de PLC/RTU, y replicación de hosts de salto, VPN e historian.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La decepción es rentable: usa el stack de seguridad existente y herramientas de código abierto, produce alertas de fidelidad altísima y reduce falsos positivos en vez de añadirlos.</li>
+<li>El diseño parte de la inteligencia: qué grupos atacan a la organización, por qué y contra qué activos; los señuelos se colocan sobre el camino de ataque modelado, no al azar.</li>
+<li>Las credenciales trampa en memoria desplegadas a escala en cada imagen estándar son una de las técnicas de mayor retorno y menor costo.</li>
+<li>El honeypot industrial debe ser indistinguible de la producción y jamás conectado a ella; en los niveles de PLC basta con listeners para detectar reconocimiento.</li>
+<li>Tres mandamientos finales: conocer al ad-versario, conocer los activos críticos y desplegar la decepción —que, siguiendo el marco, es gratis y más simple de lo que parece.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/_ghyf3J92UQ">«DEF CON 33 - Deception For ICS - Brent Muir-»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Datos a pedido: construir un dispositivo de IA que respete la privacidad — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Datos a pedido: construir un dispositivo de IA que respete la privacidad</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/jS3iNUfYtLA">«DEF CON 32 - Data On Demand The challenges of building a privacy focused AI Device - Matt Domko»</a> · ver el <a class="nz-link" href="https://youtu.be/jS3iNUfYtLA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> jS3iNUfYtLA · <strong>URL:</strong> https://youtu.be/jS3iNUfYtLA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Data On Demand The challenges of building a privacy focused AI Device - Matt Domko</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los dispositivos de IA para consumidores generales —el walkie-talkie mágico que escucha, piensa y responde— plantean un problema que el mundo B2B nunca enfrentó tan crudamente: el usuario no entiende cómo se trata su dato, y el dato es una grabación de su voz, una foto de su familia o una transcripción de seis horas. El análisis recorre los cuatro tipos de request que maneja un dispositivo así, los trade-offs reales de autenticar acciones de terceros (¿contraseñas, cookies de sesión u OAuth?), y propone una arquitectura concreta con bóveda de credenciales, JWT de vida corta, logging con filtro de privacidad y analítica en cuenta separada.</p>
+<p>La tesis de fondo: en un producto de consumo, cada decisión de ingeniería sobre datos es también una decisión de privacidad, y las decisiones por omisión —loggear todo, guardar todo en S3, copiar todo a la analítica— son siempre la peor opción para el usuario final.</p>
+<h2>Cuatro tipos de request, tres capas de datos</h2>
+<p>Toda interacción con el dispositivo se reduce a cuatro tipos:</p>
+<ul>
+<li><strong>Request de conocimiento general</strong>: no necesita saber nada del usuario («¿qué tal está el clima?»). Solo voz, transcripción y respuesta.</li>
+<li><strong>Request de conocimiento contextual</strong>: necesita datos no sensibles del usuario («¿qué restaurantes buenos hay cerca?»), y ahí aparece el dato contextual: ubicación, intereses. Si el usuario odia las hamburguesas con queso, esa preferencia también es dato sensible.</li>
+<li><strong>Request de acción genérica</strong>: inserta un actuador —la pieza que llama a la API del clima o del delivery—, pero cualquiera puede ejecutarla.</li>
+<li><strong>Request de acción autenticada</strong>: pedir un Uber o una comida con la cuenta del usuario exige almacenar credenciales. Es el punto caliente de toda la arquitectura.</li>
+</ul>
+<p>En cada tipo conviven tres clases de datos a proteger: el audio grabado, la transcripción del speech-to-text y la respuesta del LLM. Cuando hay acción autenticada se suman la identidad del usuario, el contexto relacional (¿quién es Jimmy y por qué importa que hizo su tarea?) y la información de autenticación.</p>
+<h2>Autenticar acciones de terceros: tres caminos, todos con costos</h2>
+<ul>
+<li><strong>Guardar usuario y contraseña</strong>: permite loguearse cuando y donde sea, y revocar exige que el cliente cambie su contraseña. Peor detalle: se puede hacer todo lo que hace el cliente, incluido cambiarle la contraseña. Descartado.</li>
+<li><strong>Cookies de sesión</strong>: expiran regularmente, se pueden scoper hacia abajo cuando el proveedor lo soporta (GitHub obliga a re-autenticar para agregar colaboradores; la app de McDonald's, probablemente no), el usuario puede revocarlas manualmente desde su cuenta, y funcionan en casi cualquier sitio web. El costo: no generan evento de login nuevo, así que el usuario paranoico de Google nunca se entera de que la sesión se está reutilizando. Es el compromiso pragmático.</li>
+<li><strong>OAuth</strong>: la respuesta de manual. El problema es la cobertura: en el mundo B2B todos los proveedores lo tienen porque la industria lo exige hace veinte años, pero un mecánico local con sistema de turnos online no tiene ningún incentivo para implementarlo. Configurar una integración por sitio, a razón de un ingeniero excelente que resuelve una cada seis horas, convierte la cobertura total del internet en un proyecto de años.</li>
+</ul>
+<p>Sobre un gráfico de esfuerzo versus seguridad, la conclusión honesta es que la empresa tiene que ganar dinero: contraseñas quedan fuera por riesgo, OAuth puro es inviable por cobertura, y las cookies de sesión —con la arquitectura correcta de protección— son el camino realista.</p>
+<h2>La bóveda: de «una base de datos llena de cookies» a acceso just-in-time</h2>
+<p>La versión ingenua es reconocer la intención del usuario («quiero guardar mi cookie»), abrir un contenedor —navegador embebido o extensión—, recolectar la cookie y escribir la en una base de datos; cuando llega la acción autenticada, leer la base, agarrar la cookie de Matt y meterla en el actuador. El problema es obvio: ese sistema se convierte en el blanco más jugoso del internet, una base de datos de cookies de cien mil personas.</p>
+<pre class="mermaid">
+flowchart LR
+    A["Usuario pide<br/>acción autenticada"] --> B["Controller de intenciones<br/>crea actuador efímero"]
+    B --> C["Object ID + JWT<br/>de vida corta del usuario"]
+    C --> D["Servicio de bóveda<br/>(único punto con acceso)"]
+    D --> E["Actuador ejecuta la acción<br/>en el tercero (Uber, Spotify)"]
+    E --> F["Teardown: el actuador<br/>se destruye tras el uso"]
+
+</pre>
+
+<p>La versión segura cambia tres cosas. Primero, la cookie se guarda junto con la identidad del cliente que la entregó y su consentimiento, en blobs cifrados: el servicio ya no «tiene cookies», tiene datos que solo se abren con un pedido vigente del usuario —un JWT de vida corta firmado por él—. Segundo, al usar el contexto, la base de datos entrega solo el object ID, nunca el objeto; el actuador es quien va a la bóveda con el JWT, y ese contenedor se destruye al terminar la acción. La superficie de compromiso baja de «alguien con acceso a la base de datos» a «alguien que comprometió ese contenedor específico en ese momento». Tercero, los correlation IDs: cada extracción de la bóveda debe matchear con un request físico de un dispositivo; si no matchea, la alarma se dispara sola.</p>
+<p>Las reglas de oro que se desprenden:</p>
+<ul>
+<li><strong>No recolectar contexto que te convierta en blanco</strong>: guardar cookies de DoorDash, Spotify y Uber es tolerable; guardar instrumentos financieros convierte al producto en objetivo prioritario — dejarle esa pieza a los proveedores.</li>
+<li><strong>No reutilizar contenedores ni actuadores entre usuarios</strong>: cada cosa sensible es de un solo uso, y así nadie termina con mil dólares de tacos en la cuenta ajena.</li>
+<li><strong>No confiar en el contexto como verdadero</strong>: una cookie que llegó por internet es dato de internet, con el mismo nivel de desconfianza que cualquier otra entrada.</li>
+</ul>
+<h2>Proteger las conversaciones: cifrado en el camino, no en el destino</h2>
+<p>Las conversaciones generan audio y texto (y a veces binarios: fotos de la cámara del dispositivo). La vía fácil —el router escribe todo en una base de datos, los binarios en S3 con un puntero— es exactamente lo que no hay que hacer con datos de consumidores. La alternativa pasa por un servicio de bóveda con dos modalidades: o el servicio entrega el dato al motor de bóveda y recibe de vuelta el ciphertext, o pide la storage key del cliente y cifra con ella. En ambos casos, el producto solo tiene acceso a los datos durante los dos minutos en que el usuario aprieta el botón.</p>
+<p>Las reglas: no usar tipos built-in para datos sensibles (una string anodina puede ser la transcripción de seis horas de una reunión), y en su lugar objetos fuertemente tipados que solo pueden salir por el logger seguro; no compartir datos de producción con nada más, porque si el dato no da valor directo al usuario, usarlo es robarlo; y no permitir un tipo de log nuevo sin una revisión de privacidad de quince minutos. La meta a largo plazo es el cifrado del lado del cliente —que el dato solo exista en el navegador del usuario—, aunque todavía no funciona bien en casos de IA donde se necesita permiso del usuario para mejorar el servicio. Otra regla práctica: los modelos de Anthropic, AWS u OpenAI sin acuerdo comercial suelen recibir licencia amplia sobre los datos; pagar más por proteger los datos críticos vale la pena.</p>
+<h2>Logging y analítica: medir sin copiar</h2>
+<p>El logging por omisión del ingeniero —«puede que lo necesite algún día, mándalo todo a Datadog»— es insostenible en consumo. La alternativa: un handler de logging obligatorio donde los campos se declaran explícitamente, de modo que nadie pueda agregar un campo con cumpleaños y número de seguridad social sin que el logger lo rechace. Así la superficie a auditar es una clase, no todo el repositorio. Los principios que lo acompañan:</p>
+<ul>
+<li><strong>Métricas antes que registros</strong>: no hace falta loguear cada request para saber cuántos hubo. Los contadores y los group by reemplazan el dato crudo; si el dato no es necesario, no se guarda.</li>
+<li><strong>Métricas de negocio como feature del producto</strong>: si el equipo de producto necesita saber cuál es la función más popular, se declara en el design doc y se implementa con contadores; ir a minar los logs es el atajo que hace perder el control de la privacidad.</li>
+<li><strong>Pseudonimización por omisión</strong>: para resolver un bug basta «usuario 1.234 de 1.000», no su email ni su dirección.</li>
+<li><strong>Retención mínima</strong>: si un log de ingeniería necesita más de una o dos semanas, probablemente no deba estar en Datadog — el CFO también lo agradece.</li>
+<li><strong>Acceso just-in-time</strong>: la historia de Facebook —mirar los datos de un compañero sin necesidad te cuesta el trabajo— es el modelo: pedir acceso a una tabla, por un tiempo, con un propósito de negocio, todo logueado.</li>
+</ul>
+<p>Para la analítica, el patrón es un filtro de dos etapas: el engine escribe en una cuenta de filtrado de privacidad, un proceso extrae únicamente los campos necesarios (por ejemplo, ubicación y hora de los requests fallidos de Uber, nada más), se pasa un escáner de PII sobre el resultado, y recién entonces se copia a la cuenta de analítica separada. La analítica ya es cara; agregarle este proceso para proteger a los clientes es barato en comparación.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las decisiones de privacidad no se ganan con la opción más segura sino con la arquitectura correcta alrededor del compromiso viable: cookies de sesión protegidas con bóveda, JWT de vida corta y actuadores efímeros.</li>
+<li>La clasificación simple por semáforo (rojo: no sale de producción; amarillo: solo vía cuenta de privacidad; verde: público) y las service control policies de la nube hacen que romper las reglas sea difícil incluso por accidente.</li>
+<li>Cuatro preguntas bastan como cultura de equipo: ¿loggeás un tipo de dato nuevo?, ¿movés datos fuera de producción?, ¿te conectás a bases de producción?, ¿incorporás un vendor nuevo? Si la respuesta a cualquiera es sí, hay que hablarlo antes.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/jS3iNUfYtLA">«DEF CON 32 - Data On Demand The challenges of building a privacy focused AI Device - Matt Domko»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Insert coin: hackear arcades por diversión (y por conciencia) — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Insert coin: hackear arcades por diversión (y por conciencia)</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/45Qc8cRoH6Q">«Insert coin: Hacking arcades for fun - Ignacio Navarro - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/45Qc8cRoH6Q">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 45Qc8cRoH6Q · <strong>URL:</strong> https://youtu.be/45Qc8cRoH6Q · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Insert coin: Hacking arcades for fun - Ignacio Navarro - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Una noche de cervezas en un shopping de Brasil, frente a un tótem de arcade con un Windows "bastante dudoso", fue el punto de partida de una investigación que se extendió durante meses por distintos países: un mismo proveedor de sistemas de arcades y parques de diversiones — con más de 2.000 instalaciones en más de 70 países — exponía datos de clientes, certificados fiscales, paneles de administración y hasta el saldo de las tarjetas de crédito prepago que usan los visitantes. La conclusión es incómoda: en 2024 sigue habiendo infraestructura grande con datos sensibles y vulnerabilidades básicas. Y la otra conclusión, más simple todavía: si encontrás algo, reportalo — y del otro lado, respondéle a la gente que te reporta.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Totem de arcade en un mall de Brasil] --> B[URL del proveedor + subdominio de la app de tarjetas]
+    B --> C[API v2: se borra la version y queda expuesta toda la API]
+    C --> D[IDOR: tarjetas y clientes con IDs secuenciales]
+    C --> E[APK Android sin ofuscar: API key y secret harcodeados]
+    E --> F[Account takeover: cambio de email + forgot password]
+    C --> G[Race condition: 100 POSTs a una oferta de uso unico]
+    H[App de reservas expuesta] --> I[/uploads con certificados AFIP y facturas]
+    H --> J[Buscador sin filtros: lista todas las reservas]
+    K[Paneles de administracion con credenciales por defecto] --> L[Codigo 420 del login permite agregar claves a cualquier usuario]
+    M[Tarjetas NFC Mifare Classic] --> N[Clon con Flipper o emulacion NFC del telefono]
+
+</pre>
+
+<h2>El punto de partida: un tótem con Windows y un servidor Drupal</h2>
+<p>El tótem de carga de tarjetas del mall corría un sistema cliente que apuntaba a un servidor PHP con Drupal, con el <code>info.php</code> expuesto y una versión de 2019. Un barrido de subdominios con Subfinder y DNSX reveló una aplicación web donde se cargaba saldo y se consultaban los movimientos de la tarjeta. Esa aplicación tenía un middleware que resistió dos semanas de pruebas sin encontrar ninguna inyección. El giro llegó por otro lado: en la misma tarjeta había una URL de una empresa totalmente distinta — el distribuidor global de los dispositivos, presente en parques de diversiones, boliches de bowling, parques de trampolines y hasta una montaña rusa en Las Vegas cerca de donde se hace Defcon.</p>
+<h2>La API sin versión: cuando borrar un "2" abre la puerta</h2>
+<p>La documentación de la API v2 del proveedor describía cómo generar un token a partir de un API key y un API secret — que no se tenían. Pero al probar qué pasaba si se sacaba el <code>2</code> de la URL, el sistema respondió como si nada: <strong>eliminar la versión de la ruta permitía consumir toda la API sin autenticación</strong>.</p>
+<p>Con eso aparecieron los hallazgos clásicos, en cadena:</p>
+<ul>
+<li><strong>IDOR sobre tarjetas y clientes.</strong> Al pedir los datos de otra tarjeta (con ID secuencial), la API devolvió saldo, bonos, historial y datos personales. Lo mismo con los clientes: desde el ID 1 se podían listar todos, con nombre, apellido, domicilio, foto, email y toda la actividad de sus tarjetas. Un script en Python confirmó que eran datos reales, no de testing: miles de tarjetas con saldo, de arcades en República Checa, España, Arabia Saudita, Reino Unido y Las Vegas.</li>
+<li><strong>Credenciales harcodeadas en las APKs.</strong> Las apps Android del proveedor (bajadas de repositorios tipo APKPure porque no estaban en la Play Store) estaban compiladas sin ofuscar: con <code>jadx</code> y <code>apktool</code> se leía todo el código, incluidos el API key, el API secret y el endpoint. Las apps de cada cliente diferían solo por un header <code>account-code</code> hexadecimal de 13 caracteres — y la lista de todos los clientes estaba disponible, así que ese header era adivinable por enumeración.</li>
+<li><strong>Account takeover.</strong> Un endpoint permitía cambiar el email de una cuenta con un simple POST sin token. La secuencia: generar un mail desechable, cambiar el email de la víctima, pedir el "olvidé mi contraseña", fijar una clave nueva y entrar a la cuenta con todos sus datos y su tarjeta. La víctima nunca se entera.</li>
+<li><strong>Race condition sobre ofertas de uso único.</strong> La app regalaba 300 tokens por instalarla, con ofertas que solo pueden reclamarse una vez. Un script que enviaba 100 POSTs simultáneos al mismo endpoint registró 6 o 7 aciertos: el mismo bono — que en algunos casos era dinero real — acumulado varias veces en la misma cuenta.</li>
+<li><strong>Recarga de saldo no pagada.</strong> Existía un endpoint de venta que, con el parámetro correspondiente, ejecutaba la recarga sin que mediara pago real. No se explotó: no había intención de terminar en cana, y además el local tenía cámaras.</li>
+</ul>
+<h2>Reservas, facturas y certificados fiscales expuestos</h2>
+<p>La aplicación de reservas de salones para fiestas empresariales tenía varios directorios expuestos. En <code>/uploads</code> había, además de fotos, carpetas de facturación argentina con <strong>dos certificados privados de AFIP</strong> — los que las empresas usan para facturar electrónicamente — y cientos de facturas con los datos de los compradores. En el buscador de reservas, enviar el formulario vacío — algo que "no debería andar, pero anda" — devolvía todas las reservas de la empresa: quién pagó, cuánto y cuándo. Y la lógica de pagos permitía, por si fuera poco, cargar <strong>propinas negativas</strong> que restaban del total.</p>
+<h2>Paneles de administración abiertos y respuestas manipulables</h2>
+<p>El reconocimiento siguió dando frutos más allá del sistema principal:</p>
+<ul>
+<li>Un Zendesk público permitía crearse una cuenta y leer toda la documentación interna de la empresa, con videos donde aparecían usuarios, contraseñas, IPs y puertos.</li>
+<li>Consolas de administración en Estados Unidos y España funcionaban con credenciales por defecto.</li>
+<li>En una consola española, el código JavaScript del login definía comportamientos según el código de respuesta HTTP. Cambiando el response a <strong>código 420</strong>, la aplicación mostraba una pantalla que permitía <strong>añadir una clave nueva a cualquier usuario</strong>, sin token.</li>
+<li>El panel "central" — el panel de los paneles — cifraba todo el tráfico. Pero el <code>security.js</code> exponía la función de cifrado con su algoritmo y su contraseña harcodeados. Con eso, el tráfico cifrado se volvía legible y de inmediato apareció un indicio de error SQL cerca del campo password.</li>
+</ul>
+<h2>NFC: la tarjeta del arcade es una Mifare Classic clonable</h2>
+<p>La tarjeta física era una <strong>Mifare Classic</strong>: 16 sectores de 4 bloques, con las claves A y B casi sin uso y un número de tarjeta sin cifrar en el bloque 0. Con un Flipper Zero se leía y clonaba sin obstáculos — se comprobó con tarjetas reales de parques en España y Bélgica, cerca de los eventos donde se presentó el trabajo. Y hay un atajo sin hardware: los teléfonos Android con NFC pueden <strong>emular la tarjeta por Host Card Emulation</strong>, cambiando los bytes que el lector espera. Entre las tarjetas accesibles había unas especialmente interesantes: las de los trabajadores, con saldo ilimitado.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>El encadenamiento vale más que el hallazgo aislado.</strong> Ninguna falla por separado era espectacular; la suma de IDOR + credenciales harcodeadas + endpoints sin autenticación + paneles por defecto + NFC clonable permitía acceder a datos de clientes, modificar cuentas, acumular premios y cargar saldo de pago en miles de instalaciones en 70 países.</li>
+<li><strong>La ofuscación no reemplaza la seguridad, y el código expuesto delata todo.</strong> APIs sin versión validada, códigos de respuesta HTTP que desbloquean funciones administrativas y claves de cifrado embebidas en JavaScript de frontend son errores de diseño básicos.</li>
+<li><strong>Educar a toda la empresa importa tanto como parchear.</strong> La cultura de reportes y el desarrollo seguro detectan estos errores antes de producción, no después.</li>
+<li><strong>Si encontrás algo, reportalo — y si recibís un reporte, respondé.</strong> El trabajo fue reportado por email 25 veces sin respuesta; solo tras una presentación y una reunión presencial en Bogotá quedó en manos de la empresa, que al cierre no había corregido nada. En Bélgica, en cambio, existe una plataforma oficial donde cualquier ciudadano reporta fallas y el Estado interpela a la empresa — un modelo que incluye el marco de GDPR y hace que proteger los datos deje de ser opcional.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/45Qc8cRoH6Q">«Insert coin: Hacking arcades for fun - Ignacio Navarro - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

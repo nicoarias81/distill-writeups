@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar pisando la confianza: confused deputy y roles asumibles en AWS — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Entrar pisando la confianza: confused deputy y roles asumibles en AWS</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/oAriLYN-5HA">«DEF CON 32 -  Exploiting Cloud Provider Vulnerabilities for Initial Access - Nick Frichette»</a> · ver el <a class="nz-link" href="https://youtu.be/oAriLYN-5HA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> oAriLYN-5HA · <strong>URL:</strong> https://youtu.be/oAriLYN-5HA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 -  Exploiting Cloud Provider Vulnerabilities for Initial Access - Nick Frichette</li>
+</ul>
+<h2>Resumen</h2>
+<p>Los caminos clásicos para entrar en una cuenta de AWS —clave de acceso filtrada, bucket de S3 expuesto, instancia EC2 comprometida— son aburridos, en palabras del investigador de Datadog Nick Frichette. Este recorrido propone algo más interesante: patear la puerta explotando vulnerabilidades en los propios servicios de AWS, abusando de la confianza preexistente que los roles de IAM le otorgan a esos servicios. Dos casos de estudio —un confused deputy en AppSync que se saltaba la barrera del cross-account pass-role cambiando las mayúsculas de un parámetro, y el desastre de AWS Amplify, que durante años creó roles asumibles por cualquiera— y una malconfiguración generalizada con assume role with web identity sirven para aprender a atacar y, sobre todo, a defender entornos cloud.</p>
+<h2>Cómo se establece la confianza en AWS</h2>
+<p>Cada rol de IAM tiene una <em>trust policy</em> que determina quién puede asumirlo. Lo interesante ocurre cuando esa política confía en un servicio de AWS: el rol por defecto de una función Lambda, por ejemplo, permite que el servicio lambda asuma el rol, y cada vez que la función se ejecuta, Lambda lo hace en nombre del cliente. Surge entonces la pregunta ofensiva natural: ¿podría crear una función Lambda en mi cuenta apuntando a un rol de <em>otra</em> cuenta, y hacer que el servicio asuma ese rol en la cuenta víctima?</p>
+<p>Lo que lo impide es el <strong>pass-role</strong>, una de las fronteras de seguridad centrales de AWS: solo se puede pasar un rol dentro de la misma cuenta; intentar cruzarla devuelve "access denied, cross-account pass role is not allowed". El objetivo del atacante es encontrar una vulnerabilidad en esa implementación para armar el servicio contra los roles que confían en él.</p>
+<h2>Vulnerabilidad 1: el confused deputy de AppSync roto con memes de Bob Esponja</h2>
+<p>AppSync es el servicio gestionado de GraphQL de AWS. Al crear una API, se genera un rol que por defecto confía en AppSync, y el servicio asume ese rol cuando la API se ejecuta. El parámetro para asignarle un rol ARN se llama <code>serviceRoleArn</code>, y el pass-role bloquea los cruces de cuenta.</p>
+<p>La peculiaridad: la API de AWS es sensible a mayúsculas —pasar <code>name</code> en vez de <code>Name</code> a otro servicio devuelve un 400—, pero AppSync era una anomalía que aceptaba cualquier combinación. Y al cambiar el <em>casing</em> del parámetro, el filtrado que debía impedir el cross-account pass role simplemente no se aplicaba:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Cuenta del atacante: crear API AppSync] --> B[Pasar serviceRoleArn con casing modificado]
+    B --> C[El filtrado de pass-role no se aplica]
+    C --> D[AppSync asume el rol en la cuenta victima]
+    D --> E[Operaciones API arbitrarias: DynamoDB scan, S3, RDS]
+
+</pre>
+
+<p>Cambiando una sola letra, se rompió una frontera mayor de AWS "con memes de Bob Esponja". El ataque permitía apuntar a cualquier rol de cualquier cuenta que usara AppSync legítimamente, asumirlo y ejecutar el abanico completo de llamadas API que AppSync permite invocar. La ventaja táctica frente al movimiento lateral clásico: en vez de cazar credenciales y escalar con caminos tipo Bloodhound, se aterriza directamente con la identidad de una aplicación de producción, con todos sus privilegios —subir a S3, escribir en DynamoDB, leer de RDS—. AWS publicó un boletín de seguridad y corrigió el fallo.</p>
+<h2>La malconfiguración: assume role with web identity sin condiciones</h2>
+<p><code>AssumeRoleWithWebIdentity</code> descarga la autorización en un proveedor de identidades externo —privado o público como Facebook, Google o GitHub—: el usuario genera un JWT con el proveedor, lo pasa a la llamada y asume el rol. Es un patrón de diseño general que usan muchos servicios, GitHub Actions incluido: el job del pipeline firma un JWT con el proveedor de identidades de GitHub y lo canjea por el rol en la cuenta.</p>
+<p>El detalle escalofriante es la trust policy más básica posible: permitir que el proveedor de GitHub asuma el rol, sin condiciones. Como ese proveedor es público y global, cualquiera con una cuenta de GitHub podía crear su propio action, generar un JWT firmado por el mismo proveedor y entrar. Por eso, con proveedores públicos, la condición que restringe <em>quién</em> puede asumir el rol —repositorio u organización concreta— es obligatoria de facto.</p>
+<p>Cognito, el "inicio de sesión como servicio" de AWS, sí incluía por defecto una condición que restringe qué <em>identity pool</em> puede asumir el rol. Pero la comprobación solo verifica que se está autenticado en <em>un</em> identity pool, no en <em>el</em> identity pool correcto: como el atacante puede crear el suyo, la defensa se cae. Con el flujo básico (classic authflow) de Cognito —get ID, get open ID token, assume role with web identity—, y ya sea con la condición <code>unauthenticated</code> o saltándose los aros de <code>authenticated</code> con un user pool propio, el resultado es el mismo: asumir roles de cuentas ajenas. AWS hizo obligatoria la condición para GitHub Actions, pero el mismo patrón de malconfiguración sigue vivo en otros servicios.</p>
+<h2>Vulnerabilidad 2: Amplify regalando roles durante años</h2>
+<p>Para medir la prevalencia de la malconfiguración, se buscó en GitHub público —vía Sourcegraph— con una expresión regular que detectara ARNs de roles de IAM. Tras deduplicar y quitar placeholders, quedaron unos 8.000 roles; la automatización intentó asumir cada uno, autenticado y sin autenticar. El patrón inquietante: la enorme mayoría de los vulnerables terminaban en <code>AuthRole</code> o <code>UnauthRole</code>, con timestamps de 2018–2019 o enteros de seis dígitos —e incluso había tres roles de la propia AWS—. La pista llevó a archivos llamados <code>team-provider-info.json</code>, y de ahí al culpable: <strong>AWS Amplify</strong>, el framework web y móvil que abstrae la infraestructura —incluido Cognito— para que los desarrolladores no tengan que conocerla.</p>
+<p>Como el CLI de Amplify es open source, se pudo reconstruir la cronología exacta desde el historial de commits:</p>
+<ul>
+<li><strong>3 de julio de 2018</strong>: un commit introduce la variante 2 —cualquiera en el mundo puede asumir los roles <code>AuthRole</code> y <code>UnauthRole</code> que crea todo proyecto Amplify—. Amplify Studio, que usa el CLI como librería, hereda el problema.</li>
+<li><strong>8 de agosto de 2019</strong>: un aparente arreglo accidental cambia el efecto por defecto a <em>deny</em> y elimina la condición. Impide que se creen roles nuevos malconfigurados, pero los ya existentes siguen vulnerables —así se los asumió en 2024—.</li>
+<li><strong>Julio de 2020</strong>: la variante 1 llega con la eliminación de autenticación de un proyecto: la plantilla CloudFormation que corre al removerla borra la condición de la trust policy, dejando el rol asumible por cualquiera.</li>
+</ul>
+<p>Lo que convierte a este caso en extremo es la descubribilidad: los roles de Cognito están diseñados para estar disponibles para los usuarios —son prácticamente públicos—, y son determinísticos: conocida la <code>UnauthRole</code>, se deduce la <code>AuthRole</code>. Un adversario podía rastrear decenas de miles de apps por el dominio por defecto de Amplify buscando roles vulnerables. Y los privilegios no eran nimios: en las notificaciones a clientes aparecieron roles con acceso completo a S3 o a Kinesis. La divulgación fue en enero de 2024; AWS desplegó correcciones integrales entre febrero y abril: ya no se pueden crear estas trust policies, y modificaron STS para bloquear el <em>assume role</em> cross-account vía identity pools —aunque la variante misma cuenta, más laboriosa, sigue siendo posible hoy—.</p>
+<h2>Prevención: cerrar la puerta aunque la cerradura falle</h2>
+<p>Contra el escenario peor —un zero-day cross-tenant en AWS— quedan las claves de condición: <code>aws:SourceArn</code>, <code>aws:SourceAccount</code> y <code>aws:SourceOrgID</code> restringen qué ARN, cuenta u organización puede asumir cada rol. No vienen por defecto, hay que añadirlas manualmente a cada rol a proteger y verificar que el servicio sea compatible —EC2, Lambda y AppSync pasaron las pruebas—. Probadas contra el confused deputy de AppSync, bloquearon al adversario externo incluso con la vulnerabilidad presente. Es defensa en profundidad pura: si el pass-role se rompe otra vez —esta vez con memes o sin ellos—, queda una segunda capa que impide el acceso cross-tenant.</p>
+<p>El resto del consejo es el de siempre, y sigue siendo lo más rentable: borrar claves viejas, limpiar usuarios de IAM antiguos, privilegio mínimo. Y auditar los roles que usan assume role with web identity: es un error fácil de cometer —AWS lo cometió dos veces—.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/oAriLYN-5HA">«DEF CON 32 -  Exploiting Cloud Provider Vulnerabilities for Initial Access - Nick Frichette»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

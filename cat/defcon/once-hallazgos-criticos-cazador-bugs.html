@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Once hallazgos críticos: historias de guerra de un cazador de bugs — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Once hallazgos críticos: historias de guerra de un cazador de bugs</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/TqKb7h8VFcA">«DEF CON 32 - Top War Stories from a TryHard Bug Bounty Hunter -Justin Rhynorater Gardner»</a> · ver el <a class="nz-link" href="https://youtu.be/TqKb7h8VFcA">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> TqKb7h8VFcA · <strong>URL:</strong> https://youtu.be/TqKb7h8VFcA · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Top War Stories from a TryHard Bug Bounty Hunter -Justin Rhynorater Gardner</li>
+</ul>
+<h2>Resumen</h2>
+<p>Recrear el show-and-tell de un live hacking event en público es el formato de esta publicación: once vulnerabilidades críticas acumuladas durante dos o tres años de bug bounty a tiempo completo, contadas con la mayor profundidad técnica posible sin revelar los objetivos. Tres hallazgos fáciles, dos medianos, cuatro difíciles y dos muy difíciles; entre 225.000 y 400.000 dólares en recompensas en total.</p>
+<p>Más allá del dato anecdótico, las historias comparten patrones que funcionan como método: leer la documentación y los ficheros JavaScript, mirar la aplicación desde todas las perspectivas de usuario, aprovechar GitHub issues, encadenar fallos para maximizar impacto, colaborar con otros cazadores y no rehuir tecnologías desconocidas. También muestran lo que no se ve en el resultado final: semanas de configuración, colisiones de bugs con otros investigadores, tres routers "brickeados" con aire caliente y un proxy transparente armado con Frida y un parche binario a mano.</p>
+<h2>Fáciles: bypass de proxy, credenciales en el JS y un IDOR vergonzoso</h2>
+<p>El primero fue un bypass de un 403 de NGINX que terminó filtrando los datos personales de 4,5 millones de usuarios (15-20K). La pista fue el cambio de modelo de amenazas: software de uso interno reconvertido en aplicación pública, con endpoints que conservaban la confianza implícita de un entorno corporativo. La diferencia entre el 403 de NGINX y el 403 de la aplicación reveló que el bloqueo estaba en el proxy inverso; probar variantes llevó a la codificación doble por URL de una letra, que atravesaba el proxy sin coincidir con la regla y llegaba decodificada al backend.</p>
+<p>El segundo, de 40 a 60K y con toma de control de cuentas de decenas de millones de usuarios, salió de leer la documentación con atención: un endpoint <code>/oauth/token</code> que pedía usuario y contraseña en una aplicación que solo usa login por código de un solo uso. Las credenciales del header de autorización estaban hardcodeadas en los ficheros JavaScript, y con ellas bastaba enviar cualquier contraseña para recibir el token de acceso. El tercero fue similar en gravedad: un IDOR numérico en la misma API que exponía hashes de contraseñas y tokens de reseteo. Detrás había unas 40 horas de configuración y familiarización con el entorno antes de llegar a ese punto.</p>
+<h2>Medianos: XSS blindado vía SMS y espionaje en reuniones</h2>
+<p>En una aplicación de venta de coches con un CRM para concesionarios, un flag de funcionalidades desactivado en un objeto <code>window</code> —localizado leyendo el código con paciencia— ocultaba el módulo de mensajería. Activándolo con una regla de match-and-replace apareció la pestaña de mensajes, y con ella la posibilidad de enviar un payload XSS por SMS al panel del concesionario. El XSS ciego, combinado con cookie bombing sobre el callback de OAuth que se ejecutaba en un iframe invisible, permitía robar el token de sesión sin tocar MFA. El endpoint de envío acumulaba tres fallos —IDOR en el dealer ID, IDOR en el client ID y XSS en el mensaje— lo que convertía el hallazgo en un gusano capaz de propagarse entre todos los concesionarios y alcanzar los datos de todos los clientes. 20-40K en un programa privado a punto de hacerse público.</p>
+<p>Para espiar reuniones en una app de videollamadas, la clave estaba en un GitHub issue: la lista de participantes no se actualizaba cuando el usuario tenía un dispositivo de audio roto. Leyendo el flujo en el código cliente se descubrió que la señal de "audio connect" era lo que realmente actualizaba la lista. Suprimirla con otro match-and-replace permitía entrar en reuniones sin aparecer en ellas y exfiltrar las transcripciones: 20-25K, pagado como crítico con bonificaciones.</p>
+<h2>Difíciles: Perforce, routers y un SQLi en binario .NET</h2>
+<p>En una aplicación de escritorio para desarrollo de videojuegos, la ruta triunfadora fue una servidor Perforce malicioso. El protocolo binario —documentado en un artículo que lo despiezaba— permitía al servidor ordenar al cliente escribir ficheros: con path traversal se sobrescribía un EXE que el sistema ejecutaba cada dos segundos y se obtenía shell. El escenario realista lo cerraba un fichero de proyecto con la configuración del servidor de control de versiones incluida: la víctima abría el archivo, se conectaba y recibía el payload. Hubo colisión de bug con Alex Chapman, que investigaba lo mismo en paralelo. 15-30K.</p>
+<p>El router de un programa público exigió hardware: soldadura por aire caliente a 500 grados, lectura del chip EMMC en un lector BGA y tres placas destruidas antes de obtener el firmware limpio. La cadena empezaba subiendo un certificado al proveedor cloud, que se empujaba al dispositivo y daba acceso al servicio gRPC local. La inyección estaba en la generación dinámica del fichero de configuración de DHCPD: la dirección IP no se escapaba, y un comando del propio DHCPD que ejecuta shell al emitirse una concesión —acortado al máximo para no romper la sintaxis— completó el RCE. Diez días desde cero hasta la shell, 20-32K. En el mismo objetivo, la inyección en la configuración de dnsmasq no permitía ejecutar comandos directamente, pero el servidor TFTP integrado sí se activaba desde el fichero de configuración. El obstáculo fue la directiva <code>user root</code>, que no admite duplicarse: la solución vino de Sam Erb, que leyó el código fuente de dnsmasq y descubrió el límite de 1.025 caracteres por línea. Alineando comentarios y desbordando la línea en uno de los dos puntos de inyección, la directiva caía en la línea siguiente lista para interpretarse, y el TFTP en el puerto 69 daba lectura a todo el sistema de ficheros.</p>
+<p>En un binario de control de versiones propio —decompilado con dnSpy al ser .NET— un fichero subido con nombre malicioso se insertaba tal cual en una base de datos SQLite local al sincronizar: SQLi pura en el cliente. Sin ejecución directa de código, el exploit adjuntaba la base de datos de cookies de Chrome del usuario, la vaciaba con VACUUM INTO a un fichero, y lo re-versionaba hacia arriba para descargarlo y tomar el control de la cuenta web de la víctima. Entre 30 y 40K.</p>
+<h2>Muy difíciles: contrabando de cabeceras SIP en un dispositivo doméstico</h2>
+<p>El objetivo final fue un dispositivo doméstico de sobremesa con cámara y micrófono, con la meta explícita de espiar una casa sin interacción del usuario. Dos semanas de preparación sin un solo hallazgo previo: parcheo del APK con Objection para inyectar Frida, evasión de detección de root y emulador, y el mayor dolor de cabeza, el cert pinning custom tanto del HTTPS como de SIP sobre TLS, donde Burp rompía la aplicación y hubo que montar Polar Proxy como inspección transparente que generaba PCAPs.</p>
+<p>El fallo estaba en el token de autenticación SIP. Al iniciar una llamada, el parámetro <code>target</code> se reflejaba sin validar dentro del token; cerrando el delimitador de payload y semicolonando, se inyectaba una cabecera From adicional que hacía la llamada parecer originada por la propia víctima —condición que disparaba la auto-respuesta con cámara y micrófono—. Como el campo Contact, que controla el enrutamiento real, no estaba en el token ni se validaba, la llamada llegaba al dispositivo de la víctima con visión y audio completos. Para ajustar la cabecera From, que se construía dentro de una librería nativa no hookeable con Frida, la solución fue parchear el binario a mano: buscar la cadena en un editor hexadecimal y cambiar una letra. El bug gemelo permitía el secuestro de llamadas mediante el registro de terceros de SIP: generando un token cuyo From y To diferían y usándolo en un REGISTER, se mapeaba el registro de cualquier usuario hacia el dispositivo del atacante. Dos hallazgos de 20 a 50K cada uno, ambos críticos.</p>
+<pre class="mermaid">
+flowchart LR
+    A[init_call HTTP con\ntarget inyectado] --> B[Token SIP con\ncabecera From falsa]
+    B --> C[INVITE SIP que\npasa la validación\nFrom/To]
+    C --> D[Auto-respuesta del\ndispositivo de la víctima]
+    D --> E[Cámara y micrófono\nsin interacción]
+
+</pre>
+
+<h2>Lecciones transversales</h2>
+<ul>
+<li>Los cambios de modelo de amenazas y los 403 "raros" delatan superficies bloqueadas a nivel de proxy, bypassables con normalización y codificación.</li>
+<li>Documentación, JavaScript y GitHub issues siguen siendo minas de oro; las credenciales hardcodeadas y los endpoints fantasma están en producción.</li>
+<li>Encadenar fallos —XSS + cookie bombing + IDOR— multiplica el impacto y con él la recompensa; y si un fallo funciona en un sitio, buscarlo en el siguiente.</li>
+<li>No rehuir protocolos ni tecnologías desconocidas: Perforce, SIP, DNSmasq y un chip EMMC separaron a los hallazgos críticos de las semanas perdidas.</li>
+<li>Colaborar amplía el alcance: Joel Margolis en hardware, Sam Erb leyendo código fuente de dnsmasq, Spaceracon sugiriendo el parche binario.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/TqKb7h8VFcA">«DEF CON 32 - Top War Stories from a TryHard Bug Bounty Hunter -Justin Rhynorater Gardner»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seven vulns en seven days: cazar bloatware más rápido de lo que se construye — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Seven vulns en seven days: cazar bloatware más rápido de lo que se construye</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/zSBf2CMKlBk">«DEF CON 33 - 7 Vulns in 7 Days - Breaking Bloatware Faster Than It&#x27;s Built - Leon &#x27;leonjza&#x27; Jacobs»</a> · ver el <a class="nz-link" href="https://youtu.be/zSBf2CMKlBk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> zSBf2CMKlBk · <strong>URL:</strong> https://youtu.be/zSBf2CMKlBk · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - 7 Vulns in 7 Days - Breaking Bloatware Faster Than It's Built - Leon 'leonjza' Jacobs</li>
+</ul>
+<h2>Resumen</h2>
+<p>Vacaciones de verano en Sudáfrica, una partida al videojuego favorito y, al cerrar la sesión, un cartel que no pedía nadie: ASUS Driver Hub ofrecía instalar una actualización de drivers. Al hacer clic se abría un navegador apuntando a driverhub.asus.com, que pedía instalar más cosas y terminaba con un modal que exigía reiniciar el equipo. La velocidad del reinicio delató la trampa: no había nada en la nube. Abrir las dev tools reveló la maquinaria real: un servidor web local corriendo en la propia máquina, con el que el sitio se comunicaba. Ese momento convirtió unas vacaciones en una investigación que terminó en vulnerabilidades en cuatro productos de "bloatware" de fabricantes de hardware gamer, todas reportadas y corregidas, y seis CVEs en una semana de trabajo.</p>
+<p>Los objetivos: ASUS Driver Hub, MSI Center, Acer Control Center y Razer Synapse 4. Todos comparten un patrón de diseño cuestionable —servicios privilegiados que exponen mecanismos de RPC (sockets TCP locales, named pipes, objetos COM) con validación insuficiente—, y todos llegan preinstalados en equipos de millones de usuarios.</p>
+<h2>ASUS Driver Hub: RCE con un clic y bypass de UAC</h2>
+<p>Con Process Explorer se identifican dos procesos, <code>ADU.exe</code> y <code>AsusDriverHub.exe</code>; el primero escucha un socket TCP. El primer obstáculo es que el instalador se niega a ejecutarse en una VM ("this is not an ASUS product"): un parche de la instrucción de salto en Binary Ninja resuelve la instalación. La segunda comprobación del mismo tipo se evita en runtime interceptando la llamada <code>initialize</code> del servidor web local y cambiando la respuesta de <code>false</code> a <code>true</code>.</p>
+<p>El reversing del endpoint <code>/reboot</code> muestra el flujo completo: una página web hace un <code>fetch</code> al servidor local, que invoca la API de Win32 <code>ExitWindows</code>. Un harness en PowerShell replica la petición y los logs de la aplicación (un archivo con nombre aleatorio que emite muchísima información) guían cada paso: primero falta el header <code>Origin</code>, luego falta el body, y el JavaScript del sitio —aunque minificado— entrega la estructura exacta del POST.</p>
+<h3>El bug del "string contains"</h3>
+<p>La validación del header <code>Origin</code> usa una función de comparación que debería verificar si el origen es <code>asus.com</code>, pero es un <em>string contains</em> sobre nueve bytes: cualquier origen que contenga <code>.asus.com</code> en cualquier parte (por ejemplo, <code>driverhub.notasus.com</code>) pasa la comprobación. Con un origen arbitrario que incluya esa cadena, cualquier sitio web puede interactuar con el servidor local.</p>
+<p>El salto a RCE llega con el endpoint <code>/updateapp</code>, que descarga un ejecutable desde una URL: la misma comprobación defectuosa se aplica al <code>agenturl</code>, de modo que basta una URL que contenga <code>.asus.com</code> para que descargue un binario del atacante. La validación de firma PE es igual de frágil: solo verifica que una de las propiedades del certificado contenga el string "ASUSTeK Computer Inc.", sin comprobar que la firma sea válida. Herramientas existentes permiten clonar la firma de un binario legítimo firmado por ASUS al payload del atacante —la firma no será válida criptográficamente, pero las propiedades que el programa busca sí estarán—.</p>
+<p>El exploit encadenado: un usuario visita un dominio del atacante que contenga <code>.asus.com</code>, y un clic lanza la descarga y ejecución del payload vía el servidor local. Ningún componente corre elevado, pero los jugadores suelen ser admins: adjuntando un <em>side-by-side assembly manifest</em> (UAC manifest con <code>requestedExecutionLevel</code>) al payload con <code>mt.exe</code>, la ejecución se vuelve determinísticamente elevada y bypasea el prompt de UAC. Como dato de contexto de exposición, la propia BIOS de la placa madre tiene una opción para descargar e instalar ASUS Driver Hub automáticamente.</p>
+<p>Como mitigación estructural, el Chrome Working Group tiene una propuesta de especificación para restringir el acceso de los sitios web a recursos locales —al estilo de cómo hoy se restringen cámaras y micrófonos—, lo que obligaría a un aviso explícito antes de que una página hable con la red local.</p>
+<h2>MSI Center: race condition y ejecución como SYSTEM</h2>
+<p>MSI Center exige agregar el usuario local al grupo de administradores para funcionar, y uno de sus componentes escucha en un socket TCP con contexto elevado. El protocolo es binario pero las respuestas son JSON y el cliente está escrito en .NET sin ofuscación, así que el reversing se lee casi como una revisión de código fuente: un <code>LaunchServer</code> que registra callbacks de conexión y de datos, y una función <code>DataResponse</code> que despacha cada frame a componentes. Cada frame TCP lleva cuatro bytes que identifican el componente destino y el comando a ejecutar; el envío directo de los bytes de un comando de reboot (con esos cuatro bytes, identificados vía Wireshark, copiados al PoC) reinicia el equipo desde contexto no privilegiado.</p>
+<p>La arquitectura es interesante: un <em>component loader</em> escanea el directorio de instalación buscando DLLs que coincidan con <code>API_*</code>, las carga e inicializa, y cada componente registra su mapa de comandos. Un componente con el comando <code>AutoUpdateSDK</code> acepta un target y argumentos, copia el ejecutable a <code>C:\Windows\Temp\MSICenterSDK\</code>, verifica la firma con <code>WinVerifyTrust</code> (la manera correcta) y, si pasa, programa una tarea programada inmediata que lo ejecuta como SYSTEM. El defecto: el binario que se verifica y el que se ejecutan no están vinculados. La ventana es minúscula pero real: corriendo dos hilos en carrera —uno con el ejecutable legítimo de MSI (elegido solo por tener firma válida) y otro con el payload—, la tarea programada puede terminar ejecutando el binario equivocado. El PoC gana la carrera y agrega un usuario administrador al equipo.</p>
+<p>La escalada local 2 es aún más simple y casi cómica: el componente <code>API_Support</code> contiene su propia reimplementación de <code>ExecuteTask</code> con el mismo prototipo pero <strong>cero verificación</strong>: se pasa el target, se programa la tarea y corre como SYSTEM. Alguien en el equipo decidió no usar la librería común de seguridad, o quedó código legado. El exploit completo son cuatro líneas.</p>
+<h2>Acer Control Center: named pipe con permisos rotos</h2>
+<p>Acer Control Center no usa TCP sino un named pipe, con un servicio nativo privilegiado y un cliente .NET. La función del cliente <code>SendCommandByNamePipe</code> envía el pipe, un target path y un argumento (113); del lado del servidor, la lógica llega a un <code>CreateProcessAsUser</code> con exactamente ese target. Pero el pipe está configurado con <code>FILE_ALL_ACCESS</code> —algo que hay que configurar explícitamente mal, no es el valor por defecto—, lo que convierte una escalada local en <strong>ejecución remota de código</strong>: desde una VM atacante sin relación de dominio, un PoC se conecta al pipe remoto y hace que la víctima ejecute notepad.</p>
+<p>Quedaba la pregunta de por qué el proceso corría como usuario normal y no como SYSTEM. La respuesta estaba en el argumento: con el valor 113 el SID se inicializa para un proceso de integridad normal; incrementándolo a 114, coincide con la constante del SDK de Windows para un SID de proceso de mayor integridad. Cambiar 113 por 114 en el PoC convierte la ejecución remota en una escalada de privilegios completa, remota y elevada.</p>
+<h2>Razer Synapse 4: FFI de Node, DLL parcheada y el atajo COM</h2>
+<p>Razer Synapse 4 ejecuta una cantidad absurda de procesos para cambiar el RGB de un periférico, y entre ellos hay un <strong>Razer Elevation Service</strong> corriendo como SYSTEM. A diferencia de los objetivos anteriores no expone puertos ni pipes, y está escrito en C++ (reversing más duro). La pista llegó con Procmon al interactuar con el cliente Electron durante la instalación de un componente Chroma.</p>
+<p>Como el cliente es Electron, su código fuente vive en un archivo ASAR que se extrae con la herramienta oficial del equipo de Node. Ahí se descubre que el cliente usa una <em>foreign function interface</em> (node-ffi, un fork privado de una librería pública) para invocar directamente una DLL nativa llamada —literalmente— <code>SimpleService.dll</code>. Las definiciones en JavaScript delatan las funciones nativas exportadas, verificables comparando con los exports de la DLL en Binary Ninja.</p>
+<p>El plan de prueba fue cargar esa DLL por cuenta propia y replicar los flujos de llamada. La función <code>SimpleLaunchUserAppProcess</code> impone restricciones aparentemente defensivas: el primer parámetro debe ser relativo al AppData y el segundo relativo al primero —asumiendo que el payload ya viva ahí—. La ejecución falla con un log de la DLL que dice "this PE file is not trusted": otra verificación de firma. Pero aquí hay un giro clave respecto de los casos anteriores: la verificación ocurre en la DLL cliente, que el atacante controla por completo. Basta copiar <code>SimpleService.dll</code>, parchear la validación de certificado PE y reejecutar. El detalle final: el payload de agregar usuario necesitaba contexto elevado, así que el mismo truco del manifest UAC con <code>mt.exe</code> cerró el PoC.</p>
+<p>Y el remate: un colega redujo todo ese trabajo a <strong>una sola línea de PowerShell</strong>. La interfaz real con el Razer Elevation Service es un objeto COM. Con OLE View se enumera el PROG ID, se instancia con <code>New-Object</code>, y <code>Get-Member</code> revela métodos <code>LaunchProcess</code> que aceptan una ruta y ejecutan el binario en contexto elevado. Sin parcheo, sin DLLs, sin FFI: LPE directa en Razer Synapse 4 sin parchear.</p>
+<h2>Lo que no funcionó y la ética de la divulgación</h2>
+<p>No todo salió: HP Support Assistant, Gigabyte Control Center (arquitectura muy interesante) y Lenovo Vantage resistieron (aunque Artful Futures/Atredis Partners publicaron poco después bugs notables en Vantage vía manipulación de registro, vale la pena revisarlos). Los seis CVEs resultantes están todos corregidos; Acer decidió fusionar dos bugs en un solo CVE.</p>
+<p>La divulgación dejó lecciones para los fabricantes: la página de divulgación de ASUS tiene un WAF que bloqueaba los payloads del reporte (justo lo que había que enviar); hubo una colisión de investigación donde otro investigador reportó el mismo bypass de origen dos meses después y ASUS le envió el anuncio del CVE acreditado a otra persona, dejándolo "colgado"; MSI respondió impecablemente rápido y fue el primero en corregir; Razer usó su programa de bug bounty como intermediario, y la cantidad de tickets internos que llegaron al buzón del investigador cuando intentó coordinar la divulgación pública contó la historia de una comunicación innecesariamente engorrosa.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La <strong>Pwn Triad</strong>: si encontrás un servicio privilegiado con un mecanismo de RPC —named pipe, objeto COM, socket TCP, lo que sea—, revisá si tiene problemas de autenticación o validación. Casi seguro los tiene, y ahí hay vulnerabilidad (y, seamos honestos, una receta para CVEs).</li>
+<li>Los patrones que se repiten: validación de <code>Origin</code> por substring, verificación de firma por propiedades del certificado en vez de validez criptográfica, verificación y ejecución desacopladas (race conditions), librerías de seguridad reimplementadas sin las verificaciones, named pipes con <code>FILE_ALL_ACCESS</code>, y validaciones que viven en componentes que el atacante controla.</li>
+<li>Software de 2025 que hace RPC local de esta manera es diseño innecesario; y si el bloatware te parece inevitable, pensálo dos veces: probablemente haya alternativas mejores.</li>
+<li>Si querés cazar CVEs: mirá lo que ya tenés instalado. Antes de desinstalarlo, quizás te deje un bug gratis. Los PoCs están publicados en GitHub y queda bastante superficie de ataque por explorar en estas mismas herramientas.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/zSBf2CMKlBk">«DEF CON 33 - 7 Vulns in 7 Days - Breaking Bloatware Faster Than It&#x27;s Built - Leon &#x27;leonjza&#x27; Jacobs»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

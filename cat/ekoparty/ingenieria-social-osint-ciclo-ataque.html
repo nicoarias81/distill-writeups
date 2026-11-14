@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSINT e ingeniería social: el ciclo de ataque, la pirámide de Hadnagy y el arte de clasificar hallazgos — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">OSINT e ingeniería social: el ciclo de ataque, la pirámide de Hadnagy y el arte de clasificar hallazgos</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/heUkjOz4F1g">«Ekoparty webinar: Ingeniería Social &amp; Osint I Emiliano Piscitelli y Jorge Vila»</a> · ver el <a class="nz-link" href="https://youtu.be/heUkjOz4F1g">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> heUkjOz4F1g · <strong>URL:</strong> https://youtu.be/heUkjOz4F1g · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> Ekoparty webinar: Ingeniería Social &amp; Osint I Emiliano Piscitelli y Jorge Vila</li>
+</ul>
+<h2>Resumen</h2>
+<p>La ingeniería social y el OSINT suelen presentarse como un puñado de trucos, pero en realidad son disciplinas metodológicas: ciclos, fases, selectores y formas de clasificar la información para que un hallazgo valga como evidencia. Sin metodología, el resultado es el clásico "ruido documental": 20.000 PDFs descargados, favoritos interminables y ninguna idea de por dónde empezar.</p>
+<p>El problema que aborda este contenido es doble. Por un lado, cómo se estructura una operación de ingeniería social —desde la recolección de información hasta la ejecución sigilosa del objetivo—. Por otro, cómo se organiza una investigación de fuentes abiertas: qué es un selector, por qué la diferencia entre fuente pública y fuente publicada puede hacer caer una causa judicial, y cómo priorizar cientos de hallazgos con una calculadora de investigación digital.</p>
+<p>El aporte concreto: un marco completo —ciclo de ataque en cuatro fases, pirámide de la ingeniería social, seis fases del OSINT, flujos de trabajo y clasificación de fuentes y datos— más la dirección hacia donde va la disciplina: de coleccionar enlaces a ciberinteligencia aplicada contra el cibercrimen organizado.</p>
+<h2>El ciclo de ataque: cuatro fases y una regla de oro</h2>
+<p>Una operación de ingeniería social sigue cuatro fases: recolección de información, desarrollo de la relación, explotación de la relación y ejecución para lograr el objetivo. La regla de oro, marcada por Christopher Hadnagy —máximo referente actual de la disciplina, junto al desaparecido Kevin Mitnick— es que la recolección lo es todo: en un trabajo típico de diez días, entre el 60% y el 70% del tiempo se dedican a esa fase. Nadie puede iniciar una acción de ingeniería social —para bien o para mal, simulación o ataque real— sin los datos que se transforman en información.</p>
+<p>El desarrollo de la relación toma contacto con la víctima o víctima potencial. La explotación aprovecha esa relación construida: el caso clásico es seleccionar como objetivo a la persona de la puerta —guardia de seguridad, recepción—, generar empatía y usarla para entrar físicamente sin autorización. El motor psicológico es una emoción: cuando la emoción se enciende, la razón se apaga. El llamado <em>amígdala hijacking</em> —el secuestro de la amígdala, la parte primitiva del cerebro donde se generan las emociones— explica por qué alguien que recibe una buena o una mala noticia fuerte reacciona por impulso y no razona.</p>
+<p>La ejecución cierra el ciclo, y su criterio de éxito es pasar desapercibido. El ciclo puede quedar cerrado o semicerrado: si el plan requiere volver —por ejemplo, a recuperar un dispositivo de acceso remoto o un keylogger plantado en el lugar—, la salida debe ser impecable. Correrse sin saludar a la persona a la que se le ganó la confianza arruina la segunda pasada.</p>
+<h2>La pirámide invertida: dónde va el esfuerzo</h2>
+<p>Basada en la segunda edición de <em>Science of Human Hacking</em> de Hadnagy, la pirámide invertida representa el espacio que merece cada tarea. La base más ancha es el OSINT e inteligencia —el equivalente a la recolección del ciclo—. Le sigue el pretexto, y acá hay una precisión importante: el pretexto no es una simple excusa, es el todo. Es el personaje, cómo se va a hablar, cómo se va a vestir, qué palabras se van a usar para interactuar. Después viene el plan de ataque —qué, cómo, cuándo y dónde—, recién entonces la ejecución y, al final, el reporte con la evidencia presentada.</p>
+<p>El error típico que la pirámide denuncia es invertir el orden: ejecutar el ataque directo, sin recolección ni desarrollo, porque "hay que llegar rápido". La evidencia de que el phishing sigue siendo la técnica más usada está en el informe anual de cibercrimen del FBI: phishing y spoofing encabezan el listado de reclamos año tras año, y varias categorías del resto del informe —extorsión, filtraciones de datos personales— comienzan con un phishing. La desmitificación práctica: todo término que termine en <em>-ishing</em> es una suplantación de identidad; lo único que cambia es el medio. <em>Vishing</em> es la llamada telefónica (la <em>v</em> viene de <em>voice</em>), <em>smishing</em> es el SMS —hoy ampliado con WhatsApp— y <em>QRishing</em> es la suplantación mediante códigos QR.</p>
+<h2>Fuente pública, fuente publicada y el fruto del árbol envenenado</h2>
+<p>OSINT es <em>Open Source Intelligence</em>: inteligencia de fuentes abiertas. No es coleccionar enlaces ni acumular fuentes; es un concepto con objetivo concreto: recolectar datos a través de fuentes abiertas y aplicarles inteligencia para ciberseguridad, investigaciones judiciales, seguridad pública, monitoreo de amenazas e incluso reclutamiento, donde se perfila a candidatos antes de cerrar una incorporación.</p>
+<p>La distinción que más problemas causa es la que pocos aciertan a la primera:</p>
+<ul>
+<li><strong>Fuente pública</strong>: acceso sin restricción, de origen lícito y compartido por su propio creador. Un blog, una red social abierta, un dataset de gobierno. Es legal y es la única que se usa como fuente en OSINT.</li>
+<li><strong>Fuente publicada</strong>: un sitio de filtraciones —usuarios, contraseñas, tarjetas, datos personales—. La información es real, pero su origen no es lícito.</li>
+</ul>
+<p>En investigaciones judiciales no se puede presentar como evidencia algo proveniente de una fuente publicada, por el principio del <em>fruto del árbol envenenado</em>: si el primer dato ingresó de manera ilícita, todo lo que se construya encima se cae. Pero eso no hace inútiles las filtraciones: sirven para ampliar la <em>superficie de investigación</em>. Saber que el correo investigado apareció en una brecha de un sitio de criptomonedas orienta la búsqueda en foros y plataformas, y permite perfilar al objetivo sin tocar jamás la fuente ilícita.</p>
+<h2>Seis fases, un selector y flujos de trabajo</h2>
+<p>Para evitar el ruido documental, la metodología de OSINT usada acá tiene seis fases —otros autores proponen más o menos—: requisitos (objetivo, selectores y tiempo disponibles; sin ninguna de las tres es imposible avanzar), fuentes de información, adquisición, procesamiento (depurar falsos positivos y dar estructura), análisis y presentación de inteligencia (el reporte final alineado con el requisito inicial).</p>
+<p>El <strong>selector</strong> es el dato con el que arranca una investigación: nombre y apellido, alias, correo, geolocalización, número de teléfono —los simples— o una foto o video —los más complejos—. Sobre el selector se aplica un flujo de trabajo, concepto creado por Michael Bazzell en IntelTechniques.com (y disponible en español, traducido por Julián Gutiérrez, en ciberpatrulla.com). Partiendo de un nombre de usuario, el flujo baja por buscadores genéricos (Google, Bing, Yandex), pasa a buscadores específicos del tipo de selector, hace <em>swap</em> de dominios —probar si usuario@gmail o usuario@facebook existen, no para entrar a la casilla sino para luego consultar fuentes de filtraciones y ampliar la superficie— y termina en comprobación manual en Twitter, Instagram, Google.</p>
+<p>La lección estructural de estos flujos es no depender de una sola fuente. 2018 fue "el año negro": el escándalo de Cambridge Analytica llevó a Facebook a cerrar su API Graph de un día para otro; Twitter comenzó a cerrar la suya —hoy cuesta decenas de miles de dólares anuales—; e IntelTechniques, de donde mucha gente en Argentina sacaba casi toda su información, dejó de funcionar por un tiempo. Quien dependía de una única fuente quedó sin poder trabajar. También hay flujos por selector de nombre real (buscadores de personas que devuelven dirección, teléfono, familiares —los "objetos satélite" del perfilamiento—) y el desarrollo propio del equipo: la inteligencia sobre un dominio, para mapear a las personas que trabajan ahí y sus filtraciones.</p>
+<h2>La calculadora de investigación digital</h2>
+<p>El problema final de toda investigación es la entrega: con cien, doscientos o trescientos hallazgos mezclados en un reporte, nadie sabe qué priorizar. La solución tomada de la inteligencia física de las fuerzas armadas de EE. UU. clasifica por separado la fuente y el dato, y combina ambos valores en un peso:</p>
+<pre class="mermaid">
+flowchart LR
+    F[Clasificación de la fuente<br/>1 a 10] --> P[Suma = peso]
+    D[Clasificación del dato<br/>1 a 10] --> P
+    P --> C[Clasificación final<br/>del hallazgo]
+
+</pre>
+
+<p>La fuente se gradúa desde "no puede ser juzgada" hasta "fuente de confianza" —autenticidad sólida del sitio, validación por terceros, confianza en quien origina la información, fecha y hora coherentes; un dataset de gobierno es el ejemplo típico—. El dato se gradúa entre dudoso, no confirmado pero lógico, y posiblemente válido —coherente con otros hallazgos—. Fuente con nivel 3 más dato con nivel 4 dan un peso de 7, que cae en el rango correspondiente. El reporte se ordena de 10 hacia abajo: quien lo lee sabe que los primeros hallazgos son los más confiables y críticos, y quien lo reutiliza después sabe por dónde empezar.</p>
+<h2>Preparar el entorno y hacia dónde va la disciplina</h2>
+<p>Antes de investigar hay que prepararse: máquina virtual, VPS o máquina física separada del uso cotidiano, navegador específico con extensiones que bloqueen scripts, sin páginas de inicio ni credenciales guardadas —quien va a revolver basura digital, como mínimo puede infectarse—. La recomendación de navegador es Brave, basado en Chromium, orientado a privacidad y capaz de navegar también la dark web, más VPN para ocultar el punto de conexión y obfuscación para no revelar sistema operativo ni equipo.</p>
+<p>La dirección que toma la industria es el pasaje de coleccionar a encontrar. La inteligencia aplicada contra el cibercrimen organizado —no el generador de tarjetas amateur, sino estructuras con operaciones reales— exige entender cómo funcionan los datos en internet: cómo guardan las imágenes los actores, cómo usan y mutan los identificadores, dónde aparecen. Las plataformas van hacia más privacidad y el scraping de redes sociales se sigue cortando, así que sin entender qué hay que buscar, las herramientas no sirven.</p>
+<p>En ese marco, la IA de hoy tiene un rol acotado y honesto: robotización y obtención de datos a gran escala. No existen herramientas que automaticen el análisis; lo que existe son asistentes que mejoran el entendimiento de conexiones entre datos, siempre con un analista detrás. Y algunas aproximaciones —como un perfilamiento guiado que acota el espectro de investigación— son, honestamente, sesgos útiles.</p>
+<p>El terreno laboral acompaña: en 2016-2017 el campo era casi desconocido; hoy el analista de ciberinteligencia y OSINT está entre los perfiles más buscados, con una diferencia regional —en España existen unos diez perfiles laborales distintos de OSINT; en la región aún hay que crear los puestos con nombres claros para que la gente sepa a qué postula—. El precedente colectivo ya existe: en 2017, junto a la ONG No Encontrado y Missing Children, se organizó el primer CTF de ingeniería social, donde equipos de tres a cinco personas buscaron a niños perdidos a partir de solo foto, nombre y apellido durante los tres días de la conferencia, con hallazgos reales que llegaron a contribuir a encuentros.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ciclo de ataque de ingeniería social</strong>: cuatro fases (recolección, desarrollo, explotación, ejecución); la recolección consume 60-70% del tiempo.</li>
+<li><strong>Pirámide invertida de Hadnagy</strong>: distribución del esfuerzo entre OSINT, pretexto, plan, ejecución y reporte.</li>
+<li><strong>Amígdala hijacking</strong>: secuestro emocional de la parte primitiva del cerebro; base psicológica de la explotación.</li>
+<li><strong>Informe anual de cibercrimen del FBI (IC3)</strong>: ranking donde phishing/spoofing lidera año tras año.</li>
+<li><strong>Vishing / smishing / QRishing</strong>: variantes de suplantación de identidad por llamada, SMS/WhatsApp y QR.</li>
+<li><strong>OSINT</strong>: inteligencia de fuentes abiertas con objetivo, selector y tiempo definidos.</li>
+<li><strong>Fuente pública vs. publicada</strong>: la publicada (filtraciones) no vale como evidencia pero amplía la superficie de investigación.</li>
+<li><strong>Fruto del árbol envenenado</strong>: doctrina que invalida evidencia de origen ilícito.</li>
+<li><strong>Six fases del OSINT</strong>: requisitos, fuentes, adquisición, procesamiento, análisis, presentación de inteligencia.</li>
+<li><strong>Selector</strong>: dato inicial de la investigación (nombre, alias, correo, geolocalización, teléfono, foto, video).</li>
+<li><strong>Flujos de trabajo de Michael Bazzell</strong> (IntelTechniques.com): recorridos por buscadores genéricos, específicos, swap de dominios y comprobación manual.</li>
+<li><strong>Ciberpatrulla.com</strong>: traducción al español de la documentación de OSINT por Julián Gutiérrez.</li>
+<li><strong>Calculadora de investigación digital</strong>: clasificación de fuente + dato → peso → priorización del reporte.</li>
+<li><strong>Brave + VPN + obfuscación</strong>: entorno de investigación aislado y anonimizado.</li>
+<li><strong>Inteligencia sobre dominios</strong>: mapeo de personas y filtraciones a partir de un dominio corporativo.</li>
+<li><strong>CTF de ingeniería social (2017)</strong>: búsqueda de niños perdidos con Missing Children y No Encontrado.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>La metodología no es opcional: sin recolección de información —la base de la pirámide—, cualquier ataque de ingeniería social o investigación OSINT termina ejecutándose a ciegas.</li>
+<li>La distinción entre fuente pública y publicada es la que separa una investigación presentable en un expediente judicial de una causa caída: la filtración orienta, pero nunca es la evidencia.</li>
+<li>Un reporte sin priorización es inútil; clasificar fuente y dato por separado y ordenar de mayor a menor peso convierte cientos de hallazgos en un entregable accionable.</li>
+<li>La disciplina va de coleccionar a encontrar: entender cómo el cibercrimen organizado estructura sus datos importa más que acumular herramientas, porque la IA automatiza la recolección pero no el análisis.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/heUkjOz4F1g">«Ekoparty webinar: Ingeniería Social &amp; Osint I Emiliano Piscitelli y Jorge Vila»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

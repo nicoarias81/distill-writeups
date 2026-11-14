@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Escapando de la Privacy Sandbox: desanonimización del lado del cliente — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Escapando de la Privacy Sandbox: desanonimización del lado del cliente</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/-oaH8XE_yMQ">«DEF CON 33 - Escaping the Privacy Sandbox: Client-side De-anonymization Attacks - Eugene Lim»</a> · ver el <a class="nz-link" href="https://youtu.be/-oaH8XE_yMQ">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> -oaH8XE_yMQ · <strong>URL:</strong> https://youtu.be/-oaH8XE_yMQ · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Escaping the Privacy Sandbox: Client-side De-anonymization Attacks - Eugene Lim</li>
+</ul>
+<h2>Resumen</h2>
+<p>Eugene Lim (Space Raccoon, Singapur; seguridad de aplicaciones de día, investigación de vulnerabilidades de todo tipo — de hardware a web — por pasión) presentó cómo subvertir la Privacy Sandbox de Google, el conjunto de tecnologías diseñado para reemplazar las third-party cookies con publicidad "que respeta la privacidad". Contexto: las cookies de terceros están en extinción por presión de navegadores, regulación y bloqueadores, así que Google construyó su reemplazo en tres partes — APIs de cliente (JavaScript en navegador y móvil), un walled garden donde las plataformas publicitarias se registran para llamar a esas APIs, y un servicio de agregación/descifrado de datos analíticos en "trusted execution environments" que cada plataforma despliega en su propia cuenta de nube (con la duda obvia de cuán "trusted" es ejecutarlo uno mismo). Elefante en la sala: Google llevaba desde 2022 anunciando la eliminación de las cookies de terceros y en abril — convenientemente, justo después de que él enviara el trabajo — capituló y las mantiene. Aun así, la Privacy Sandbox importa: ya está desplegada en Chrome y derivados de Chromium (Edge incluido), las plataformas de ad tech la usan a diario, Google sigue siendo uno de los mayores plataformas publicitarios del mundo, y el ad tech en general es un campo casi sin investigación (poca documentación, poco publicado).</p>
+<p>Lim atacó el lado cliente y encontró tres debilidades.</p>
+<p><strong>1. Fuga del sitio de nivel superior vía debug reports (Attribution Reporting API).</strong> La API resuelve el problema clásico del anunciante: "vi el anuncio, ¿compró?". El navegador registra una fuente (source) al ver/interactuar con el anuncio, registra un trigger en la conversión, los empareja en el cliente y envía un reporte con datos mínimos, tiempos aleatorizados y ruido agregado — protecciones bien intencionadas. Pero el diseño carga con muchos intereses a la vez y por eso está lleno de "escape hatches". Uno son los debugging reports, documentados como "transicionales" (solo hasta que se deprecien las cookies… que ya no se van a deprecar: son permanentes ahora). En el diseño quedó un TODO revelador: "considerar permitir que el sitio de nivel superior opte por recibir debug reports sin cross-site leak" — es decir, la protección no existe. Consecuencia: una página con <code>Referrer-Policy: no-referrer</code> hacia un tercero igual filtra el sitio de nivel superior en un debug report. Eso rompe supuestos de protecciones legacy como SafeFrame (el estándar de iframes endurecidos de la IAB que usan los anuncios de DoubleClick): con un anuncio "troyanizado" y una respuesta malformada deliberada en las cabeceras de attribution reporting, el comprador del anuncio provoca un header error debugging report que revela en qué sitio vio el anuncio cada IP — dato que Google normalmente solo entrega agregado. Facebook, que no usa SafeFrame sino su propio dominio sandbox, resolvió el problema desactivando la API entera con el header Permissions-Policy — el juego del gato y el ratón que confirma que el iframe donde se sirve un anuncio debe ser un entorno hermético, porque tecnologías nuevas rompen los supuestos de las protecciones viejas.</p>
+<p><strong>2. Destination hijacking: reconstrucción del historial de navegación.</strong> La API permite registrar hasta tres destinos por fuente. Revisando implementaciones reales, Lim notó que los anuncios de Google DoubleClick inyectaban en todos sus anuncios dos destinos extra: <code>debugconversiondomain1.com</code> y <code>debugconversiondomain2.com</code> — dominios de debugging que Google nunca registró. Los compró por 10–20 dólares. Superficialmente eso permite fraude de clics (contar conversiones falsas), pero él quería más: saber qué sitios visitó el usuario. La herramienta fue un límite de tasa no documentado: máximo 1.000 reportes de nivel de evento por sitio destino antes de que la API devuelva error. Como controla los dos dominios inyectados en cada anuncio de la red DoubleClick, puede usar ese error como oráculo booleano: si al usuario le queda margen (no alcanzó los 1.000), sí convirtió en el sitio anunciado; si el oráculo se agota, no lo visitó. Resultado: desanonimización del historial de navegación — exactamente lo contrario de la promesa de la Privacy Sandbox — sin siquiera necesitar servir un anuncio troyanizado; basta que el usuario haya visto alguna vez un anuncio de DoubleClick. Bonus: sitios como YouTube registran destinos como <code>user436576.site</code> — las plataformas están aprovechando el campo destino para meter identificadores de usuario, el patrón clásico de abuse de esquema cuando el protocolo no soporta lo que quieres hacer.</p>
+<p><strong>3. Fuga de la Shared Storage API vía workloads inseguros.</strong> La Shared Storage guarda en el navegador datos como "es amante de los gatos" o "comprador de vivienda" y — por diseño — nunca se pueden leer directamente: solo se accede a través de worklets/módulos con un output gate (inspirado en confidential computing: el dato privado entra, solo sale el resultado de la función, p. ej. la URL seleccionada) y fenced frames aún más opacos que los iframes. Pero existe una función opt-in de workloads cross-origin: el origen que escribió el dato permite que otros orígenes carguen el módulo que lo lee — y "opt-in" significa "asegúrate de que tu script es seguro", una escopeta cargada. Ejemplo real: el workload de <code>fledge.crytio.com</code> (plataforma Crytio, aparentemente experimental) usaba shared storage para el valor de población de un test A/B del usuario y seleccionaba la URL publicitaria por coincidencia <code>ends-with</code> contra una lista de URLs. Un atacante puede cargar ese workload cross-origin, pasarle URLs candidatas con un fragmento distinto por cada valor posible de la población, y deducir el valor privado por cuál URL se seleccionó — fuga del dato de cohorte que la API jamás debería entregar.</p>
+<p>El balance final de Lim: el ad tech que preserva la privacidad es difícil de diseñar — el equipo de la Privacy Sandbox puso esfuerzo genuino — pero es un oxímoron; al satisfacer a marketers, plataformas y anunciantes a la vez, algo cede, y cede en forma de escape hatches explotables. La superficie sigue grande e inexplorada: quedan la Topics API, la Protected Audience API, la Private Aggregation API (sin fuzzing aún), el servicio de agregación en TEEs y el propio proceso de enrollment con attestations por claves públicas. Su llamado: investiguen el ad tech — ocupa gran parte de internet y es mucho más interesante de lo que parece. Publicará el white paper en su sitio; también firmaba libros al día siguiente con No Starch Press.</p>
+<h2>Conclusiones</h2>
+<ul>
+<li>La Privacy Sandbox de Google sigue viva y desplegada (Chrome, Edge y todo el ecosistema Chromium) aunque Google cancelara la eliminación de las third-party cookies: sus APIs siguen procesando publicidad a escala global.</li>
+<li>El patrón central del fallo: una tecnología que intenta satisfacer a la vez a marketers, plataformas y privacidad genera "escape hatches" — y cada escape hatch (debug reports, múltiples destinos, workloads cross-origin) es una vía de subversión.</li>
+<li>Los debug reports "transicionales" son permanentes en la práctica y filtran el sitio de nivel superior aunque la página pida <code>no-referrer</code>: protecciones legacy como SafeFrame quedan subvertidas; un anuncio troyanizado con cabeceras malformadas desanonimiza a cada espectador.</li>
+<li>Comprar dominios de debugging inyectados por la propia plataforma (DoubleClick inyectaba <code>debugconversiondomain1.com</code> y <code>debugconversiondomain2.com</code> en todos sus anuncios sin haberlos registrado) convierte un bug en control total del canal: fraude de clics y, vía el límite no documentado de 1.000 reportes por destino, un oráculo booleano que reconstruye el historial de navegación del usuario sin servir anuncios manipulados.</li>
+<li>Las plataformas ya abusan del campo destino para inyectar identificadores de usuario (el <code>user436576.site</code> de YouTube): donde el esquema no soporta lo que se quiere hacer, se usa igual.</li>
+<li>La Shared Storage nunca debería exponer sus valores, pero el opt-in de workloads cross-origin convierte cualquier implementación descuidada en una fuga: deducir el dato privado enumerando las URLs que el output gate puede seleccionar.</li>
+<li>Para quién investiga: quedan abiertos la Topics API, Protected Audience, Private Aggregation, el fuzzing de estas APIs, el servicio de agregación "TEE" que cada plataforma corre en su propia nube, y el bypass del enrollment con attestations.</li>
+<li>La conclusión de fondo: el ad tech que preserva la privacidad es un oxímoron; y el ad tech en general — gran parte del internet actual — es una superficie de investigación enorme y casi virgen.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/-oaH8XE_yMQ">«DEF CON 33 - Escaping the Privacy Sandbox: Client-side De-anonymization Attacks - Eugene Lim»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

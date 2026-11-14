@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLMs, RAG y agentes: IA generativa aplicada a ciberseguridad sin vender humo — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">LLMs, RAG y agentes: IA generativa aplicada a ciberseguridad sin vender humo</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/3mcQKjvBPdw">«GenAI For Cybersecurity - Lautaro Pinilla - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/3mcQKjvBPdw">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 3mcQKjvBPdw · <strong>URL:</strong> https://youtu.be/3mcQKjvBPdw · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> GenAI For Cybersecurity - Lautaro Pinilla - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando todos ofrecen "inteligencia artificial" para el caso de uso, conviene entender qué hay adentro antes de firmar. Este artículo desarmamos lo esencial de cómo funcionan los modelos de lenguaje —tokenización, embeddings, fine tuning— y de sus limitaciones reales (alucinaciones, sesgos, costos de hardware), para después construir dos casos de uso que funcionan hoy, con herramientas gratuitas y sin dependencia de un proveedor: responder preguntas sobre documentación interna con <strong>RAG</strong> (Retrieval Augmented Generation) y asistir la respuesta a incidentes con un <strong>agente</strong> que consulta los endpoints del EDR/XDR. Cerramos con la lección de seguridad más importante: cuidado con el <strong>Excessive Agency</strong> — darle demasiado poder de acción a un modelo que a veces no entiende.</p>
+<h2>Qué hace realmente un modelo de lenguaje</h2>
+<p>El truco es sorprendentemente simple: el modelo <strong>predice la siguiente palabra</strong>. A grandes rasgos, eso es todo. Lo demás son capas de ingeniería alrededor de esa predicción:</p>
+<ul>
+<li><strong>Tokenización</strong>: la frase se divide en unidades mínimas llamadas tokens, con reglas propias que no siguen la lógica humana (por ejemplo, dos signos de exclamación pueden ser un token y un signo suelto, otro).</li>
+<li><strong>Embeddings</strong>: cada token se convierte en un vector de muchas dimensiones (1024, 2048...), y el conjunto forma una matriz.</li>
+<li><strong>Álgebra semántica</strong>: lo loco aparece al operar con esos vectores. El embedding de "reina" menos el de "rey" dibuja una flecha parecida a la de "mujer" menos "hombre": hay una "dirección" hacia la feminidad y otra hacia la realeza. Sumar "mujer" + "corona" correlaciona con "reina". Solo por adivinar la siguiente palabra, el modelo termina capturando correlaciones, contexto y semántica.</li>
+</ul>
+<p>Sobre esa base, el <strong>fine tuning</strong> especializa un modelo genérico en un propósito concreto: se sacrifica un poco del conocimiento general (¿realmente necesita saber de biología un asesor financiero?) a cambio de profundidad en el dominio. El costo: sets de datos grandes y entrenamiento caro — aunque las GPUs mejoran, todo el mundo quiere entrenar, y el precio no baja tan rápido.</p>
+<h2>Lo que todavía no sabe hacer</h2>
+<p>Antes de meter IA en una decisión importante conviene recordar sus límites:</p>
+<ul>
+<li><strong>Falta de entendimiento</strong>: preguntar cuántas letras "r" tiene la palabra "strawberry" sigue siendo un challenge que los modelos fallan. No es casualidad: el modelo predice, no entiende. Algunos lo llaman <strong>loro estocástico</strong>: repite frases bien formadas sin comprender lo que dice, igual que un loro que dice "quiero una galletita" sin saber qué es una galletita.</li>
+<li><strong>Alucinaciones</strong>: si no sabe bien cómo conectar los puntos, agarra otro camino y puede responder cualquier cosa con total seguridad.</li>
+<li><strong>Sesgos</strong>: pedirle a un chat que actúe como asesor de autos y recomiende el mejor modelo deja una duda incómoda: ¿cómo saber que una empresa de autos no pagó un poquito más para que recomiende el suyo? Es una caja negra. Un experimento curioso lo muestra: pedir a los chats un número entero del 1 al 100 devuelve una distribución claramente no uniforme, con el <strong>42</strong> como favorito, vaya uno a saber por qué. Al usar IA para tomar decisiones, este sesgo invisible hay que tenerlo en cuenta.</li>
+<li><strong>Hardware</strong>: la GPU de 2 GB de RAM no alcanza. Hay mucho trabajo para correr modelos en CPU o incluso en Raspberry Pi, pero el cómputo especializado es un costo aparte.</li>
+</ul>
+<p>La referencia obligada es la guía de seguridad de LLMs de <strong>OWASP</strong>, de la que el punto más relevante para lo que viene es el <strong>Excessive Agency</strong>.</p>
+<h2>Caso de uso 1: RAG sobre la documentación interna</h2>
+<p>El primer caso salva tiempo de verdad: responder preguntas sobre procesos internos. ¿En qué documento de los 74 que confeccionamos para la certificación ISO está el procedimiento de creación de cuentas de cloud? ¿Tengo un procedimiento para esto? ¿Qué evidencia hay para tal proceso? En lenguaje natural, con la fuente incluida.</p>
+<p>La mecánica es <strong>RAG</strong> — Retrieval (busco algo), Augmented (le agrego la salsa del modelo), Generation (un LLM genera la respuesta) — y el cambio de paradigma respecto de la búsqueda clásica: no se busca por palabras clave, se busca <strong>por contexto</strong>.</p>
+<pre class="mermaid">
+flowchart LR
+    A[Documentos<br/>PDF / código / videos] --> B[Chunking<br/>y embeddings]
+    B --> C[(Base de datos<br/>vectorial)]
+    D[Consulta del usuario] --> E[Embedding de<br/>la consulta]
+    C --> F[Embeddings cercanos<br/>como contexto]
+    E --> F
+    F --> G[LLM + prompt<br/>de sistema]
+    G --> H[Respuesta<br/>con fuente]
+
+</pre>
+
+<p>El flujo tiene dos mitades. Para <strong>guardar</strong>: se cargan los documentos (PDFs, imágenes, audios, código — si se puede guardar un embedding, vale; hasta un DataFrame de Python o una base de datos, que el modelo puede traducir a SQL), se parten en trozos (una página a la vez de un PDF de 150 páginas), se generan embeddings y se almacenan en una base de datos vectorial — AlloyDB de Google, VectorDB, o el plugin de vectores de PostgreSQL. Para <strong>consultar</strong>: la pregunta se convierte en embedding, se recuperan los vectores cercanos, y todo eso más el prompt (que puede exigir español, tono formal, nivel técnico) se le da al LLM.</p>
+<p>Tres formas de implementarlo, de más a menos manual:</p>
+<ol>
+<li><strong>A mano</strong>: Python con LangChain y una base vectorial local en Docker (por ejemplo Weaviate), usando Ollama como modelo — y si sos fan de Gemini o de ChatGPT, cambiás el modelo y listo, no es el problema.</li>
+<li><strong>NotebookLM</strong> de Google: le das documentos, código, un blog o un video de YouTube de dos horas, y Google hace todo el pipeline por atrás, con límite de 50 fuentes. El detalle valioso: <strong>no inventa</strong> — busca en las fuentes dónde está y responde a partir de eso, citando página y con vínculo a la fuente real. "En la clase dos vimos tal concepto" es un profesor que no alucina tanto.</li>
+<li><strong>Full cloud native</strong>: funciones lambda que se activan al subir un archivo a un bucket, lo parten en embeddings y lo guardan en la base vectorial del proveedor.</li>
+</ol>
+<h2>Caso de uso 2: un agente que chatea con tus herramientas de seguridad</h2>
+<p>El segundo caso es más ambicioso: chatear con los equipos de seguridad. En un chat de Telegram, preguntar "mirá todas las alertas y decime cuál es la más importante" — y que por atrás alguien haga los requests HTTP hacia los endpoints del EDR, del XDR, del CIEM, y traiga la respuesta: "la alerta más importante es la de tal equipo, con un score de 60". Lo notable: nadie le dijo que un score alto es más peligroso. Al ver el JSON con el campo score, el modelo lo dedujo por contexto. Eso es útil, y también es un riesgo.</p>
+<p>¿Qué es un agente? Un LLM más herramientas. La acción más básica es un request HTTP (GET, POST), y con eso ya se hace la mayoría de las cosas; se le pueden sumar consultas a bases de datos o un <strong>toolbox</strong> de herramientas agrupadas. También puede tener <strong>memoria</strong>, para entender el hilo de la conversación en vez de recalcular todo cada vez.</p>
+<p>La implementación de referencia usa <strong>n8n</strong>, donde cinco cajitas ya son un agente:</p>
+<ul>
+<li><strong>Trigger</strong>: cuando llega un mensaje de chat.</li>
+<li><strong>Modelo</strong>: Google Gemini (en su momento con llamadas gratuitas) — o el que sea.</li>
+<li><strong>Dos herramientas</strong>: <code>Get Alerts</code> (todas las alertas) y <code>Get Alert Details</code> (el detalle de una alerta), cada una un request HTTP al endpoint del EDR/XDR, con un poco de código para tunear la respuesta: eliminar campos que no sirven, filtrar, hacer otra llamada.</li>
+</ul>
+<p>Detalle importante: <strong>cada herramienta necesita su propio prompt</strong>. Hay que decirle al modelo qué hace la herramienta, qué devuelve, en qué formato y cuándo puede llamarla ("esto te da todas las alertas en JSON, llamable de lunes a viernes"). Sin ese contexto, el modelo no sabe cuándo usar cuál. Es prompt engineering doble: sobre el modelo y sobre cada herramienta.</p>
+<p>La prueba de estrés: dos herramientas con <strong>endpoints distintos</strong>, donde una devuelve ID, score y título de la alerta, y la otra — dándole el ID como parámetro — devuelve hostname y último usuario. La tarea: "elegí la alerta de mayor score y decime en qué hostname fue". El agente tuvo que encadenar: llamar a una herramienta, agarrar el ID, ir a la otra con ese ID, y componer una oración final. Funcionó.</p>
+<p>Pero no todo es rosa, y el experimento lo mostró a propósito:</p>
+<pre class="mermaid">
+flowchart LR
+    A[Mensaje de chat] --> B[LLM calcula<br/>un plan]
+    B --> C[Ejecuta paso 1<br/>llama herramienta]
+    C --> D{¿Entendió<br/>la salida?}
+    D -- no --> E[Llama de vuelta<br/>a la herramienta]
+    E --> C
+    D -- sí --> F[Siguiente paso]
+    F --> B
+    B --> G[Respuesta final]
+
+</pre>
+
+<p>El plan tenía cinco pasos. Los logs mostraron <strong>muchísimas más llamadas al modelo</strong>: a veces calculó mal, no entendió la respuesta, y llamó de vuelta a las herramientas. Cada logo es una llamada a la API — si esto es pago, la factura crece rápido. Las causas probables: falta de memoria, o falta de prompt engineering en las herramientas o en el modelo. Los remedios son los mismos: mejorar los prompts o cambiar de modelo — sabiendo que cambiar de modelo implica rehacer el prompt engineering, porque no funciona igual.</p>
+<h2>El límite que importa: Excessive Agency</h2>
+<p>La pregunta que se hace todo el mundo: ¿y si el agente no solo consulta, sino que <strong>actúa</strong>? Que reciba por webhook una alerta y decida solo: ¿aislo la máquina? ¿Corro el antivirus? ¿Desinstalo todo?</p>
+<p>Técnicamente se puede hoy: es una llamada a API más dentro del prompt. Pero eso es entregarle mucho poder a un modelo que a veces no entiende — el <strong>Excessive Agency</strong> de OWASP. El enfoque sensato es acotarlo: que el agente haga todo lo <strong>pasivo</strong> — obtener métricas, correr el antivirus, armar el contexto ("a este host le hice esto, esto y esto") — y que ahí entre el humano a decidir si bloquea o no.</p>
+<p>El siguiente nivel son los <strong>equipos de agentes</strong> (frameworks como CrewAI): varios LLMs con roles distintos — director de marketing, de producto, de finanzas — cada uno con sus herramientas, resolviendo un objetivo común y pasándose resultados entre sí. Potente, y con todos los riesgos anteriores multiplicados.</p>
+<h2>Privacidad: correr todo local</h2>
+<p>La pregunta de la audiencia obligada: en una organización real donde las alertas no pueden salir, ¿cómo se logra lo mismo? Dos caminos:</p>
+<ul>
+<li><strong>Plan business</strong> de los proveedores cloud, con garantía de no entrenar con tus datos y privacidad. Si te convence, bien.</li>
+<li><strong>Modelos open source corriendo local</strong>: con Ollama u otras herramientas se baja el modelo ya pre-entrenado (incluso con fine tuning de idioma), elegido según la RAM y recursos disponibles, y se corre en un servidor interno. Todo el cómputo y el almacenamiento son propios; nada escapa a terceros. La contrapartida: la misma máquina tiene que tener capacidad para la base de datos vectorial, el modelo y todo junto.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li><strong>Entender el mecanismo desarma el humo</strong>: un LLM predice la siguiente palabra y, de ahí, captura semántica y contexto en embeddings. Saberlo ayuda a anticipar sus fallas (contar letras, alucinar, sesgos invisibles como elegir 42) y a no tomar decisiones de negocio asumiendo que "entiende".</li>
+<li><strong>RAG convierte documentación dispersa en respuestas con fuente</strong>: buscado por contexto (embeddings) en lugar de palabras clave, y citando la página o el minuto exacto. Con NotebookLM es plug and play; con LangChain + base vectorial local + Ollama es totalmente propio.</li>
+<li><strong>Un agente es LLM + herramientas + prompts</strong>: con n8n y dos herramientas HTTP se arma un asistente de respuesta a incidentes que consulta el EDR/XDR y encadena llamadas para componer respuestas. Pero cada herramienta necesita su prompt, y las llamadas de más salen caras si el modelo es pago.</li>
+<li><strong>El Excessive Agency es el riesgo principal</strong>: delegar acciones destructivas (aislar hosts, desplegar respuesta automática) a un modelo es un llamado a API de distancia. Que el agente haga lo pasivo y el humano decida lo irreversible.</li>
+<li><strong>La privacidad tiene solución local</strong>: modelos open source vía Ollama en servidores propios dan el mismo resultado sin que las alertas salgan de la organización.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/3mcQKjvBPdw">«GenAI For Cybersecurity - Lautaro Pinilla - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

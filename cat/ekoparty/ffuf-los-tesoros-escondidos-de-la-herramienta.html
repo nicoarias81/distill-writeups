@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FFUF: los tesoros escondidos de la herramienta — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">FFUF: los tesoros escondidos de la herramienta</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/GaQsDuCRg2Y">«ffuf - Fantastic Features Used by Few - Joohoi - Ekoparty 2024»</a> · ver el <a class="nz-link" href="https://youtu.be/GaQsDuCRg2Y">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> GaQsDuCRg2Y · <strong>URL:</strong> https://youtu.be/GaQsDuCRg2Y · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> ffuf - Fantastic Features Used by Few - Joohoi - Ekoparty 2024</li>
+</ul>
+<h2>Resumen</h2>
+<p>Joona Hoikkala (handle @joohoi, head of security testing en Visma y autor de buena parte del código de ffuf) dedicó una lightning talk a las funcionalidades poco conocidas de la herramienta. La premisa: casi todo el mundo usa ffuf para content discovery, fuzzing de APIs o enumeración de virtual hosts, pero el nivel siguiente está en combinar funciones que casi nadie conoce —algunas ni siquiera documentadas hasta esta presentación—. Seis gemas, una tras otra, con demos en vivo.</p>
+<h2>Las seis gemas</h2>
+<h3>1. Replay proxy</h3>
+<p>Cada match que ffuf encuentra se reenvía a un proxy (Burp, ZAP, Caido). Un flag (<code>-replay-proxy</code>) y cada resultado aparece al instante en el repeater para investigarlo a mano. La variante potente no es de la herramienta sino de uso: <strong>SSH reverse port forwarding</strong>. Se hace la conexión SSH al VPS y se reenvía el puerto local de Burp (8080) a un puerto remoto (8282); ffuf corre en el VPS con <code>replay-proxy</code> apuntando a 8282, y los matches aparecen en el Burp local. Resultado: aunque la conexión de internet local sea mala, se aprovecha el ancho de banda del VPS para escaneos grandes sin perder la visibilidad local.</p>
+<h3>2. Payload encoder</h3>
+<p>Un año en el código, documentado solo en un pull request cerrado del repositorio: se puede encodar cada entrada de la wordlist al vuelo con <code>-enc Word:b64encode</code>, y <strong>encadenar transformaciones</strong> (mayúsculas primero, Base64 después). Hay una herramienta standalone con la misma lógica: PEMCode, en github.com/ffuf/pemcode.</p>
+<h3>3. FFUF hash</h3>
+<p>Otra keyword que se puede insertar en cualquier posición del request: genera un hash único por payload o combinación de payloads. Pensada para <strong>out-of-band</strong>: se apunta a un subdominio de Burp Collaborator (o InteractSH, o DNS propio) con el hash adelante, se fuzzea, y cuando el callback llegue —minutos, días, semanas, incluso años después— el hash revela exactamente qué request lo disparó.</p>
+<p>El detalle técnico fino: ffuf no guarda los requests salientes (llenaría el disco). Guarda la configuración de la ejecución, y el hash incluye la posición del payload dentro de esa configuración. Al buscar el hash, ffuf reabre la wordlist desde su ubicación original y <strong>reconstruye el request exacto</strong> de hace un año, sin llenar el disco duro. La contrapartida: la wordlist tiene que seguir en su lugar original.</p>
+<h3>4. Scraper</h3>
+<p>Extracción de datos de las respuestas con selectores tipo jQuery o regex, definidos en archivos JSON agrupados por nombre (en macOS: <code>~/Library/Application Support/ffuf/scraper/</code>; en Linux: <code>~/.config/ffuf/scraper/</code>). Con <code>only_match: true</code> scrapea solo cuando ffuf ya matcheó; con <code>false</code>, actúa como <strong>librería de vulnerabilidades propia</strong>: si el fingerprint de una librería vulnerable aparece —aunque venga en un 404 filtrado por defecto— el resultado se entrega igual. Los archivos pueden marcarse <code>active: true</code> para estar siempre activos sin flags en la línea de comandos, y cada grupo admite tantas reglas como se quiera.</p>
+<h3>5. FFUFRC</h3>
+<p>El archivo de configuración por defecto: cualquier flag se puede pre-cargar. La demo práctica: cambiar el user agent (por defecto <code>ffuf/v1.x</code>, con lo que los WAF lo detectan al instante) por el de un navegador real. Mismo escaneo, misma wordlist, mismos sitios: los títulos que antes devolvían páginas de Cloudflare y de un WAF aparecen limpios.</p>
+<h3>6. JSON output + jq</h3>
+<p><code>-json -s</code> produce JSON lines (un objeto por línea, sin banner ni barra de progreso): salida para computadoras, no para humanos. Combinado con jq se arma una cadena de automatización que extrae cualquier campo —títulos HTML, resultados de scraper— del flujo de ffuf.</p>
+<pre class="mermaid">
+flowchart LR
+    A[ffuf en VPS] -- SSH reverse forward --> B[Burp local]
+    A -- -json -s --> C[jq]
+    C --> D[Automatización]
+    A -- FFUF hash --> E[OOB: Collaborator / InteractSH]
+    E -- callback + hash --> F[Reconstrucción del request original]
+
+</pre>
+
+<h2>Conclusiones</h2>
+<ul>
+<li>Las funciones más potentes de ffuf no están en la superficie: replay proxy, encoder, hash, scraper y RC convierten un fuzzer en el centro de una cadena de trabajo completa.</li>
+<li>El patrón recurring es el mismo: ffuf genera datos estructurados y el resto de la cadena (Burp, jq, scripts) los consume.</li>
+<li>La lección de infraestructura importa tanto como la herramienta: correr ffuf donde hay ancho de banda y traer los resultados a donde hay contexto, con un túnel SSH invertido, resuelve el cuello de botella más común del fuzzing remoto.</li>
+<li>La documentación incompleta se arregla en público: el encoder y el scraper existían sin documentación y esta presentación fue su primera exposición formal.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/GaQsDuCRg2Y">«ffuf - Fantastic Features Used by Few - Joohoi - Ekoparty 2024»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

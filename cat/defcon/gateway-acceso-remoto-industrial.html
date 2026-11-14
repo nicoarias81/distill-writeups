@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cerrajería industrial: cómo un gateway de acceso remoto "seguro" cayó en cadena — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Cerrajería industrial: cómo un gateway de acceso remoto "seguro" cayó en cadena</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/fc6c2hP86Wk">«DEF CON 32 - Unlocking the Gates  Hacking a secure Industrial Remote Access Solution - Moritz Abrell»</a> · ver el <a class="nz-link" href="https://youtu.be/fc6c2hP86Wk">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> fc6c2hP86Wk · <strong>URL:</strong> https://youtu.be/fc6c2hP86Wk · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Unlocking the Gates  Hacking a secure Industrial Remote Access Solution - Moritz Abrell</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las soluciones de acceso remoto industrial son el cordón umbilical entre los técnicos de mantenimiento y las plantas: un dispositivo de la red industrial abre un túnel VPN hacia un servidor del fabricante, y el técnico se conecta desde fuera a través de ese túnel. Comprometer ese puente significa tocar energía, plantas industriales, plataformas petroleras y demás infraestructura crítica.</p>
+<p>El objetivo del análisis fue el Ewon Cosy+ de HMS, un gateway usado a gran escala —el fabricante declara más de medio millón de dispositivos conectados— y vendido como seguro por diseño: hardware security module con root of trust, certificados individuales, secure boot y un certificado de auditoría independiente publicado en la web del fabricante. Con ficheros de firmware cifrados, el enfoque fue puramente black box sobre el software expuesto.</p>
+<p>El resultado fue una cadena completa: de un XSS persistente a root en el dispositivo, de root a la descifrado de contraseñas y firmware, y de ahí a la suplantación de certificados que permitía secuestrar sesiones VPN de dispositivos ajenos —con más de 500.000 equipos potencialmente afectables—. El fabricante parcheó el backend de inmediato y publicó firmware corregido.</p>
+<h2>De fichero OpenVPN a shell root</h2>
+<p>El primer vector fue sorprendentemente directo: el dispositivo acepta subir configuraciones OpenVPN personalizadas, y OpenVPN admite ejecutar comandos con el parámetro <code>up</code>. El parámetro estaba en una lista negra, pero el filtro se burló duplicando los guiones —<code>--up</code>— sin romper la semántica del parámetro. Con una configuración que incluía una reverse shell, el comando se ejecutó con privilegios root.</p>
+<p>La condición es tener acceso administrativo al gateway, así que hacía falta un vector previo de escalada hacia el panel. Se encontró en un XSS persistente originado en los intentos de login FTP: las credenciales fallidas quedan registradas y, cuando un administrador visita la página de logs, el JavaScript inyectado se ejecuta en su navegador. Para colmo, la cookie de sesión contenía la contraseña administrativa en texto plano, simplemente codificada en base64. El problema del plaintext en cookies ya se había reportado en 2015 para un dispositivo similar del mismo fabricante.</p>
+<pre class="mermaid">
+flowchart TD
+    A[Intento de login FTP con JavaScript inyectado] --> B[Administrador visita la página de logs]
+    B --> C[El navegador carga el JS del atacante]
+    C --> D[La cookie expone la contraseña admin en base64]
+    D --> E[Subida de configuración OpenVPN maliciosa]
+    E --> F[Ejecución de comandos con --up y reverse shell root]
+
+</pre>
+
+<h2>Criptografía a medias: contraseñas y firmware descifrados</h2>
+<p>Con root en el dispositivo llegó la pregunta clave: ¿se podían descifrar los datos sensibles? Las contraseñas de los ficheros de configuración se cifraban con funciones OpenSSL bien conocidas, y la clave y el IV estaban incrustados en la sección de datos de solo lectura de un binario ARM. Reimplementando el algoritmo, cualquier contraseña cifrada se vuelve legible.</p>
+<p>El firmware de actualización usaba una protección mayor: el hardware security module, un EdgeLock de NXP. Analizar el bus I2C pasivamente mostró que los comandos APDU viajaban en claro pero el payload iba cifrado, así que espiar la conexión física no servía. Intentar extraer claves directamente con el middleware Plug &amp; Trust tampoco funcionó: las políticas del HSM estaban bien configuradas.</p>
+<p>La vía fue reconstruir el proceso de descifrado desde el firmware mismo: se leen 4 bytes de una memoria flash sin cifrar que indican la longitud del bloque siguiente, ese bloque se descifra con el módulo criptográfico del i.MX6, y de ahí se derivan claves de sesión AES-CBC para la comunicación. Para las actualizaciones: el fichero contiene un tipo de clave, una clave e IV cifrados que el HSM descifra, y un script bash cifrado que se desencripta con esa clave en claro; el script extrae y descifra cada parte del firmware. Consecuencia: cada versión de firmware tiene su propia clave, pero un dispositivo rooteado puede descifrarla y, con ella, todo el paquete de actualización —incluido el sistema de ficheros raíz—.</p>
+<h2>El golpe final: certificados firmados para dispositivos ajenos</h2>
+<p>La comunicación con el backend del fabricante usa TLS con autenticación mutua. Instalar un proxy TLS exige que el gateway confíe en el certificado del analista —trivial, el trust store está incrustado— y que el backend confíe en el certificado cliente. Este último resultó inalcanzable: la ruta a la clave privada estaba incrustada, pero el fichero contenía una "reference key", un puntero a la clave real guardada dentro del HSM.</p>
+<p>La solución fue usar la configuración de OpenSSL que referencia un engine que implementa el HSM: con ella, herramientas conscientes de OpenSSL como curl podían hablar con el backend desde el propio dispositivo. Sin la clave privada exportable no hay proxy posible, así que el análisis se hizo por reconstrucción: interceptar una petición del dispositivo, repetirla con curl, capturar la respuesta, reimplementarla en un servidor propio y avanzar a la siguiente petición.</p>
+<p>Así se mapearon los endpoints y apareció el flanco letal: durante la asignación de cuenta, el dispositivo genera una certificate signing request, el servidor del fabricante la firma, y el certificado firmado —que contiene el número de serie del dispositivo— se usa para autenticarse ante el servidor VPN. El número de serie dentro del certificado es lo que asigna la sesión VPN a una cuenta.</p>
+<p>La pregunta era obvia: ¿se puede obtener un certificado firmado con el número de serie de otro dispositivo? Con un serial proporcionado por el propio fabricante para la prueba, la CSR se generó con ese serial ajeno y se envió desde el dispositivo rooteado. La petición fue aceptada y el certificado se usó para abrir una sesión VPN en nombre del dispositivo del laboratorio del fabricante.</p>
+<h2>Impacto: medio millón de puertas que se pueden cerrar de golpe</h2>
+<p>El secuestro de sesión VPN tiene un efecto en cascada demoledor:</p>
+<ul>
+<li>La sesión VPN del dispositivo original se sobrescribe y queda inaccesible.</li>
+<li>Cualquier usuario que intente conectar a ese número de serie es redirigido —sin darse cuenta— al atacante.</li>
+<li>Por la ausencia de restricciones de red dentro del túnel, el atacante accede a todos los servicios del cliente conectado: escritorio remoto, PLCs, autenticación, carga de programas secretos.</li>
+<li>El atacante puede imitar la infraestructura original y espiar datos sensibles.</li>
+</ul>
+<p>Y como los números de serie son enumerables en la práctica, el ataque es escalable: la capacidad de desconectar y suplantar dispositivos alcanza a más de medio millón de instalaciones de todo el mundo. El fabricante parcheó el backend de inmediato —ya no es posible obtener certificados para seriales ajenos— y publicó una versión de firmware corregida.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>Ewon Cosy+ (HMS)</strong>: gateway de acceso remoto industrial, objetivo del análisis por su base instalada y sus declaraciones de seguridad.</li>
+<li><strong>OpenVPN <code>up</code> / <code>--up</code></strong>: parámetro de ejecución de comandos; el doble guion burló la lista negra del dispositivo.</li>
+<li><strong>XSS persistente vía logs FTP</strong>: inyección de JavaScript que se ejecuta cuando el administrador revisa la página de logs.</li>
+<li><strong>Cookie con contraseña en base64</strong>: credencial administrativa expuesta en texto plano codificado.</li>
+<li><strong>EdgeLock (NXP)</strong> y <strong>Plug &amp; Trust</strong>: HSM y middleware; el HSM protege claves pero su flujo de derivación fue reconstruible.</li>
+<li><strong>i.MX6 CAAM</strong>: módulo criptográfico del SoC usado en la derivación de claves de sesión.</li>
+<li><strong>AES-CBC y OpenSSL</strong>: primitivas de cifrado con clave y IV incrustados en el binario ARM.</li>
+<li><strong>Reference key / OpenSSL engine</strong>: mecanismo por el que la clave privada vive solo en el HSM y solo es usable vía engine.</li>
+<li><strong>CSR con serial ajeno</strong>: certificado firmado por el backend con el número de serie de otro dispositivo; pivote del secuestro VPN.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las declaraciones de "seguro por diseño" —HSM, secure boot, auditoría externa— no eliminan la superficie de ataque del software expuesto: una lista negra eludible y un XSS bastaron para root.</li>
+<li>Obtener root en el gateway abre la puerta a descifrar contraseñas, claves de firmware y a manipular la identidad criptográfica del dispositivo; proteger solo las claves, no el flujo que las usa, es insuficiente.</li>
+<li>Un esquema de confianza basado en el número de serie firmado dentro del certificado, sin validar la procedencia de la CSR, permite suplantar dispositivos a escala industrial.</li>
+<li>Las soluciones de acceso remoto concentran un riesgo desproporcionado, especialmente cuando el backend corre en la nube o en manos de terceros: comprometerlas puede dejar inaccesibles plantas enteras y exponer a quienes conectan.</li>
+<li>Para investigadores: hallar el "initial foothold" correcto —aquí, un fichero de configuración subible— desbloquea vulnerabilidades que probablemente existan también en otras soluciones del sector.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/fc6c2hP86Wk">«DEF CON 32 - Unlocking the Gates  Hacking a secure Industrial Remote Access Solution - Moritz Abrell»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

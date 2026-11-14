@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rootkits que viven debajo del sistema operativo: detección en tablas ACPI — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../ekoparty.html">Ekoparty</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · Ekoparty</p>
+<h1 class="nz-h2">Rootkits que viven debajo del sistema operativo: detección en tablas ACPI</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/SIo_Q1jKhaE">«ACPI Rootkit Detection Tool - Manuel Gil Cernich - Ekoparty 2025»</a> · ver el <a class="nz-link" href="https://youtu.be/SIo_Q1jKhaE">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> SIo_Q1jKhaE · <strong>URL:</strong> https://youtu.be/SIo_Q1jKhaE · <strong>Conferencia:</strong> 02_ekoparty · <strong>Título original:</strong> ACPI Rootkit Detection Tool - Manuel Gil Cernich - Ekoparty 2025</li>
+</ul>
+<h2>Resumen</h2>
+<p>Cuando una máquina está comprometida, la mayoría de las herramientas de detección mira el sistema operativo: procesos, servicios, drivers, memoria. Pero existe una capa por debajo, donde el malware puede persistir incluso después de formatear el disco y reinstalar todo: las tablas ACPI, el mecanismo que el firmware le entrega al sistema operativo al arrancar y que contiene código ejecutable. Un rootkit que se esconde ahí sobrevive a la reinstalación del sistema, arranca antes que cualquier antivirus y opera con un nivel de privilegio que pocas soluciones de endpoint alcanzan a inspeccionar.</p>
+<p>La propuesta es una herramienta de detección de rootkits en ACPI, construida en Rust, que permite volcar las tablas del firmware, analizar su contenido y descubrir modificaciones maliciosas — desde hooks hasta código AML inyectado. El proyecto es open source y funciona tanto en Windows como en Linux, con acceso directo al firmware sin depender de herramientas del proveedor.</p>
+<p>Este artículo explica qué es ACPI, por qué es un vector de persistencia tan potente, cómo funciona la herramienta de detección y qué se puede hacer para auditar los propios equipos.</p>
+<h2>Qué es ACPI y por qué importa para la seguridad</h2>
+<p>ACPI (Advanced Configuration and Power Interface) es el estándar que define cómo el sistema operativo descubre y configura el hardware, y cómo gestiona la energía. No es un driver ni un módulo del kernel: son tablas de datos que el firmware (BIOS/UEFI) expone al arrancar, y que el sistema operativo consume casi sin cuestionarlas.</p>
+<p>El punto crítico es que dentro de esas tablas no solo hay datos: hay código. La especificación define AML (ACPI Machine Language), un bytecode que el kernel interpreta y ejecuta en contexto de kernel, con privilegios elevados. Ahí viven los métodos que controlan eventos de hardware, transiciones de estado de energía (S0, S3, S5), botones, térmica, batería. El sistema operativo confía ciegamente en este bytecode: nadie valida que lo que dice la tabla del fabricante sea lo mismo que la tabla que llega tras una actualización de BIOS, y menos aún que no tenga lógica maliciosa.</p>
+<p>Eso convierte a ACPI en un lugar perfecto para un rootkit: persistencia a nivel firmware, ejecución con privilegios de kernel antes de que el sistema operativo haga su primer análisis, y sobrevivencia a reinstalaciones. El antecedente más conocido es LoJax, el rootkit UEFI descubierto por ESET en 2018, que usaba un módulo malicioso en tablas ACPI para inyectar un agente en Windows en cada arranque.</p>
+<h2>Cómo funciona la herramienta de detección</h2>
+<p>La herramienta, escrita en Rust, recorre el flujo completo de análisis de ACPI. Primero localiza el RSDP (Root System Description Pointer) — en BIOS legacy buscando la firma en el área de memoria de la EBDA y en UEFI leyéndolo desde la configuración de EFI — y desde ahí navega la estructura de tablas: RSDT/XSDT, y las tablas que colgan de ellas (FADT, MADT, HPET, entre otras). El foco principal está en las DSDT y SSDT, que son las que contienen el AML ejecutable.</p>
+<p>Sobre esas tablas aplica varias estrategias de detección:</p>
+<ul>
+<li><strong>Validación de firmas y checksums</strong>: cada tabla ACPI lleva un checksum; un atacante que modifica una tabla y no recalcula bien el checksum deja una anomalía detectable.</li>
+<li><strong>Detección de métodos sospechosos</strong>: análisis del AML buscando patrones típicos de malware — operaciones con puertos de E/S, accesos a memoria física, operaciones sobre la región de la BIOS (WPR0 y similares), llamadas a métodos como <code>_PIC</code> o <code>\_SB</code> usados fuera de contexto, y firmas conocidas de rootkits públicos.</li>
+<li><strong>Comparación con referencias</strong>: contraste de las tablas volcadas contra versiones conocidas del fabricante del equipo, para detectar diferencias que no correspondan a una actualización legítima.</li>
+</ul>
+<pre class="mermaid">
+flowchart LR
+    A[Firmware / BIOS] -->|expone tablas| B[RSDP]
+    B --> C[XSDT / RSDT]
+    C --> D[DSDT y SSDT con AML]
+    D --> E{Análisis: checksums,
+firmas, patrones AML}
+    E -->|anomalía| F[Alerta de rootkit]
+    E -->|ok| G[Tablas limpias]
+
+</pre>
+
+<p>La salida es un reporte de las tablas encontradas con su contenido y las anomalías detectadas, lo que permite al analista decidir si lo que hay en la máquina es legítimo o fue tocado.</p>
+<h2>El vector de ataque: cómo se instala un rootkit ACPI</h2>
+<p>Para que un rootkit ACPI exista, alguien primero tiene que escribir en el firmware. Las vías típicas: explotación de vulnerabilidades en la actualización de BIOS (muchos vendors firman mal sus actualizadores o permiten flashear regiones protegidas), malware con privilegios de kernel que abusa de interfaces como <code>\_-WAK</code> o de primitivas de escritura en NVRAM, y en el peor caso, acceso físico al equipo. Una vez en el firmware, el atacante modifica la DSDT o inyecta una SSDT adicional con su código AML, recalcula los checksums y listo: el rootkit se ejecuta en cada arranque.</p>
+<p>De ahí la asimetría defensiva: para el atacante basta escribir una vez; para el defensor, la única forma confiable de verificar es volcar y analizar las tablas desde el propio sistema en ejecución — que es exactamente lo que hace la herramienta.</p>
+<h2>Técnicas y herramientas mencionadas</h2>
+<ul>
+<li><strong>ACPI</strong>: estándar de configuración y energía; define las tablas que el firmware entrega al sistema operativo al arrancar.</li>
+<li><strong>AML (ACPI Machine Language)</strong>: bytecode dentro de las tablas DSDT/SSDT que el kernel interpreta con privilegios elevados.</li>
+<li><strong>RSDP / XSDT / RSDT / FADT / MADT</strong>: estructura de tablas ACPI que la herramienta navega para llegar al código ejecutable.</li>
+<li><strong>LoJax</strong>: rootkit UEFI (ESET, 2018) que usó ACPI como vector de inyección en cada arranque de Windows.</li>
+<li><strong>Rust</strong>: lenguaje en el que está implementada la herramienta, disponible como proyecto open source.</li>
+<li><strong>UEFI / BIOS legacy</strong>: los dos modos de arranque en los que la herramienta localiza el RSDP.</li>
+</ul>
+<h2>Conclusiones</h2>
+<ul>
+<li>Las tablas ACPI son una superficie de persistencia que vive debajo del sistema operativo: un rootkit ahí sobrevive al formateo y arranca antes que cualquier defensa de endpoint.</li>
+<li>El punto débil estructural es la confianza: el kernel ejecuta el AML del firmware sin validarlo, así que la detección depende de herramientas que auditen las tablas activas.</li>
+<li>La herramienta de detección (open source, en Rust) permite volcar la estructura completa de tablas, validar checksums y buscar patrones AML de rootkits conocidos en Windows y Linux.</li>
+<li>Auditar el propio firmware debería ser parte del análisis forense de un equipo comprometido: si el disco está limpio pero el rootkit está en la DSDT, el incidente nunca terminó.</li>
+</ul>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/SIo_Q1jKhaE">«ACPI Rootkit Detection Tool - Manuel Gil Cernich - Ekoparty 2025»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

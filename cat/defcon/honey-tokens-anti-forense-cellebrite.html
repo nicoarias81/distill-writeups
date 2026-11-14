@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trampas para el forense: honey tokens que cifran el teléfono mientras lo extraen — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Trampas para el forense: honey tokens que cifran el teléfono mientras lo extraen</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/nUh9GVVhjD8">«DEF CON 33 - Countering Forensics Software by Baiting Them  -  Weihan Goh, Joseph Lim &amp; Isaac Soon»</a> · ver el <a class="nz-link" href="https://youtu.be/nUh9GVVhjD8">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> nUh9GVVhjD8 · <strong>URL:</strong> https://youtu.be/nUh9GVVhjD8 · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 33 - Countering Forensics Software by Baiting Them  -  Weihan Goh, Joseph Lim &amp; Isaac Soon</li>
+</ul>
+<h2>Resumen</h2>
+<p>El flujo de trabajo del análisis forense móvil asume algo demasiado tranquilo: una vez obtenido el acceso al dispositivo, la extracción —lógica o física— se ejecuta sin oposición y el analista se lleva todo lo que hay. Este trabajo demuestra lo contrario: con un honeypot de archivos señuelo y contramedidas de segunda capa en un Android modificado, un dispositivo puede detectar la extracción en curso y, en silencio, cifrar o destruir la información mientras las herramientas —Cellebrite UFED, Magnet Axiom y Belkasoft en las pruebas— siguen creyendo que están trabajando sobre datos intactos. Acceso obtenido no es evidencia obtenida: lo que ocurre <em>durante</em> la extracción puede no ser lo que nadie piensa.</p>
+<p>El trabajo es fruto de un equipo de la universidad de Singapur: dos estudiantes en el escenario y tres más detrás (Wilson, Aloysius y Junyu), dentro de un módulo de análisis forense digital que imparte el profesor que cierra la divulgación. La idea nace de una pregunta simple: ¿y si las contramedidas anti-forenses se desplegaran sin que el examinador se enterara de que está siendo jugado?</p>
+<h2>Por qué las contramedidas convencionales fallan</h2>
+<p>El panorama del análisis forense móvil ya es de por sí distinto del forense clásico: nada de bloqueadores de escritura; primero hay que ganar acceso al dispositivo —desbloquearlo o saltarse su seguridad— y recién después extraer datos. Ese supuesto (acceso → extracción → análisis → "y ya está") subyace al software forense mayoritario: UFED, Axiom, Belkasoft.</p>
+<p>La idea de second-layer countermeasures tampoco es nueva. La captura es conocida: Moxie Marlinspike prometió en su momento que si se usaba Cellebrite contra su teléfono móvil, atacaría a Cellebrite —y se cumplió—. Y la metáfora del tripwire viene de antes: la trampa camuflada en el pasto, la fosita de Vietnam; el mismo concepto traducido a dominio digital, con trabajos desde 2011 sobre cifrar datos sin que el analista forense siquiera sepa que hay cifrado.</p>
+<p>Lo convencional es frontal y, precisamente por eso, inútil: desactivar la depuración USB, vigilar la instalación de software forense y bloquear la conexión ADB al detectarla, o directamente matar el servicio forense cuando intenta instalarse un paquete. Cualquiera de estas medidas levanta banderas rojas obvias: el examinador ve que no puede usar ADB, que su servicio no arranca, cambia de táctica, sube el nivel de escrutinio, prueba enfoques avanzados... y al final se lleva igualmente los datos, porque nada de esto protege la información del dispositivo. La respuesta es invertir la lógica: dejar que el software forense entre, desbloquee y extraiga lo que quiera —y mientras tanto, en segundo plano, cifrar o destruir lo que importa—.</p>
+<h2>La codicia del examinador como superficie de ataque</h2>
+<p>El vector de explotación es un rasgo de diseño del propio software forense: donde el usuario normal de un teléfono usa una fracción del contenido —los datos que le interesan—, la herramienta forense intenta extraer todo lo que encuentra. Esa codicia convierte el sistema de archivos completo en superficie de detección: si hay archivos señuelo repartidos por ahí, cualquier adquisición masiva terminará tocando alguno.</p>
+<p>Los honey tokens son exactamente eso: pequeños archivos de cebo con información basura, desplegados en lo profundo de los directorios y ocultos dentro de directorios de nivel superior como Documents o Pictures. Como el usuario legítimo no los ve —están ocultos—, tampoco puede hacer clic sobre ellos por accidente. Se pueden desplegar manualmente o de forma programática, lo que resulta útil, por ejemplo, al instalarse una aplicación nueva: se vieron despliegues en el directorio de almacenamiento y en las imágenes, y otro automático al instalarse Telegram.</p>
+<p>El mecanismo de detección se apoya en un AOSP compilado a medida con una aplicación de sistema propia y en <code>inotifyd</code>: el comando del espacio de usuario construido sobre el subsistema inotify del kernel de Linux, que vigila eventos del sistema de archivos —creación, modificación y, lo más importante, lectura de archivos—. Forma parte de Toybox, incluido en Android 6 en adelante. Al ejecutar un simple <code>cat</code> sobre un archivo de texto, los eventos lo delatan todo: <code>r</code> de abierto, <code>a</code> de accedido, <code>0</code> de cerrado sin escritura. Con el tripwire armado, las contramedidas probadas fueron dos: cifrar los datos (un archivo con contraseñas deja de ser legible) y, la versión nuclear, el restablecimiento de fábrica del dispositivo mientras la herramienta forense extrae.</p>
+<h2>Las pruebas: tres herramientas, mismo desenlace</h2>
+<pre class="mermaid">
+sequenceDiagram
+    participant E as Examinador (UFED/Axiom/Belkasoft)
+    participant D as Dispositivo Android
+    Note over E,D: Honey tokens ocultos en Pictures, Documents y almacenamiento
+    E->>D: Acceso y extraccion (agente / MTP / ADB backup)
+    D->>D: inotifyd detecta lectura de un honey token
+    D->>D: Payload: cifrado de archivos o reset de fabrica
+    E->>E: Cree extraer todo; obtiene archivos cifrados o vacios
+
+</pre>
+
+<ul>
+<li><strong>Cellebrite UFED</strong> trabaja en tres etapas con valores por defecto. En la primera, carga un agente al dispositivo para extraer directamente registros de llamadas, contactos y SMS —acceso directo a esos datos, que aún no disparan nada—. En la segunda, de imágenes a archivos, la herramienta abre y lee imágenes del dispositivo; el honey token camuflado como imagen dentro de Pictures dispara el cifrado <em>antes</em> de que la extracción continúe. La tercera etapa usa ADB backup para arrastrar lo que pueda. Resultado: en la carpeta de extracción, los "archivos joya" (secretos.txt y su gemelo en un subdirectorio oculto) salen cifrados, y los contactos también, porque los honey tokens extraídos en la segunda etapa habían disparado el payload. Cualquier reanálisis posterior del dispositivo encuentra los datos cifrados.</li>
+<li><strong>Belkasoft</strong>, con la opción MTP para adquirir todos los archivos del sistema y del almacenamiento externo, empieza por el directorio superior del almacenamiento externo... y el primer archivo que descarga es un honey token, que dispara el cifrado; para cuando termina, todo está cifrado de nuevo, incluidos los archivos joya.</li>
+<li><strong>Magnet Axiom</strong>, con el mismo proceso MTP, cae por un matiz distinto: un archivo señuelo movido al directorio Documents y renombrado como archivo oculto. Los archivos joya salen cifrados igual, y la verificación se hizo doble: por un lado, adb logcat mostrando los eventos de inotify del servicio observador de archivos durante el proceso de cifrado de Axiom; por otro, volviendo a examinar el dispositivo directamente —datos cifrados, confirmado—.</li>
+</ul>
+<h2>Qué puede hacer el defensor</h2>
+<p>La prueba de concepto funciona vía MTP, pero la idea del tripwire es genérica: con suficiente empeño se pueden plantar señuelos contra otros protocolos de adquisición. Para el lado forense, las contramedidas sugeridas son cuatro:</p>
+<ul>
+<li><strong>Menos codicia, más selección.</strong> Adquisición selectiva en lugar de masiva. El problema inmediato: ¿qué significa "selectiva"? Responderlo exige entender qué técnicas anti-forenses pueden estar desplegadas y por qué.</li>
+<li><strong>Explotar las debilidades del mecanismo.</strong> El cifrado de Magnet necesita un archivo muy grande para ralentizar la extracción y ganar tiempo de cifrado. Si se sabe que eso está ocurriendo, se puede hacer algo al respecto.</li>
+<li><strong>Análisis frío del sistema.</strong> Chip-off, bootloader y otras técnicas offline evitan el sistema en caliente... aunque hoy es bastante más complicado de lo que era.</li>
+<li><strong>Conocer las herramientas.</strong> El punto que el investigador más subraya: un producto comprado no se usa en piloto automático. ¿Cuáles son sus limitaciones? ¿Cómo reacciona ante entornos modificados adversarialmente? Responderlo exige probar y verificar las herramientas activamente, no asumirlas.</li>
+</ul>
+<h2>Conclusiones</h2>
+<p>Hay poca investigación previa sobre cómo las herramientas forenses móviles manejan entornos modificados adversarialmente, y las pruebas mostraron que un Android puede ejecutar contramedidas de segunda capa sigilosas que comprometen la evidencia: los datos se manipulan o destruyen en silencio mientras la extracción está en curso. La conclusión incómoda para el gremio: los flujos de trabajo forenses de toda la vida quizá necesiten repensarse para contemplar estos entornos hostiles. Obtener acceso al dispositivo es solo el principio; lo que pasa después puede no ser lo que todos creen.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/nUh9GVVhjD8">«DEF CON 33 - Countering Forensics Software by Baiting Them  -  Weihan Goh, Joseph Lim &amp; Isaac Soon»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>

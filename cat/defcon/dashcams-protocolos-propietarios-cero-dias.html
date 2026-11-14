@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es" data-nz-theme="light" data-nz-marca="monocromo">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Protocolos propietarios en dashcams: cero días en la cámara del auto — distill</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/tokens.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/marcas/monocromo.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p1-layout.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p2-navigation.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p3-typography.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p4-actions.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p6-feedback.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p8-data.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/Ntizar/Aurora@v10/packs/p17-patrones.css">
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script>
+const mq = matchMedia('(prefers-color-scheme: dark)');
+const saved = localStorage.getItem('nz-theme');
+if (saved === 'dark' || saved === 'light') document.documentElement.dataset.nzTheme = saved;
+else if (mq.matches) document.documentElement.dataset.nzTheme = 'dark';
+mq.addEventListener('change', e => {
+  if (!localStorage.getItem('nz-theme')) document.documentElement.dataset.nzTheme = e.matches ? 'dark' : 'light';
+});
+function nzToggleTheme() {
+  const cur = document.documentElement.dataset.nzTheme === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.nzTheme = cur;
+  localStorage.setItem('nz-theme', cur);
+  if (window.nzAfterTheme) nzAfterTheme();
+}
+mermaid.initialize({ startOnLoad: false });
+mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+window.nzAfterTheme = async () => {
+  document.querySelectorAll('.mermaid').forEach(el => {
+    const code = el.getAttribute('data-src') || el.textContent;
+    el.setAttribute('data-src', code);
+    el.removeAttribute('data-processed');
+    el.textContent = code;
+  });
+  mermaid.initialize({ startOnLoad: false, theme: document.documentElement.dataset.nzTheme === 'dark' ? 'dark' : 'neutral' });
+  await mermaid.run({ querySelector: '.mermaid' });
+};
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.querySelector('.mermaid')) mermaid.run({ querySelector: '.mermaid' });
+});
+</script>
+<style>
+.nz-prose pre.mermaid { background: none; text-align: center; }
+</style>
+</head>
+<body class="nz">
+<div class="nz-navbar nz-navbar--compact nz-navbar--bordered">
+<span class="nz-navbar__brand"><i></i>Distill</span>
+<span class="nz-navbar__links">
+<a class="nz-navbar__link" href="../../index.html">Índice</a>
+<a class="nz-navbar__link" href="../defcon.html">DEF CON</a>
+<button class="nz-btn nz-btn--ghost nz-btn--sm" onclick="nzToggleTheme()" aria-label="Cambiar tema">◐</button>
+</span>
+</div>
+<main class="nz-container" style="padding-block: var(--nz-space-4)">
+<article class="nz-article">
+<header style="margin-bottom:var(--nz-space-4)">
+<p class="nz-eyebrow">Distill · DEF CON</p>
+<h1 class="nz-h2">Protocolos propietarios en dashcams: cero días en la cámara del auto</h1>
+<p class="nz-lbl nz-lbl--neutral">Fuente: <a class="nz-link" href="https://youtu.be/8e1vRFpP72w">«DEF CON 32 - Inside Dash Cam Custom Protocols and Discovered 0days - Hyo Jin Lee &amp; Hanryeol Park»</a> · ver el <a class="nz-link" href="https://youtu.be/8e1vRFpP72w">video original</a></p>
+</header>
+<div class="nz-prose">
+<ul>
+<li><strong>Video:</strong> 8e1vRFpP72w · <strong>URL:</strong> https://youtu.be/8e1vRFpP72w · <strong>Conferencia:</strong> 01_defcon · <strong>Título original:</strong> DEF CON 32 - Inside Dash Cam Custom Protocols and Discovered 0days - Hyo Jin Lee &amp; Hanryeol Park</li>
+</ul>
+<h2>Resumen</h2>
+<p>Las dashcams dejaron de ser grabadoras passive con tarjeta SD: hoy se conectan por Wi-Fi y Bluetooth al teléfono, por hotspot a Internet, y sincronizan con servicios en la nube. Esa conectividad —motor del crecimiento de un mercado global de cientos de millones de dólares— amplía también la superficie de ataque de un dispositivo que apunta la lente a la calle, la casa y las rutinas de su dueño. Con solo 3 CVEs públicas en los últimos 3 años para toda la categoría, el análisis de 9 dashcams comerciales (de Corea, China y otros orígenes, varias de ellas OEM —misma plataforma, distintas marcas—, lo que multiplica el alcance de cada hallazgo) destapó 8 debilidades clasificables por CWE: ejecución de scripts desde la SD, stack buffer overflow en el live view RTSP, inyección de comandos en la configuración y ataques de replay sin autenticación sobre los protocolos propietarios.</p>
+<h2>Anatomía de las conexiones de una dashcam</h2>
+<pre class="mermaid">
+flowchart LR
+    A[App móvil] -->|Bluetooth| B[Dashcam]
+    B -->|AP mode:<br>Wi-Fi propio| A
+    A -->|configura SSID<br>del hotspot| C[Teléfono hotspot]
+    B -->|Wi-Fi al hotspot| C
+    C -->|Internet| D[Servicio cloud]
+    A <-->|comandos vía cloud| D
+
+</pre>
+
+<p>Tres modos de enlace: emparejamiento directo por Bluetooth más Wi-Fi en modo AP de la propia cámara; configuración del hotspot del teléfono para que la cámara se una a Internet; y control remoto total a través del cloud del fabricante. Cada canal termina en los mismos binarios del firmware, y ahí está el problema.</p>
+<h2>Obtener el firmware: cuatro caminos, todos abiertos</h2>
+<p>El análisis partió de un objetivo básico: conseguir el firmware de cada dispositivo. Ningún fabricante lo pone difícil:</p>
+<ol>
+<li><strong>Descarga oficial</strong>: la mayoría publica los firmwares en su web para actualizaciones manuales.</li>
+<li><strong>UART/JTAG</strong>: 5 de 9 dispositivos exponían consola UART; en 4 se obtenía shell con contraseña, y en 1 con shell personalizada. Desde la shell, volcar el firmware a la tarjeta SD y llevarlo a la laptop.</li>
+<li><strong>Feature de actualización</strong>: analizar la petición de update captura la URL de descarga del paquete.</li>
+<li><strong>APK de la app</strong>: instalar la app en un emulador y extraer del directorio de instalación los binarios y librerías embebidas.</li>
+</ol>
+<p>Con el firmware en mano: extracción del sistema de archivos (binwalk y similares), port scanning con nmap (FTP, Telnet, DNS, HTTP, RPC y RTSP aparecen repetidamente abiertos) y análisis de los scripts de arranque (<code>/etc/init.d</code>, <code>/etc/rc.local</code>, configs de demonios) para mapear qué servicios corre el dispositivo y quién los habla.</p>
+<h2>Debugging en vivo: vencer al watchdog</h2>
+<p>Para entender los protocolos hacía falta depurar los binarios en ejecución. Los dispositivos traen GDB y busybox accesibles, pero el watchdog del sistema impide depurar tranquilamente: si el proceso principal se detiene, el hardware se reinicia. Tres técnicas para desactivarlo:</p>
+<ul>
+<li>Reutilizar una función del primer script de arranque que detiene el watchdog (por ejemplo, escribiendo los registros de test correspondientes), y a continuación ejecutar el resto de los scripts y enganchar GDB al binario principal.</li>
+<li>Interrumpir el script de arranque con Ctrl-G repetido, ejecutar código que mata al watchdog, y reanudar el arranque con el binario ya bajo GDB.</li>
+<li>Entrar al bootloader (ESC + F1 repetidos), modificar los boot arguments de la línea de kernel cambiando <code>init</code> por <code>/bin/sh</code> y añadiendo el parámetro <code>no_watchdog</code>, y ejecutar los scripts iniciales línea por línea a mano.</li>
+</ul>
+<p>Con el entorno estable, herramientas tipo Frida sobre los binarios y la app permitieron trazar paquetes en tiempo real y comparar el código de la app con el del firmware.</p>
+<h2>Los protocolos propietarios</h2>
+<p>6 de los 9 dispositivos hablan protocolos propios app↔cámara; 4 tienen interfaz web; 2 usan servicios cloud con comunicaciones cifradas (donde Frida sobre la app sirve para ver el texto plano). Los formatos caen en dos familias:</p>
+<ul>
+<li><strong>Binario/HEX</strong>: paquetes de 4 bytes de datos dummy, 2 bytes de número de comando y 4 bytes de parámetro (variante B), o 4 bytes de comando + 4 de largo + 4 de comando + 4 de parámetro (variante C).</li>
+<li><strong>JSON</strong>: un token generado al inicio de sesión, un message ID y los parámetros —el formato del vendor T, con una variante similar en el vendor H.</li>
+</ul>
+<p>Estructuras tan simples y sin autenticación real son la raíz de los hallazgos: cualquier proceso capaz de enviar un paquete al puerto correcto puede suplantar a la app.</p>
+<h2>Los hallazgos</h2>
+<div class="nz-table-wrap"><table class="nz-table">
+<thead>
+<tr>
+<th>Feature analizada</th>
+<th>Debilidad</th>
+<th>Impacto</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tarjeta SD</td>
+<td>Ejecución de shell scripts en el arranque</td>
+<td>Shell remota insertando un archivo en la SD</td>
+</tr>
+<tr>
+<td>Live view (RTSP)</td>
+<td>Stack buffer overflow en headers</td>
+<td>PC controlado; ROP con gadgets</td>
+</tr>
+<tr>
+<td>Configuración (Wi-Fi, ADAS, GPS)</td>
+<td>Inyección de comandos OS</td>
+<td>Compromiso total del sistema</td>
+</tr>
+<tr>
+<td>Protocolo propietario</td>
+<td>Replay sin autenticación</td>
+<td>Listar archivos, formatear la SD</td>
+</tr>
+</tbody>
+</table></div>
+<p>Dos escenarios ilustran la gravedad. Primero, la SD: los boot scripts de algunos modelos ejecutan cualquier shell script encontrado en rutas de la tarjeta; un archivo colocado ahí (con un <code>telnetd</code> levantado por el script) da acceso shell a cualquiera con acceso físico momentáneo a la tarjeta. Segundo, el replay: se captura con la app el paquete que pide la lista de archivos (4 bytes de comando, largo, número de comando y parámetro NULL), se reenvía el mismo paquete a la cámara sin sesión alguna y responde igual; lo mismo con el paquete de formateo de SD —un atacante puede borrar las grabaciones de un accidente o saboteo a distancia.</p>
+<h2>Recomendaciones</h2>
+<ul>
+<li>Eliminar del firmware de producción los scripts de ejecución pensados para desarrollo en rutas de la SD.</li>
+<li>Añadir autenticación y verificación de integridad a las comunicaciones app↔dispositivo; un token sin binding no detiene un replay.</li>
+<li>Validar todas las entradas: caracteres especiales, largos máximos y tipos en cada campo de configuración y en cada header de protocolo, antes de tocar el sistema operativo.</li>
+<li>Cerrar puertos de depuración (UART con credenciales por defecto) y no publicar firmwares sin revisión.</li>
+</ul>
+<p>La conclusión general para la categoría: la seguridad de las dashcams está muy por detrás de su conectividad, y el efecto OEM —una falla de plataforma que se replica en muchas marcas— exige auditoría a nivel de proveedor de referencia, no producto por producto.</p>
+</div>
+<footer class="nz-callout" style="margin-top:var(--nz-space-5)">
+<p class="nz-lbl">Atribución</p>
+<p>Artículo destilado en español a partir de la charla <a class="nz-link" href="https://youtu.be/8e1vRFpP72w">«DEF CON 32 - Inside Dash Cam Custom Protocols and Discovered 0days - Hyo Jin Lee &amp; Hanryeol Park»</a>. El análisis y la redacción son propios; las ideas y los datos presentados corresponden a los autores originales.</p>
+</footer>
+</article>
+</main>
+</body>
+</html>
